@@ -1,4 +1,5 @@
-{-# LANGUAGE BangPatterns, ParallelListComp, TupleSections #-}
+{-# LANGUAGE BangPatterns, NamedFieldPuns,
+             ParallelListComp, TupleSections #-}
 module Typechecker where
 
 import Control.Monad.Error
@@ -33,6 +34,7 @@ idsOf (WhereStx stx ("", stxs)) = idsOf stx ++ concatMap idsOf stxs
 
 
 consistentT :: Context -> Type -> Type -> Maybe Context
+consistentT _ t1 t2 | debugF (show t1 ++ " ~~ " ++ show t2) = undefined
 
 consistentT syms t1 t2
     | isAtomicT t1 && t1 == t2 = return syms
@@ -53,16 +55,13 @@ consistentT syms (SeqT t) t2@(TupT ts2) =
 consistentT syms (SeqT t1) (SeqT t2) =
     consistentT syms t1 t2
 
-consistentT syms DynT _ = return syms
-consistentT syms _ DynT = return syms
-
 -- →
 consistentT syms (ArrowT argT1 rangeT1) (ArrowT argT2 rangeT2) =
     do syms' <- consistentT syms argT2 argT1
        consistentT syms' rangeT1 rangeT2
 
--- αRefl
--- info: this rule is already contained in the atomic eq test rule
+-- -- αRefl
+-- -- info: this rule is already included in the atomic eq
 -- consistentT syms (TvarT var1) (TvarT var2)
 --     | var1 == var2 = return syms
 
@@ -114,7 +113,11 @@ consistentT syms t1@(ExistT var) t2 =
 consistentT syms t1 t2@(ExistT var) =
   case typeContext syms var of
     Right t2' | t2 /= t2' -> consistentT syms t1 t2'
-    _ -> error "consistentT: alpha subst R"
+    _ -> error $ "\n\n\tconsistentT: alpha subst R" ++
+                 "\n\n\t syms = " ++ show syms ++ "\n"
+
+consistentT syms DynT _ = return syms
+consistentT syms _ DynT = return syms
 
 consistentT _ _ _ = Nothing
 
@@ -127,21 +130,25 @@ consistentM syms t1 t2 =
     Just syms' -> Right syms'
 
 
-type Context = [(String, (Type, Maybe Type))]
+data Context =
+  Context { syms :: [(String, (Type, Maybe Type))]
+          , count :: Int }
+  deriving (Show)
 
 
 insertContext :: Context -> String -> (Type, Maybe Type) -> Context
-insertContext syms name t = (name, t):syms
+insertContext ctx@Context { syms } name t =
+  ctx { syms = (name, t):syms }
 
 
 updateContext :: Context -> String -> (Type, Maybe Type) -> Context
-updateContext syms name t =
-  case splitContext syms name of
-    (syms1, syms2) -> syms1 ++ [(name, t)] ++ syms2
+updateContext ctx name t =
+  let (Context { syms = syms1 }, Context { syms = syms2 }) = splitContext ctx name in
+  ctx { syms = syms1 ++ [(name, t)] ++ syms2 }
 
 
 lookupContext :: Context -> String -> Maybe (Type, Maybe Type)
-lookupContext syms name = lookup name syms
+lookupContext Context { syms } name = lookup name syms
 
 
 typeContext :: Context -> String -> Either String Type
@@ -161,39 +168,42 @@ isEmptyTypeContext syms name =
 
 
 splitContext :: Context -> String -> (Context, Context)
-splitContext syms name =
+splitContext ctx@Context { syms } name =
   case span neqName syms of
     (_, []) -> error "splitContext: empty list"
-    (syms1, _:syms2) -> (syms1, syms2)
+    (syms1, _:syms2) -> (ctx { syms = syms1 }, ctx { syms = syms2 })
   where neqName (name', _) = name /= name'
 
 
 dropContext :: Context -> String -> Context
-dropContext syms name = tail $ dropWhile neqName syms
+dropContext ctx@Context { syms } name =
+  ctx { syms = tail $ dropWhile neqName syms }
   where neqName (name', _) = name /= name'
 
 
 nothingSyms :: Map String Type -> Context
-nothingSyms syms = map (\(name, t) -> (name, (t, Nothing))) $ Map.toList syms
+nothingSyms syms = Context { syms = syms', count = 0 }
+  where syms' = map (\(name, t) -> (name, (t, Nothing))) $ Map.toList syms
 
 
 simpleSyms :: Context -> Map String Type
-simpleSyms syms = Map.fromList $ map simple syms
+simpleSyms Context { syms } = Map.fromList $ map simple syms
   where simple (name, (t, Nothing)) = (name, t)
-        simple (name, (t, Just t'))
-           | debugT ("simpleSyms: " ++ show t ++ " = " ++ show t') = (name, t)
+        simple (name, (t, Just t')) = (name, t')
 
 
 arrowifyTvar :: Context -> String -> (Type, Context)
-arrowifyTvar syms var =
+arrowifyTvar ctx@Context { count } var =
   let
-    (syms1, syms2) = splitContext syms var
-    a1 = ("a1", (ExistT "a1", Nothing))
-    a2 = ("a2", (ExistT "a2", Nothing))
-    at = ArrowT (ExistT "a1") (ExistT "a2")
-    a  = ("a", (ExistT "a", Just at))
+    (Context { syms = syms1 }, Context { syms = syms2 }) = splitContext ctx var
+    name1 = var ++ show (count + 1)
+    name2 = var ++ show (count + 2)
+    a1 = (name1, (ExistT name1, Nothing))
+    a2 = (name2, (ExistT name2, Nothing))
+    at = ArrowT (ExistT name1) (ExistT name2)
+    a  = (var, (ExistT var, Just at))
   in
-   (at, syms1 ++ [a, a1, a2] ++ syms2)
+   (at, ctx { syms = syms1 ++ [a, a1, a2] ++ syms2, count = count + 3 })
 
 
 type TypecheckerM a = Either String a
@@ -209,9 +219,17 @@ substituteExistTs _ t@CharT = t
 substituteExistTs syms (TupT ts) = TupT $ map (substituteExistTs syms) ts
 substituteExistTs syms (SeqT t) = SeqT $ substituteExistTs syms t
 substituteExistTs syms t@DynT = t
+
 substituteExistTs syms (ArrowT t1 t2) =
   ArrowT (substituteExistTs syms t1) (substituteExistTs syms t2)
-substituteExistTs syms (ExistT var) = case typeContext syms var of Right t -> t
+
+substituteExistTs syms t@(ExistT var) =
+  case lookupContext syms var of
+    Nothing -> error $ "substituteExistTs: " ++ show var
+    Just (ExistT var', Nothing) | var == var' -> t
+    Just (t', Nothing) -> substituteExistTs syms t'
+    Just (_, Just t') -> substituteExistTs syms t'
+
 substituteExistTs syms (ForallT _ t) = substituteExistTs syms t
 substituteExistTs syms t@(TvarT _) = t
 
@@ -357,18 +375,15 @@ synthM syms (IdStx name) =
 synthM _ (AppStx _ _) | debugF "synthM: AppStx" = undefined
 synthM syms (AppStx fn arg) =
     do (t, fn', syms') <- synthAppFnM syms fn
-       (t', _, _) <- synthQuantifiersM $ case t of
-                                          ArrowT _ _ -> synthArrow t fn' syms'
-                                          ExistT _ -> synthExist t fn' syms'
+       (t', _, _) <- synthQuantifiersM $ synthApp t fn' syms'
        let !_ | trace ("synthM: AppStx: " ++ show t') True = True
-       synthQuantifiersM $ case t of
-                             ArrowT _ _ -> synthArrow t fn' syms'
-                             ExistT _ -> synthExist t fn' syms'
-    where synthArrow (ArrowT argT rangeT) fn' syms' =
+       synthQuantifiersM $ synthApp t fn' syms'
+    where synthApp t _ _ | debugF ("synthApp: " ++ show t) = undefined
+          synthApp (ArrowT argT rangeT) fn' syms' =
             do (arg', syms'') <- checkM argT syms' arg
                return (rangeT, AppStx fn' arg', syms'')
 
-          synthExist (ExistT var) fn syms =
+          synthApp (ExistT var) fn syms =
             do let (ArrowT a1t a2t, syms') = arrowifyTvar syms var
                (arg', syms'') <- checkM a1t syms' arg
                return (a2t, AppStx fn arg', syms'')
@@ -468,10 +483,7 @@ checkM t _ (AppStx _ _) | debugF ("checkM: AppStx: " ++ show t) = undefined
 checkM t syms (AppStx fn arg) =
     do (ArrowT argT rangeT, fn', syms') <- synthAppFnM syms fn
        (arg', syms'') <- checkM argT syms' arg
-       case (~~) syms'' rangeT t of
-         Nothing -> Left $ "\n\n\tcheckM: AppStx: type inconsistency" ++
-                           "\n\n\t\t" ++ show rangeT ++ " ~~ " ++ show t ++ " (false)\n"
-         Just syms''' -> return (AppStx fn' arg', syms''')
+       (AppStx fn' arg',) <$> consistentM syms'' rangeT t
 
 -- C-Others
 checkM t _ (WhereStx _ _) | debugF ("checkM: WhereStx: " ++ show t) = undefined
