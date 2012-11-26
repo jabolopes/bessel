@@ -344,8 +344,6 @@ synthAbstrM syms (SeqStx stxs) =
 synthAbstrM _ (IdStx name) | debugF ("synthAbstrM: IdStx: " ++ show name) = undefined
 synthAbstrM syms (IdStx name) =
     do t <- typeContext syms name
-       (synthT, _, _) <- return (t, IdStx (name, t, t), syms)
-       let !_ | debugT ("synthAbstrM: IdStx: " ++ show name ++ " :: " ++ show t ++ " => " ++ show synthT) = True
        return (t, IdStx (name, t, t), syms)
 
 -- S-Abs (annotated)
@@ -466,7 +464,7 @@ checkInstM t@DynT syms (SeqStx stxs) =
 --     error "checkInstM: LambdaStx (annotated): Check: not implemented"
 
 -- C-Abs (unannotated)
-checkInstM t _ (LambdaStx _ _) | debugF ("checkInstM: LambdaStx: " ++ show t) = undefined
+checkInstM t _ (LambdaStx _ _) | debugF ("checkInstM: LambdaStx <= " ++ show t) = undefined
 checkInstM (ArrowT argT rangeT) syms (LambdaStx arg body) =
     do (body', syms') <- checkM rangeT (insertContext syms arg (simpleType argT)) body
        Right (LambdaStx arg body', dropContext syms' arg)
@@ -480,28 +478,22 @@ checkInstM (ExistT var) syms stx@(LambdaStx _ _) =
     checkInstM existT syms' stx
 
 -- C-App
-checkInstM t _ (AppStx _ _) | debugF ("checkInstM: AppStx: " ++ show t) = undefined
+checkInstM t _ (AppStx _ _) | debugF ("checkInstM: AppStx <= " ++ show t) = undefined
 checkInstM t syms (AppStx fn arg) =
     do (ArrowT argT rangeT, fn', syms') <- synthAppFnM syms fn
        (arg', syms'') <- checkM argT syms' arg
        (AppStx fn' arg',) <$> consistentM syms'' rangeT t
 
 -- C-Others
-checkInstM t _ (WhereStx _ _) | debugF ("checkInstM: WhereStx: " ++ show t) = undefined
+checkInstM t _ (WhereStx _ _) | debugF ("checkInstM: WhereStx <= " ++ show t) = undefined
 checkInstM t syms stx@(WhereStx _ _) =
     typecheckWhereM (checkM t) syms stx
 
 -- C-Sub
---checkInstM t _ stx | debugF ("checkInstM: sub") = undefined
-checkInstM t _ _ | debugF ("checkInstM: sub: " ++ show t) = undefined
+checkInstM t _ _ | debugF ("checkInstM: sub: <= " ++ show t) = undefined
 checkInstM t syms stx =
     do (t', stx', syms') <- synthAbstrM syms stx
        (stx',) <$> consistentM syms' t' t
-
--- checkInstM t _ stx =
---     Left $ "\n\n\tcheckInstM: unhandled case" ++
---            "\n\n\t t = " ++ show t ++
---            "\n\n\t stx = " ++ show stx ++ "\n"
 
 
 typecheckIncremental :: Map String Type -> Stx String -> TypecheckerM (Type, Map String Type)
