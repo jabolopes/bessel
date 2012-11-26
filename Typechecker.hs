@@ -75,7 +75,7 @@ consistentT syms (ForallT vars t1) t2 =
 consistentT syms t1 (ForallT vars t2) =
     let (syms', t2') = synthForall syms t2 vars in
     do syms'' <- consistentT syms' t1 t2'
-       return $ dropVars' syms'' vars 
+       dropVars vars 
 
 -- α̂Refl
 consistentT syms (ExistT var1) (ExistT var2)
@@ -189,15 +189,6 @@ insertVars syms (var:vars) =
 dropVars [] m = m
 dropVars (var:vars) m =
     dropM var (dropVars vars m)
-
-
-dropVar syms name =
-     dropContext syms name
-
-
-dropVars' syms [] = syms
-dropVars' syms (var:vars) =
-    dropVar (dropVars' syms vars) var
 
 
 synthQuantifiersM :: SynthM -> SynthM
