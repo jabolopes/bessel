@@ -309,25 +309,30 @@ unifType t1 t2 = (t1, Just t2)
 
 
 synthM :: Context -> Stx String -> SynthM
+synthM syms stx =
+  synthQuantifiersM $ synthAbstrM syms stx
+
+
+synthAbstrM :: Context -> Stx String -> SynthM
 
 -- S-Char
-synthM _ (CharStx _) | debugF "synthM: CharStx" = undefined
-synthM syms (CharStx i) =
+synthAbstrM _ (CharStx _) | debugF "synthAbstrM: CharStx" = undefined
+synthAbstrM syms (CharStx i) =
     Right (CharT, CharStx i, syms)
 
 -- S-Int
-synthM _ (IntStx _) | debugF "synthM: IntStx" = undefined
-synthM syms (IntStx i) =
+synthAbstrM _ (IntStx _) | debugF "synthAbstrM: IntStx" = undefined
+synthAbstrM syms (IntStx i) =
     Right (IntT, IntStx i, syms)
 
 -- S-Double
-synthM _ (DoubleStx _) | debugF "synthM: DoubleStx" = undefined
-synthM syms (DoubleStx i) =
+synthAbstrM _ (DoubleStx _) | debugF "synthAbstrM: DoubleStx" = undefined
+synthAbstrM syms (DoubleStx i) =
     Right (DoubleT, DoubleStx i, syms)
 
 -- S-Seq
-synthM _ (SeqStx _) | debugF "synthM: SeqStx" = undefined
-synthM syms (SeqStx stxs) =
+synthAbstrM _ (SeqStx _) | debugF "synthAbstrM: SeqStx" = undefined
+synthAbstrM syms (SeqStx stxs) =
     do (ts, stxs', syms') <- synth [] [] syms stxs
        Right (TupT ts, SeqStx stxs', syms')
     where synth ts stxs syms [] = return (reverse ts, reverse stxs, syms)
@@ -336,20 +341,20 @@ synthM syms (SeqStx stxs) =
                synth (t:ts) (stx':stxs) syms' stxs'
 
 -- S-Var
-synthM _ (IdStx name) | debugF ("synthM: IdStx: " ++ show name) = undefined
-synthM syms (IdStx name) =
+synthAbstrM _ (IdStx name) | debugF ("synthAbstrM: IdStx: " ++ show name) = undefined
+synthAbstrM syms (IdStx name) =
     do t <- typeContext syms name
-       (synthT, _, _) <- synthQuantifiersM $ return (t, IdStx (name, t, t), syms)
-       let !_ | debugT ("synthM: IdStx: " ++ show name ++ " :: " ++ show t ++ " => " ++ show synthT) = True
-       synthQuantifiersM $ return (t, IdStx (name, t, t), syms)
+       (synthT, _, _) <- return (t, IdStx (name, t, t), syms)
+       let !_ | debugT ("synthAbstrM: IdStx: " ++ show name ++ " :: " ++ show t ++ " => " ++ show synthT) = True
+       return (t, IdStx (name, t, t), syms)
 
 -- S-Abs (annotated)
--- synthM syms Synth stx@(LambdaStx arg body) =
---     error "synthM: LambdaStx (annotated): Synth: not implemented"
+-- synthAbstrM syms Synth stx@(LambdaStx arg body) =
+--     error "synthAbstrM: LambdaStx (annotated): Synth: not implemented"
 
 -- S-Abs (unannotated) no rule in Pierce's paper, use Siek instead
 -- edit: to fix
--- synthM syms (LambdaStx arg body) =
+-- synthAbstrM syms (LambdaStx arg body) =
 --     do (bodyT, body', syms') <- synthM (insertContext syms arg (simpleType DynT)) body
 --        Right (ArrowT (argT body') bodyT, LambdaStx arg body', syms')
 --     where argT body =
@@ -359,17 +364,17 @@ synthM syms (IdStx name) =
 
 -- S-App with lambda
 -- edit: to fix
--- synthM syms (AppStx fn@(LambdaStx x body) arg) =
+-- synthAbstrM syms (AppStx fn@(LambdaStx x body) arg) =
 --     do (argT, arg', syms') <- synthM syms arg
 --        (rangeT, body', syms'') <- synthM (insertContext syms' x (simpleType argT)) body
 --        (fn', syms''') <- checkM (ArrowT argT rangeT) syms'' fn
 --        Right (rangeT, AppStx fn' arg', syms''')
 
 -- S-App
-synthM _ (AppStx _ _) | debugF "synthM: AppStx" = undefined
-synthM syms (AppStx fn arg) =
+synthAbstrM _ (AppStx _ _) | debugF "synthAbstrM: AppStx" = undefined
+synthAbstrM syms (AppStx fn arg) =
     do (t, fn', syms') <- synthAppFnM syms fn
-       synthQuantifiersM $ synthApp t fn' syms'
+       synthApp t fn' syms'
     where synthApp t _ _ | debugF ("synthApp: " ++ show t) = undefined
           synthApp (ArrowT argT rangeT) fn' syms' =
             do (arg', syms'') <- checkM argT syms' arg
@@ -381,21 +386,21 @@ synthM syms (AppStx fn arg) =
                return (a2t, AppStx fn arg', syms'')
 
 -- S-Others
-synthM _ (WhereStx _ _) | debugF "synthM: WhereStx" = undefined
-synthM syms stx@(WhereStx _ _) =
+synthAbstrM _ (WhereStx _ _) | debugF "synthAbstrM: WhereStx" = undefined
+synthAbstrM syms stx@(WhereStx _ _) =
     typecheckWhereM synthM syms stx
 
-synthM _ (DefnStx _ name _) | debugF ("synthM: DefnStx: " ++ show name) = undefined
-synthM syms (DefnStx Def name body) =
+synthAbstrM _ (DefnStx _ name _) | debugF ("synthAbstrM: DefnStx: " ++ show name) = undefined
+synthAbstrM syms (DefnStx Def name body) =
     do (bodyT, body', syms') <- synthM (insertContext syms name (simpleType DynT)) body
        Right (bodyT, DefnStx Def name body', insertContext syms' name (simpleType bodyT))
 
-synthM syms (DefnStx NrDef name body) =
+synthAbstrM syms (DefnStx NrDef name body) =
     do (bodyT, body', syms') <- synthM syms body
        Right (bodyT, DefnStx NrDef name body', insertContext syms' name (simpleType bodyT))
 
-synthM _ stx =
-    Left $ "\n\n\tsynthM: unhandled case" ++
+synthAbstrM _ stx =
+    Left $ "\n\n\tsynthAbstrM: unhandled case" ++
            "\n\n\t stx = " ++ show stx ++ "\n"
 
 
@@ -490,7 +495,7 @@ checkInstM t syms stx@(WhereStx _ _) =
 --checkInstM t _ stx | debugF ("checkInstM: sub") = undefined
 checkInstM t _ _ | debugF ("checkInstM: sub: " ++ show t) = undefined
 checkInstM t syms stx =
-    do (t', stx', syms') <- synthM syms stx
+    do (t', stx', syms') <- synthAbstrM syms stx
        (stx',) <$> consistentM syms' t' t
 
 -- checkInstM t _ stx =
