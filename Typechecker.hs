@@ -71,11 +71,11 @@ consistentT syms (ForallT vars t1) t2 =
     let (syms', t1') = synthForall syms t1 vars in
     consistentT syms' t1' t2
 
--- ∀Lα̂
+-- ∀R
 consistentT syms t1 (ForallT vars t2) =
     let (syms', t2') = synthForall syms t2 vars in
     do syms'' <- consistentT syms' t1 t2'
-       dropVars vars 
+       return $ dropVars syms'' vars 
 
 -- α̂Refl
 consistentT syms (ExistT var1) (ExistT var2)
@@ -83,22 +83,54 @@ consistentT syms (ExistT var1) (ExistT var2)
 
 -- α̂⁼L
 consistentT syms t1 t2@(ExistT var)
-    | isAtomicT t1 = return (updateContext syms var (unifType t2 t1))
+    | isEmptyTypeContext syms var && isAtomicT t1 =
+      return (updateContext syms var (unifType t2 t1))
 
 -- α̂⁼R
 consistentT syms t1@(ExistT var) t2
-    | isAtomicT t2 = return (updateContext syms var (unifType t1 t2))
+    | isEmptyTypeContext syms var && isAtomicT t2 = 
+      return (updateContext syms var (unifType t1 t2))
+
+-- →α̂L
+consistentT syms (ExistT var) t2@(ArrowT _ _)
+  | isEmptyTypeContext syms var =
+    let (t1, syms') = arrowifyTvar syms var in
+    consistentT syms' t1 t2
+
+-- →α̂R
+consistentT syms t1@(ArrowT _ _) (ExistT var)
+  | isEmptyTypeContext syms var =
+    let (t2, syms') = arrowifyTvar syms var in
+    consistentT syms' t1 t2
+
+-- α̂SubstL
+consistentT syms t1@(ExistT var) t2 =
+  case typeContext syms var of
+    Right t1' | t1 /= t1' -> consistentT syms t1' t2
+    _ -> error $ "\n\n\tconsistentT: alpha subst L" ++
+                 "\n\n\t syms = " ++ show syms ++ "\n" 
+
+-- α̂SubstR
+consistentT syms t1 t2@(ExistT var) =
+  case typeContext syms var of
+    Right t2' | t2 /= t2' -> consistentT syms t1 t2'
+    _ -> error "consistentT: alpha subst R"
 
 consistentT _ _ _ = Nothing
 
 
 (~~) = consistentT
 
+consistentM syms t1 t2 =
+  case consistentT syms t1 t2 of
+    Nothing -> Left $ "\n\ntype inconsistency: " ++ show t1 ++ "~~" ++ show t2 ++ " (false)\n"
+    Just syms' -> Right syms'
+
 
 type Context = [(String, (Type, Maybe Type))]
 
 
-insertContext :: [(a, b)] -> a -> b -> [(a, b)]
+insertContext :: Context -> String -> (Type, Maybe Type) -> Context
 insertContext syms name t = (name, t):syms
 
 
@@ -108,15 +140,24 @@ updateContext syms name t =
     (syms1, syms2) -> syms1 ++ [(name, t)] ++ syms2
 
 
-lookupContext :: (Eq a) => [(a, b)] -> a -> Maybe b
+lookupContext :: Context -> String -> Maybe (Type, Maybe Type)
 lookupContext syms name = lookup name syms
 
 
+typeContext :: Context -> String -> Either String Type
 typeContext syms name =
     case lookupContext syms name of
       Nothing -> Left $ "\n\n\ttypeContext: name " ++ show name ++ " not bound\n"
       Just (t, Nothing) -> Right t
       Just (_, Just t) -> Right t
+
+
+isEmptyTypeContext :: Context -> String -> Bool
+isEmptyTypeContext syms name =
+    case lookupContext syms name of
+      Nothing -> error $ "\n\n\tisEmptyTypeContext: name " ++ show name ++ " not bound\n"
+      Just (_, Nothing) -> True
+      Just _ -> False
 
 
 splitContext :: Context -> String -> (Context, Context)
@@ -144,15 +185,15 @@ simpleSyms syms = Map.fromList $ map simple syms
 
 
 arrowifyTvar :: Context -> String -> (Type, Context)
-arrowifyTvar syms tvar =
+arrowifyTvar syms var =
   let
-    (syms1, syms2) = splitContext syms tvar
+    (syms1, syms2) = splitContext syms var
     a1 = ("a1", (ExistT "a1", Nothing))
     a2 = ("a2", (ExistT "a2", Nothing))
     at = ArrowT (ExistT "a1") (ExistT "a2")
     a  = ("a", (ExistT "a", Just at))
   in
-   (at, syms1 ++ [a, a2, a1] ++ syms2)
+   (at, syms1 ++ [a, a1, a2] ++ syms2)
 
 
 type TypecheckerM a = Either String a
@@ -186,9 +227,9 @@ insertVars syms (var:vars) =
     insertVars (insertContext syms var (simpleType (TvarT var))) vars
 
 
-dropVars [] m = m
-dropVars (var:vars) m =
-    dropM var (dropVars vars m)
+dropVars syms [] = syms
+dropVars syms (var:vars) =
+    dropContext (dropVars syms vars) var
 
 
 synthQuantifiersM :: SynthM -> SynthM
@@ -215,11 +256,11 @@ synthAppFnM syms fn =
        synthQuantifiersM $ return (t', stx, syms')
 
 
-checkExistM :: Type -> [(String, (Type, Maybe Type))] -> Stx String -> CheckM
-checkExistM _ _ _ | debugF "checkExistM" = undefined
-checkExistM (ExistT var) syms stx =
-    do t <- typeContext syms var
-       checkM t syms stx
+-- checkExistM :: Type -> [(String, (Type, Maybe Type))] -> Stx String -> CheckM
+-- checkExistM _ _ _ | debugF "checkExistM" = undefined
+-- checkExistM (ExistT var) syms stx =
+--     do t <- typeContext syms var
+--        checkM t syms stx
 
 
 checkSeqM :: [Type] -> Context -> [Stx String] -> CheckM
@@ -354,43 +395,36 @@ synthM _ stx =
 checkM :: Type -> Context -> Stx String -> CheckM
 
 -- C-Forall-I
-checkM (ForallT _ _) _ _ | debugF "checkM: Forall" = undefined
+checkM (ForallT _ _) _ _ | debugF "checkM: ForallT" = undefined
 checkM (ForallT vars t) syms stx | isValueStx stx =
-    dropVars vars $ checkM t (insertVars syms vars) stx
+    dropVarsM vars $ checkM t (insertVars syms vars) stx
     where insertVars syms [] = syms
           insertVars syms (var:vars) =
             insertVars (insertContext syms var (simpleType (TvarT var))) vars
 
-          dropVars [] m = m
-          dropVars (var:vars) m =
-            dropM var (dropVars vars m)
+          dropVarsM [] m = m
+          dropVarsM (var:vars) m =
+            dropM var (dropVarsM vars m)
+
+-- checkM t@(ExistT _) _ _ | debugF ("checkM: ExistT: " ++ show t) = undefined
+-- checkM (ExistT var) syms stx =
+--   do t <- typeContext syms var
+--      checkM t syms stx
 
 -- C-Int
-checkM t _ (IntStx _) | debugF ("checkM: IntStx: " ++ show t) = undefined
-checkM t syms (IntStx i) =
-    case (~~) syms IntT t of
-      Nothing -> Left $ "\n\n\tcheckM: IntStx: type inconsistency" ++
-                        "\n\n\t\t" ++ show IntT ++ " ~~ " ++ show t ++ " (false)\n"
-      Just syms' -> return (IntStx i, syms')
+checkM t _ (IntStx _) | debugF ("checkM: IntStx <= " ++ show t) = undefined
+checkM t syms (IntStx i) = (IntStx i,) <$> consistentM syms IntT t
 
 -- C-Double
-checkM t _ (DoubleStx _) | debugF ("checkM: DoubleStx: " ++ show t) = undefined
-checkM t syms (DoubleStx d) =
-    case (~~) syms DoubleT t of
-      Nothing -> Left $ "\n\n\tcheckM: DoubleStx: type inconsistency" ++
-                        "\n\n\t\t" ++ show DoubleT ++ " ~~ " ++ show t ++ " (false)\n"
-      Just syms' -> return (DoubleStx d, syms')
+checkM t _ (DoubleStx _) | debugF ("checkM: DoubleStx <= " ++ show t) = undefined
+checkM t syms (DoubleStx d) = (DoubleStx d,) <$> consistentM syms DoubleT t
 
 -- C-Char
-checkM t _ (CharStx _) | debugF ("checkM: CharStx: " ++ show t) = undefined
-checkM t syms (CharStx i) =
-    case (~~) syms CharT t of
-      Nothing -> Left $ "\n\n\tcheckM: CharStx: type inconsistency" ++
-                        "\n\n\t\t" ++ show CharT ++ " ~~ " ++ show t ++ " (false)\n"
-      Just syms' -> return (CharStx i, syms')
+checkM t _ (CharStx _) | debugF ("checkM: CharStx <= " ++ show t) = undefined
+checkM t syms (CharStx c) = (CharStx c,) <$> consistentM syms CharT t
 
 -- C-Seq
-checkM t _ (SeqStx _) | debugF ("checkM: SeqStx: " ++ show t) = undefined
+checkM t _ (SeqStx _) | debugF ("checkM: SeqStx <= " ++ show t) = undefined
 checkM t@(TupT ts) syms (SeqStx stxs) =
     if length ts == length stxs
     then checkSeqM ts syms stxs
@@ -405,24 +439,11 @@ checkM (SeqT t) syms (SeqStx stxs) =
 checkM t@DynT syms (SeqStx stxs) =
     checkSeqM (replicate (length stxs) t) syms stxs
 
--- edit: to be finished
--- checkM (ExistT _) syms stx@(SeqStx _) = undefined
-
 -- C-Var
-checkM t _ (IdStx name) | debugF ("checkM: IdStx: " ++ name ++ ": " ++ show t) = undefined
-checkM t@(ExistT var) syms (IdStx name) =
-  do idT <- typeContext syms name
-     let idT' = case idT of
-                  ForallT vars t -> foldr (\var t -> substituteT (ExistT var) var t) t vars
-                  _ -> idT
-     return (IdStx (name, idT', t), updateContext syms var (t, Just idT'))
-
+checkM t _ (IdStx name) | debugF ("checkM: IdStx " ++ name ++ " <= " ++ show t) = undefined
 checkM t syms (IdStx name) =
     do idT <- typeContext syms name
-       case (~~) syms idT t of
-         Nothing -> Left $ "\n\n\tcheckM: IdStx: type inconsistency" ++
-                           "\n\n\t\t" ++ name ++ " :: " ++ show idT ++ " ~~ " ++ show t ++ " (false)\n"
-         Just syms' -> return (IdStx (name, idT, t), syms)
+       (IdStx (name, idT, t),) <$> consistentM syms idT t
 
 -- C-Abs (annotated)
 -- checkM syms (Check _) stx@(LambdaStx arg body) =
@@ -438,15 +459,12 @@ checkM t@DynT syms (LambdaStx arg body) =
     do (body', syms') <- checkM t (insertContext syms arg (simpleType DynT)) body
        Right (LambdaStx arg body', syms')
 
-checkM (ExistT var) syms stx@(LambdaStx _ _) =
-    let (existT, syms') = arrowifyTvar syms var in
-    checkM existT syms' stx
+-- checkM (ExistT var) syms stx@(LambdaStx _ _) =
+--     let (existT, syms') = arrowifyTvar syms var in
+--     checkM existT syms' stx
 
 -- C-App
 checkM t _ (AppStx _ _) | debugF ("checkM: AppStx: " ++ show t) = undefined
-checkM t@(ExistT _) syms stx@(AppStx _ _) =
-    checkExistM t syms stx
-
 checkM t syms (AppStx fn arg) =
     do (ArrowT argT rangeT, fn', syms') <- synthAppFnM syms fn
        (arg', syms'') <- checkM argT syms' arg
@@ -457,9 +475,6 @@ checkM t syms (AppStx fn arg) =
 
 -- C-Others
 checkM t _ (WhereStx _ _) | debugF ("checkM: WhereStx: " ++ show t) = undefined
-checkM t@(ExistT _) syms stx@(WhereStx _ _) =
-    checkExistM t syms stx
-
 checkM t syms stx@(WhereStx _ _) =
     typecheckWhereM (checkM t) syms stx
 
