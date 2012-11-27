@@ -230,7 +230,7 @@ substituteExistTs syms t@(ExistT var) =
     Just (t', Nothing) -> substituteExistTs syms t'
     Just (_, Just t') -> substituteExistTs syms t'
 
-substituteExistTs syms (ForallT _ t) = substituteExistTs syms t
+substituteExistTs syms (ForallT vars t) = ForallT vars $ substituteExistTs syms t
 substituteExistTs syms t@(TvarT _) = t
 
 
@@ -252,6 +252,7 @@ dropVars syms (var:vars) =
 
 dbQuantifiersM = False
 
+
 synthQuantifiersM :: SynthM -> SynthM
 synthQuantifiersM m =
     do (t, stx, syms) <- m
@@ -266,7 +267,7 @@ synthQuantifiersM m =
 synthAppFnM :: Context -> Stx String -> SynthM
 synthAppFnM _ _ | debugF "synthAppFnM" = undefined
 synthAppFnM syms fn =
-    do (t, stx, syms') <- synthM syms fn
+    do (t, stx, syms') <- synthQuantifiersM $ synthM syms fn
        t' <- do case t of
                   ArrowT _ _ -> return t
                   DynT -> return $ ArrowT DynT DynT
@@ -310,7 +311,10 @@ unifType t1 t2 = (t1, Just t2)
 
 synthM :: Context -> Stx String -> SynthM
 synthM syms stx =
-  synthQuantifiersM $ synthAbstrM syms stx
+  do val <- synthAbstrM syms stx
+     case val of
+       (ExistT _, _, _) -> synthQuantifiersM $ return val
+       _ -> return val
 
 
 synthAbstrM :: Context -> Stx String -> SynthM
