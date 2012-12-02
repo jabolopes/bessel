@@ -478,7 +478,7 @@ checkInstM t syms stx =
 typecheckIncremental :: Map String Type -> Stx String -> TypecheckerM (Type, Map String Type)
 typecheckIncremental syms stx =
     do (t, _, syms') <- synthM (nothingSyms syms) stx
-       return (t, simpleSyms syms')
+       return (substituteExistTs syms' t, simpleSyms syms')
 
 
 typecheckStxs :: Map String Type -> [Stx String] -> TypecheckerM (Map String Type)
