@@ -251,6 +251,8 @@ synthOuterForall syms (ForallT var forallT) =
   in
    (syms', forallT')
 
+synthOuterForall syms t = (syms, t)
+
 
 synthOuterForallM m =
   do (t, stx, syms) <- m
