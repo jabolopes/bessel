@@ -654,8 +654,9 @@ listPredT = ArrowT (SeqT DynT) BoolT
 
 syms :: [(String, Type, Expr)]
 syms = [
- ("id", ForallT ["a"] (ArrowT (TvarT "a") (TvarT "a")), m id),
- ("K", ForallT ["a", "b"] (ArrowT (TvarT "a") (ArrowT (TvarT "b") (TvarT "a"))), m k)]
+ ("id", ForallT "a" (ArrowT (TvarT "a") (TvarT "a")), m id),
+ ("isint", predT, m isint),
+ ("K", ForallT "a" (ArrowT (TvarT "a") (ForallT "b" (ArrowT (TvarT "b") (TvarT "a")))), m k)]
 
 
 k :: Expr -> Expr

@@ -17,7 +17,7 @@ data Type
     | ArrowT Type Type
       
     | ExistT String
-    | ForallT [String] Type
+    | ForallT String Type
     | TvarT String
       deriving (Eq)
 
@@ -33,7 +33,7 @@ instance Show Type where
     show (ArrowT t1 t2) = show t1 ++ " -> " ++ show t2
 
     show (ExistT str) = '^':str
-    show (ForallT vars t) = "forall " ++ intercalate "," vars ++ ". " ++ show t
+    show (ForallT var t) = "forall " ++ var ++ ". " ++ show t
     show (TvarT str) = str
 
 
@@ -41,6 +41,14 @@ isAtomicT :: Type -> Bool
 isAtomicT (ArrowT _ _) = False
 isAtomicT (ExistT _) = False
 isAtomicT _ = True
+
+
+simpleType :: a -> (a, Maybe b)
+simpleType t = (t, Nothing)
+
+
+unifType :: a -> b -> (a, Maybe b)
+unifType t1 t2 = (t1, Just t2)
 
 
 generalizeT :: Type -> Type -> Maybe Type
@@ -73,12 +81,17 @@ substituteT _ _ CharT = CharT
 substituteT t var (TupT ts) = TupT $ map (substituteT t var) ts
 substituteT t var (SeqT seqT) = SeqT $ substituteT t var seqT
 substituteT t var DynT = DynT
+
 substituteT t var (ArrowT fnT argT) =
   ArrowT (substituteT t var fnT) (substituteT t var argT)
+
 substituteT t var1 existT@(ExistT var2)
   | var1 == var2 = t
   | otherwise = existT
-substituteT t var (ForallT _ forallT) = substituteT t var forallT
+
+substituteT t var (ForallT vars forallT) =
+  ForallT vars $ substituteT t var forallT
+
 substituteT t var1 tvarT@(TvarT var2)
   | var1 == var2 = t
   | otherwise = tvarT

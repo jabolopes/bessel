@@ -19,20 +19,6 @@ import Debug.Trace
 debug = True
 debugF desc = debug && trace desc False
 debugT desc = (debug && trace desc True) || True
-debugIfF debug desc = debug && trace desc False
-debugIfT debug desc = (debug && trace desc True) || True
-
-
-idsOf :: Stx a -> [Stx a]
-idsOf (IntStx _) = []
-idsOf (DoubleStx _) = []
-idsOf (CharStx _) = []
-idsOf (SeqStx stxs) = concatMap idsOf stxs
-idsOf stx@(IdStx val) = [stx]
-idsOf (AppStx stx1 stx2) = idsOf stx1 ++ idsOf stx2
-idsOf (DefnStx _ _ body) = idsOf body
-idsOf (LambdaStx _ body) = idsOf body
-idsOf (WhereStx stx ("", stxs)) = idsOf stx ++ concatMap idsOf stxs
 
 
 consistentT :: Context -> Type -> Type -> Maybe Context
@@ -74,23 +60,23 @@ consistentT syms (ExistT var1) (ExistT var2)
 -- α̂⁼L
 consistentT syms t1 t2@(ExistT var)
     | isEmptyTypeContext syms var && isAtomicT t1 =
-      return (updateContext syms var (unifType t2 t1))
+      return $ updateContext syms var (unifType t2 t1)
 
 -- α̂⁼R
 consistentT syms t1@(ExistT var) t2
     | isEmptyTypeContext syms var && isAtomicT t2 = 
-      return (updateContext syms var (unifType t1 t2))
+      return $ updateContext syms var (unifType t1 t2)
 
 -- ∀Lα̂
-consistentT syms (ForallT vars t1) t2 =
-    let (syms', t1') = synthForall syms t1 vars in
+consistentT syms t1@(ForallT _ _) t2 =
+    let (syms', t1') = synthOuterForall syms t1 in
     consistentT syms' t1' t2
 
 -- ∀R
-consistentT syms t1 (ForallT vars t2) =
-    let (syms', t2') = synthForall syms t2 vars in
-    do syms'' <- consistentT syms' t1 t2'
-       return $ dropVars syms'' vars 
+consistentT syms t1 (ForallT var forallT) =
+    do let syms' = insertContext syms var (simpleType (TvarT var))
+       syms'' <- consistentT syms' t1 forallT
+       return $ dropContext syms'' var
 
 -- →α̂L
 consistentT syms (ExistT var) t2@(ArrowT _ _)
@@ -124,6 +110,8 @@ consistentT _ _ _ = Nothing
 
 (~~) = consistentT
 
+
+consistentM :: Context -> Type -> Type -> Either String Context
 consistentM syms t1 t2 =
   case consistentT syms t1 t2 of
     Nothing -> Left $ "\n\ntype inconsistency: " ++ show t1 ++ "~~" ++ show t2 ++ " (false)\n"
@@ -134,6 +122,14 @@ data Context =
   Context { syms :: [(String, (Type, Maybe Type))]
           , count :: Int }
   deriving (Show)
+
+
+splitContext :: Context -> String -> (Context, Context)
+splitContext ctx@Context { syms } name =
+  case span neqName syms of
+    (_, []) -> error "splitContext: empty list"
+    (syms1, _:syms2) -> (ctx { syms = syms1 }, ctx { syms = syms2 })
+  where neqName (name', _) = name /= name'
 
 
 insertContext :: Context -> String -> (Type, Maybe Type) -> Context
@@ -165,14 +161,6 @@ isEmptyTypeContext syms name =
       Nothing -> error $ "\n\n\tisEmptyTypeContext: name " ++ show name ++ " not bound\n"
       Just (_, Nothing) -> True
       Just _ -> False
-
-
-splitContext :: Context -> String -> (Context, Context)
-splitContext ctx@Context { syms } name =
-  case span neqName syms of
-    (_, []) -> error "splitContext: empty list"
-    (syms1, _:syms2) -> (ctx { syms = syms1 }, ctx { syms = syms2 })
-  where neqName (name', _) = name /= name'
 
 
 dropContext :: Context -> String -> Context
@@ -234,46 +222,52 @@ substituteExistTs syms (ForallT vars t) = ForallT vars $ substituteExistTs syms 
 substituteExistTs syms t@(TvarT _) = t
 
 
-synthForall syms t [] = (syms, t)
-synthForall syms t (var:vars) =
-  let syms' = insertContext syms var (simpleType (ExistT var)) in
-  synthForall syms' (substituteT (ExistT var) var t) vars
+
+substituteTvarT _ _ BoolT = BoolT
+substituteTvarT _ _ IntT = IntT
+substituteTvarT _ _ DoubleT = DoubleT
+substituteTvarT _ _ CharT = CharT
+substituteTvarT t var (TupT ts) = TupT $ map (substituteTvarT t var) ts
+substituteTvarT t var (SeqT seqT) = SeqT $ substituteTvarT t var seqT
+substituteTvarT t var DynT = DynT
+
+substituteTvarT t var (ArrowT fnT argT) =
+  ArrowT (substituteTvarT t var fnT) (substituteTvarT t var argT)
+
+substituteTvarT _ _ t@(ExistT _) = t
+
+substituteTvarT t var (ForallT vars forallT) =
+  ForallT vars $ substituteTvarT t var forallT
+
+substituteTvarT t var1 tvarT@(TvarT var2)
+  | var1 == var2 = t
+  | otherwise = tvarT
 
 
-insertVars syms [] = syms
-insertVars syms (var:vars) =
-    insertVars (insertContext syms var (simpleType (TvarT var))) vars
+synthOuterForall syms (ForallT var forallT) =
+  let
+    syms' = insertContext syms var (simpleType (ExistT var))
+    forallT' = substituteTvarT (ExistT var) var forallT
+  in
+   (syms', forallT')
 
 
-dropVars syms [] = syms
-dropVars syms (var:vars) =
-    dropContext (dropVars syms vars) var
-
-
-dbQuantifiersM = False
-
-
-synthQuantifiersM :: SynthM -> SynthM
-synthQuantifiersM m =
-    do (t, stx, syms) <- m
-       case t of
-         ForallT vars t' | debugIfT dbQuantifiersM ("synthQuantifiersM: ForallT: " ++ show t) ->
-           let (syms', t'') = synthForall syms t' vars in
-           synthQuantifiersM $ return (t'', stx, syms')
-         _ | debugIfT dbQuantifiersM ("synthQuantifiersM: " ++ show t) ->
-           return (substituteExistTs syms t, stx, syms)
+synthOuterForallM m =
+  do (t, stx, syms) <- m
+     let (syms', t') = synthOuterForall syms t
+     return (t', stx, syms')
 
 
 synthAppFnM :: Context -> Stx String -> SynthM
 synthAppFnM _ _ | debugF "synthAppFnM" = undefined
 synthAppFnM syms fn =
-    do (t, stx, syms') <- synthQuantifiersM $ synthM syms fn
+    do (t, stx, syms') <- synthOuterForallM $ synthM syms fn
        t' <- do case t of
                   ArrowT _ _ -> return t
                   DynT -> return $ ArrowT DynT DynT
                   t -> Left $ "\n\n\tsynthAppFnM: expected arrow type" ++
                               "\n\n\t t = " ++ show t ++ "\n"
-       synthQuantifiersM $ return (t', stx, syms')
+       return (t', stx, syms')
 
 
 checkSeqM :: [Type] -> Context -> [Stx String] -> CheckM
@@ -295,25 +289,11 @@ typecheckWhereM m syms (WhereStx stx ("", stxs)) =
                  check syms' stxs
 
 
-dropM :: String -> CheckM -> CheckM
-dropM name m =
-  do (stx, syms) <- m
-     return (stx, dropContext syms name)
-
-
-simpleType :: a -> (a, Maybe b)
-simpleType t = (t, Nothing)
-
-
-unifType :: a -> b -> (a, Maybe b)
-unifType t1 t2 = (t1, Just t2)
-
-
 synthM :: Context -> Stx String -> SynthM
 synthM syms stx =
   do val <- synthAbstrM syms stx
      case val of
-       (ExistT _, _, _) -> synthQuantifiersM $ return val
+       (t@(ExistT _), stx', syms') -> return (substituteExistTs syms' t, stx', syms')
        _ -> return val
 
 
@@ -418,15 +398,10 @@ checkInstM t _ _| debugF ("checkInstM: " ++ show t) = undefined
 
 -- C-Forall-I
 checkInstM (ForallT _ _) _ _ | debugF "checkInstM: ForallT" = undefined
-checkInstM (ForallT vars t) syms stx | isValueStx stx =
-    dropVarsM vars $ checkM t (insertVars syms vars) stx
-    where insertVars syms [] = syms
-          insertVars syms (var:vars) =
-            insertVars (insertContext syms var (simpleType (TvarT var))) vars
-
-          dropVarsM [] m = m
-          dropVarsM (var:vars) m =
-            dropM var (dropVarsM vars m)
+checkInstM (ForallT var t) syms stx | isValueStx stx =
+    do let syms' = insertContext syms var (simpleType (TvarT var))
+       (stx', syms'') <- checkM t syms' stx
+       return (stx', dropContext syms'' var)
 
 -- C-Int
 checkInstM t _ (IntStx _) | debugF ("checkInstM: IntStx <= " ++ show t) = undefined
