@@ -145,9 +145,9 @@ runSnippetM ln =
          Right (t, symbols') -> do let (expr, exprEnv') = interpret exprEnv [stx']
                                    liftIO $ do
                                      putExprT expr t
-                                     putStrLn ""
-                                     putStrLn $ show symbols'
-                                     putStrLn ""
+                                     -- putStrLn ""
+                                     -- putStrLn $ show symbols'
+                                     -- putStrLn ""
                                      putEnvironment exprEnv'
                                    put $ ReplState renamerState' exprEnv' symbols' prelude
 

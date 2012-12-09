@@ -16,7 +16,7 @@ import Data.Stx
 import Debug.Trace
 
 
-debug = True
+debug = False
 debugF desc = debug && trace desc False
 debugT desc = (debug && trace desc True) || True
 
@@ -114,7 +114,7 @@ consistentT _ _ _ = Nothing
 consistentM :: Context -> Type -> Type -> Either String Context
 consistentM syms t1 t2 =
   case consistentT syms t1 t2 of
-    Nothing -> Left $ "\n\ntype inconsistency: " ++ show t1 ++ "~~" ++ show t2 ++ " (false)\n"
+    Nothing -> Left $ "\n\ntype inconsistency: " ++ show t1 ++ " ~~ " ++ show t2 ++ " (false)\n"
     Just syms' -> Right syms'
 
 
