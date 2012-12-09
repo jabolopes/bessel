@@ -194,7 +194,7 @@ renameM stx@(ModuleStx prefix (lib, [])) | not (null prefix) =
     withPrefixM prefix $ bindModuleM lib >> return stx
 
 renameM (ModuleStx prefix (lib, stxs)) =
-    error $ "Renamer.renameM(ModuleStx): parser must forbid modules with both 'lib' form and definitions" ++
+    error $ "Renamer.renameM: ModuleStx: parser must forbid modules with both 'lib' form and definitions" ++
             "\n\n\t prefix = " ++ show prefix ++
             "\n\n\t lib = " ++ show lib ++
             "\n\n\t stxs = " ++ show stxs ++ "\n"
@@ -230,7 +230,7 @@ renameM (WhereStx stx (lib, [])) | not (null lib) =
        return $ WhereStx stx' ("", [])
 
 renameM (WhereStx stx (lib, stxs)) =
-  error $ "Renamer.renameM(WhereStx): parser must forbid modules with both 'lib' form and definitions" ++
+  error $ "Renamer.renameM: WhereStx: parser must forbid modules with both 'lib' form and definitions" ++
           "\n\n\t stx = " ++ show stx ++
           "\n\n\t lib = " ++ show lib ++
           "\n\n\t stxs = " ++ show stxs ++ "\n"
