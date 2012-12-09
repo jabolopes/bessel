@@ -573,7 +573,7 @@ syms = [
  --  ("true", BoolT, true),
  --  -- predicates
  --  --- predicates for numbers
- --  ("isint", predT, m isint),
+  ("isint", predT, m isint),
  --  ("isreal", predT, m isreal),
  --  ("isnum", predT, m isnum),
  --  ("ispos", predT, m ispos),
@@ -646,15 +646,15 @@ syms = [
 --  ("reverse", ArrowT (SeqT DynT) (SeqT DynT), m reverse),
 --  ("sel", ArrowT (SeqT DynT) DynT, m sel),
 --  ("s", ArrowT IntT (ArrowT (SeqT DynT) DynT), m s),
- ("hd", ForallT "a" (ArrowT (SeqT (TvarT "a")) (TvarT "a")), m hd),
- ("tl", ForallT "a" (ArrowT (SeqT (TvarT "a")) (SeqT (TvarT "a"))), m tl),
- ("hdr", ForallT "a" (ArrowT (SeqT (TvarT "a")) (TvarT "a")), m hdr),
- ("tlr", ForallT "a" (ArrowT (SeqT (TvarT "a")) (SeqT (TvarT "a"))), m tlr),
+ -- ("hd", ForallT "a" (ArrowT (SeqT (TvarT "a")) (TvarT "a")), m hd),
+ -- ("tl", ForallT "a" (ArrowT (SeqT (TvarT "a")) (SeqT (TvarT "a"))), m tl),
+ -- ("hdr", ForallT "a" (ArrowT (SeqT (TvarT "a")) (TvarT "a")), m hdr),
+ -- ("tlr", ForallT "a" (ArrowT (SeqT (TvarT "a")) (SeqT (TvarT "a"))), m tlr),
 --  -- io
 --  ("out", ArrowT (SeqT (SeqT CharT)) (SeqT (SeqT CharT)), m out),
 --  -- misc
  ("id", ForallT "a" (ArrowT (TvarT "a") (TvarT "a")), m id),
- ("signal", ForallT "a" (ArrowT (TvarT "a") (ForallT "b" (TvarT "b"))), m signal),
+ -- ("signal", ForallT "a" (ArrowT (TvarT "a") (ForallT "b" (TvarT "b"))), m signal),
 
  ("K", ForallT "a" (ArrowT (TvarT "a") (ForallT "b" (ArrowT (TvarT "b") (TvarT "a")))), m k)]
 
