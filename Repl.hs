@@ -144,10 +144,10 @@ runSnippetM ln =
          Left str -> throwTypecheckerException str
          Right (t, symbols') -> do let (expr, exprEnv') = interpret exprEnv [stx']
                                    liftIO $ do
+                                     putStrLn $ show symbols'
+                                     putStrLn ""
                                      putExprT expr t
-                                     -- putStrLn ""
-                                     -- putStrLn $ show symbols'
-                                     -- putStrLn ""
+                                     putStrLn ""
                                      putEnvironment exprEnv'
                                    put $ ReplState renamerState' exprEnv' symbols' prelude
 

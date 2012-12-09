@@ -21,8 +21,13 @@ debugF desc = debug && trace desc False
 debugT desc = (debug && trace desc True) || True
 
 
+debugConsistentT = True
+debugConsistentTF desc = debugConsistentT && trace desc False
+debugConsistentTT desc = (debugConsistentT && trace desc True) || True
+
+
 consistentT :: Context -> Type -> Type -> Maybe Context
-consistentT _ t1 t2 | debugF ("consistentT: " ++ show t1 ++ " ~~ " ++ show t2) = undefined
+consistentT syms t1 t2 | debugConsistentTF ("consistentT:" ++ show syms ++ "\n" ++ show t1 ++ " ~~ " ++ show t2) = undefined
 
 consistentT syms t1 t2
     | isAtomicT t1 && t1 == t2 = return syms
@@ -222,7 +227,7 @@ substituteExistTs syms (ForallT vars t) = ForallT vars $ substituteExistTs syms 
 substituteExistTs syms t@(TvarT _) = t
 
 
-
+substituteTvarT :: Type -> String -> Type -> Type
 substituteTvarT _ _ BoolT = BoolT
 substituteTvarT _ _ IntT = IntT
 substituteTvarT _ _ DoubleT = DoubleT
@@ -244,16 +249,18 @@ substituteTvarT t var1 tvarT@(TvarT var2)
   | otherwise = tvarT
 
 
+synthOuterForall :: Context -> Type -> (Context, Type)
 synthOuterForall syms (ForallT var forallT) =
   let
     syms' = insertContext syms var (simpleType (ExistT var))
     forallT' = substituteTvarT (ExistT var) var forallT
   in
-   (syms', forallT')
+   synthOuterForall syms' forallT'
 
 synthOuterForall syms t = (syms, t)
 
 
+synthOuterForallM :: SynthM -> SynthM
 synthOuterForallM m =
   do (t, stx, syms) <- m
      let (syms', t') = synthOuterForall syms t
