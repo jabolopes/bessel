@@ -2,6 +2,7 @@
 module Typechecker where
 
 import Data.Functor ((<$>))
+import Data.List (intercalate)
 import Data.Map (Map)
 import qualified Data.Map as Map
 
@@ -24,7 +25,7 @@ debugConsistentTT desc = (debugConsistentT && trace desc True) || True
 
 
 consistentT :: Context -> Type -> Type -> Maybe Context
-consistentT syms t1 t2 | debugConsistentTF ("consistentT:" ++ show syms ++ "\n" ++ show t1 ++ " ~~ " ++ show t2) = undefined
+consistentT ctx t1 t2 | debugConsistentTF ("consistentT:\n  " ++ intercalate "\n  " (map show (syms ctx)) ++ "\n  " ++ show t1 ++ " ~~ " ++ show t2 ++ "\n") = undefined
 
 consistentT syms t1 t2
     | isAtomicT t1 && t1 == t2 = return syms
@@ -116,7 +117,7 @@ consistentT _ _ _ = Nothing
 consistentM :: Context -> Type -> Type -> Either String Context
 consistentM syms t1 t2 =
   case consistentT syms t1 t2 of
-    Nothing -> Left $ "\n\ntype inconsistency: " ++ show t1 ++ " ~~ " ++ show t2 ++ " (false)\n"
+    Nothing -> Left $ "\n\n\ttype inconsistency: " ++ show t1 ++ " ~~ " ++ show t2 ++ " (false)\n"
     Just syms' -> Right syms'
 
 
@@ -134,7 +135,7 @@ substituteExistTs syms (ArrowT t1 t2) =
 
 substituteExistTs syms t@(ExistT var) =
   case lookupContext syms var of
-    Nothing -> error $ "substituteExistTs: " ++ show var
+    Nothing -> error $ "Typechecker.substituteExistTs: " ++ show var
     Just (ExistT var', Nothing) | var == var' -> t
     Just (t', Nothing) -> substituteExistTs syms t'
     Just (_, Just t') -> substituteExistTs syms t'
