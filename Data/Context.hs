@@ -1,6 +1,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 module Data.Context where
 
+import Data.Functor ((<$>))
 import Data.Map (Map)
 import qualified Data.Map as Map
 
@@ -13,40 +14,50 @@ data Context =
   deriving (Show)
 
 
+isValidContext :: Context -> Bool
+isValidContext Context { syms } = validSyms syms
+    where validSyms [] = True
+          validSyms ((_, (t1, t2)):syms) =
+              let freevars = freeTvarsT t1 ++ maybe [] freeTvarsT t2 in
+              all (\var -> maybe False (const True) (lookup var syms)) freevars && validSyms syms
+
+
 splitContext :: Context -> String -> (Context, Context)
 splitContext ctx@Context { syms } name =
-  case span neqName syms of
-    (_, []) -> error "splitContext: empty list"
-    (syms1, _:syms2) -> (ctx { syms = syms1 }, ctx { syms = syms2 })
-  where neqName (name', _) = name /= name'
+    case span neqName syms of
+      (_, []) -> error "splitContext: empty list"
+      (syms1, _:syms2) -> (ctx { syms = syms1 }, ctx { syms = syms2 })
+    where neqName (name', _) = name /= name'
 
 
 insertContext :: Context -> String -> (Type, Maybe Type) -> Context
 insertContext ctx@Context { syms } name t =
-  ctx { syms = (name, t):syms }
+    ctx { syms = (name, t):syms }
 
 
 updateContext :: Context -> String -> (Type, Maybe Type) -> Context
 updateContext ctx name t =
-  let (Context { syms = syms1 }, Context { syms = syms2 }) = splitContext ctx name in
-  ctx { syms = syms1 ++ [(name, t)] ++ syms2 }
+    let (Context { syms = syms1 }, Context { syms = syms2 }) = splitContext ctx name in
+    ctx { syms = syms1 ++ [(name, t)] ++ syms2 }
 
 
 lookupContext :: Context -> String -> Maybe (Type, Maybe Type)
 lookupContext Context { syms } name = lookup name syms
 
 
-typeContext :: Context -> String -> Either String Type
-typeContext syms name =
-    case lookupContext syms name of
-      Nothing -> Left $ "\n\n\ttypeContext: name " ++ show name ++ " not bound\n"
-      Just (t, Nothing) -> Right t
-      Just (_, Just t) -> Right t
+typeContext :: Context -> String -> Either String (Context, Type)
+typeContext ctx@Context { count } name =
+    do (count', t') <- freshForallT count <$> t
+       return (ctx { count = count' }, t')
+    where t = case lookupContext ctx name of
+                Nothing -> Left $ "\n\n\ttypeContext: name " ++ show name ++ " not bound\n"
+                Just (t, Nothing) -> Right t
+                Just (_, Just t) -> Right t
 
 
 isEmptyTypeContext :: Context -> String -> Bool
-isEmptyTypeContext syms name =
-    case lookupContext syms name of
+isEmptyTypeContext ctx name =
+    case lookupContext ctx name of
       Nothing -> error $ "\n\n\tisEmptyTypeContext: name " ++ show name ++ " not bound\n"
       Just (_, Nothing) -> True
       Just _ -> False
