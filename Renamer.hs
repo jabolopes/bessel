@@ -194,7 +194,7 @@ renameM stx@(ModuleStx prefix (lib, [])) | not (null prefix) =
     withPrefixM prefix $ bindModuleM lib >> return stx
 
 renameM (ModuleStx prefix (lib, stxs)) =
-    error $ "Renamer.renameM: ModuleStx: parser must forbid modules with both 'lib' form and definitions" ++
+    error $ "Renamer.renameM(ModuleStx): parser must forbid modules with both 'lib' form and definitions" ++
             "\n\n\t prefix = " ++ show prefix ++
             "\n\n\t lib = " ++ show lib ++
             "\n\n\t stxs = " ++ show stxs ++ "\n"
