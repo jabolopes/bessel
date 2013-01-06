@@ -60,8 +60,12 @@ true :: Expr
 true = BoolExpr True
 
 
-stringExpr :: [Char] -> Expr
-stringExpr cs = SeqExpr $ map CharExpr cs
+stringExpr :: String -> Expr
+stringExpr = SeqExpr . map CharExpr
+
+
+stringLiteral :: Expr -> String
+stringLiteral (SeqExpr cs) = map (\(CharExpr c) -> c) cs
 
 
 all2 :: (a -> b -> Expr) -> [a] -> [b] -> Expr
@@ -157,7 +161,7 @@ evalM (IdStx str) =
     do msym <- findBindM str
        case msym of
          Just expr -> return expr
-         Nothing -> error $ "Interpreter.evalM(IdStx): unbound symbols must be caught by the compiler" ++
+         Nothing -> error $ "Interpreter.evalM(IdStx): unbound symbols must be caught by the renamer" ++
                             "\n\n\t str = " ++ str ++
                             "\n\n"
 
@@ -166,7 +170,7 @@ evalM (AppStx stx1 stx2) =
        expr2 <- evalM stx2
        case expr1 of
          FnExpr fn -> fn expr2
-         _ -> error $ "Interpreter.evalM(AppStx): application of non-functions must be detected by the compiler" ++
+         _ -> error $ "Interpreter.evalM(AppStx): application of non-functions must be detected by the renamer" ++
                       "\n\n\t stx1 = " ++ show stx1 ++
                       "\n\n\t -> expr1 = " ++ show expr1 ++
                       "\n\n\t stx2 = " ++ show stx2 ++
@@ -191,7 +195,7 @@ evalM (LambdaStx str body) =
                 withEnvM $ evalM body
 
 evalM (ModuleStx prefix (name, stxs)) =
-    error $ "Interpreter.evalM(ModuleStx): modules must be flattened by the compiler" ++
+    error $ "Interpreter.evalM(ModuleStx): modules must be flattened by the renamer" ++
             "\n\n\t prefix = " ++ show prefix ++
             "\n\n\t name   = " ++ show name   ++
             "\n\n\t stxs   = " ++ show stxs   ++
@@ -220,7 +224,7 @@ evalM (WhereStx stx ("", stxs)) =
       withEnvM $ evalM stx
 
 evalM (WhereStx stx (name, stxs)) =
-    error $ "Interpreter.evalM(WhereStx): modules must be flattened by the compiler" ++
+    error $ "Interpreter.evalM(WhereStx): modules must be flattened by the renamer" ++
             "\n\n\t stx  = " ++ show stx  ++
             "\n\n\t name = " ++ show name ++
             "\n\n\t stxs = " ++ show stxs ++
