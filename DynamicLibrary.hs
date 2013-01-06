@@ -1,6 +1,6 @@
 module DynamicLibrary where
 
-import Prelude hiding ((&&), (||), (<=), not, and, or, id, compare, div, floor, ceiling, abs, reverse)
+import Prelude hiding ((&&), (||), (<=), not, and, or, id, compare, div, floor, ceiling, abs, reverse, read)
 import qualified Prelude
 
 import Data.Functor ((<$>))
@@ -8,6 +8,8 @@ import Data.Functor ((<$>))
 import Data.Map (Map)
 import qualified Data.Map as Map
 
+import System.IO hiding (hGetContents)
+import System.IO.Strict
 import System.IO.Unsafe
 
 import Data.Symbol
@@ -656,7 +658,12 @@ syms = [
  ("id", ForallT "a" (ArrowT (TvarT "a") (TvarT "a")), m id),
  -- ("signal", ForallT "a" (ArrowT (TvarT "a") (ForallT "b" (TvarT "b"))), m signal),
 
- ("K", ForallT "a" (ArrowT (TvarT "a") (ForallT "b" (ArrowT (TvarT "b") (TvarT "a")))), m k)]
+ ("K", ForallT "a" (ArrowT (TvarT "a") (ForallT "b" (ArrowT (TvarT "b") (TvarT "a")))), m k),
+
+ ("open", (ArrowT DynT DynT), m open),
+ ("read", (ArrowT DynT DynT), FnExpr read)
+
+ ]
 
 
 k :: Expr -> Expr
@@ -673,3 +680,23 @@ symbols = Map.fromList $ map (\(name, _, _) -> (name, name)) syms
 
 symbolTs :: Map String Type
 symbolTs = Map.fromList $ map (\(name, t, _) -> (name, t)) syms
+
+
+-- IO
+
+handleOp :: Int -> Handle -> IO Expr
+handleOp 0 h = stringExpr <$> hGetContents h
+
+
+open :: Expr -> Expr
+{-# NOINLINE open #-}
+open expr =
+    TypeExpr "File" $ FnExpr $ \(IntExpr i) -> return $ unsafePerformIO $ do
+                                                 h <- openFile (stringLiteral expr) ReadMode
+                                                 val <- handleOp i h
+                                                 hClose h
+                                                 return val
+
+
+read :: Expr -> InterpreterM Expr
+read (TypeExpr "File" (FnExpr fn)) = fn $ IntExpr 0
