@@ -42,6 +42,8 @@ doPutExpr = True
 doPutExprT = True
 doPutEnvironment = False
 
+doTypecheck = False
+
 
 putLine :: String -> IO ()
 putLine str
@@ -93,7 +95,8 @@ putExprT expr t
 putEnvironment :: Show a => a -> IO ()
 putEnvironment env
     | doPutEnvironment =
-        do putStrLn "Environment"
+        do putStrLn ""
+           putStrLn "Environment"
            putStrLn $ show env
            putStrLn ""
     | otherwise = return ()
@@ -133,6 +136,28 @@ importPrelude =
        return $ ReplState (mkInteractiveFrame [preludeName] renamerState) exprEnv symbols (mods Map.! preludeName)
 
 
+runM :: ExprEnv -> Stx String -> ReplM ExprEnv
+runM exprEnv stx =
+    do let (expr, exprEnv') = interpret exprEnv [stx]
+       liftIO $ do
+         putExpr expr
+         putEnvironment exprEnv'
+       return exprEnv'
+
+
+runTypecheckM :: ExprEnv -> Map String Type -> Stx String -> ReplM (ExprEnv, Map String Type)
+runTypecheckM exprEnv symbols stx =
+    case typecheckIncremental symbols stx of
+      Left str -> throwTypecheckerException str
+      Right (t, symbols') -> do let (expr, exprEnv') = interpret exprEnv [stx]
+                                liftIO $ do
+                                  putStrLn $ show symbols'
+                                  putStrLn ""
+                                  putExprT expr t
+                                  putEnvironment exprEnv'
+                                return (exprEnv', symbols')
+
+
 runSnippetM :: String -> ReplM ()
 runSnippetM ln =
     do ReplState renamerState exprEnv symbols prelude <- get
@@ -140,16 +165,31 @@ runSnippetM ln =
            stx = parseDefnOrExpr tokens
            (stx', renamerState') = renamerEither $ renameIncremental renamerState stx
        liftIO $ putRenamedStx stx'
-       case typecheckIncremental symbols stx' of
-         Left str -> throwTypecheckerException str
-         Right (t, symbols') -> do let (expr, exprEnv') = interpret exprEnv [stx']
-                                   liftIO $ do
-                                     putStrLn $ show symbols'
-                                     putStrLn ""
-                                     putExprT expr t
-                                     putStrLn ""
-                                     putEnvironment exprEnv'
-                                   put $ ReplState renamerState' exprEnv' symbols' prelude
+       if doTypecheck
+       then do (exprEnv', symbols') <- runTypecheckM exprEnv symbols stx'
+               put $ ReplState renamerState' exprEnv' symbols' prelude
+       else do exprEnv' <- runM exprEnv stx'
+               put $ ReplState renamerState' exprEnv' symbols prelude
+
+
+-- runSnippetM :: String -> ReplM ()
+-- runSnippetM ln =
+--     do ReplState renamerState exprEnv symbols prelude <- get
+--        let tokens = lex ln
+--            stx = parseDefnOrExpr tokens
+--            (stx', renamerState') = renamerEither $ renameIncremental renamerState stx
+--        liftIO $ putRenamedStx stx'
+--        case typecheckIncremental symbols stx' of
+--          Left str -> throwTypecheckerException str
+--          Right (t, symbols') -> do let (expr, exprEnv') = interpret exprEnv [stx']
+--                                    liftIO $ do
+--                                      putStrLn $ show symbols'
+--                                      putStrLn ""
+--                                      putExprT expr t
+--                                      putStrLn ""
+--                                      putEnvironment exprEnv'
+--                                    put $ ReplState renamerState' exprEnv' symbols' prelude
+
 
 promptM :: String -> ReplM Bool
 promptM ln =
