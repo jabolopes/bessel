@@ -21,21 +21,17 @@ import Utils
 data RenamerState =
     RenamerState { frameEnv :: FrameEnv
                  , currentFrame :: Int
-                 , currentCount :: Int }
+                 , currentCount :: Int
+                 , currentSrcfiles :: Map String SrcFile }
 
 
-emptyRenamerState :: RenamerState
-emptyRenamerState =
-    RenamerState { frameEnv = FrameEnv.empty
-                 , currentFrame = 0
-                 , currentCount = 0 }
-
-
-initialRenamerState :: FrameEnv -> RenamerState
-initialRenamerState frameEnv =
+initialRenamerState :: RenamerState
+initialRenamerState =
+    let frameEnv = FrameEnv.empty in
     RenamerState { frameEnv = frameEnv
                  , currentFrame = FrameEnv.rootId frameEnv
-                 , currentCount = 0 }
+                 , currentCount = 0
+                 , currentSrcfiles = Map.empty }
 
 
 type RenamerM a = StateT RenamerState (Either String) a
@@ -114,11 +110,13 @@ withScopeM m =
 
 bindModuleM :: String -> RenamerM ()
 bindModuleM name =
-    do frameEnv@FrameEnv { modFrames } <- frameEnv <$> get    
+    do frameEnv <- frameEnv <$> get
        currentFrame <- getCurrentFrameM
-       let modFrame = case Map.lookup name modFrames of
-                        Nothing -> error $ "Renamer.bindModuleM: module " ++ show name ++ " should have already been preloaded and renamed"
-                        Just frame -> frame
+
+       -- edit: 'Nothing' instead of 'Just' means the module is being
+       -- processed before its dependencies
+       SrcFile _ _ (Just modFrame) _ <- ((Map.! name) . currentSrcfiles) <$> get
+
        let (frameEnv', modFrame') = FrameEnv.putFrameChild frameEnv currentFrame modFrame
        modify $ \state -> state { frameEnv = frameEnv'
                                 , currentFrame = frameId modFrame' }
@@ -228,11 +226,10 @@ mkInteractiveFrame modNames state =
                  mapM_ bindModuleM modNames
 
 
-saveModuleFrame :: String -> Frame -> RenamerM ()
-saveModuleFrame name frame =
-    do frameEnv <- frameEnv <$> get
-       let frameEnv' = frameEnv { modFrames = Map.insert name frame (modFrames frameEnv) }
-       modify $ \state -> state { frameEnv = frameEnv' }
+saveSrcfile :: SrcFile -> RenamerM SrcFile
+saveSrcfile srcfile@(SrcFile name _ _ _) =
+    do modify $ \state -> state { currentSrcfiles = Map.insert name srcfile (currentSrcfiles state) }
+       return srcfile
 
 
 renameSrcFiles :: [SrcFile] -> RenamerM [SrcFile]
@@ -242,21 +239,19 @@ renameSrcFiles srcfiles = mapM renameSrcFile srcfiles
                                    ns' <- renameNamespaceM ns
                                    frame <- getCurrentFrameM
                                    return (ns', frame)
-                 saveModuleFrame name frame
-                 return $ SrcFile name deps (Just frame) $ Left ns'
+                 saveSrcfile $ SrcFile name deps (Just frame) $ Left ns'
 
           renameSrcFile srcfile@(SrcFile name deps Nothing content@(Right binds)) =
               do frame <- withScopeM $ do
                             mapM_ (\name -> addFnSymbolM name name) $ Map.keys binds
                             frame <- getCurrentFrameM
                             return frame
-                 saveModuleFrame name frame
-                 return $ SrcFile name deps (Just frame) content
-
+                 saveSrcfile $ SrcFile name deps (Just frame) content
+                 
 
 rename :: [SrcFile] -> Either String ([SrcFile], RenamerState)
 rename srcfiles =
-    runStateT (renameSrcFiles srcfiles) (initialRenamerState FrameEnv.empty)
+    runStateT (renameSrcFiles srcfiles) initialRenamerState
 
 
 renameIncremental :: RenamerState -> Stx String -> Either String (Stx String, RenamerState)

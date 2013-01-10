@@ -4,7 +4,7 @@ module Data.FrameEnv where
 import Data.Map (Map)
 import qualified Data.Map as Map
 
-import Data.Frame
+import Data.Frame (Frame(..))
 import qualified Data.Frame as Frame
 
 import Data.Symbol
@@ -12,27 +12,16 @@ import Data.Symbol
 
 data FrameEnv =
     FrameEnv { frames :: Map Int Frame
-             , modFrames :: Map String Frame
-             , rootId :: Int
-             , frameCount :: Int }
+             , frameCount :: Int
+             , rootId :: Int }
 
 
 empty :: FrameEnv
 empty =
-    let frame = emptyFrame 0 0 in
+    let frame = Frame.empty 0 0 in
     FrameEnv { frames = Map.fromList [(frameId frame, frame)]
-             , modFrames = Map.empty
-             , rootId = frameId frame
-             , frameCount = 1 }
-
-
-initial :: Map String FnSymbol -> FrameEnv
-initial frameSyms =
-    let frame = initialFrame 0 0 frameSyms in
-    FrameEnv { frames = Map.fromList [(frameId frame, frame)]
-             , modFrames = Map.empty
-             , rootId = frameId frame
-             , frameCount = 1 }
+             , frameCount = 1
+             , rootId = frameId frame }
 
 
 getFrame :: FrameEnv -> Int -> Frame
@@ -50,7 +39,7 @@ putFrame frameEnv@FrameEnv { frames } frame@Frame { frameId } =
 addFrame :: FrameEnv -> Frame -> (FrameEnv, Frame)
 addFrame frameEnv parent =
     let
-        frame = Frame.emptyFrame (frameCount frameEnv) (frameId parent)
+        frame = Frame.empty (frameCount frameEnv) (frameId parent)
         frameEnv' = putFrame frameEnv frame
         frameEnv'' = frameEnv' { frameCount = frameCount frameEnv' + 1 }
     in
@@ -60,7 +49,7 @@ addFrame frameEnv parent =
 putFrameChild :: FrameEnv -> Frame -> Frame -> (FrameEnv, Frame)
 putFrameChild frameEnv frame child =
     let
-        child' = Frame.copyFrame (frameCount frameEnv) (frameId frame) child
+        child' = Frame.copy (frameCount frameEnv) (frameId frame) child
         frameEnv' = putFrame frameEnv child'
         frameEnv'' = frameEnv' { frameCount = frameCount frameEnv' + 1 }
     in
