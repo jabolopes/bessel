@@ -108,7 +108,7 @@ tokens :-
   "where"		{ \_ -> TokenWhere }
 
   -- literals
-  "`" @character	{ \s -> TokenChar (head s) }
+  "`" @character	{ \(_:s:_) -> TokenChar s }
   @integer	  	{ \s -> TokenInt (read s) }
   @real		  	{ \s -> TokenDouble (read s) }
   \"[^\"]*\"    	{ \s -> TokenString (init (tail s)) }
