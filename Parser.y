@@ -43,19 +43,15 @@ import Macros
         forall  { TokenForall }
         hide    { TokenHide }
         lambda  { TokenLambda }
-        lib     { TokenLib }
         meta    { TokenMeta }
         me      { TokenMe }
         module  { TokenModule }
         nrdef   { TokenNrdef }
         pat     { TokenPat }
-        pf      { TokenPF }
         rec     { TokenRec }
         sig     { TokenSig }
         type    { TokenType }
-        union   { TokenUnion }
         use     { TokenUse }
-        uses    { TokenUses }
         where   { TokenWhere }
 
         -- literals
@@ -364,7 +360,6 @@ MetaPredList:
     MetaPredList ',' MetaPred   { $1 ++ [$3] }
   | MetaPred                    { [$1] }
 
-
 ExprList:
     ExprList ',' Expr   { $1 ++ [$3] }
   | Expr                { [$1] }
@@ -407,19 +402,15 @@ data Token
      | TokenForall
      | TokenHide
      | TokenLambda
-     | TokenLib
      | TokenMeta
      | TokenMe
      | TokenModule
      | TokenNrdef
      | TokenPat
-     | TokenPF
      | TokenRec
      | TokenSig
      | TokenType
-     | TokenUnion
      | TokenUse
-     | TokenUses
      | TokenWhere
 
      -- literals
