@@ -8,7 +8,8 @@ data DefnKw
       deriving (Eq, Ord, Show)
 
 
-type Module a = (String, [Stx a])
+data Namespace a = Namespace [String] [Stx a]
+                   deriving (Eq, Ord, Show)
 
 
 data Stx a
@@ -16,18 +17,18 @@ data Stx a
     | IntStx Int
     | DoubleStx Double
     | SeqStx [Stx a]
-    
+
     | IdStx a
-    
+
     | AppStx (Stx a) (Stx a)
     | DefnStx DefnKw String (Stx a)
     | LambdaStx String (Stx a)
-    | ModuleStx String (Module a)
+    | ModuleStx String (Namespace a)
     | TypeStx String [Stx a]
     | TypeMkStx String String
     | TypeUnStx String String
     | TypeIsStx String String
-    | WhereStx (Stx a) (Module a)
+    | WhereStx (Stx a) [Stx a]
       deriving (Eq, Ord, Show)
 
 

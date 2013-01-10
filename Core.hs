@@ -1,4 +1,4 @@
-module DynamicLibrary where
+module Core where
 
 import Prelude hiding ((&&), (||), (<=), not, and, or, id, compare, div, floor, ceiling, abs, reverse, read)
 import qualified Prelude
@@ -12,12 +12,13 @@ import System.IO hiding (hGetContents)
 import System.IO.Strict
 import System.IO.Unsafe
 
-import Data.Symbol
 import Data.Env (Env)
 import qualified Data.Env as Env (fromList)
 import Data.Exception
+import Data.SrcFile
+import Data.Symbol
 import Data.Type
-import Interpreter
+import Monad.InterpreterM
 import Renamer
 
 
@@ -681,6 +682,9 @@ symbols = Map.fromList $ map (\(name, _, _) -> (name, name)) syms
 symbolTs :: Map String Type
 symbolTs = Map.fromList $ map (\(name, t, _) -> (name, t)) syms
 
+
+namespace = SrcFile "Core" [] Nothing $ Right $
+            Map.fromList $ map (\(a, b, c) -> (a, (b, c))) syms
 
 -- IO
 

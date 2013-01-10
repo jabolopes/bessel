@@ -5,28 +5,29 @@ import Prelude hiding (lex, catch)
 
 import Control.Monad.State
 import Data.Char (isSpace)
-import Data.List (isPrefixOf)
+import Data.List (isPrefixOf, nub)
 import Data.Map (Map)
-import qualified Data.Map as Map ((!), insert)
+import qualified Data.Map as Map ((!), insert, empty)
 import System.Console.Readline
 
 --import System.IO.Error (catchIOError)
 import System.IO.Error (catch)
 
 import Data.Exception
-import Data.Type
+import Data.SrcFile
 import Data.Stx
-import qualified DynamicLibrary (env, symbols, symbolTs)
+import Data.Type
 import Interpreter
 import Lexer
 import Loader
+import Monad.InterpreterM
 import Parser
 import Printer.PrettyStx (prettyPrint)
 import Renamer
 import Typechecker
 
 
-data ReplState = ReplState RenamerState ExprEnv (Map String Type) [Stx String]
+data ReplState = ReplState [SrcFile] RenamerState ExprEnv (Map String Type)
 type ReplM a = StateT ReplState IO a
 
 
@@ -102,10 +103,6 @@ putEnvironment env
     | otherwise = return ()
 
 
-preludeName :: String
-preludeName = "Prelude"
-
-
 renamerEither :: Either String a -> a
 renamerEither fn = either throwRenamerException id fn
 
@@ -114,31 +111,19 @@ typecheckerEither :: Either String a -> a
 typecheckerEither fn = either throwTypecheckerException id fn
 
 
--- info: calls to 'liftIO' are necessary to force exceptions to bleed through
--- edit: the bang pattern forces evaluation of the typechecker
-importFile :: Map String Type -> [Stx String] -> String -> IO ReplState
-importFile symbols prelude filename =
-    do (deps, mods) <- preloadWithPrelude preludeName prelude filename
-       (stxs, renamerState) <- liftIO $ return $ renamerEither $ rename DynamicLibrary.symbols deps mods
-       let (_, exprEnv) = interpret DynamicLibrary.env stxs
-       !symbols' <- liftIO $ return $ typecheckerEither $ typecheckStxs symbols stxs
-       return $ ReplState (mkInteractiveFrame [preludeName, filename] renamerState) exprEnv symbols' prelude
-
-
--- info: calls to 'liftIO' are necessary to force exceptions to bleed through
--- edit: the bang pattern forces evaluation of the typechecker
-importPrelude :: IO ReplState
-importPrelude =
-    do (deps, mods) <- preload preludeName
-       (stxs, renamerState) <- liftIO $ return $ renamerEither $ rename DynamicLibrary.symbols deps mods
-       let (_, exprEnv) = interpret DynamicLibrary.env stxs
-       !symbols <- liftIO $ return $ typecheckerEither $ typecheckStxs DynamicLibrary.symbolTs stxs
-       return $ ReplState (mkInteractiveFrame [preludeName] renamerState) exprEnv symbols (mods Map.! preludeName)
+importFile :: [SrcFile] -> String -> IO ReplState
+importFile corefiles filename =
+    do srcfiles <- preload corefiles filename
+       let (srcfiles', renamerState) = renamerEither $ rename srcfiles
+           (_, exprEnv) = interpret srcfiles'
+       putStrLn $ show exprEnv -- edit: forcing evaluation
+       -- !symbols' <- liftIO $ return $ typecheckerEither $ typecheckStxs symbols stxs
+       return $ ReplState corefiles (mkInteractiveFrame (nub ["Core", "Prelude", filename]) renamerState) exprEnv Map.empty
 
 
 runM :: ExprEnv -> Stx String -> ReplM ExprEnv
 runM exprEnv stx =
-    do let (expr, exprEnv') = interpret exprEnv [stx]
+    do let (expr, exprEnv') = interpretIncremental exprEnv [stx]
        liftIO $ do
          putExpr expr
          putEnvironment exprEnv'
@@ -149,7 +134,7 @@ runTypecheckM :: ExprEnv -> Map String Type -> Stx String -> ReplM (ExprEnv, Map
 runTypecheckM exprEnv symbols stx =
     case typecheckIncremental symbols stx of
       Left str -> throwTypecheckerException str
-      Right (t, symbols') -> do let (expr, exprEnv') = interpret exprEnv [stx]
+      Right (t, symbols') -> do let (expr, exprEnv') = interpretIncremental exprEnv [stx]
                                 liftIO $ do
                                   putStrLn $ show symbols'
                                   putStrLn ""
@@ -160,16 +145,16 @@ runTypecheckM exprEnv symbols stx =
 
 runSnippetM :: String -> ReplM ()
 runSnippetM ln =
-    do ReplState renamerState exprEnv symbols prelude <- get
+    do ReplState corefiles renamerState exprEnv symbols <- get
        let tokens = lex ln
-           stx = parseDefnOrExpr tokens
+           stx = parseRepl tokens
            (stx', renamerState') = renamerEither $ renameIncremental renamerState stx
        liftIO $ putRenamedStx stx'
        if doTypecheck
        then do (exprEnv', symbols') <- runTypecheckM exprEnv symbols stx'
-               put $ ReplState renamerState' exprEnv' symbols' prelude
+               put $ ReplState corefiles renamerState' exprEnv' symbols'
        else do exprEnv' <- runM exprEnv stx'
-               put $ ReplState renamerState' exprEnv' symbols prelude
+               put $ ReplState corefiles renamerState' exprEnv' symbols
 
 
 -- runSnippetM :: String -> ReplM ()
@@ -198,8 +183,8 @@ promptM ln =
          putLine ln
        process ln
     where processM modName =
-              do ReplState _ _ symbols prelude <- get
-                 liftIO (importFile symbols prelude modName) >>= put
+              do ReplState corefiles _ _ symbols <- get
+                 liftIO (importFile corefiles modName) >>= put
                  return False
 
           process :: String -> ReplM Bool

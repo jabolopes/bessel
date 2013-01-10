@@ -98,6 +98,7 @@ tokens :-
   "lambda"		{ \_ -> TokenLambda }
   "lib"			{ \_ -> TokenLib }
   "meta"		{ \_ -> TokenMeta }
+  "me"			{ \_ -> TokenMe }
   "module"		{ \_ -> TokenModule }
   "nrdef"		{ \_ -> TokenNrdef }
   "pat"			{ \_ -> TokenPat }
@@ -106,6 +107,7 @@ tokens :-
   "sig"			{ \_ -> TokenSig }
   "type"		{ \_ -> TokenType }
   "union"		{ \_ -> TokenUnion }
+  "use"			{ \_ -> TokenUse }
   "uses"		{ \_ -> TokenUses }
   "where"		{ \_ -> TokenWhere }
 

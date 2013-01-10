@@ -6,99 +6,107 @@ import Data.Stx
 import Printer.Printer
 
 
-printStx :: Stx String -> PrinterM ()
-printStx (CharStx c) = putPrinter $ show c
-printStx (IntStx i) = putPrinter $ show i
-printStx (DoubleStx d) = putPrinter $ show d
+printNamespaceM :: Namespace String -> PrinterM ()
+printNamespaceM (Namespace uses stxs) =
+    mapM_ (putPrinter . ("use " ++)) uses
+    where printStxs [] = return ()
+          printStxs (stx:stxs) =
+              do printStxM stx
+                 nlPrinter
+                 nlPrinter
+                 printStxs stxs
 
-printStx (SeqStx stxs) | not (null stxs) && all isCharStx stxs =
+
+printStxM :: Stx String -> PrinterM ()
+printStxM (CharStx c) = putPrinter $ show c
+printStxM (IntStx i) = putPrinter $ show i
+printStxM (DoubleStx d) = putPrinter $ show d
+
+printStxM (SeqStx stxs) | not (null stxs) && all isCharStx stxs =
     putPrinter $ show $ map (\(CharStx c) -> c) stxs
 
-printStx (SeqStx stxs) =
+printStxM (SeqStx stxs) =
     do putPrinter "<"
        printStxs stxs
        putPrinter ">"
     where printStxs [] = return ()
-          printStxs [stx] = printStx stx
+          printStxs [stx] = printStxM stx
           printStxs (stx:stxs) =
-              do printStx stx
+              do printStxM stx
                  putPrinter ","
                  printStxs stxs
 
-printStx (IdStx str) = putPrinter str
+printStxM (IdStx str) = putPrinter str
 
-printStx (AppStx stx1 stx2) =
+printStxM (AppStx stx1 stx2) =
     do printApp stx1
        putPrinter ":"
        printApp stx2
-    where printApp stx@(CharStx _) = printStx stx
-          printApp stx@(IntStx _) = printStx stx
-          printApp stx@(DoubleStx _) = printStx stx
-          printApp stx@(SeqStx _) = printStx stx
-          printApp stx@(IdStx _) = printStx stx
+    where printApp stx@(CharStx _) = printStxM stx
+          printApp stx@(IntStx _) = printStxM stx
+          printApp stx@(DoubleStx _) = printStxM stx
+          printApp stx@(SeqStx _) = printStxM stx
+          printApp stx@(IdStx _) = printStxM stx
           printApp stx =
               do putPrinter "("
-                 printStx stx
+                 printStxM stx
                  putPrinter ")"
 
-printStx (DefnStx kw str body) =
+printStxM (DefnStx kw str body) =
     do putPrinter $ kw' kw ++ " " ++ str ++ " = "
-       printStx body
+       printStxM body
     where kw' Def = "def"
           kw' NrDef = "nrdef"
 
-printStx (LambdaStx str body) =
+printStxM (LambdaStx str body) =
     do putPrinter $ "λ " ++ str ++ " -> "
-       withPrinterCol $ printStx body
+       withPrinterCol $ printStxM body
 
-printStx (ModuleStx str (_, stxs)) =
-    do putPrinter $ "module " ++ str
-       nlPrinter
-       printStxs stxs
-    where printStxs [] = return ()
-          printStxs [stx] = printStx stx
-          printStxs (stx:stxs) =
-              do printStx stx
-                 nlPrinter
-                 nlPrinter
-                 printStxs stxs
+printStxM (ModuleStx str ns) =
+    do let str' | str == "" = str
+                | otherwise = str ++ " "
+       putPrinter $ "module " ++ str' ++ "where {"
+       withPrinterCol $ do
+         nlPrinter
+         printNamespaceM ns
+       putPrinter "}"
 
-printStx (TypeStx name stxs) =
+printStxM (TypeStx name stxs) =
     do putPrinter $ "type " ++ name
        withPrinterCol $ do
          nlPrinter
          printStxs stxs
     where printStxs [] = return ()
-          printStxs [stx] = printStx stx
+          printStxs [stx] = printStxM stx
           printStxs (stx:stxs) =
-              do printStx stx
+              do printStxM stx
                  nlPrinter
                  printStxs stxs
 
-printStx (TypeMkStx name arg) =
+printStxM (TypeMkStx name arg) =
     putPrinter $ "mk:<" ++ show name ++ "," ++ arg ++ ">"
 
-printStx (TypeUnStx name arg) =
+printStxM (TypeUnStx name arg) =
     putPrinter $ "un:<" ++ show name ++ "," ++ arg ++ ">"
 
-printStx (TypeIsStx name arg) =
+printStxM (TypeIsStx name arg) =
     putPrinter $ "is:<" ++ show name ++ "," ++ arg ++ ">"
 
-printStx (WhereStx stx (_, stxs)) =
-    do printStx stx
+printStxM (WhereStx stx stxs) =
+    do printStxM stx
        nlPrinter
        putPrinter "where"
        withPrinterCol $ do
          nlPrinter
          printStxs stxs
     where printStxs [] = return ()
-          printStxs [stx] = printStx stx
+          printStxs [stx] = printStxM stx
           printStxs (stx:stxs) =
-              do printStx stx
+              do printStxM stx
                  nlPrinter
                  printStxs stxs
 
 
 prettyPrint :: Stx String -> IO ()
 prettyPrint stx =
-    runStateT (printStx stx) (PrinterState 0) >> return ()
+    runStateT (printStxM stx) (PrinterState 0) >> return ()

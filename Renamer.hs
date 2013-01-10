@@ -12,6 +12,7 @@ import qualified Data.Map as Map
 import Data.Frame
 import Data.FrameEnv (FrameEnv (..))
 import qualified Data.FrameEnv as FrameEnv
+import Data.SrcFile
 import Data.Stx
 import Data.Symbol
 import Utils
@@ -37,7 +38,6 @@ initialRenamerState frameEnv =
                  , currentCount = 0 }
 
 
--- type RenamerM a = State RenamerState a
 type RenamerM a = StateT RenamerState (Either String) a
 
 
@@ -57,9 +57,9 @@ putCurrentFrameM frame =
 
 genNameM :: String -> RenamerM String
 genNameM name =
-    do counter <- currentCount <$> get
-       modify $ \state -> state { currentCount = counter +1 }
-       return $ name ++ show counter
+    do count <- currentCount <$> get
+       modify $ \state -> state { currentCount = count + 1 }
+       return $ name ++ show count
 
 
 getFnSymbolM :: [String] -> RenamerM FnSymbol
@@ -117,7 +117,7 @@ bindModuleM name =
     do frameEnv@FrameEnv { modFrames } <- frameEnv <$> get    
        currentFrame <- getCurrentFrameM
        let modFrame = case Map.lookup name modFrames of
-                        Nothing -> error $ "Renamer.bindModuleM: module " ++ show name ++ " should have been preloaded and renamed already"
+                        Nothing -> error $ "Renamer.bindModuleM: module " ++ show name ++ " should have already been preloaded and renamed"
                         Just frame -> frame
        let (frameEnv', modFrame') = FrameEnv.putFrameChild frameEnv currentFrame modFrame
        modify $ \state -> state { frameEnv = frameEnv'
@@ -144,6 +144,12 @@ withPrefixM prefix m =
        val <- m
        modify $ \state -> state { currentFrame = frameId currentFrame' }
        return val
+
+
+renameNamespaceM :: Namespace String -> RenamerM (Namespace String)
+renameNamespaceM stx@(Namespace uses stxs) =
+    do mapM_ bindModuleM uses
+       Namespace uses <$> mapM renameM stxs
 
 
 renameM :: Stx String -> RenamerM (Stx String)
@@ -175,29 +181,11 @@ renameM (LambdaStx arg body) =
                              addFnSymbolM arg arg'
                              withScopeM $ renameM body)
 
--- edit: returning the last instead of all
--- because 'renamerM' must return multiple
--- 'Stx's instead of just one.
-renameM (ModuleStx "" ("", stxs)) =
-    last <$> mapM renameM stxs
+renameM stx@(ModuleStx "" ns) =
+    ModuleStx "" <$> renameNamespaceM ns
 
-renameM stx@(ModuleStx "" (lib, [])) =
-    bindModuleM lib >> return stx
-
--- edit: returning the last instead of all
--- because 'renamerM' must return multiple
--- 'Stx's instead of just one (see note above).
-renameM (ModuleStx prefix ("", stxs)) | not (null prefix) =
-    withPrefixM prefix $ last <$> mapM renameM stxs
-
-renameM stx@(ModuleStx prefix (lib, [])) | not (null prefix) =
-    withPrefixM prefix $ bindModuleM lib >> return stx
-
-renameM (ModuleStx prefix (lib, stxs)) =
-    error $ "Renamer.renameM(ModuleStx): parser must forbid modules with both 'lib' form and definitions" ++
-            "\n\n\t prefix = " ++ show prefix ++
-            "\n\n\t lib = " ++ show lib ++
-            "\n\n\t stxs = " ++ show stxs ++ "\n"
+renameM stx@(ModuleStx prefix ns) =
+    ModuleStx prefix <$> (withPrefixM prefix $ renameNamespaceM ns)
 
 renameM (TypeStx name stxs) =
     do name' <- genNameM name
@@ -219,21 +207,11 @@ renameM (TypeIsStx name arg) =
        arg' <- getFnSymbolM [arg]
        return $ TypeIsStx name' arg'
 
-renameM (WhereStx stx ("", stxs)) =
+renameM (WhereStx stx stxs) =
     withScopeM $ do
       stxs' <- mapM renameM stxs
       stx' <- withScopeM $ renameM stx
-      return $ WhereStx stx' ("", stxs')
-
-renameM (WhereStx stx (lib, [])) | not (null lib) =
-    do stx' <- withModuleM lib $ renameM stx
-       return $ WhereStx stx' ("", [])
-
-renameM (WhereStx stx (lib, stxs)) =
-  error $ "Renamer.renameM: WhereStx: parser must forbid modules with both 'lib' form and definitions" ++
-          "\n\n\t stx = " ++ show stx ++
-          "\n\n\t lib = " ++ show lib ++
-          "\n\n\t stxs = " ++ show stxs ++ "\n"
+      return $ WhereStx stx' stxs'
 
 
 mkInteractiveFrame :: [String] -> RenamerState -> RenamerState
@@ -250,30 +228,37 @@ mkInteractiveFrame modNames state =
                  mapM_ bindModuleM modNames
 
 
-rename
-  :: Map String FnSymbol
-  -> [String]
-  -> Map String [Stx String]
-  -> Either String ([Stx String], RenamerState)
-rename runtimeSyms deps mods =
-    let state = initialRenamerState $ FrameEnv.initial runtimeSyms in
-    runStateT (renameModule deps) state
-    where renameModuleM dep = filter (not . isModuleStx) <$> mapM renameM (mods Map.! dep)
+saveModuleFrame :: String -> Frame -> RenamerM ()
+saveModuleFrame name frame =
+    do frameEnv <- frameEnv <$> get
+       let frameEnv' = frameEnv { modFrames = Map.insert name frame (modFrames frameEnv) }
+       modify $ \state -> state { frameEnv = frameEnv' }
 
-          saveModuleFrame dep modFrame =
-              do frameEnv <- frameEnv <$> get
-                 let frameEnv' = frameEnv { modFrames = Map.insert dep modFrame (modFrames frameEnv) }
-                 modify $ \state -> state { frameEnv = frameEnv' }
 
-          renameModule [] = return []
-          renameModule (dep:deps') =
-              do (stxs, modFrame) <- withScopeM $ do
-                                       stxs <- renameModuleM dep
-                                       frame <- getCurrentFrameM
-                                       return (stxs, frame)
-                 saveModuleFrame dep modFrame
-                 (stxs ++) <$> renameModule deps'
+renameSrcFiles :: [SrcFile] -> RenamerM [SrcFile]
+renameSrcFiles srcfiles = mapM renameSrcFile srcfiles
+    where renameSrcFile (SrcFile name deps Nothing (Left ns)) =
+              do (ns', frame) <- withScopeM $ do
+                                   ns' <- renameNamespaceM ns
+                                   frame <- getCurrentFrameM
+                                   return (ns', frame)
+                 saveModuleFrame name frame
+                 return $ SrcFile name deps (Just frame) $ Left ns'
+
+          renameSrcFile srcfile@(SrcFile name deps Nothing content@(Right binds)) =
+              do frame <- withScopeM $ do
+                            mapM_ (\name -> addFnSymbolM name name) $ Map.keys binds
+                            frame <- getCurrentFrameM
+                            return frame
+                 saveModuleFrame name frame
+                 return $ SrcFile name deps (Just frame) content
+
+
+rename :: [SrcFile] -> Either String ([SrcFile], RenamerState)
+rename srcfiles =
+    runStateT (renameSrcFiles srcfiles) (initialRenamerState FrameEnv.empty)
 
 
 renameIncremental :: RenamerState -> Stx String -> Either String (Stx String, RenamerState)
-renameIncremental state stx = runStateT (renameM stx) state
+renameIncremental state stx =
+    runStateT (renameM stx) state

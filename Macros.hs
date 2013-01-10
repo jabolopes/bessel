@@ -28,7 +28,7 @@ patLambdaStxs val = map (patLambdaDefn `uncurry`)
 
 ifthenMacro :: Pat -> Stx String -> Stx String
 ifthenMacro (Pat pred defns) stx =
-    let stx' = WhereStx stx ("", patDefnStxs defns) in
+    let stx' = WhereStx stx (patDefnStxs defns) in
     applyStx "ifthen" [pred, stx']
     -- applyStx "cond" [pred, stx']
 
@@ -37,8 +37,8 @@ ifelseMacro :: Pat -> Stx String -> Stx String -> Stx String
 ifelseMacro (Pat pred defns) stx1 stx2 =
     let
         defns' = patDefnStxs defns
-        stx1' = WhereStx stx1 ("", defns')
-        stx2' = WhereStx stx2 ("", defns')
+        stx1' = WhereStx stx1 (defns')
+        stx2' = WhereStx stx2 (defns')
     in
       applyStx "ifelse" [pred, stx1', stx2']
       -- applyStx "cond" [pred, stx1', stx2']
@@ -116,7 +116,7 @@ lambdaStx arg (Pat pred defns) body sigdesc =
         _arg = '_':arg
         defns' = patLambdaStxs (IdStx _arg) defns
 
-        lambda = LambdaStx _arg $ WhereStx body ("", defns')
+        lambda = LambdaStx _arg $ WhereStx body (defns')
         body' = applyStx "ifelse" [pred, lambda, signalStx sigdesc arg]
         -- body' = applyStx "cond" [pred, lambda, signalStx sigdesc arg]
     in

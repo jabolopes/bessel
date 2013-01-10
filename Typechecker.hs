@@ -226,7 +226,7 @@ checkSeqM ts syms stxs = check [] ts syms stxs
 
 typecheckWhereM :: (Context -> Stx String -> TypecheckerM a) -> Context -> Stx String -> TypecheckerM a
 typecheckWhereM _ _ _ | debugF "typecheckWhereM" = undefined
-typecheckWhereM m syms (WhereStx stx ("", stxs)) =
+typecheckWhereM m syms (WhereStx stx (stxs)) =
     check syms stxs
     where check syms [] = m syms stx
           check syms (stx:stxs) =

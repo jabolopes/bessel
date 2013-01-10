@@ -5,12 +5,13 @@ module Parser where
 import Data.Exception
 import Data.Stx
 import Data.Pat
+import Data.SrcFile
 import Macros
 
 }
 
-%name parseOptDefnList OptDefnList
-%name parseDefnOrExpr DefnOrExpr
+%name parseSrcFile SrcFile
+%name parseRepl DefnOrExpr
 
 %tokentype { Token }
 %error { parseError }
@@ -44,6 +45,7 @@ import Macros
         lambda  { TokenLambda }
         lib     { TokenLib }
         meta    { TokenMeta }
+        me      { TokenMe }
         module  { TokenModule }
         nrdef   { TokenNrdef }
         pat     { TokenPat }
@@ -52,6 +54,7 @@ import Macros
         sig     { TokenSig }
         type    { TokenType }
         union   { TokenUnion }
+        use     { TokenUse }
         uses    { TokenUses }
         where   { TokenWhere }
 
@@ -137,22 +140,35 @@ import Macros
 
 %%
 
-OptDefnList:
-    DefnList      { $1 }
-  |               { [] }
+SrcFile:
+    me NameDotList Namespace { SrcFile $2 [] Nothing (Left $3) }
+
+NameDotList:
+    NameDotList '.' name { $1 ++ "." ++ $3 }
+  | name                 { $1 }
+
+Namespace:
+    UseList DefnList { Namespace $1 $2 }
+  | UseList          { Namespace $1 [] }
+  | DefnList         { Namespace [] $1 }
+
+UseList:
+    UseList use NameDotList { $1 ++ [$3] }
+  | use NameDotList         { [$2] }
 
 DefnList:
-    DefnList Module { $1 ++ [$2] }
-  | DefnList Defn   { $1 ++ [$2] }
-  | Module	    { [$1] }
-  | Defn            { [$1] }
+    DefnList Module          { $1 ++ [$2] }
+  | DefnList Defn            { $1 ++ [$2] }
+  | Module                   { [$1] }
+  | Defn                     { [$1] }
 
 Module:
-    module where Env         	  { ModuleStx "" $3 }
-  | module name where Env         { ModuleStx $2 $4 }
+    module where '{' Namespace '}'      { ModuleStx "" $4 }
+  | module name where '{' Namespace '}' { ModuleStx $2 $5 }
 
 DefnOrExpr:
-    Defn        { $1 }
+    Module      { $1 }
+  | Defn        { $1 }
   | Expr        { $1 }
 
 Defn:
@@ -325,12 +341,12 @@ PatList2:
   | Pat                 { [$1] }
 
 Env:
-    '{' DefnList '}'            { ("", $2) }
+    '{' DefnList '}'            { $2 }
   | '{' Env '}'                 { $2 }
 --| export '(' NameList ')' Env { }
 --| hide   '(' NameList ')' Env { }
 --| rec    '(' NameList ')' Env { }
-  | lib    '(' string   ')'     { ($3, []) }
+--| lib    '(' string   ')'     { ($3, []) }
 --| pf                          { }
 --| Env uses Env                { }
 --| Env where Env               { }
@@ -405,6 +421,7 @@ data Token
      | TokenLambda
      | TokenLib
      | TokenMeta
+     | TokenMe
      | TokenModule
      | TokenNrdef
      | TokenPat
@@ -413,6 +430,7 @@ data Token
      | TokenSig
      | TokenType
      | TokenUnion
+     | TokenUse
      | TokenUses
      | TokenWhere
 
@@ -470,5 +488,9 @@ data Token
        deriving Show
 
 
-parseFile = parseOptDefnList
+parsePrelude = parseSrcFile
+
+parseFile tks =
+  let SrcFile name deps Nothing (Left (Namespace uses stxs)) = parseSrcFile tks in
+  SrcFile name deps Nothing (Left (Namespace ("Prelude":uses) stxs))
 }
