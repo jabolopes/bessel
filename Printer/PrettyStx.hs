@@ -8,8 +8,15 @@ import Printer.Printer
 
 printNamespaceM :: Namespace String -> PrinterM ()
 printNamespaceM (Namespace uses stxs) =
-    mapM_ (putPrinter . ("use " ++)) uses
-    where printStxs [] = return ()
+    do forM_ uses $ \use -> do
+         putPrinter $ "use " ++ use
+         nlPrinter
+         nlPrinter
+       printStxs stxs
+    where printStxs [stx] =
+              do printStxM stx
+                 nlPrinter
+                            
           printStxs (stx:stxs) =
               do printStxM stx
                  nlPrinter
@@ -110,3 +117,8 @@ printStxM (WhereStx stx stxs) =
 prettyPrint :: Stx String -> IO ()
 prettyPrint stx =
     runStateT (printStxM stx) (PrinterState 0) >> return ()
+
+
+prettyPrintNamespace :: Namespace String -> IO ()
+prettyPrintNamespace ns =
+    runStateT (printNamespaceM ns) (PrinterState 0) >> return ()

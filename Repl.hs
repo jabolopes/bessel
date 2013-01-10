@@ -22,7 +22,7 @@ import Lexer
 import Loader
 import Monad.InterpreterM
 import Parser
-import Printer.PrettyStx (prettyPrint)
+import Printer.PrettyStx (prettyPrint, prettyPrintNamespace)
 import Renamer
 import Typechecker
 
@@ -183,15 +183,31 @@ promptM ln =
          putLine ln
        process ln
     where processM modName =
-              do ReplState corefiles _ _ symbols <- get
+              do ReplState corefiles _ _ _ <- get
                  liftIO (importFile corefiles modName) >>= put
                  return False
+
+          showRenamedM :: String -> ReplM Bool
+          showRenamedM filename =
+              do ReplState corefiles _ _ _ <- get
+                 srcfiles <- liftIO $ preload corefiles filename
+                 -- let (SrcFile name _ _ (Left ns):_, _) = renamerEither $ rename srcfiles
+                 let (srcfiles', _) = renamerEither $ rename srcfiles
+                     SrcFile _ _ _ (Left ns) = last srcfiles'
+                 liftIO $ prettyPrintNamespace ns
+                 return False
+
+          getFilename line =
+              tail $ dropWhile (/= ' ') line
 
           process :: String -> ReplM Bool
           process (':':line)
                   | "load \"" `isPrefixOf` line = processM $ init $ tail $ dropWhile (/= '"') line
                   | "load " `isPrefixOf` line = processM $ tail $ dropWhile (/= ' ') line
                   | "l " `isPrefixOf` line = processM $ tail $ dropWhile (/= ' ') line
+
+                  | "show-renamed " `isPrefixOf` line = showRenamedM $ getFilename line
+
                   | otherwise = do liftIO $ putStrLn $ "command error: " ++ show ln ++ " is not a valid command"
                                    replM
 
