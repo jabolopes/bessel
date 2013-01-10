@@ -2,6 +2,7 @@ module Printer.PrettyStx where
 
 import Control.Monad.State
 
+import Data.SrcFile
 import Data.Stx
 import Printer.Printer
 
@@ -114,11 +115,28 @@ printStxM (WhereStx stx stxs) =
                  printStxs stxs
 
 
+initialPrinterState = PrinterState 0
+
+
 prettyPrint :: Stx String -> IO ()
 prettyPrint stx =
-    runStateT (printStxM stx) (PrinterState 0) >> return ()
+    runStateT (printStxM stx) initialPrinterState >> return ()
 
 
 prettyPrintNamespace :: Namespace String -> IO ()
 prettyPrintNamespace ns =
-    runStateT (printNamespaceM ns) (PrinterState 0) >> return ()
+    runStateT (printNamespaceM ns) initialPrinterState >> return ()
+
+
+prettyPrintSrcFile :: SrcFile -> IO ()
+prettyPrintSrcFile (SrcFile name _ _ (Left ns)) =
+    runStateT (printSrcFileM name ns) initialPrinterState >> return ()
+    where printSrcFileM name ns =
+              do putPrinter $ "me " ++ name
+                 nlPrinter
+                 nlPrinter
+                 printNamespaceM ns
+
+prettyPrintSrcFile (SrcFile name _ _ (Right _)) =
+    runStateT (do putPrinter $ "me " ++ name
+                  nlPrinter) initialPrinterState >> return ()

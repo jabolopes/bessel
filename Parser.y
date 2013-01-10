@@ -261,7 +261,7 @@ Expr:
 
   | lambda '(' Pat ')' Expr %prec lambda_prec   { lambdaMacro $3 $5 }
 
-  | Expr where Env                { WhereStx $1 $3 }
+  | Expr where '{' DefnList '}'   { WhereStx $1 $4 }
 
   | '(' Expr ')'                  { $2 }
 
@@ -339,18 +339,6 @@ PatList2:
   | Pat  ',' PatList2   { $1 : $3 }
   | Expr                { [mkPat $1 [] []] }
   | Pat                 { [$1] }
-
-Env:
-    '{' DefnList '}'            { $2 }
-  | '{' Env '}'                 { $2 }
---| export '(' NameList ')' Env { }
---| hide   '(' NameList ')' Env { }
---| rec    '(' NameList ')' Env { }
---| lib    '(' string   ')'     { ($3, []) }
---| pf                          { }
---| Env uses Env                { }
---| Env where Env               { }
---| Env union Env               { }
 
 NameList:
     NameList ',' name   { $1 ++ [$3] }

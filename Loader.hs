@@ -4,7 +4,7 @@ module Loader (preload) where
 import Control.Monad.State
 import Data.Functor ((<$>))
 import Data.Graph (buildG, topSort, scc)
-import Data.List (intercalate)
+import Data.List (intercalate, nub, sort)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Set (Set)
@@ -51,9 +51,10 @@ dependenciesFileM filename =
                    | otherwise = parseFile
            (SrcFile name [] Nothing content@(Left ns)) = parseFn tks
        (_, deps) <- runStateT (dependenciesNsM ns) []
+       let deps' = nub $ sort deps
        if name /= filename
        then error $ "Loader.dependenciesFileM: me " ++ show name ++ " and filename " ++ show filename ++ " mismatch"
-       else return $ SrcFile name deps Nothing content
+       else return $ SrcFile name deps' Nothing content
     where toFilename = map f
               where f '.' = '/'
                     f c = c

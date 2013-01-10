@@ -5,9 +5,10 @@ import Prelude hiding (lex, catch)
 
 import Control.Monad.State
 import Data.Char (isSpace)
-import Data.List (isPrefixOf, nub)
+import Data.List (intercalate, isPrefixOf, nub)
 import Data.Map (Map)
 import qualified Data.Map as Map ((!), insert, empty)
+import System.Console.GetOpt
 import System.Console.Readline
 
 --import System.IO.Error (catchIOError)
@@ -22,9 +23,10 @@ import Lexer
 import Loader
 import Monad.InterpreterM
 import Parser
-import Printer.PrettyStx (prettyPrint, prettyPrintNamespace)
+import Printer.PrettyStx
 import Renamer
 import Typechecker
+import Utils
 
 
 data ReplState = ReplState [SrcFile] RenamerState ExprEnv (Map String Type)
@@ -175,45 +177,72 @@ runSnippetM ln =
 --                                      putEnvironment exprEnv'
 --                                    put $ ReplState renamerState' exprEnv' symbols' prelude
 
+showModuleM :: Bool -> String -> ReplM ()
+showModuleM showAll filename =
+    do ReplState corefiles _ _ _ <- get
+       srcfiles <- liftIO $ preload corefiles filename
+       let srcfiles' | showAll = srcfiles
+                     | otherwise = [last srcfiles]
+       liftIO $ mapM_ (putStrLn . show) srcfiles'
 
-promptM :: String -> ReplM Bool
+
+showRenamedM :: Bool -> String -> ReplM ()
+showRenamedM showAll filename =
+    do ReplState corefiles _ _ _ <- get
+       srcfiles <- liftIO $ preload corefiles filename
+       let (srcfiles', _) = renamerEither $ rename srcfiles
+       showFiles srcfiles'
+    where showFiles [] = return ()
+          showFiles [srcfile] | not showAll =
+              liftIO $ prettyPrintSrcFile srcfile
+          showFiles (srcfile:srcfiles)
+              | showAll = do liftIO $ prettyPrintSrcFile srcfile
+                             showFiles srcfiles
+              | otherwise = showFiles srcfiles
+
+
+data Flag
+    = ShowAll
+      deriving (Eq, Show)
+
+
+options :: [OptDescr Flag]
+options = [Option "a" [] (NoArg ShowAll) "Show all"]
+
+
+runCommandM :: String -> [Flag] -> [String] -> ReplM ()
+runCommandM "show" opts nonOpts
+    | head nonOpts == "module" =
+        let showAll = ShowAll `elem` opts in
+        showModuleM showAll $ last nonOpts
+
+    | head nonOpts == "renamed" =
+        let showAll = ShowAll `elem` opts in
+        showRenamedM showAll $ last nonOpts
+
+runCommandM "load" opts nonOpts =
+    do ReplState corefiles _ _ _ <- get
+       liftIO (importFile corefiles (last nonOpts)) >>= put
+
+runCommandM "l" opts nonOpts =
+    runCommandM "load" opts nonOpts
+
+
+dispatchCommandM :: String -> ReplM ()
+dispatchCommandM ln =
+    case getOpt Permute options (split ' ' ln) of
+      (opts, nonOpts, []) -> runCommandM (head nonOpts) opts (tail nonOpts)
+      (_, _, errs) -> error $ intercalate "\n" errs
+
+
+promptM :: String -> ReplM ()
 promptM ln =
     do liftIO $ do
          addHistory ln
          putLine ln
        process ln
-    where processM modName =
-              do ReplState corefiles _ _ _ <- get
-                 liftIO (importFile corefiles modName) >>= put
-                 return False
-
-          showRenamedM :: String -> ReplM Bool
-          showRenamedM filename =
-              do ReplState corefiles _ _ _ <- get
-                 srcfiles <- liftIO $ preload corefiles filename
-                 -- let (SrcFile name _ _ (Left ns):_, _) = renamerEither $ rename srcfiles
-                 let (srcfiles', _) = renamerEither $ rename srcfiles
-                     SrcFile _ _ _ (Left ns) = last srcfiles'
-                 liftIO $ prettyPrintNamespace ns
-                 return False
-
-          getFilename line =
-              tail $ dropWhile (/= ' ') line
-
-          process :: String -> ReplM Bool
-          process (':':line)
-                  | "load \"" `isPrefixOf` line = processM $ init $ tail $ dropWhile (/= '"') line
-                  | "load " `isPrefixOf` line = processM $ tail $ dropWhile (/= ' ') line
-                  | "l " `isPrefixOf` line = processM $ tail $ dropWhile (/= ' ') line
-
-                  | "show-renamed " `isPrefixOf` line = showRenamedM $ getFilename line
-
-                  | otherwise = do liftIO $ putStrLn $ "command error: " ++ show ln ++ " is not a valid command"
-                                   replM
-
-          process ln =
-              do runSnippetM ln
-                 return False
+    where process (':':ln) = dispatchCommandM ln
+          process ln = runSnippetM ln
 
 
 replM :: ReplM Bool
@@ -223,7 +252,7 @@ replM =
          Nothing -> return True
          Just ln | ln == ":quit" -> return True
                  | all isSpace ln -> replM
-                 | otherwise -> promptM ln
+                 | otherwise -> promptM ln >> return False
 
 
 repl :: ReplState -> IO ()
