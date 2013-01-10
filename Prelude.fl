@@ -1,5 +1,6 @@
 me Prelude
 
 use Core
+use Core.IO
 
 def f := 0
