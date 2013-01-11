@@ -470,5 +470,5 @@ parsePrelude = parseSrcFile
 
 parseFile tks =
   let SrcFile name deps Nothing (Left (Namespace uses stxs)) = parseSrcFile tks in
-  SrcFile name deps Nothing (Left (Namespace ("Prelude":uses) stxs))
+  SrcFile name deps Nothing (Left (Namespace ("Core":"Prelude":uses) stxs))
 }

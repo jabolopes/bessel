@@ -177,14 +177,17 @@ runSnippetM ln =
 --                                      putEnvironment exprEnv'
 --                                    put $ ReplState renamerState' exprEnv' symbols' prelude
 
-showModuleM :: Bool -> String -> ReplM ()
-showModuleM showAll filename =
+showModuleM :: Bool -> Bool -> String -> ReplM ()
+showModuleM showAll showBrief filename =
     do ReplState corefiles _ _ _ <- get
        srcfiles <- liftIO $ preload corefiles filename
        let srcfiles' | showAll = srcfiles
                      | otherwise = [last srcfiles]
-       liftIO $ mapM_ (putStrLn . show) srcfiles'
-
+       liftIO $ mapM_ (putStrLn . showBriefly) srcfiles'
+    where showBriefly srcfile@(SrcFile name deps _ _)
+              | showBrief = "SrcFile " ++ show name ++ " " ++ show deps ++ " ..."
+              | otherwise = show srcfile
+                  
 
 showRenamedM :: Bool -> String -> ReplM ()
 showRenamedM showAll filename =
@@ -203,18 +206,21 @@ showRenamedM showAll filename =
 
 data Flag
     = ShowAll
+    | ShowBrief
       deriving (Eq, Show)
 
 
 options :: [OptDescr Flag]
-options = [Option "a" [] (NoArg ShowAll) "Show all"]
+options = [Option "a" [] (NoArg ShowAll) "Show all",
+           Option "b" [] (NoArg ShowBrief) "Show brief"]
 
 
 runCommandM :: String -> [Flag] -> [String] -> ReplM ()
 runCommandM "show" opts nonOpts
     | head nonOpts == "module" =
-        let showAll = ShowAll `elem` opts in
-        showModuleM showAll $ last nonOpts
+        let showAll = ShowAll `elem` opts
+            showBrief = ShowBrief `elem` opts in
+        showModuleM showAll showBrief $ last nonOpts
 
     | head nonOpts == "renamed" =
         let showAll = ShowAll `elem` opts in
