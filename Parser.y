@@ -163,8 +163,7 @@ Module:
   | module name where '{' Namespace '}' { ModuleStx $2 $5 }
 
 DefnOrExpr:
-    Module      { $1 }
-  | Defn        { $1 }
+    Defn        { $1 }
   | Expr        { $1 }
 
 Defn:

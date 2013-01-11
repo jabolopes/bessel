@@ -23,7 +23,7 @@ data Expr
 instance Show Expr where
     show (BoolExpr False) = "false"
     show (BoolExpr True) = "true"
-    show (CharExpr c) = show c
+    show (CharExpr c) = ['`', c]
     show (IntExpr i) = show i
     show (DoubleExpr d) = show d
 
