@@ -4,4 +4,61 @@ use Core
 use Core.IO
 use Core.Shell
 
-def f := 0
+
+-- first dependecies
+
+-- def K := lambda (x.) lambda (y.) x
+
+nrdef raise := lambda (f.isfunc) isfunc || (seqof:isfunc && ¬:isnull) -> lift:f ; f
+
+
+-- comparison functions
+
+nrdef neq := ¬:eq
+nrdef lesseq := less || eq
+nrdef greater := ¬:less && neq
+nrdef greatereq := greater || eq
+
+
+-- raised comparison functions
+
+nrdef = := raise:eq
+nrdef lt := raise:less
+nrdef gt := raise:greater
+nrdef le := raise:lesseq
+nrdef ge := raise:greatereq
+
+
+-- raised arithmetic functions
+
+nrdef + := raise:add
+nrdef - := raise:sub
+nrdef * := raise:mult
+nrdef / := raise:div
+
+
+-- combining forms
+
+-- def | := o o reverse
+
+-- 'K' moved above because of dependencies
+
+nrdef C := lambda (f.isfunc) lambda (x.) lambda (y.) f:<x,y>
+
+-- prelude moved above because of dependencies
+
+nrdef eqto := C:eq
+
+
+-- sequence combining forms
+
+def sl f.isfunc :=
+  [|x.|] -> x ;
+  xs. <=. x. -> f:<sl:f:xs,x>
+
+def sr f.isfunc :=
+  [|x.|] -> x ;
+  x. =>. xs. -> f:<x,sr:f:xs>
+
+
+-- sequence functions
