@@ -89,7 +89,7 @@ tokens :-
   -- keywords
   "def"			{ \_ -> TokenDef }
   "exdef"		{ \_ -> TokenExdef }
-  "lambda"		{ \_ -> TokenLambda }
+  \\		        { \_ -> TokenLambda }
   "me"			{ \_ -> TokenMe }
   "module"		{ \_ -> TokenModule }
   "nrdef"		{ \_ -> TokenNrdef }

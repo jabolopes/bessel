@@ -8,9 +8,9 @@ use Core.Shell
 
 -- first dependecies
 
--- def K := lambda x@ lambda y@ x
+-- def K := \x@ \y@ x
 
-nrdef raise := lambda f@isfunc isfunc || (seqof:isfunc && ¬:isnull) -> lift:f ; f
+nrdef raise := \f@isfunc isfunc || (seqof:isfunc && ¬:isnull) -> lift:f ; f
 
 
 -- comparison functions
@@ -44,7 +44,7 @@ nrdef / := raise:div
 
 -- 'K' moved above because of dependencies
 
-nrdef C := lambda f@isfunc lambda x@ lambda y@ f:<x,y>
+nrdef C := \f@isfunc \x@ \y@ f:<x,y>
 
 -- prelude moved above because of dependencies
 
