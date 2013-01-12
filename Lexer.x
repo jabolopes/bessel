@@ -110,8 +110,8 @@ tokens :-
 
   ":"			{ \_ -> TokenColon }
 
-  ". "			{ \_ -> TokenPeriodSpace }
-  "."			{ \_ -> TokenPeriod }
+  "@ "			{ \_ -> TokenAtSpace }
+  "@"			{ \_ -> TokenAt }
 
   "o"			{ \s -> TokenComposition s }
 
@@ -136,7 +136,7 @@ tokens :-
 
   ":="			{ \_ -> TokenEquiv }
 
-  "@"			{ \_ -> TokenAt "." }
+  "."			{ \_ -> TokenDot }
     
 
 -- identifier

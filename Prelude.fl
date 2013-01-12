@@ -8,9 +8,9 @@ use Core.Shell
 
 -- first dependecies
 
--- def K := lambda (x.) lambda (y.) x
+-- def K := lambda x@ lambda y@ x
 
-nrdef raise := lambda (f.isfunc) isfunc || (seqof:isfunc && ¬:isnull) -> lift:f ; f
+nrdef raise := lambda f@isfunc isfunc || (seqof:isfunc && ¬:isnull) -> lift:f ; f
 
 
 -- comparison functions
@@ -44,7 +44,7 @@ nrdef / := raise:div
 
 -- 'K' moved above because of dependencies
 
-nrdef C := lambda (f.isfunc) lambda (x.) lambda (y.) f:<x,y>
+nrdef C := lambda f@isfunc lambda x@ lambda y@ f:<x,y>
 
 -- prelude moved above because of dependencies
 
@@ -53,12 +53,12 @@ nrdef eqto := C:eq
 
 -- sequence combining forms
 
-def sl f.isfunc :=
-  [|x.|] -> x ;
-  xs. <= x. -> f o [sl:f o xs,x]
+def sl f@isfunc :=
+  [|x@|] -> x ;
+  xs@ <= x@ -> f o [sl:f o xs,x]
 
-def sr f.isfunc :=
-  [|x.|] -> x ;
-  x. => xs. -> f o [x, sr:f o xs]
+def sr f@isfunc :=
+  [|x@|] -> x ;
+  x@ => xs@ -> f o [x, sr:f o xs]
 
 -- sequence functions

@@ -57,8 +57,7 @@ import Macros
 
         ':'     { TokenColon }
 
-        '.'     { TokenPeriod }
-        '. '    { TokenPeriodSpace }
+        '.'     { TokenDot }
 
         'o'     { TokenComposition $$ }
 
@@ -83,7 +82,8 @@ import Macros
 
         ':='    { TokenEquiv }
 
-        '@'     { TokenAt $$ }
+        '@'     { TokenAt }
+        '@ '    { TokenAtSpace }
 
         -- identifier
         name      { TokenName $$ }
@@ -103,7 +103,7 @@ import Macros
 %left '+' '-'           -- additives
 %left '*' '/'           -- multiplicatives
 %left 'o'               -- composition
-%left '.' '. '          -- pattern
+-- %left '@' '@ '          -- pattern
 %left ':'               -- application
 %nonassoc '~'           -- constant
 %nonassoc '\''          -- lift
@@ -153,27 +153,27 @@ Defn:
   | DefnKw OpOrName             '<-' Pat  ':=' Expr    { defPatMacro $1 $2 [] $4 $6 }
   | DefnKw OpOrName                       ':=' Expr    { DefnStx $1 $2 $4 }
 
-  | exdef  DefnPat  DefnPatList '<-' Expr ':=' Expr    { case exdefExprMacro $2 $3 $5 $7 of
+  | exdef  Pat      DefnPatList '<-' Expr ':=' Expr    { case exdefExprMacro $2 $3 $5 $7 of
                                                            [] -> error "exdef: empty pattern"
                                                            stxs -> SeqStx stxs }
-  | exdef  DefnPat  DefnPatList '<-' Pat  ':=' Expr    { case exdefPatMacro $2 $3 $5 $7 of
+  | exdef  Pat      DefnPatList '<-' Pat  ':=' Expr    { case exdefPatMacro $2 $3 $5 $7 of
                                                            [] -> error "exdef: empty pattern"
                                                            stxs -> SeqStx stxs }
-  | exdef  DefnPat  DefnPatList           ':=' Expr    { case exdefMacro $2 $3 $5 of
+  | exdef  Pat      DefnPatList           ':=' Expr    { case exdefMacro $2 $3 $5 of
                                                            [] -> error "exdef: empty pattern"
                                                            stxs -> SeqStx stxs }
-  | exdef  DefnPat              '<-' Expr ':=' Expr    { case exdefExprMacro $2 [] $4 $6 of
+  | exdef  Pat                  '<-' Expr ':=' Expr    { case exdefExprMacro $2 [] $4 $6 of
                                                            [] -> error "exdef: empty pattern"
                                                            stxs -> SeqStx stxs }
-  | exdef  DefnPat              '<-' Pat  ':=' Expr    { case exdefPatMacro $2 [] $4 $6 of
+  | exdef  Pat                  '<-' Pat  ':=' Expr    { case exdefPatMacro $2 [] $4 $6 of
                                                            [] -> error "exdef: empty pattern"
                                                            stxs -> SeqStx stxs }
-  | exdef  DefnPat                        ':=' Expr    { case exdefMacro $2 [] $4 of
+  | exdef  Pat                            ':=' Expr    { case exdefMacro $2 [] $4 of
                                                            [] -> error "exdef: empty pattern"
                                                            stxs -> SeqStx stxs }
 
   | type  OpOrName                        ':=' Expr        { typeExprMacro $2 $4 }
-  | type  OpOrName                        ':=' Pat         { typePatMacro $2 $4 }
+  | type  OpOrName                        ':=' PatNoSpace  { typePatMacro $2 $4 }
 --| asn   Expr         ':=' Expr        { AsnStx  $2 $4 }
 --| sig   OpOrName     	    		  '::' MetaPred    { SigStx  $2 $4 }
 
@@ -181,15 +181,9 @@ DefnKw:
     def      { Def }
   | nrdef    { NrDef }
 
-DefnPat:
-    name '.' DefnPat    { namePat $1 $3 }
-  | '(' OpPat ')'       { $2 }
-  | NamePat             { $1 }
-  | ConsPat             { $1 }
-
 DefnPatList:
-    DefnPatList DefnPat    { $1 ++ [$2] }
-  | DefnPat                { [$1] }
+    DefnPatList Pat { $1 ++ [$2] }
+  | Pat             { [$1] }
 
 Expr:
     Atom                          { $1 }
@@ -217,7 +211,14 @@ Expr:
   | Expr '|' Expr                 { AppStx (IdStx $2) (SeqStx [$1, $3]) }
   | Expr name Expr                { AppStx (IdStx $2) (SeqStx [$1, $3]) }
 
-  | '['                    ']'    { AppStx (IdStx "cons") (SeqStx []) }
+  | lambda Pat Expr %prec lambda_prec   { lambdaMacro $2 $3 }
+
+  | Expr where '{' DefnList '}'   { WhereStx $1 $4 }
+
+  | ParenExpr { $1 }
+
+ParenExpr:
+    '['                    ']'    { AppStx (IdStx "cons") (SeqStx []) }
   | '[' PrimeList          ']'    { AppStx (primesMacro $2 "cons") (SeqStx []) }
   | '['           ExprList ']'    { AppStx (IdStx "cons") (SeqStx $2) }
   | '[' PrimeList ExprList ']'    { AppStx (primesMacro $2 "cons") (SeqStx $3) }
@@ -225,11 +226,6 @@ Expr:
   | '[|' PrimeList          '|]'  { AppStx (primesMacro $2 "pcons") (SeqStx []) }
   | '[|'           ExprList '|]'  { AppStx (IdStx "pcons") (SeqStx $2) }
   | '[|' PrimeList ExprList '|]'  { AppStx (primesMacro $2 "pcons") (SeqStx $3) }
-
-  | lambda '(' Pat ')' Expr %prec lambda_prec   { lambdaMacro $3 $5 }
-
-  | Expr where '{' DefnList '}'   { WhereStx $1 $4 }
-
   | '(' Expr ')'                  { $2 }
 
 Atom:
@@ -258,7 +254,7 @@ OpOrName:
      
   | name        { $1 }
 
-  | name '@' OpOrName { $1 ++ $2 ++ $3 }
+  | name '.' OpOrName { $1 ++ "." ++ $3 }
 
 Seq:
     '<' ExprList '>'    { SeqStx $2 }
@@ -274,11 +270,15 @@ Cond:
   | Pat  '->'           Expr            { ifthenMacro $1 $3 }
 
 Pat:
-    name '.'            { namePat $1 (mkPat (IdStx "tt") [] []) }
-  | name '.' Pat        { namePat $1 $3 }
-  | OpPat               { $1 }
-  | NamePat             { $1 }
-  | ConsPat             { $1 }
+    PatRest     { $1 }
+  | name '@ '   { namePat $1 (mkPat (IdStx "tt") [] []) }
+
+PatRest:
+    OpPat                 { $1 }
+  | ConsPat               { $1 }
+  | name '@' OpOrName     { namePat $1 (mkPat (IdStx $3) [] []) }
+  | name '@' ConsPat      { namePat $1 $3 }
+  | name '@' ParenExpr    { namePat $1 (mkPat $3 [] []) }
 
 OpPat:
     Pat 'o' Pat        { let Pat pred _ = $3 in
@@ -288,24 +288,24 @@ OpPat:
   | Pat '&&' Pat       { mkPat (IdStx $2) [IdStx "id", IdStx "id"] [$1, $3] }
   | Pat '||' Pat       { mkPat (IdStx $2) [IdStx "id", IdStx "id"] [$1, $3] }
 
-NamePat:
-    name '. '           { namePat $1 (mkPat (IdStx "tt") [] []) }
-  | name '.' Expr       { namePat $1 (mkPat $3 [] []) }
-
 ConsPat:
     '[|' PatList '|]'   { mkPat (IdStx "pcons") [ appStx "s" (IntStx i) | i <- [1..length $2] ] $2 }
 
 PatList:
-    ExprList ',' Pat ',' PatList2       { map (\expr -> mkPat expr [] []) $1 ++ [$3] ++ $5 }
-  | ExprList ',' Pat                    { map (\expr -> mkPat expr [] []) $1 ++ [$3] }
-  | Pat ',' PatList2                    { $1 : $3 }
-  | Pat                                 { [$1] }
+    ExprList ',' PatNoSpace ',' PatList2 { map (\expr -> mkPat expr [] []) $1 ++ [$3] ++ $5 }
+  | ExprList ',' PatNoSpace              { map (\expr -> mkPat expr [] []) $1 ++ [$3] }
+  | PatNoSpace ',' PatList2              { $1 : $3 }
+  | PatNoSpace                           { [$1] }
 
 PatList2:
-    Expr ',' PatList2   { mkPat $1 [] [] : $3 }
-  | Pat  ',' PatList2   { $1 : $3 }
-  | Expr                { [mkPat $1 [] []] }
-  | Pat                 { [$1] }
+    Expr ',' PatList2        { mkPat $1 [] [] : $3 }
+  | PatNoSpace  ',' PatList2 { $1 : $3 }
+  | Expr                     { [mkPat $1 [] []] }
+  | PatNoSpace               { [$1] }
+
+PatNoSpace:
+    PatRest  { $1 }
+  | name '@' { namePat $1 (mkPat (IdStx "tt") [] []) }
 
 ExprList:
     ExprList ',' Expr   { $1 ++ [$3] }
@@ -363,8 +363,7 @@ data Token
 
      | TokenColon
 
-     | TokenPeriod
-     | TokenPeriodSpace
+     | TokenDot
 
      | TokenComposition String
 
@@ -397,7 +396,8 @@ data Token
 
      | TokenEquiv
 
-     | TokenAt String
+     | TokenAt
+     | TokenAtSpace
 
      -- identifier
      | TokenName String
