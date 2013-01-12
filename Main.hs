@@ -13,7 +13,8 @@ import Repl
 
 corefiles :: [SrcFile]
 corefiles =
-    let corefile | doTypecheck = CoreTypechecker.srcfile
+    let
+        corefile | doTypecheck = CoreTypechecker.srcfile
                  | otherwise = Core.srcfile
     in
       [corefile,
@@ -23,11 +24,8 @@ corefiles =
 
 
 preludeName :: String
-preludeName =
-    if doTypecheck then
-        "PreludeType"
-    else
-        "Prelude"
+preludeName | doTypecheck = "PreludeType"
+            | otherwise = "Prelude"
 
 
 main :: IO ()
