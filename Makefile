@@ -10,7 +10,7 @@ dist/obj:
 Parser.hs: Parser.y
 	happy Parser.y
 
-Lexer.hs: Lexer.x
+Lexer.hs: Lexer.x Parser.y
 	alex Lexer.x
 
 clean:
