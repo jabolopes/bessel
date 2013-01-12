@@ -55,11 +55,10 @@ nrdef eqto := C:eq
 
 def sl f.isfunc :=
   [|x.|] -> x ;
-  xs. <=. x. -> f:<sl:f:xs,x>
+  xs. <= x. -> f o [sl:f o xs,x]
 
 def sr f.isfunc :=
   [|x.|] -> x ;
-  x. =>. xs. -> f:<x,sr:f:xs>
-
+  x. => xs. -> f o [x, sr:f o xs]
 
 -- sequence functions

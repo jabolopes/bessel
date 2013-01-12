@@ -72,8 +72,6 @@ import Macros
 
         'o'     { TokenComposition $$ }
 
-        'o.'    { TokenPatComposition $$ }
-
         '*'     { TokenMult $$ }
         '/'     { TokenDiv $$ }
 
@@ -85,14 +83,8 @@ import Macros
         '=>'   { TokenPredAppendR $$ }
         '<='   { TokenPredAppendL $$ }
 
-        '=>.'   { TokenPatAppendR $$ }
-        '<=.'   { TokenPatAppendL $$ }
-
         '&&'    { TokenAnd $$ }
         '||'    { TokenOr $$ }
-
-        '&&.'   { TokenPatAnd $$ }
-        '||.'   { TokenPatOr $$ }
 
         '->'    { TokenRArrow }
         ';'     { TokenSemicolon }
@@ -114,15 +106,12 @@ import Macros
 %left '|'               -- reverse composition
 %right '->' ';'         -- condition
 %left name              -- infix name op
-%left '&&.' '||.'       -- pattern logical
 %left '&&' '||'         -- logical
-%left '=>.' '<=.'       -- pattern appends
 %left '=>' '<='         -- predicate appends
 %left '->' '<-'         -- arrows
 %left '='               -- equality
 %left '+' '-'           -- additives
 %left '*' '/'           -- multiplicatives
-%left 'o.'              -- pattern composition
 %left 'o'               -- composition
 %left '.' '. '          -- pattern
 %left ':'               -- application
@@ -309,12 +298,12 @@ Pat:
   | ConsPat             { $1 }
 
 OpPat:
-    Pat 'o.' Pat        { let Pat pred _ = $3 in
-                          mkPat (IdStx $2) [pred, IdStx "id"] [$1, $3] }
-  | Pat '=>.' Pat       { mkPat (IdStx $2) [IdStx "hd", IdStx "tl"] [$1, $3] }
-  | Pat '<=.' Pat       { mkPat (IdStx $2) [IdStx "tlr", IdStx "hdr"] [$1, $3] }
-  | Pat '&&.' Pat       { mkPat (IdStx $2) [IdStx "id", IdStx "id"] [$1, $3] }
-  | Pat '||.' Pat       { mkPat (IdStx $2) [IdStx "id", IdStx "id"] [$1, $3] }
+    Pat 'o' Pat        { let Pat pred _ = $3 in
+                         mkPat (IdStx $2) [pred, IdStx "id"] [$1, $3] }
+  | Pat '=>' Pat       { mkPat (IdStx $2) [IdStx "hd", IdStx "tl"] [$1, $3] }
+  | Pat '<=' Pat       { mkPat (IdStx $2) [IdStx "tlr", IdStx "hdr"] [$1, $3] }
+  | Pat '&&' Pat       { mkPat (IdStx $2) [IdStx "id", IdStx "id"] [$1, $3] }
+  | Pat '||' Pat       { mkPat (IdStx $2) [IdStx "id", IdStx "id"] [$1, $3] }
 
 NamePat:
     name '. '           { namePat $1 (mkPat (IdStx "tt") [] []) }

@@ -125,8 +125,6 @@ tokens :-
 
   "o"			{ \s -> TokenComposition s }
 
-  "o."			{ \s -> TokenPatComposition "o" }
-
   "*"			{ \s -> TokenMult s }
   "/"			{ \s -> TokenDiv s }
 
@@ -138,14 +136,8 @@ tokens :-
   "=>"			{ \s -> TokenPredAppendR s }
   "<="			{ \s -> TokenPredAppendL s }
 
-  "=>."			{ \_ -> TokenPatAppendR "=>" }
-  "<=."			{ \_ -> TokenPatAppendL "<=" }
-
   "&&"			{ \s -> TokenAnd s }
   "||"			{ \s -> TokenOr s }
-
-  "&&."			{ \s -> TokenPatAnd "&&" }
-  "||."			{ \s -> TokenPatOr "||" }
 
   "->"			{ \_ -> TokenRArrow}
   ";"			{ \_ -> TokenSemicolon }
