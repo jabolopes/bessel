@@ -68,6 +68,7 @@ unboxString expr  = error $ "Monad.InterpreterM.unboxString: expecting character
 
 
 all2 :: (a -> b -> Expr) -> [a] -> [b] -> Expr
+all2 _ [] [] = true
 all2 _ [] _ = false
 all2 _ _ [] = false
 all2 fn (x1:xs1) (x2:xs2)
