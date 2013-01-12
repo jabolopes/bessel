@@ -16,14 +16,14 @@ import Monad.InterpreterM
 
 
 handleOp :: Handle -> Int -> IO Expr
-handleOp h 0 = stringExpr <$> hGetContents h
+handleOp h 0 = boxString <$> hGetContents h
 
 
 open :: Expr -> Expr
 {-# NOINLINE open #-}
 open expr =
     TypeExpr "File" $ FnExpr $ \(IntExpr i) -> return $ unsafePerformIO $ do
-                                                 h <- openFile (stringLiteral expr) ReadMode
+                                                 h <- openFile (unboxString expr) ReadMode
                                                  val <- handleOp h i
                                                  hClose h
                                                  return val

@@ -198,8 +198,8 @@ add (SeqExpr exprs) = foldr add' (IntExpr 0) exprs
           add' (DoubleExpr d1) (DoubleExpr d2) = DoubleExpr $ d1 + d2
           add' (IntExpr i) (DoubleExpr d) = DoubleExpr $ (fromIntegral i) + d
           add' (DoubleExpr d) (IntExpr i) = DoubleExpr $ d + (fromIntegral i)
-          add' expr1 _ = signal $ SeqExpr [stringExpr "add", stringExpr "arg", expr1]
-add expr = signal $ SeqExpr [stringExpr "add", stringExpr "arg", expr]
+          add' expr1 _ = signal $ SeqExpr [boxString "add", boxString "arg", expr1]
+add expr = signal $ SeqExpr [boxString "add", boxString "arg", expr]
 
 
 sub :: Expr -> Expr
@@ -283,7 +283,7 @@ cond (SeqExpr [FnExpr fn1, FnExpr fn2]) =
       expr' <- fn1 expr
       if isNotFalseExpr expr'
         then fn2 expr
-        else signal $ SeqExpr [stringExpr "cond", stringExpr "1arm", expr]
+        else signal $ SeqExpr [boxString "cond", boxString "1arm", expr]
 
 cond (SeqExpr [FnExpr fn1, FnExpr fn2, FnExpr fn3]) =
     FnExpr $ \expr -> do
@@ -292,7 +292,7 @@ cond (SeqExpr [FnExpr fn1, FnExpr fn2, FnExpr fn3]) =
         then fn2 expr
         else fn3 expr
 
-cond expr = signal $ SeqExpr [stringExpr "cond", stringExpr "arg", expr]
+cond expr = signal $ SeqExpr [boxString "cond", boxString "arg", expr]
 
 
 apply :: Expr -> InterpreterM Expr
@@ -402,7 +402,7 @@ lenis (IntExpr i) =
 
 (¬) :: Expr -> Expr
 (¬) (FnExpr fn) = FnExpr $ \expr -> fn expr >>= return . not
-(¬) expr = signal $ SeqExpr [stringExpr "¬", stringExpr "arg", expr]
+(¬) expr = signal $ SeqExpr [boxString "¬", boxString "arg", expr]
 
 
 rarrow :: Expr -> Expr
@@ -526,7 +526,7 @@ out :: Expr -> Expr
 out expr@(SeqExpr [SeqExpr [CharExpr 's', CharExpr 'c', CharExpr 'r'], SeqExpr str]) =
     unsafePerformIO $ do putStr $ map (\(CharExpr c) -> c) str
                          return expr
-out expr = signal $ SeqExpr [stringExpr "out", stringExpr "arg1", expr]
+out expr = signal $ SeqExpr [boxString "out", boxString "arg1", expr]
 
 
 -- edit: in, get, put

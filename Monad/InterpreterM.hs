@@ -57,12 +57,14 @@ true :: Expr
 true = BoolExpr True
 
 
-stringExpr :: String -> Expr
-stringExpr = SeqExpr . map CharExpr
+boxString :: String -> Expr
+boxString = SeqExpr . map CharExpr
 
 
-stringLiteral :: Expr -> String
-stringLiteral (SeqExpr cs) = map (\(CharExpr c) -> c) cs
+unboxString :: Expr -> String
+unboxString (SeqExpr cs) | all isCharExpr cs = map (\(CharExpr c) -> c) cs
+unboxString expr  = error $ "Monad.InterpreterM.unboxString: expecting character sequence" ++
+                            "\n\n\t expr = " ++ show expr ++ "\n\n"
 
 
 all2 :: (a -> b -> Expr) -> [a] -> [b] -> Expr

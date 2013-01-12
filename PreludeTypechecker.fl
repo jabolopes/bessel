@@ -1,5 +1,6 @@
 me PreludeTypechecker
 
 use Core
+use Core.Environment
 use Core.IO
 use Core.Shell

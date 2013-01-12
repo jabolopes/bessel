@@ -2,6 +2,7 @@ module Main where
 
 import qualified Core (srcfile)
 import qualified CoreTypechecker (srcfile)
+import qualified Core.Environment (srcfile)
 import qualified Core.IO (srcfile)
 import qualified Core.Shell (srcfile)
 import Data.SrcFile
@@ -14,6 +15,7 @@ corefiles =
                  | otherwise = Core.srcfile
     in
       [corefile,
+       Core.Environment.srcfile,
        Core.IO.srcfile,
        Core.Shell.srcfile]
 
