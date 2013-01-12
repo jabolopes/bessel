@@ -1,5 +1,7 @@
 module Main where
 
+import System.Environment
+
 import qualified Core (srcfile)
 import qualified CoreTypechecker (srcfile)
 import qualified Core.Environment (srcfile)
@@ -30,4 +32,7 @@ preludeName =
 
 main :: IO ()
 main =
-    importFile corefiles preludeName >>= repl
+    do args <- getArgs
+       case args of
+         [] -> importFile corefiles preludeName >>= repl
+         filenames -> importFiles corefiles filenames >>= batch "main"

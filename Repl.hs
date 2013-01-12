@@ -123,6 +123,15 @@ importFile corefiles filename =
        return $ ReplState corefiles (mkInteractiveFrame (nub ["Core", "Prelude", filename]) renamerState) exprEnv Map.empty
 
 
+importFiles :: [SrcFile] -> [String] -> IO ReplState
+importFiles corefiles [filename] =
+    importFile corefiles filename
+
+importFiles corefiles (filename:filenames) =
+    do importFile corefiles filename
+       importFiles corefiles filenames
+
+
 runM :: ExprEnv -> Stx String -> ReplM ExprEnv
 runM exprEnv stx =
     do let (expr, exprEnv') = interpretIncremental exprEnv [stx]
@@ -290,3 +299,9 @@ repl state =
 
           flException (SignalException str) =
               putStrLn $ "uncaught exception: " ++ str
+
+
+batch :: String -> ReplState -> IO ()
+batch ln state =
+    do _ <- runStateT (promptM ln) state
+       return ()
