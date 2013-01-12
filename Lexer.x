@@ -71,9 +71,7 @@ tokens :-
   @comment		;
 
   -- symbols
-  "::"			{ \_ -> TokenColonColon }
   ","			{ \_ -> TokenComma }
-  "=f=>"		{ \_ -> TokenFnMetaPred }
   "<-"			{ \_ -> TokenLArrow}
 
   -- grouping
@@ -89,20 +87,12 @@ tokens :-
   ">"			{ \_ -> TokenRSeqParen }
 
   -- keywords
-  "asn"			{ \_ -> TokenAsn }
   "def"			{ \_ -> TokenDef }
   "exdef"		{ \_ -> TokenExdef }
-  "export"		{ \_ -> TokenExport }
-  "forall"		{ \_ -> TokenForall }
-  "hide"		{ \_ -> TokenHide }
   "lambda"		{ \_ -> TokenLambda }
-  "meta"		{ \_ -> TokenMeta }
   "me"			{ \_ -> TokenMe }
   "module"		{ \_ -> TokenModule }
   "nrdef"		{ \_ -> TokenNrdef }
-  "pat"			{ \_ -> TokenPat }
-  "rec"			{ \_ -> TokenRec }
-  "sig"			{ \_ -> TokenSig }
   "type"		{ \_ -> TokenType }
   "use"			{ \_ -> TokenUse }
   "where"		{ \_ -> TokenWhere }

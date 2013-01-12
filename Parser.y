@@ -18,9 +18,7 @@ import Macros
 
 %token
         -- symbols
-        '::'    { TokenColonColon }
         ','     { TokenComma }
-        '=f=>'  { TokenFnMetaPred }
         '<-'    { TokenLArrow }
 
         -- grouping
@@ -36,20 +34,12 @@ import Macros
         '>'     { TokenRSeqParen }
 
         -- keywords
-        asn     { TokenAsn }
         def     { TokenDef }
         exdef   { TokenExdef }
-        export  { TokenExport }
-        forall  { TokenForall }
-        hide    { TokenHide }
         lambda  { TokenLambda }
-        meta    { TokenMeta }
         me      { TokenMe }
         module  { TokenModule }
         nrdef   { TokenNrdef }
-        pat     { TokenPat }
-        rec     { TokenRec }
-        sig     { TokenSig }
         type    { TokenType }
         use     { TokenUse }
         where   { TokenWhere }
@@ -197,13 +187,6 @@ DefnPat:
   | NamePat             { $1 }
   | ConsPat             { $1 }
 
-ArgExpr:
-    DefnPatList                { ($1, Nothing) }
-  | DefnPatList '<-' Expr      { ($1, Just (Right $3)) }
-  | DefnPatList '<-' Pat       { ($1, Just (Left $3)) }
-  | '<-' Expr                  { ([], Just (Right $2)) }
-  | '<-' Pat                   { ([], Just (Left $2)) }
-
 DefnPatList:
     DefnPatList DefnPat    { $1 ++ [$2] }
   | DefnPat                { [$1] }
@@ -324,30 +307,6 @@ PatList2:
   | Expr                { [mkPat $1 [] []] }
   | Pat                 { [$1] }
 
-NameList:
-    NameList ',' name   { $1 ++ [$3] }
-  | name                { [$1] }
-
-MetaPred:
---  Expr                                { }
-    name                                { IdStx $1 }
---| meta '(' Expr ')'                   { }
---| MetaPred '=f=>' MetaPred            { FnMetaPred $1 $3 }
-  | '[|' MetaPredList '|]'              { SeqStx $2 }
-  | '[|' '|]'                           { SeqStx [] }
-  | MetaPred '<=' MetaPred              { }
-  | MetaPred '=>' MetaPred              { }
---| seqof ':' MetaPred                  { SeqMetaPred $3 }
-  | MetaPred '&&' MetaPred              { }
-  | MetaPred '||' MetaPred              { }
---| '¬' ':' MetaPred                    { }
-  | '(' MetaPred ')'                    { $2 }
---| forall '(' NameList ')' MetaPred    { }
-
-MetaPredList:
-    MetaPredList ',' MetaPred   { $1 ++ [$3] }
-  | MetaPred                    { [$1] }
-
 ExprList:
     ExprList ',' Expr   { $1 ++ [$3] }
   | Expr                { [$1] }
@@ -365,9 +324,7 @@ parseError tks = throwParseException $ show tks
 
 data Token
      -- symbols
-     = TokenColonColon
-     | TokenComma
-     | TokenFnMetaPred
+     = TokenComma
      | TokenLArrow
 
      -- grouping
@@ -383,20 +340,12 @@ data Token
      | TokenRSeqParen
 
      -- keywords
-     | TokenAsn
      | TokenDef
      | TokenExdef
-     | TokenExport
-     | TokenForall
-     | TokenHide
      | TokenLambda
-     | TokenMeta
      | TokenMe
      | TokenModule
      | TokenNrdef
-     | TokenPat
-     | TokenRec
-     | TokenSig
      | TokenType
      | TokenUse
      | TokenWhere
