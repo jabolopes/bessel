@@ -38,7 +38,7 @@ catchIOError = catch
 
 
 doPutLine = False
-doPutTokens = False
+doPutTokens = True
 doPutParsedStx = True
 doPutRenamedStx = False
 doPutExpr = True
@@ -198,6 +198,13 @@ showModuleM showAll showBrief filename =
               | otherwise = show srcfile
                   
 
+showTokensM :: String -> ReplM ()
+showTokensM filename =
+    liftIO $ do
+      str <- readFileM filename
+      putStrLn $ show $ lex str
+
+
 showRenamedM :: Bool -> String -> ReplM ()
 showRenamedM showAll filename =
     do ReplState corefiles _ _ _ <- get
@@ -230,6 +237,9 @@ runCommandM "show" opts nonOpts
         let showAll = ShowAll `elem` opts
             showBrief = ShowBrief `elem` opts in
         showModuleM showAll showBrief $ last nonOpts
+
+    | head nonOpts == "tokens" =
+        showTokensM $ last nonOpts
 
     | head nonOpts == "renamed" =
         let showAll = ShowAll `elem` opts in

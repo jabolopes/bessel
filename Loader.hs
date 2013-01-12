@@ -1,5 +1,7 @@
 {-# LANGUAGE ParallelListComp, TupleSections #-}
-module Loader (preload) where
+module Loader where
+
+import Prelude hiding (lex)
 
 import Control.Monad.State
 import Data.Functor ((<$>))
@@ -14,7 +16,7 @@ import Data.Tree
 import Data.SrcFile
 import Data.Stx
 import Data.Pat
-import qualified Lexer (lex)
+import Lexer (lex)
 import Parser (parsePrelude, parseFile)
 import Utils
 
@@ -43,10 +45,17 @@ dependenciesM (TypeIsStx _ _) = return ()
 dependenciesM (WhereStx _ stxs) = mapM_ dependenciesM stxs
 
 
+readFileM :: String -> IO String
+readFileM filename = readFile $ (toFilename filename) ++ ".fl"
+    where toFilename = map f
+              where f '.' = '/'
+                    f c = c
+
+
 dependenciesFileM :: String -> IO SrcFile
 dependenciesFileM filename =
-    do str <- readFile $ (toFilename filename) ++ ".fl"
-       let tks = Lexer.lex str
+    do str <- readFileM filename
+       let tks = lex str
            parseFn | filename == "Prelude" = parsePrelude
                    | otherwise = parseFile
            (SrcFile name [] Nothing content@(Left ns)) = parseFn tks
@@ -55,9 +64,6 @@ dependenciesFileM filename =
        if name /= filename
        then error $ "Loader.dependenciesFileM: me " ++ show name ++ " and filename " ++ show filename ++ " mismatch"
        else return $ SrcFile name deps' Nothing content
-    where toFilename = map f
-              where f '.' = '/'
-                    f c = c
 
 
 preloadSrcFile :: Map String SrcFile -> String -> IO [SrcFile]
