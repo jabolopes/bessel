@@ -29,8 +29,9 @@ corefiles =
 
 
 preludeName :: String
-preludeName | doTypecheck = "PreludeType"
-            | otherwise = "Prelude"
+preludeName
+    | doTypecheck = "PreludeType"
+    | otherwise = "Prelude"
 
 
 main :: IO ()
