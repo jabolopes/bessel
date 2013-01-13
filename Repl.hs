@@ -123,15 +123,6 @@ importFile corefiles filename =
        return $ ReplState corefiles (mkInteractiveFrame (last srcfiles') renamerState) exprEnv Map.empty
 
 
-importFiles :: [SrcFile] -> [String] -> IO ReplState
-importFiles corefiles [filename] =
-    importFile corefiles filename
-
-importFiles corefiles (filename:filenames) =
-    do importFile corefiles filename
-       importFiles corefiles filenames
-
-
 runM :: ExprEnv -> Stx String -> ReplM ExprEnv
 runM exprEnv stx =
     do let (expr, exprEnv') = interpretIncremental exprEnv [stx]
