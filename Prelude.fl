@@ -5,6 +5,8 @@ use Core.Environment
 use Core.IO
 use Core.Shell
 
+use Core.Happstack
+
 
 -- first dependecies
 

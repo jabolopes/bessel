@@ -7,6 +7,9 @@ import qualified CoreTypechecker (srcfile)
 import qualified Core.Environment (srcfile)
 import qualified Core.IO (srcfile)
 import qualified Core.Shell (srcfile)
+
+import qualified Core.Happstack (srcfile)
+
 import Data.SrcFile
 import Repl
 
@@ -20,7 +23,9 @@ corefiles =
       [corefile,
        Core.Environment.srcfile,
        Core.IO.srcfile,
-       Core.Shell.srcfile]
+       Core.Shell.srcfile,
+
+       Core.Happstack.srcfile]
 
 
 preludeName :: String
