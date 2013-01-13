@@ -212,12 +212,14 @@ renameM (WhereStx stx stxs) =
       return $ WhereStx stx' stxs'
 
 
-mkInteractiveFrame :: [String] -> RenamerState -> RenamerState
-mkInteractiveFrame modNames state =
+mkInteractiveFrame :: SrcFile -> RenamerState -> RenamerState
+mkInteractiveFrame srcfile@(SrcFile name deps _ _) state =
     case runStateT mkInteractiveFrameM state of
       Left str -> error str
       Right (_, x) -> x
-    where mkInteractiveFrameM =
+    where modNames = deps ++ [name]
+
+          mkInteractiveFrameM =
               do frameEnv <- frameEnv <$> get
                  currentFrame <- getCurrentFrameM
                  let (frameEnv', frame) = FrameEnv.addFrame frameEnv currentFrame

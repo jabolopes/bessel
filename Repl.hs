@@ -120,7 +120,7 @@ importFile corefiles filename =
            (_, exprEnv) = interpret srcfiles'
        -- putStrLn $ show exprEnv -- edit: forcing evaluation
        -- !symbols' <- liftIO $ return $ typecheckerEither $ typecheckStxs symbols stxs
-       return $ ReplState corefiles (mkInteractiveFrame (nub ["Core", "Prelude", filename]) renamerState) exprEnv Map.empty
+       return $ ReplState corefiles (mkInteractiveFrame (last srcfiles') renamerState) exprEnv Map.empty
 
 
 importFiles :: [SrcFile] -> [String] -> IO ReplState
