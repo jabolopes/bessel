@@ -33,4 +33,4 @@ main =
     do args <- getArgs
        case args of
          [] -> importFile corefiles preludeName >>= repl
-         filenames -> importFiles corefiles filenames >>= batch "main"
+         filename:_ -> importFile corefiles filename >>= batch "main:<>"

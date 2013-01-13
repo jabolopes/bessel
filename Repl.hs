@@ -118,7 +118,7 @@ importFile corefiles filename =
     do srcfiles <- preload corefiles filename
        let (srcfiles', renamerState) = renamerEither $ rename srcfiles
            (_, exprEnv) = interpret srcfiles'
-       putStrLn $ show exprEnv -- edit: forcing evaluation
+       -- putStrLn $ show exprEnv -- edit: forcing evaluation
        -- !symbols' <- liftIO $ return $ typecheckerEither $ typecheckStxs symbols stxs
        return $ ReplState corefiles (mkInteractiveFrame (nub ["Core", "Prelude", filename]) renamerState) exprEnv Map.empty
 
@@ -280,38 +280,42 @@ replM =
                  | otherwise -> promptM ln >> return False
 
 
+finallyIOException state e =
+    ioException e >> return (False, state)
+
+finallyFlException state e =
+    flException e >> return (False, state)
+
+ioException e =
+    putStrLn $ show e
+
+flException (RenamerException str) =
+    putStrLn $ "renamer error: " ++ str
+
+flException (TypecheckerException str) =
+    putStrLn $ "typechecker error: " ++ str
+
+flException (InterpreterException str) =
+    putStrLn $ "interpreter error: " ++ str
+
+flException (ParseException str) =
+    putStrLn $ "parse error: " ++ str
+
+flException (SignalException str) =
+    putStrLn $ "uncaught exception: " ++ str
+
+
 repl :: ReplState -> IO ()
 repl state =
     do (b, state') <- (runStateT replM state
                        `catchIOError` finallyIOException state)
                       `catchFlException` finallyFlException state
        if b then return () else repl state'
-    where finallyIOException state e =
-              ioException e >> return (False, state)
-
-          finallyFlException state e =
-              flException e >> return (False, state)
-
-          ioException e =
-              putStrLn $ show e
-
-          flException (RenamerException str) =
-              putStrLn $ "renamer error: " ++ str
-
-          flException (TypecheckerException str) =
-              putStrLn $ "typechecker error: " ++ str
-
-          flException (InterpreterException str) =
-              putStrLn $ "interpreter error: " ++ str
-
-          flException (ParseException str) =
-              putStrLn $ "parse error: " ++ str
-
-          flException (SignalException str) =
-              putStrLn $ "uncaught exception: " ++ str
 
 
 batch :: String -> ReplState -> IO ()
 batch ln state =
-    do _ <- runStateT (promptM ln) state
+    do _ <- (runStateT (promptM ln >> return True) state
+             `catchIOError` finallyIOException state)
+            `catchFlException` finallyFlException state
        return ()

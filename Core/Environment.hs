@@ -15,7 +15,7 @@ getArgs :: a -> Expr
 getArgs _ =
     unsafePerformIO $ do
       args <- Environment.getArgs
-      return $ SeqExpr $ map boxString args
+      return $ SeqExpr $ map boxString $ tail args
 
 
 srcfile :: SrcFile
