@@ -17,6 +17,7 @@ import Monad.InterpreterM
 handlers path =
     msum [ serveDirectory EnableBrowsing [] path ]
 
+
 serve :: Expr -> InterpreterM Expr
 {-# NOINLINE serve #-}
 serve expr =
