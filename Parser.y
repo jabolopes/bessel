@@ -270,8 +270,12 @@ Cond:
   | Pat  '->'           Expr            { ifthenMacro $1 $3 }
 
 Pat:
-    PatRest     { $1 }
-  | name '@ '   { namePat $1 (mkPat (IdStx "tt") [] []) }
+    PatRest   { $1 }
+  | name '@ ' { namePat $1 (mkPat (IdStx "tt") [] []) }
+
+PatNoSpace:
+    PatRest   { $1 }
+  | name '@'  { namePat $1 (mkPat (IdStx "tt") [] []) }
 
 PatRest:
     OpPat                 { $1 }
@@ -302,10 +306,6 @@ PatList2:
   | PatNoSpace  ',' PatList2 { $1 : $3 }
   | Expr                     { [mkPat $1 [] []] }
   | PatNoSpace               { [$1] }
-
-PatNoSpace:
-    PatRest  { $1 }
-  | name '@' { namePat $1 (mkPat (IdStx "tt") [] []) }
 
 ExprList:
     ExprList ',' Expr   { $1 ++ [$3] }
