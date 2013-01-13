@@ -1,6 +1,7 @@
 module Monad.InterpreterM where
 
 import Control.Monad.State
+import Data.Dynamic
 import Data.List (intercalate)
 
 import Data.Env (Env)
@@ -18,6 +19,7 @@ data Expr
     | SeqExpr [Expr]
     | FnExpr (Expr -> InterpreterM Expr)
     | TypeExpr String Expr
+    | DynExpr Dynamic
 
 
 instance Show Expr where
@@ -33,6 +35,7 @@ instance Show Expr where
     show (SeqExpr exprs) = "<" ++ intercalate "," (map show exprs) ++ ">"
     show (FnExpr _) = "fn"
     show (TypeExpr name expr) = name ++ " " ++ show expr
+    show (DynExpr _) = "#"
 
 
 isFalseExpr :: Expr -> Bool
