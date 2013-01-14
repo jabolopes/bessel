@@ -23,30 +23,32 @@ handleOp h 0 = boxString <$> hGetContents h
 fileTypename = "Core.IO.File"
 
 
-open :: Expr -> InterpreterM Expr
-{-# NOINLINE open #-}
-open expr =
-    return $ unsafePerformIO $ do
-      h <- openFile (unboxString expr) ReadMode
-      return $ TypeExpr fileTypename $ DynExpr $ toDyn h
+link :: [Int] -> (SrcFile, [Int])
+link ids = (srcfile, tail ids)
+    where fileTid = head ids
 
+          open :: Expr -> InterpreterM Expr
+          {-# NOINLINE open #-}
+          open expr =
+              return $ unsafePerformIO $ do
+                h <- openFile (unboxString expr) ReadMode
+                return $ TypeExpr fileTypename fileTid $ DynExpr $ toDyn h
 
-read :: Expr -> Expr
-{-# NOINLINE read #-}
-read (TypeExpr tname (DynExpr d)) | tname == fileTypename =
-    unsafePerformIO $ boxString <$> hGetContents (fromJust (fromDynamic d))
+          read :: Expr -> Expr
+          {-# NOINLINE read #-}
+          read (TypeExpr _ tid (DynExpr d)) | tid == fileTid =
+              unsafePerformIO $ boxString <$> hGetContents (fromJust (fromDynamic d))
 
+          close :: Expr -> Expr
+          {-# NOINLINE close #-}
+          close (TypeExpr _ tid (DynExpr d)) | tid == fileTid =
+              unsafePerformIO $ do
+                hClose $ fromJust $ fromDynamic d
+                return $ SeqExpr []
 
-close :: Expr -> Expr
-{-# NOINLINE close #-}
-close (TypeExpr tname (DynExpr d)) | tname == fileTypename =
-    unsafePerformIO $ do
-      hClose $ fromJust $ fromDynamic d
-      return $ SeqExpr []
-
-
-srcfile :: SrcFile
-srcfile = SrcFile "Core.IO" ["Core"] Nothing $ Right $
-          Map.fromList [("open", (ArrowT DynT DynT, FnExpr open)),
-                        ("read", (ArrowT DynT DynT, m read)),
-                        ("close", (ArrowT DynT DynT, m close))]
+          srcfile :: SrcFile
+          srcfile = SrcFile "Core.IO" ["Core"] Nothing $ Right $
+                    (["File"],
+                     Map.fromList [("open", (ArrowT DynT DynT, FnExpr open)),
+                                   ("read", (ArrowT DynT DynT, m read)),
+                                   ("close", (ArrowT DynT DynT, m close))])

@@ -7,7 +7,7 @@ import System.IO.Strict (hGetContents)
 import System.IO.Unsafe
 import System.Process hiding (shell)
 
-import Core
+import Core hiding (srcfile)
 import Data.SrcFile
 import Data.Type
 import Monad.InterpreterM
@@ -27,4 +27,8 @@ shell expr =
 
 srcfile :: SrcFile
 srcfile = SrcFile "Core.Shell" ["Core"] Nothing $ Right $
-          Map.fromList [("shell", (ArrowT (SeqT CharT) (SeqT CharT), m shell))]
+          ([], Map.fromList [("shell", (ArrowT (SeqT CharT) (SeqT CharT), m shell))])
+
+
+link :: a -> (SrcFile, a)
+link ids = (srcfile, ids)

@@ -70,7 +70,7 @@ ischar _ = false
 
 
 isutype :: Expr -> Expr
-isutype (TypeExpr _ _) = true
+isutype (TypeExpr _ _ _) = true
 isutype _ = false
 
 
@@ -664,4 +664,4 @@ k expr = FnExpr $ \_ -> return expr
 
 srcfile :: SrcFile
 srcfile = SrcFile "Core" [] Nothing $ Right $
-          Map.fromList $ map (\(a, b, c) -> (a, (b, c))) syms
+          ([], Map.fromList $ map (\(a, b, c) -> (a, (b, c))) syms)

@@ -100,7 +100,7 @@ interpretSrcFile :: ExprEnv -> SrcFile -> (Expr, ExprEnv)
 interpretSrcFile state (SrcFile _ _ _ (Left (Namespace _ stxs))) =
     interpretIncremental state stxs
 
-interpretSrcFile state (SrcFile _ _ _ (Right binds)) =
+interpretSrcFile state (SrcFile _ _ _ (Right (_, binds))) =
     let
         binds' = map (\(name, (_, expr)) -> (name, expr)) $ Map.toList binds
         m = do mapM_ (\(name, expr) -> addBindM name expr) binds'

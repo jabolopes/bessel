@@ -2,8 +2,7 @@ module CoreTypechecker where
 
 import Prelude hiding (id)
 
-import Data.Map (Map)
-import qualified Data.Map as Map
+import qualified Data.Map as Map (fromList)
 
 import Core hiding (syms, srcfile)
 import Data.SrcFile
@@ -105,4 +104,4 @@ syms = [
 
 
 srcfile :: SrcFile
-srcfile = SrcFile "Core" [] Nothing $ Right $ Map.fromList syms
+srcfile = SrcFile "Core" [] Nothing $ Right ([], Map.fromList syms)

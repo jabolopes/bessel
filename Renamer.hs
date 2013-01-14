@@ -244,7 +244,7 @@ renameSrcFiles srcfiles = mapM renameSrcFile srcfiles
                                    return (ns', frame)
                  saveSrcfile $ SrcFile name deps (Just frame) $ Left ns'
 
-          renameSrcFile srcfile@(SrcFile name deps Nothing content@(Right binds)) =
+          renameSrcFile srcfile@(SrcFile name deps Nothing content@(Right (_, binds))) =
               do frame <- withScopeM $ do
                             mapM_ (\name -> addFnSymbolM name name) $ Map.keys binds
                             frame <- getCurrentFrameM

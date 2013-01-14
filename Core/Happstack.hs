@@ -32,4 +32,4 @@ serve expr =
 
 srcfile :: SrcFile
 srcfile = SrcFile "Core.Happstack" ["Core"] Nothing $ Right $
-          Map.fromList [("serve", (ArrowT (SeqT CharT) DynT, FnExpr serve))]
+          ([], Map.fromList [("serve", (ArrowT (SeqT CharT) DynT, FnExpr serve))])

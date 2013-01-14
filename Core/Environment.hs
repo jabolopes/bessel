@@ -4,7 +4,7 @@ import qualified Data.Map as Map (fromList)
 import qualified System.Environment as Environment (getArgs)
 import System.IO.Unsafe (unsafePerformIO)
 
-import Core
+import Core hiding (srcfile)
 import Data.Type
 import Data.SrcFile
 import Monad.InterpreterM
@@ -20,4 +20,8 @@ getArgs _ =
 
 srcfile :: SrcFile
 srcfile = SrcFile "Core.Environment" ["Core"] Nothing $ Right $
-          Map.fromList [("getArgs", (ArrowT DynT (SeqT (SeqT CharT)), m getArgs))]
+          ([], Map.fromList [("getArgs", (ArrowT DynT (SeqT (SeqT CharT)), m getArgs))])
+
+
+link :: a -> (SrcFile, a)
+link ids = (srcfile, ids)
