@@ -4,8 +4,7 @@ import Prelude hiding (read)
 
 import Data.Dynamic
 import Data.Functor ((<$>))
-import Data.Map (Map)
-import qualified Data.Map as Map
+import qualified Data.Map as Map (empty, fromList)
 import Data.Maybe
 import System.IO hiding (hGetContents, hPutStr)
 import System.IO.Strict

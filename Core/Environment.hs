@@ -1,8 +1,8 @@
 module Core.Environment where
 
-import qualified Data.Map as Map
-import qualified System.Environment as Environment
-import System.IO.Unsafe
+import qualified Data.Map as Map (fromList)
+import qualified System.Environment as Environment (getArgs)
+import System.IO.Unsafe (unsafePerformIO)
 
 import Core
 import Data.Type

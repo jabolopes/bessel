@@ -1,7 +1,7 @@
 module Core.Shell where
 
 import Data.List (intercalate)
-import qualified Data.Map as Map
+import qualified Data.Map as Map (fromList)
 import System.IO hiding (hGetContents)
 import System.IO.Strict (hGetContents)
 import System.IO.Unsafe
