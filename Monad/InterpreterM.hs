@@ -18,7 +18,7 @@ data Expr
     | CharExpr Char
     | SeqExpr [Expr]
     | FnExpr (Expr -> InterpreterM Expr)
-    | TypeExpr String Expr
+    | TypeExpr String Int Expr
     | DynExpr Dynamic
 
 
@@ -34,7 +34,7 @@ instance Show Expr where
 
     show (SeqExpr exprs) = "<" ++ intercalate "," (map show exprs) ++ ">"
     show (FnExpr _) = "fn"
-    show (TypeExpr name expr) = name ++ " " ++ show expr
+    show (TypeExpr name _ expr) = name ++ " " ++ show expr
     show (DynExpr _) = "#"
 
 
@@ -85,7 +85,7 @@ exprEq expr@(IntExpr i1) (IntExpr i2) | i1 == i2 = expr
 exprEq expr@(DoubleExpr d1) (DoubleExpr d2) | d1 == d2 = expr
 exprEq expr@(CharExpr c1) (CharExpr c2) | c1 == c2 = expr
 exprEq expr@(SeqExpr exprs1) (SeqExpr exprs2) | isNotFalseExpr (all2 exprEq exprs1 exprs2) = expr
-exprEq expr@(TypeExpr name1 expr1) (TypeExpr name2 expr2) | name1 == name2 = expr1 `exprEq` expr2
+exprEq expr@(TypeExpr _ tid1 expr1) (TypeExpr _ tid2 expr2) | tid1 == tid2 = expr1 `exprEq` expr2
 exprEq _ _ = false
 
 
@@ -99,7 +99,7 @@ exprLt expr@(SeqExpr exprs1) (SeqExpr exprs2)
       | length exprs1 == length exprs2 && isNotFalseExpr (all2 exprLt exprs1 exprs2) = expr
       | otherwise = false
 exprLt (FnExpr _) (FnExpr _) = false
-exprLt (TypeExpr _ _) (TypeExpr _ _) = false
+exprLt (TypeExpr _ _ _) (TypeExpr _ _ _) = false
 exprLt (BoolExpr _) _ = true
 exprLt (IntExpr _) (BoolExpr _) = false
 exprLt expr@(IntExpr i) (DoubleExpr d) = if (fromIntegral i) < d then expr else false
@@ -116,9 +116,9 @@ exprLt (SeqExpr _) (IntExpr _) = false
 exprLt (SeqExpr _) (DoubleExpr _) = false
 exprLt (SeqExpr _) (CharExpr _) = false
 exprLt expr@(SeqExpr _) _ = expr
-exprLt expr@(FnExpr _) (TypeExpr _ _) = expr
+exprLt expr@(FnExpr _) (TypeExpr _ _ _) = expr
 exprLt (FnExpr _) _ = false
-exprLt (TypeExpr _ _) _ = false
+exprLt (TypeExpr _ _ _) _ = false
 
 
 type InterpreterM a = State ExprEnv a
