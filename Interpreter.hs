@@ -62,18 +62,19 @@ evalM (TypeStx name stxs) =
     do mapM_ evalM stxs
        return $ SeqExpr $ map CharExpr name
 
-evalM (TypeMkStx name arg) =
-    TypeExpr name <$> evalM (IdStx arg)
+evalM (TypeMkStx name) =
+    return $ FnExpr $ \expr ->
+        return $ TypeExpr name (read name) expr
 
-evalM (TypeUnStx name arg) =
-    do TypeExpr _ expr <- evalM $ IdStx arg
-       return expr
+evalM (TypeUnStx) =
+    return $ FnExpr $ \(TypeExpr _ _ expr) -> return $ expr
 
-evalM (TypeIsStx name arg) =
-    do expr <- evalM $ IdStx arg
-       case expr of
-         TypeExpr name' _ | name == name' -> return true
-         _ -> return false
+evalM (TypeIsStx name) =
+    return $ FnExpr $ \(TypeExpr _ tid _) ->
+        if (read name) == tid then
+            return true
+        else
+            return false
 
 evalM (WhereStx stx stxs) =
     withEnvM $ do

@@ -91,14 +91,14 @@ printStxM (TypeStx name stxs) =
                  nlPrinter
                  printStxs stxs
 
-printStxM (TypeMkStx name arg) =
-    putPrinter $ "mk:<" ++ show name ++ "," ++ arg ++ ">"
+printStxM (TypeMkStx name) =
+    putPrinter $ "mk:" ++ show name
 
-printStxM (TypeUnStx name arg) =
-    putPrinter $ "un:<" ++ show name ++ "," ++ arg ++ ">"
+printStxM (TypeUnStx) =
+    putPrinter $ "un:"
 
-printStxM (TypeIsStx name arg) =
-    putPrinter $ "is:<" ++ show name ++ "," ++ arg ++ ">"
+printStxM (TypeIsStx name) =
+    putPrinter $ "is:" ++ show name
 
 printStxM (WhereStx stx stxs) =
     do printStxM stx

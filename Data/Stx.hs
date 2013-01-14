@@ -26,9 +26,9 @@ data Stx a
     | LambdaStx String (Stx a)
     | ModuleStx String (Namespace a)
     | TypeStx String [Stx a]
-    | TypeMkStx String String
-    | TypeUnStx String String
-    | TypeIsStx String String
+    | TypeMkStx String
+    | TypeUnStx
+    | TypeIsStx String
     | WhereStx (Stx a) [Stx a]
       deriving (Eq, Ord, Show)
 

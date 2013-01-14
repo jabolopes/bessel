@@ -39,9 +39,9 @@ dependenciesM (DefnStx _ _ body) = dependenciesM body
 dependenciesM (LambdaStx _ body) = dependenciesM body
 dependenciesM (ModuleStx _ ns) = dependenciesNsM ns
 dependenciesM (TypeStx _ stxs) = mapM_ dependenciesM stxs
-dependenciesM (TypeMkStx _ _) = return ()
-dependenciesM (TypeUnStx _ _) = return ()
-dependenciesM (TypeIsStx _ _) = return ()
+dependenciesM (TypeMkStx _) = return ()
+dependenciesM (TypeUnStx) = return ()
+dependenciesM (TypeIsStx _) = return ()
 dependenciesM (WhereStx _ stxs) = mapM_ dependenciesM stxs
 
 
