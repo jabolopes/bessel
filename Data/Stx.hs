@@ -8,8 +8,9 @@ data DefnKw
       deriving (Eq, Ord, Show)
 
 
-data Namespace a = Namespace [String] [Stx a]
-                   deriving (Eq, Ord, Show)
+data Namespace a
+    = Namespace [String] [Stx a]
+      deriving (Eq, Ord, Show)
 
 
 data Stx a
