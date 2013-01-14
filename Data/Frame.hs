@@ -9,8 +9,7 @@ import Data.Symbol
 data Frame =
     Frame { frameId :: Int
           , frameParent :: Int
-          , frameFns :: Map String FnSymbol
-          , frameTypes :: Map String TypeSymbol
+          , frameSyms :: Map String Symbol
           , frameMods :: Map String Int }
     deriving (Show)
 
@@ -23,8 +22,7 @@ empty :: Int -> Int -> Frame
 empty id parentId =
     Frame { frameId = id
           , frameParent = parentId
-          , frameFns = Map.empty
-          , frameTypes = Map.empty
+          , frameSyms = Map.empty
           , frameMods = Map.empty }
 
 

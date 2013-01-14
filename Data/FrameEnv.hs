@@ -65,31 +65,27 @@ putFrameParent frameEnv frame parent@Frame { frameId } =
       frameEnv'
 
 
-getFnSymbol :: FrameEnv -> Frame -> String -> Maybe FnSymbol
-getFnSymbol frameEnv frame@Frame { frameId, frameParent, frameFns } name =
-    case Map.lookup name frameFns of
+getFnSymbol :: FrameEnv -> Frame -> String -> Maybe Symbol
+getFnSymbol frameEnv frame@Frame { frameId, frameParent, frameSyms } name =
+    case Map.lookup name frameSyms of
       Nothing | frameId == frameParent -> Nothing
               | otherwise -> getFnSymbol frameEnv (getFrame frameEnv frameParent) name
-      Just symbol -> Just symbol
+      Just sym@(FnSymbol _) -> Just sym
+      _ -> error $ "FrameEnv.getFnSymbol: " ++ show name ++ " is not a function symbol"
 
 
-getTypeSymbol :: FrameEnv -> Frame -> String -> Maybe TypeSymbol
-getTypeSymbol frameEnv frame@Frame { frameId, frameParent, frameTypes } name =
-    case Map.lookup name frameTypes of
+getTypeSymbol :: FrameEnv -> Frame -> String -> Maybe Symbol
+getTypeSymbol frameEnv frame@Frame { frameId, frameParent, frameSyms } name =
+    case Map.lookup name frameSyms of
       Nothing | frameId == frameParent -> Nothing
               | otherwise -> getTypeSymbol frameEnv (getFrame frameEnv frameParent) name
-      Just symbol -> Just symbol
+      Just sym@(TypeSymbol _) -> Just sym
+      _ -> error $ "FrameEnv.getTypeSymbol: " ++ show name ++ " is not a type symbol"
 
 
-addFnSymbol :: FrameEnv -> Frame -> String -> FnSymbol -> FrameEnv
-addFnSymbol frameEnv frame@Frame { frameFns } name sym =
-    let frame' = frame { frameFns = Map.insert name sym frameFns } in
-    putFrame frameEnv frame'
-
-
-addTypeSymbol :: FrameEnv -> Frame -> String -> TypeSymbol -> FrameEnv
-addTypeSymbol frameEnv frame@Frame { frameTypes } name sym =
-    let frame' = frame { frameTypes = Map.insert name sym frameTypes } in
+addSymbol :: FrameEnv -> Frame -> String -> Symbol -> FrameEnv
+addSymbol frameEnv frame@Frame { frameSyms } name sym =
+    let frame' = frame { frameSyms = Map.insert name sym frameSyms } in
     putFrame frameEnv frame'
 
 

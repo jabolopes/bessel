@@ -1,5 +1,7 @@
 module Data.Symbol where
 
 
-type FnSymbol = String
-type TypeSymbol = String
+data Symbol
+    = FnSymbol String
+    | TypeSymbol String
+      deriving (Show)

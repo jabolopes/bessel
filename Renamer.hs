@@ -51,6 +51,13 @@ putCurrentFrameM frame =
                                 , currentFrame = frameId frame }
 
 
+genNumM :: RenamerM String
+genNumM =
+    do count <- currentCount <$> get
+       modify $ \state -> state { currentCount = count + 1 }
+       return $ show count
+
+
 genNameM :: String -> RenamerM String
 genNameM name =
     do count <- currentCount <$> get
@@ -58,42 +65,42 @@ genNameM name =
        return $ name ++ show count
 
 
-getFnSymbolM :: [String] -> RenamerM FnSymbol
-getFnSymbolM names =
+getSymbolM fn names =
     do frameEnv <- frameEnv <$> get
        currentFrame <- getCurrentFrameM
        case FrameEnv.getModuleFrame frameEnv currentFrame $ init names of
          Nothing -> throwError $ "module not bound " ++ show (intercalate "." (init names))
-         Just frame -> case FrameEnv.getFnSymbol frameEnv frame $ last names of
+         Just frame -> case fn frameEnv frame $ last names of
                          Nothing -> throwError $ "name not bound " ++ show (intercalate "." names)
                          Just symbol -> return symbol
 
 
-getTypeSymbolM :: [String] -> RenamerM TypeSymbol
+getFnSymbolM :: [String] -> RenamerM String
+getFnSymbolM names =
+    do FnSymbol name <- getSymbolM FrameEnv.getFnSymbol names
+       return name
+
+
+getTypeSymbolM :: [String] -> RenamerM String
 getTypeSymbolM names =
-    do frameEnv <- frameEnv <$> get
-       currentFrame <- getCurrentFrameM
-       case FrameEnv.getModuleFrame frameEnv currentFrame $ init names of
-         Nothing -> throwError $ "module not bound " ++ show (intercalate "." (init names))
-         Just frame -> case FrameEnv.getTypeSymbol frameEnv frame $ last names of
-                          Nothing -> throwError $ "type not bound " ++ show (intercalate "." names)
-                          Just symbol -> return symbol
+    do TypeSymbol name <- getSymbolM FrameEnv.getTypeSymbol names
+       return name
 
 
-addFnSymbolM :: String -> FnSymbol -> RenamerM ()
-addFnSymbolM name sym =
+addSymbolM :: String -> Symbol -> RenamerM ()
+addSymbolM name sym =
     do frameEnv <- frameEnv <$> get
        currentFrame <- getCurrentFrameM
-       let frameEnv' = FrameEnv.addFnSymbol frameEnv currentFrame name sym
+       let frameEnv' = FrameEnv.addSymbol frameEnv currentFrame name sym
        modify $ \state -> state { frameEnv = frameEnv' }
 
 
-addTypeSymbolM :: String -> TypeSymbol -> RenamerM ()
-addTypeSymbolM name sym =
-    do frameEnv <- frameEnv <$> get
-       currentFrame <- getCurrentFrameM
-       let frameEnv' = FrameEnv.addTypeSymbol frameEnv currentFrame name sym
-       modify $ \state -> state { frameEnv = frameEnv' }
+addFnSymbolM :: String -> String -> RenamerM ()
+addFnSymbolM name rename = addSymbolM name $ FnSymbol rename
+
+
+addTypeSymbolM :: String -> String -> RenamerM ()
+addTypeSymbolM name rename = addSymbolM name $ TypeSymbol rename
 
 
 withScopeM :: RenamerM a -> RenamerM a
@@ -113,7 +120,7 @@ bindModuleM name =
     do frameEnv <- frameEnv <$> get
        currentFrame <- getCurrentFrameM
 
-       -- edit: 'Nothing' instead of 'Just' means the module is being
+       -- edit: 'Nothing' instead of 'Just' means this module is being
        -- processed before its dependencies
        SrcFile _ _ (Just modFrame) _ <- ((Map.! name) . currentSrcfiles) <$> get
 
@@ -122,13 +129,13 @@ bindModuleM name =
                                 , currentFrame = frameId modFrame' }
 
 
-withModuleM :: String -> RenamerM a -> RenamerM a
-withModuleM name m =
-    do currentFrame <- getCurrentFrameM
-       bindModuleM name
-       val <- withScopeM m
-       modify $ \state -> state { currentFrame = frameId currentFrame }
-       return val
+-- withModuleM :: String -> RenamerM a -> RenamerM a
+-- withModuleM name m =
+--     do currentFrame <- getCurrentFrameM
+--        bindModuleM name
+--        val <- withScopeM m
+--        modify $ \state -> state { currentFrame = frameId currentFrame }
+--        return val
 
 
 withPrefixM :: String -> RenamerM a -> RenamerM a
