@@ -193,24 +193,18 @@ renameM stx@(ModuleStx prefix ns) =
     ModuleStx prefix <$> (withPrefixM prefix $ renameNamespaceM ns)
 
 renameM (TypeStx name stxs) =
-    do name' <- genNameM name
+    do name' <- genNumM
        addTypeSymbolM name name'
        TypeStx name' <$> mapM renameM stxs
 
-renameM (TypeMkStx name arg) =
-    do name' <- getTypeSymbolM [name]
-       arg' <- getFnSymbolM [arg]
-       return $ TypeMkStx name' arg'
+renameM (TypeMkStx name) =
+    TypeMkStx <$> getTypeSymbolM [name]
 
-renameM (TypeUnStx name arg) =
-    do name' <- getTypeSymbolM [name]
-       arg' <- getFnSymbolM [arg]
-       return $ TypeUnStx name' arg'
+renameM TypeUnStx =
+    return $ TypeUnStx
 
-renameM (TypeIsStx name arg) =
-    do name' <- getTypeSymbolM [name]
-       arg' <- getFnSymbolM [arg]
-       return $ TypeIsStx name' arg'
+renameM (TypeIsStx name) =
+    TypeIsStx <$> getTypeSymbolM [name]
 
 renameM (WhereStx stx stxs) =
     withScopeM $ do
