@@ -12,7 +12,7 @@ printNamespaceM (Namespace uses stxs) =
     do forM_ uses $ \use -> do
          putPrinter $ "use " ++ use
          nlPrinter
-         nlPrinter
+       nlPrinter
        printStxs stxs
     where printStxs [stx] =
               do printStxM stx
