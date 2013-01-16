@@ -172,10 +172,10 @@ Defn:
                                                            [] -> error "exdef: empty pattern"
                                                            stxs -> SeqStx stxs }
 
-  | type  OpOrName                        ':=' Expr        { typeExprMacro $2 $4 }
-  | type  OpOrName                        ':=' PatNoSpace  { typePatMacro $2 $4 }
+  | type  OpOrName                        ':=' Expr       { typeExprMacro $2 $4 }
+  | type  OpOrName                        ':=' PatNoSpace { typePatMacro $2 $4 }
 --| asn   Expr         ':=' Expr        { AsnStx  $2 $4 }
---| sig   OpOrName     	    		  '::' MetaPred    { SigStx  $2 $4 }
+--| sig   OpOrName     	    		  '::' MetaPred   { SigStx  $2 $4 }
 
 DefnKw:
     def      { Def }
