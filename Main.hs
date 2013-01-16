@@ -8,19 +8,15 @@ import qualified Core.Environment (link)
 import qualified Core.IO (link)
 import qualified Core.Shell (link)
 
-import qualified Core.Happstack (srcfile)
+import qualified Core.Happstack (link)
 
 import Data.SrcFile
 import Repl
 
 
-corefiles :: [SrcFile]
-corefiles =
-    let
-        corefile | doTypecheck = CoreTypechecker.srcfile
-                 | otherwise = Core.srcfile
-    in
-      [corefile, Core.Happstack.srcfile]
+corefiles :: SrcFile
+corefiles | doTypecheck = CoreTypechecker.srcfile
+          | otherwise = Core.srcfile
 
 
 linkCorefiles :: [Int] -> [[Int] -> (SrcFile, [Int])] -> [SrcFile]
@@ -33,11 +29,13 @@ linkCorefiles ids (fn:fns) =
 links :: [[Int] -> (SrcFile, [Int])]
 links = [Core.Environment.link,
          Core.IO.link,
-         Core.Shell.link]
+         Core.Shell.link,
+
+         Core.Happstack.link]
 
 
 corefiles' :: [SrcFile]
-corefiles' = corefiles ++ linkCorefiles (map (* (-1)) [1..]) links
+corefiles' = corefiles:linkCorefiles (map (* (-1)) [1..]) links
 
 
 preludeName :: String

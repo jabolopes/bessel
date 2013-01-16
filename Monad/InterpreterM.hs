@@ -3,6 +3,7 @@ module Monad.InterpreterM where
 import Control.Monad.State
 import Data.Dynamic
 import Data.List (intercalate)
+import Data.Maybe
 
 import Data.Env (Env)
 import qualified Data.Env as Env
@@ -28,11 +29,9 @@ instance Show Expr where
     show (CharExpr c) = ['`', c]
     show (IntExpr i) = show i
     show (DoubleExpr d) = show d
-
-    show (SeqExpr exprs) | not (null exprs) && all isCharExpr exprs =
-        show $ map (\(CharExpr c) -> c) exprs
-
-    show (SeqExpr exprs) = "<" ++ intercalate "," (map show exprs) ++ ">"
+    show (SeqExpr exprs)
+        | not (null exprs) && all isCharExpr exprs = show $ map (\(CharExpr c) -> c) exprs
+        | otherwise = "<" ++ intercalate "," (map show exprs) ++ ">"
     show (FnExpr _) = "fn"
     show (TypeExpr name _ expr) = name ++ " " ++ show expr
     show (DynExpr _) = "#"
@@ -50,6 +49,23 @@ isCharExpr _ = False
 
 isNotFalseExpr :: Expr -> Bool
 isNotFalseExpr = not . isFalseExpr
+
+
+toDynExpr :: Typeable a => a -> Expr
+toDynExpr val = DynExpr $ toDyn val
+
+
+fromDynExpr :: Typeable a => Expr -> a
+fromDynExpr (DynExpr dyn) = fromJust $ fromDynamic dyn
+
+
+toTypeDynExpr :: Typeable a => String -> Int -> a -> Expr
+toTypeDynExpr name tid = TypeExpr name tid . toDynExpr
+
+
+fromTypeDynExpr :: Typeable a => Int -> Expr -> a
+fromTypeDynExpr tid1 (TypeExpr _ tid2 expr)
+    | tid1 == tid2 = fromDynExpr expr
 
 
 false :: Expr
