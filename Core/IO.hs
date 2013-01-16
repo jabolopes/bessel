@@ -20,12 +20,10 @@ handleOp :: Handle -> Int -> IO Expr
 handleOp h 0 = boxString <$> hGetContents h
 
 
-fileTypename = "Core.IO.File"
-
-
 link :: [Int] -> (SrcFile, [Int])
 link ids = (srcfile, tail ids)
-    where fileTid = head ids
+    where fileTypename = "Core.IO.File"
+          fileTid = head ids
 
           open :: Expr -> InterpreterM Expr
           {-# NOINLINE open #-}
@@ -36,14 +34,14 @@ link ids = (srcfile, tail ids)
 
           read :: Expr -> Expr
           {-# NOINLINE read #-}
-          read (TypeExpr _ tid (DynExpr d)) | tid == fileTid =
-              unsafePerformIO $ boxString <$> hGetContents (fromJust (fromDynamic d))
+          read (TypeExpr _ tid (DynExpr dyn)) | tid == fileTid =
+              unsafePerformIO $ boxString <$> hGetContents (fromJust (fromDynamic dyn))
 
           close :: Expr -> Expr
           {-# NOINLINE close #-}
-          close (TypeExpr _ tid (DynExpr d)) | tid == fileTid =
+          close (TypeExpr _ tid (DynExpr dyn)) | tid == fileTid =
               unsafePerformIO $ do
-                hClose $ fromJust $ fromDynamic d
+                hClose $ fromJust $ fromDynamic dyn
                 return $ SeqExpr []
 
           srcfile :: SrcFile
