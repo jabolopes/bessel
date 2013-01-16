@@ -67,7 +67,7 @@ printStxM (DefnStx kw str body) =
           kw' NrDef = "nrdef"
 
 printStxM (LambdaStx str body) =
-    do putPrinter $ "λ " ++ str ++ " -> "
+    do putPrinter $ "\\" ++ str ++ " -> "
        withPrinterCol $ printStxM body
 
 printStxM (ModuleStx str ns) =
