@@ -114,7 +114,7 @@ link ids = (srcfile, drop 2 ids)
                                    ("del", (ArrowT DynT DynT, tagM Html.del)),
                                    ("details", (ArrowT DynT DynT, tagM Html.details)),
                                    ("dfn", (ArrowT DynT DynT, tagM Html.dfn)),
-                                   ("div", (ArrowT DynT DynT, tagM Html.div)),
+                                   -- ("div", (ArrowT DynT DynT, tagM Html.div)), -- edit: conflicts with 'div'
                                    ("dl", (ArrowT DynT DynT, tagM Html.dl)),
                                    -- ("docType", (ArrowT DynT DynT, Html.docType)),
                                    ("docTypeHtml", (ArrowT DynT DynT, tagM Html.docTypeHtml)),
