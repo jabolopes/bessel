@@ -1,4 +1,5 @@
-{-# LANGUAGE BangPatterns, DoRec, NamedFieldPuns, RecordWildCards #-}
+{-# LANGUAGE BangPatterns, DoRec, NamedFieldPuns,
+             RecordWildCards #-}
 module Renamer where
 
 import Control.Monad.Error
@@ -7,7 +8,7 @@ import Data.Functor ((<$>))
 import Data.List (intercalate)
 
 import Data.Map (Map)
-import qualified Data.Map as Map
+import qualified Data.Map as Map ((!), empty, insert, keys)
 
 import Data.Frame
 import Data.FrameEnv (FrameEnv (..))
@@ -15,7 +16,7 @@ import qualified Data.FrameEnv as FrameEnv
 import Data.SrcFile
 import Data.Stx
 import Data.Symbol
-import Utils
+import Utils (split)
 
 
 data RenamerState =
@@ -59,32 +60,34 @@ genNumM =
 
 
 genNameM :: String -> RenamerM String
-genNameM name =
-    do count <- currentCount <$> get
-       modify $ \state -> state { currentCount = count + 1 }
-       return $ name ++ show count
+genNameM name = show <$> genNumM
 
 
-getSymbolM fn names =
+getSymbolM :: [String] -> RenamerM Symbol
+getSymbolM names =
     do frameEnv <- frameEnv <$> get
        currentFrame <- getCurrentFrameM
        case FrameEnv.getModuleFrame frameEnv currentFrame $ init names of
-         Nothing -> throwError $ "module not bound " ++ show (intercalate "." (init names))
-         Just frame -> case fn frameEnv frame $ last names of
+         Nothing -> throwError $ "name not bound " ++ show (intercalate "." names)
+         Just frame -> case FrameEnv.getSymbol frameEnv frame $ last names of
                          Nothing -> throwError $ "name not bound " ++ show (intercalate "." names)
                          Just symbol -> return symbol
 
 
 getFnSymbolM :: [String] -> RenamerM String
 getFnSymbolM names =
-    do FnSymbol name <- getSymbolM FrameEnv.getFnSymbol names
-       return name
+    do sym <- getSymbolM names
+       case sym of
+         FnSymbol name -> return name
+         _ -> throwError $ "name " ++ show (intercalate "." names) ++ " is not a function"
 
 
 getTypeSymbolM :: [String] -> RenamerM String
 getTypeSymbolM names =
-    do TypeSymbol name <- getSymbolM FrameEnv.getTypeSymbol names
-       return name
+    do sym <- getSymbolM names
+       case sym of
+         TypeSymbol name -> return name
+         _ -> throwError $ "name " ++ show (intercalate "." names) ++ " is not a type"
 
 
 addSymbolM :: String -> Symbol -> RenamerM ()

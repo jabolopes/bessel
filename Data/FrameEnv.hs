@@ -46,6 +46,15 @@ addFrame frameEnv parent =
       (frameEnv'', frame)
 
 
+putFrameParent :: FrameEnv -> Frame -> Frame -> FrameEnv
+putFrameParent frameEnv frame parent@Frame { frameId } =
+    let
+        frame' = frame { frameParent = frameId }
+        frameEnv' = putFrame frameEnv frame'
+    in
+      frameEnv'
+
+
 putFrameChild :: FrameEnv -> Frame -> Frame -> (FrameEnv, Frame)
 putFrameChild frameEnv frame child =
     let
@@ -56,31 +65,12 @@ putFrameChild frameEnv frame child =
       (frameEnv'', child')
 
 
-putFrameParent :: FrameEnv -> Frame -> Frame -> FrameEnv
-putFrameParent frameEnv frame parent@Frame { frameId } =
-    let
-        frame' = frame { frameParent = frameId }
-        frameEnv' = putFrame frameEnv frame'
-    in
-      frameEnv'
-
-
-getFnSymbol :: FrameEnv -> Frame -> String -> Maybe Symbol
-getFnSymbol frameEnv frame@Frame { frameId, frameParent, frameSyms } name =
+getSymbol :: FrameEnv -> Frame -> String -> Maybe Symbol
+getSymbol frameEnv frame@Frame { frameId, frameParent, frameSyms } name =
     case Map.lookup name frameSyms of
       Nothing | frameId == frameParent -> Nothing
-              | otherwise -> getFnSymbol frameEnv (getFrame frameEnv frameParent) name
-      Just sym@(FnSymbol _) -> Just sym
-      _ -> error $ "FrameEnv.getFnSymbol: " ++ show name ++ " is not a function symbol"
-
-
-getTypeSymbol :: FrameEnv -> Frame -> String -> Maybe Symbol
-getTypeSymbol frameEnv frame@Frame { frameId, frameParent, frameSyms } name =
-    case Map.lookup name frameSyms of
-      Nothing | frameId == frameParent -> Nothing
-              | otherwise -> getTypeSymbol frameEnv (getFrame frameEnv frameParent) name
-      Just sym@(TypeSymbol _) -> Just sym
-      _ -> error $ "FrameEnv.getTypeSymbol: " ++ show name ++ " is not a type symbol"
+              | otherwise -> getSymbol frameEnv (getFrame frameEnv frameParent) name
+      Just sym -> Just sym
 
 
 addSymbol :: FrameEnv -> Frame -> String -> Symbol -> FrameEnv
