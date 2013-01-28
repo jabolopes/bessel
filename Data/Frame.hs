@@ -9,8 +9,7 @@ import Data.Symbol
 data Frame =
     Frame { frameId :: Int
           , frameParent :: Int
-          , frameSyms :: Map String Symbol
-          , frameMods :: Map String Int }
+          , frameSyms :: Map String Symbol }
     deriving (Show)
 
 
@@ -22,8 +21,7 @@ empty :: Int -> Int -> Frame
 empty id parentId =
     Frame { frameId = id
           , frameParent = parentId
-          , frameSyms = Map.empty
-          , frameMods = Map.empty }
+          , frameSyms = Map.empty }
 
 
 copy :: Int -> Int -> Frame -> Frame

@@ -10,14 +10,14 @@ import Printer.Printer
 printNamespaceM :: Namespace String -> PrinterM ()
 printNamespaceM (Namespace uses stxs) =
     do forM_ uses $ \use -> do
-         putPrinter $ "use " ++ use
+         case use of
+           (ns, "") -> putPrinter $ "use " ++ ns
+           (ns, prefix) -> putPrinter $ "use " ++ ns ++ " as " ++ prefix
          nlPrinter
-       nlPrinter
+       unless (null uses) nlPrinter
        printStxs stxs
-    where printStxs [stx] =
-              do printStxM stx
-                 nlPrinter
-                            
+    where printStxs [] = return ()
+          printStxs [stx] = printStxM stx >> nlPrinter
           printStxs (stx:stxs) =
               do printStxM stx
                  nlPrinter

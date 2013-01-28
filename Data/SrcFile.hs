@@ -12,6 +12,6 @@ import Monad.InterpreterM
 data SrcFile
     = SrcFile { name :: String
               , deps :: [String]
-              , frame :: (Maybe Frame)
+              , frame :: (Maybe Int)
               , ns :: (Either (Namespace String) ([String], Map String (Type, Expr))) }
       deriving (Show)

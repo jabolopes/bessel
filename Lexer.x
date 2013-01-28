@@ -87,6 +87,7 @@ tokens :-
   ">"			{ \_ -> TokenRSeqParen }
 
   -- keywords
+  "as"			{ \_ -> TokenAs }
   "def"			{ \_ -> TokenDef }
   "exdef"		{ \_ -> TokenExdef }
   \\		        { \_ -> TokenLambda }

@@ -24,8 +24,9 @@ import Utils
 type LoaderM a = StateT [String] IO a
 
 
+dependenciesNsM :: Namespace String -> LoaderM ()
 dependenciesNsM (Namespace uses stxs) =
-    modify (uses ++) >> mapM_ dependenciesM stxs
+    modify (map fst uses ++) >> mapM_ dependenciesM stxs
 
 
 dependenciesM :: Stx String -> LoaderM ()

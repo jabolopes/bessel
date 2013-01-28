@@ -34,6 +34,7 @@ import Macros
         '>'     { TokenRSeqParen }
 
         -- keywords
+	as      { TokenAs }
         def     { TokenDef }
         exdef   { TokenExdef }
         lambda  { TokenLambda }
@@ -128,8 +129,10 @@ Namespace:
   | DefnList         { Namespace [] $1 }
 
 UseList:
-    UseList use NameDotList { $1 ++ [$3] }
-  | use NameDotList         { [$2] }
+    UseList use NameDotList as NameDotList { $1 ++ [($3, $5)] }
+  | UseList use NameDotList    		   { $1 ++ [($3, "")] }
+  | use NameDotList as NameDotList	   { [($2, $4)] }
+  | use NameDotList         		   { [($2, "")] }
 
 DefnList:
     DefnList Module          { $1 ++ [$2] }
@@ -340,6 +343,7 @@ data Token
      | TokenRSeqParen
 
      -- keywords
+     | TokenAs
      | TokenDef
      | TokenExdef
      | TokenLambda
@@ -408,5 +412,5 @@ parsePrelude = parseSrcFile
 
 parseFile tks =
   let SrcFile name deps Nothing (Left (Namespace uses stxs)) = parseSrcFile tks in
-  SrcFile name deps Nothing (Left (Namespace ("Core":"Prelude":uses) stxs))
+  SrcFile name deps Nothing (Left (Namespace (("Core", ""):("Prelude", ""):uses) stxs))
 }

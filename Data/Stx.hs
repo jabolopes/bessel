@@ -9,7 +9,7 @@ data DefnKw
 
 
 data Namespace a
-    = Namespace [String] [Stx a]
+    = Namespace [(String, String)] [Stx a]
       deriving (Eq, Ord, Show)
 
 
