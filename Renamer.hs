@@ -6,15 +6,15 @@ import Control.Monad.State
 import Data.Functor ((<$>))
 import Data.List (intercalate)
 import Data.Map (Map)
-import qualified Data.Map as Map ((!), empty, insert, keys, toList)
-import Data.Maybe (fromJust, mapMaybe)
+import qualified Data.Map as Map (empty, insert, keys, toList)
+import Data.Maybe (fromJust)
 
 import Data.Frame
 import qualified Data.Frame as Frame (frameId)
 import Data.FrameEnv (FrameEnv (..))
 import qualified Data.FrameEnv as FrameEnv
 import Data.SrcFile (SrcFile(..))
-import qualified Data.SrcFile as SrcFile
+import qualified Data.SrcFile as SrcFile (frame)
 import Data.Stx
 import Data.Symbol
 import Utils (split)
@@ -105,7 +105,7 @@ getSymbolM names =
               let frs = fr:FrameEnv.getUnprefixedFrames env ns in get frs
               where get [fr] = getSymbol env fr name
                     get (fr:frs) =
-                        (getSymbol env fr name) `catchError` (\_ -> get frs)
+                        getSymbol env fr name `catchError` (\_ -> get frs)
 
           getNamespace :: FrameEnv -> String -> [String] -> RenamerM Frame
           getNamespace _ _ [] = getCurrentFrameM
@@ -205,7 +205,7 @@ withPrefixedScopeM prefix m =
 renameNamespaceM :: Namespace String -> RenamerM (Namespace String)
 renameNamespaceM stx@(Namespace uses stxs) =
     do mapM_ (\(ns, prefix) -> useNamespaceM prefix ns) uses
-       withNslevel True $ do
+       withNslevel True $
          Namespace uses . concat <$> mapM renameM stxs
 
 
@@ -236,7 +236,7 @@ renameM (DefnStx NrDef name body) =
     do name' <- genNameM name
        body' <- withNslevel False (renameOneM body)
        addFnSymbolM name name'
-       return $ [DefnStx NrDef name' body']
+       return [DefnStx NrDef name' body']
 
 renameM (LambdaStx arg body) =
     do arg' <- genNameM arg
@@ -271,7 +271,7 @@ renameM (WhereStx stx stxs) =
     withScopeM $ do
       stxs' <- concat <$> mapM renameM stxs
       stx' <- withScopeM $ renameOneM stx
-      return $ [WhereStx stx' stxs']
+      return [WhereStx stx' stxs']
 
 
 mkInteractiveFrame :: SrcFile -> RenamerState -> RenamerState
