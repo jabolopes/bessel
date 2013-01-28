@@ -25,7 +25,7 @@ module M4 where {
   def m4 := 4
 }
 
-def b0 := a
-def b1 := M1.g
-def b2 := M2.h
-def b3 := M3.i
+def b1 := a
+def b2 := M1.g
+def b3 := M2.h
+def b4 := M3.i

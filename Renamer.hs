@@ -206,65 +206,72 @@ renameNamespaceM :: Namespace String -> RenamerM (Namespace String)
 renameNamespaceM stx@(Namespace uses stxs) =
     do mapM_ (\(ns, prefix) -> useNamespaceM prefix ns) uses
        withNslevel True $ do
-         Namespace uses <$> mapM renameM stxs
+         Namespace uses . concat <$> mapM renameM stxs
 
 
-renameM :: Stx String -> RenamerM (Stx String)
-renameM stx@(CharStx _) = return stx
-renameM stx@(IntStx _) = return stx
-renameM stx@(DoubleStx _) = return stx
-renameM (SeqStx stxs) = SeqStx <$> mapM renameM stxs
+fromSingleton [x] = x
+
+renameOneM stx = fromSingleton <$> renameM stx
+
+
+renameM :: Stx String -> RenamerM [Stx String]
+renameM stx@(CharStx _) = return [stx]
+renameM stx@(IntStx _) = return [stx]
+renameM stx@(DoubleStx _) = return [stx]
+renameM (SeqStx stxs) = (:[]) . SeqStx <$> mapM renameOneM stxs
 
 renameM (IdStx name) =
-    IdStx <$> getFnSymbolM (split '.' name)
+    (:[]) . IdStx <$> getFnSymbolM (split '.' name)
 
 renameM (AppStx stx1 stx2) =
-    (AppStx <$> renameM stx1) `ap` renameM stx2
+    (:[]) <$> ((AppStx <$> renameOneM stx1) `ap` renameOneM stx2)
 
 renameM (DefnStx Def name body) =
     do name' <- genNameM name
        addFnSymbolM name name'
-       DefnStx Def name' <$>
-         withNslevel False (renameM body)
+       (:[]) . DefnStx Def name' <$>
+         withNslevel False (renameOneM body)
 
 renameM (DefnStx NrDef name body) =
     do name' <- genNameM name
-       body' <- withNslevel False (renameM body)
+       body' <- withNslevel False (renameOneM body)
        addFnSymbolM name name'
-       return $ DefnStx NrDef name' body'
+       return $ [DefnStx NrDef name' body']
 
 renameM (LambdaStx arg body) =
     do arg' <- genNameM arg
-       LambdaStx arg' <$>
+       (:[]) . LambdaStx arg' <$>
          withScopeM
            (do addFnSymbolM arg arg'
-               withScopeM $ renameM body)
+               withScopeM $ renameOneM body)
 
 renameM stx@(ModuleStx "" ns) =
-    ModuleStx "" <$> renameNamespaceM ns
+    do Namespace _ stxs <- renameNamespaceM ns
+       return stxs
 
 renameM stx@(ModuleStx prefix ns) =
-    ModuleStx prefix <$> withPrefixedScopeM prefix (renameNamespaceM ns)
+    do Namespace _ stxs <- withPrefixedScopeM prefix (renameNamespaceM ns)
+       return stxs
 
 renameM (TypeStx name stxs) =
     do name' <- show <$> genNumM
        addTypeSymbolM name name'
-       TypeStx name' <$> mapM renameM stxs
+       (:[]) . TypeStx name' <$> mapM renameOneM stxs
 
 renameM (TypeMkStx name) =
-    TypeMkStx <$> getTypeSymbolM [name]
+    (:[]) . TypeMkStx <$> getTypeSymbolM [name]
 
 renameM TypeUnStx =
-    return TypeUnStx
+    return [TypeUnStx]
 
 renameM (TypeIsStx name) =
-    TypeIsStx <$> getTypeSymbolM [name]
+    (:[]) . TypeIsStx <$> getTypeSymbolM [name]
 
 renameM (WhereStx stx stxs) =
     withScopeM $ do
-      stxs' <- mapM renameM stxs
-      stx' <- withScopeM $ renameM stx
-      return $ WhereStx stx' stxs'
+      stxs' <- concat <$> mapM renameM stxs
+      stx' <- withScopeM $ renameOneM stx
+      return $ [WhereStx stx' stxs']
 
 
 mkInteractiveFrame :: SrcFile -> RenamerState -> RenamerState
@@ -313,4 +320,4 @@ rename srcfiles =
 
 renameIncremental :: RenamerState -> Stx String -> Either String (Stx String, RenamerState)
 renameIncremental state stx =
-    runStateT (renameM stx) state
+    runStateT (renameOneM stx) state

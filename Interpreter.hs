@@ -54,9 +54,10 @@ evalM (LambdaStx str body) =
                 addBindM str expr
                 withEnvM $ evalM body
 
-evalM (ModuleStx _ (Namespace _ stxs)) =
-    do mapM_ evalM $ init stxs
-       evalM $ last stxs
+evalM (ModuleStx prefix ns) =
+    error $ "Interpreter.evalM(ModuleStx): modules must be flattened by the renamer" ++
+            "\n\n\t prefix = " ++ show prefix ++
+            "\n\n\t namespace = " ++ show ns ++ "\n\n"
 
 evalM (TypeStx name stxs) =
     do mapM_ evalM stxs
