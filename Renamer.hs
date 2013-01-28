@@ -6,7 +6,7 @@ import Control.Monad.State
 import Data.Functor ((<$>))
 import Data.List (intercalate)
 import Data.Map (Map)
-import qualified Data.Map as Map (empty, insert, keys, toList)
+import qualified Data.Map as Map ((!), empty, insert, keys, toList)
 import Data.Maybe (fromJust)
 
 import Data.Frame
@@ -23,8 +23,8 @@ import Utils (split)
 data RenamerState =
     RenamerState { frameEnv :: FrameEnv
                  , currentFrame :: Int
+                 , srcfileFrames :: Map String Int
                  , currentCount :: Int
-                 , currentSrcfiles :: Map String SrcFile
                  , currentNamespace :: String
                  , nslevel :: Bool }
 
@@ -34,8 +34,8 @@ initialRenamerState =
     let frameEnv = FrameEnv.empty in
     RenamerState { frameEnv = frameEnv
                  , currentFrame = FrameEnv.rootId frameEnv
+                 , srcfileFrames = Map.empty
                  , currentCount = 0
-                 , currentSrcfiles = Map.empty
                  , currentNamespace = ""
                  , nslevel = True }
 
@@ -165,7 +165,7 @@ useNamespaceM prefix name =
     do frameEnv <- frameEnv <$> get
        currentNamespace <- currentNamespace <$> get
        checkShadowing frameEnv currentNamespace name
-       frame <- FrameEnv.getFrame frameEnv . fromJust . SrcFile.frame . fromJust . lookup name . Map.toList . currentSrcfiles <$> get
+       frame <- FrameEnv.getFrame frameEnv . (Map.! name) . srcfileFrames <$> get
        let frameEnv' | null prefix = FrameEnv.addUnprefixedFrame frameEnv currentNamespace frame
                      | otherwise = FrameEnv.addPrefixedFrame frameEnv currentNamespace prefix frame
 
@@ -290,9 +290,9 @@ mkInteractiveFrame srcfile@(SrcFile name deps _ _) state =
 
 -- edit: fix type signature
 saveSrcfile name deps frame content =
-    do let srcfile = SrcFile name deps (Just (Frame.frameId frame)) content
-       modify $ \state -> state { currentSrcfiles = Map.insert name srcfile (currentSrcfiles state) }
-       return srcfile
+    do let frameId = Frame.frameId frame
+       modify $ \state -> state { srcfileFrames = Map.insert name frameId (srcfileFrames state) }
+       return $ SrcFile name deps (Just frameId) content
 
 
 renameSrcFiles :: [SrcFile] -> RenamerM [SrcFile]
