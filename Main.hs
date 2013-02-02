@@ -39,7 +39,7 @@ corefiles' = corefiles:linkCorefiles (map (* (-1)) [1..]) links
 
 
 preludeName :: String
-preludeName | doTypecheck = "PreludeType"
+preludeName | doTypecheck = "PreludeTypechecker"
             | otherwise = "Prelude"
 
 

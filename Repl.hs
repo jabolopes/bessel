@@ -45,7 +45,7 @@ doPutExpr = True
 doPutExprT = True
 doPutEnvironment = False
 
-doTypecheck = False
+doTypecheck = True
 
 
 putLine :: String -> IO ()
