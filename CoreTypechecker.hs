@@ -6,6 +6,7 @@ import qualified Data.Map as Map (fromList)
 
 import Core hiding (syms, srcfile)
 import Data.SrcFile
+import qualified Data.SrcFile as SrcFile (initial)
 import Data.Type
 import Monad.InterpreterM
 
@@ -103,5 +104,8 @@ syms = [
  ("K", (ForallT "a" (ArrowT (TvarT "a") (ForallT "b" (ArrowT (TvarT "b") (TvarT "a")))), m k))]
 
 
+-- edit: fix the undefined
 srcfile :: SrcFile
-srcfile = SrcFile "Core" [] Nothing $ Right ([], Map.fromList syms)
+srcfile =
+    let srcNs = ([], Map.fromList syms) in
+    SrcFile.initial "Core" (Right srcNs)

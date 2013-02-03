@@ -25,8 +25,9 @@ shell expr =
                        return $ boxString str
 
 
+-- edit: fixed undefined
 srcfile :: SrcFile
-srcfile = SrcFile "Core.Shell" ["Core"] Nothing $ Right $
+srcfile = SrcFile "Core.Shell" ["Core"] Nothing undefined undefined $ Right $
           ([], Map.fromList [("shell", (ArrowT (SeqT CharT) (SeqT CharT), m shell))])
 
 

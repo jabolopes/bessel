@@ -13,6 +13,17 @@ data Context =
   deriving (Show)
 
 
+empty :: Context
+empty =
+    Context { syms = [] , count = 0 }
+
+
+initial :: [(String, (Type, Maybe Type))] -> Context
+initial syms =
+    Context { syms = syms
+            , count = length syms }
+
+
 splitContext :: Context -> String -> (Context, Context)
 splitContext ctx@Context { syms } name =
   case span neqName syms of
@@ -65,5 +76,16 @@ nothingSyms syms = Context { syms = syms', count = 0 }
 
 simpleSyms :: Context -> Map String Type
 simpleSyms Context { syms } = Map.fromList $ map simple syms
+  where simple (name, (t, Nothing)) = (name, t)
+        simple (name, (t, Just t')) = (name, t')
+
+
+nothingSyms' :: [(String, Type)] -> Context
+nothingSyms' syms = Context { syms = syms', count = 0 }
+  where syms' = map (\(name, t) -> (name, (t, Nothing))) syms
+
+
+simpleSyms' :: Context -> [(String, Type)]
+simpleSyms' Context { syms } = map simple syms
   where simple (name, (t, Nothing)) = (name, t)
         simple (name, (t, Just t')) = (name, t')

@@ -24,7 +24,7 @@ data Stx a
     | AppStx (Stx a) (Stx a)
     | DefnStx DefnKw String (Stx a)
     | LambdaStx String (Stx a)
-    | ModuleStx String (Namespace a)
+    | ModuleStx [String] (Namespace a)
     | TypeStx String [Stx a]
     | TypeMkStx String
     | TypeUnStx

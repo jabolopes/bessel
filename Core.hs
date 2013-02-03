@@ -14,6 +14,7 @@ import Data.Env (Env)
 import qualified Data.Env as Env (fromList)
 import Data.Exception
 import Data.SrcFile
+import qualified Data.SrcFile as SrcFile (initial)
 import Data.Symbol
 import Data.Type
 import Monad.InterpreterM
@@ -662,6 +663,8 @@ k :: Expr -> Expr
 k expr = FnExpr $ \_ -> return expr
 
 
+-- edit: fixed undefined
 srcfile :: SrcFile
-srcfile = SrcFile "Core" [] Nothing $ Right $
-          ([], Map.fromList $ map (\(a, b, c) -> (a, (b, c))) syms)
+srcfile =
+    let srcNs = ([], Map.fromList $ map (\(a, b, c) -> (a, (b, c))) syms) in
+    SrcFile.initial "Core" (Right srcNs)

@@ -1,6 +1,8 @@
+{-# LANGUAGE NamedFieldPuns #-}
 module Printer.PrettyStx where
 
 import Control.Monad.State
+import Data.List (intercalate)
 
 import Data.SrcFile
 import Data.Stx
@@ -70,10 +72,10 @@ printStxM (LambdaStx str body) =
     do putPrinter $ "\\" ++ str ++ " -> "
        withPrinterCol $ printStxM body
 
-printStxM (ModuleStx str ns) =
-    do let str' | str == "" = str
-                | otherwise = str ++ " "
-       putPrinter $ "module " ++ str' ++ "where {"
+printStxM (ModuleStx prefix ns) =
+    do let prefix' | null prefix = ""
+                   | otherwise = intercalate "." prefix ++ " "
+       putPrinter $ "module " ++ prefix' ++ "where {"
        withPrinterCol $ do
          nlPrinter
          printNamespaceM ns
@@ -129,14 +131,14 @@ prettyPrintNamespace ns =
 
 
 prettyPrintSrcFile :: SrcFile -> IO ()
-prettyPrintSrcFile (SrcFile name _ _ (Left ns)) =
+prettyPrintSrcFile SrcFile { name, srcNs = Right _ } =
+    runStateT (do putPrinter $ "me " ++ name
+                  nlPrinter) initialPrinterState >> return ()
+
+prettyPrintSrcFile SrcFile { name, renNs = Just ns } =
     runStateT (printSrcFileM name ns) initialPrinterState >> return ()
     where printSrcFileM name ns =
               do putPrinter $ "me " ++ name
                  nlPrinter
                  nlPrinter
                  printNamespaceM ns
-
-prettyPrintSrcFile (SrcFile name _ _ (Right _)) =
-    runStateT (do putPrinter $ "me " ++ name
-                  nlPrinter) initialPrinterState >> return ()

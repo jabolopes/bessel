@@ -18,9 +18,16 @@ getArgs _ =
       return $ SeqExpr $ map boxString $ tail args
 
 
+-- edit: fixed undefined
 srcfile :: SrcFile
-srcfile = SrcFile "Core.Environment" ["Core"] Nothing $ Right $
-          ([], Map.fromList [("getArgs", (ArrowT DynT (SeqT (SeqT CharT)), m getArgs))])
+srcfile =
+    SrcFile { name = "Core.Environment"
+            , deps = ["Core"]
+            , frame = Nothing
+            , ts = undefined
+            , env = undefined
+            , srcNs = Right ([], Map.fromList [("getArgs", (ArrowT DynT (SeqT (SeqT CharT)), m getArgs))])
+            , renNs = Nothing }
 
 
 link :: a -> (SrcFile, a)

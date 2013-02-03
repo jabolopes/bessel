@@ -7,8 +7,11 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 
 import Data.Context
-import Data.Type
+import qualified Data.Context as Context
+import Data.SrcFile
+import qualified Data.SrcFile as SrcFile
 import Data.Stx
+import Data.Type
 
 
 import Debug.Trace
@@ -406,9 +409,33 @@ typecheckIncremental syms stx =
        return (substituteExistTs syms' t, simpleSyms syms')
 
 
-typecheckStxs :: Map String Type -> [Stx String] -> TypecheckerM (Map String Type)
-typecheckStxs syms stxs = typecheck (nothingSyms syms) stxs
-    where typecheck syms [] = return $ simpleSyms syms
-          typecheck syms (stx:stxs) =
-            do (_, _, syms') <- synthM syms stx
-               typecheck syms' stxs
+typecheckStxs :: Context -> [Stx String] -> TypecheckerM Context
+typecheckStxs ctx stxs = typecheck ctx stxs
+    where typecheck ctx [] = return ctx
+          typecheck ctx (stx:stxs) =
+            do (_, _, ctx') <- synthM ctx stx
+               typecheck ctx' stxs
+
+
+typecheckNamespace :: Map String SrcFile -> [String] -> Namespace String -> Either String (Map String Type)
+typecheckNamespace fs deps (Namespace _ stxs) =
+    let
+        tss = map (SrcFile.ts . (fs Map.!)) deps
+        ctx = nothingSyms $ foldr1 Map.union tss
+    in
+      simpleSyms <$> typecheckStxs ctx stxs
+
+
+typecheck :: Map String SrcFile -> SrcFile -> Either String SrcFile
+typecheck _ srcfile@SrcFile { deps, srcNs = Right (_, binds) } =
+    return $ srcfile { ts = Map.map fst binds }
+
+typecheck fs srcfile@SrcFile { deps, renNs = Just ns } =
+    do ts <- typecheckNamespace fs deps ns
+       return $ srcfile { ts = ts }
+
+
+typecheckInteractive :: SrcFile -> Stx String -> Either String (SrcFile, Type)
+typecheckInteractive srcfile stx =
+    do (t, ts) <- typecheckIncremental (SrcFile.ts srcfile) stx
+       return (srcfile { ts = ts }, t)

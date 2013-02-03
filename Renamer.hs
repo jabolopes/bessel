@@ -6,38 +6,50 @@ import Control.Monad.State
 import Data.Functor ((<$>))
 import Data.List (intercalate)
 import Data.Map (Map)
-import qualified Data.Map as Map ((!), empty, insert, keys, toList)
+import qualified Data.Map as Map (keys, lookup)
 import Data.Maybe (fromJust)
 
-import Data.Frame
+import Data.Frame (Frame)
 import qualified Data.Frame as Frame (frameId)
-import Data.FrameEnv (FrameEnv (..))
+import Data.FrameEnv (FrameEnv)
 import qualified Data.FrameEnv as FrameEnv
 import Data.SrcFile (SrcFile(..))
-import qualified Data.SrcFile as SrcFile (frame)
+import qualified Data.SrcFile as SrcFile (name, frame)
 import Data.Stx
 import Data.Symbol
 import Utils (split)
 
 
 data RenamerState =
-    RenamerState { frameEnv :: FrameEnv
+    RenamerState { fs :: Map String SrcFile
+                 , frameEnv :: FrameEnv
                  , currentFrame :: Int
-                 , srcfileFrames :: Map String Int
                  , currentCount :: Int
                  , currentNamespace :: String
                  , nslevel :: Bool }
 
 
-initialRenamerState :: RenamerState
-initialRenamerState =
+initialRenamerState :: Map String SrcFile -> String -> RenamerState
+initialRenamerState fs ns =
     let frameEnv = FrameEnv.empty in
-    RenamerState { frameEnv = frameEnv
+    RenamerState { fs = fs
+                 , frameEnv = frameEnv
                  , currentFrame = FrameEnv.rootId frameEnv
-                 , srcfileFrames = Map.empty
                  , currentCount = 0
-                 , currentNamespace = ""
+                 , currentNamespace = ns
                  , nslevel = True }
+
+
+srcfileRenamerState :: Map String SrcFile -> SrcFile -> RenamerState
+srcfileRenamerState fs srcfile =
+    let frameEnv = fromJust (SrcFile.frame srcfile) in
+    RenamerState { fs = fs
+                 , frameEnv = frameEnv
+                 , currentFrame = FrameEnv.rootId frameEnv
+                 , currentCount = 0
+                 , currentNamespace = SrcFile.name srcfile
+                 , nslevel = True }
+
 
 
 type RenamerM a = StateT RenamerState (Either String) a
@@ -65,7 +77,6 @@ genNameM name =
          return $ ns ++ "." ++ name
        else
          (name ++) . show <$> genNumM
--- genNameM name = (name ++) . show <$> genNumM
 
 
 withNslevel :: Bool -> RenamerM a -> RenamerM a
@@ -77,48 +88,58 @@ withNslevel l m =
        return val
 
 
-withNamespace :: String -> RenamerM a -> RenamerM a
+withNamespace :: [String] -> RenamerM a -> RenamerM a
 withNamespace ns m =
     do ns' <- currentNamespace <$> get
-       modify $ \state -> state { currentNamespace = ns' ++ "." ++ ns }
+       modify $ \state -> state { currentNamespace = ns' ++ "." ++ intercalate "." ns }
        val <- m
        modify $ \state -> state { currentNamespace = ns' }
        return val
 
 
+getSymbol :: FrameEnv -> Frame -> String -> RenamerM Symbol
+getSymbol frameEnv frame name =
+    case FrameEnv.getLexicalSymbol frameEnv frame name of
+      Nothing -> throwError $ "name " ++ show name ++ " is not defined"
+      Just sym -> return sym
+
+
+-- edit: check if name is multiply defined (i.e., shadowing)
+getUnprefixedSymbol :: FrameEnv -> Frame -> String -> RenamerM Symbol
+getUnprefixedSymbol frameEnv currentFrame name =
+    get $ currentFrame:FrameEnv.getUnprefixedFrames frameEnv
+    where get [frame] = getSymbol frameEnv frame name
+          get (frame:frames) =
+              case FrameEnv.getLexicalSymbol frameEnv frame name of
+                Nothing -> get frames
+                Just sym -> return sym
+
+
+getPrefixedSymbol :: FrameEnv -> [String] -> String -> RenamerM Symbol
+getPrefixedSymbol env prefix name =
+    maybe getNamespaceSymbol return getModuleSymbol
+    where getModuleSymbol =
+              do fr <- FrameEnv.getModuleFrame env prefix
+                 FrameEnv.getFrameSymbol env fr name
+
+          getNamespace _ [] = getCurrentFrameM
+          getNamespace frameEnv prefix =
+              case FrameEnv.getPrefixedFrame frameEnv prefix of
+                Nothing -> throwError $ "namespace " ++ show (intercalate "." prefix) ++ " is not defined"
+                Just fr -> return fr
+
+          getNamespaceSymbol =
+              do fr' <- getNamespace env prefix
+                 getUnprefixedSymbol env fr' name
+
+
 getSymbolM :: [String] -> RenamerM Symbol
 getSymbolM names =
     do frameEnv <- frameEnv <$> get
-       currentNamespace <- currentNamespace <$> get
        currentFrame <- getCurrentFrameM
        if null (tail names)
-       then getUnprefixedSymbol frameEnv currentNamespace currentFrame (head names)
-       else getPrefixedSymbol frameEnv currentNamespace currentFrame (init names) (last names)
-    where getSymbol :: FrameEnv -> Frame -> String -> RenamerM Symbol
-          getSymbol env fr name =
-              case FrameEnv.getSymbol env fr name of
-                Nothing -> throwError $ "name " ++ show name ++ " is undefined"
-                Just sym -> return sym
-
-          getUnprefixedSymbol :: FrameEnv -> String -> Frame -> String -> RenamerM Symbol
-          getUnprefixedSymbol env ns fr name =
-              let frs = fr:FrameEnv.getUnprefixedFrames env ns in get frs
-              where get [fr] = getSymbol env fr name
-                    get (fr:frs) =
-                        getSymbol env fr name `catchError` (\_ -> get frs)
-
-          getNamespace :: FrameEnv -> String -> [String] -> RenamerM Frame
-          getNamespace _ _ [] = getCurrentFrameM
-          getNamespace env ns prefix =
-              case FrameEnv.getPrefixedFrame env ns prefix of
-                Nothing -> throwError $ "namespace " ++ show (intercalate "." prefix) ++ " is undefined" ++
-                                        "\n\n\t in name " ++ show (intercalate "." prefix) ++ "\n\n"
-                Just fr -> return fr
-
-          getPrefixedSymbol :: FrameEnv -> String -> Frame -> [String] -> String -> RenamerM Symbol
-          getPrefixedSymbol env ns fr prefix name =
-              do fr' <- getNamespace env ns prefix
-                 getUnprefixedSymbol env ns fr' name
+       then getUnprefixedSymbol frameEnv currentFrame (head names)
+       else getPrefixedSymbol frameEnv (init names) (last names)
 
 
 getFnSymbolM :: [String] -> RenamerM String
@@ -163,18 +184,26 @@ addTypeSymbolM name rename = addSymbolM name $ TypeSymbol rename
 useNamespaceM :: String -> String -> RenamerM ()
 useNamespaceM prefix name =
     do frameEnv <- frameEnv <$> get
-       currentNamespace <- currentNamespace <$> get
-       checkShadowing frameEnv currentNamespace name
-       frame <- FrameEnv.getFrame frameEnv . (Map.! name) . srcfileFrames <$> get
-       let frameEnv' | null prefix = FrameEnv.addUnprefixedFrame frameEnv currentNamespace frame
-                     | otherwise = FrameEnv.addPrefixedFrame frameEnv currentNamespace prefix frame
-
+       checkShadowing frameEnv name
+       frameEnv' <- linkFrameEnv frameEnv prefix name
        modify $ \state -> state { frameEnv = frameEnv' }
-    where checkShadowing env ns name =
+    where checkShadowing env name =
               -- edit: eliminate split
-              case FrameEnv.getPrefixedFrame env ns (split '.' name) of
+              case FrameEnv.getPrefixedFrame env (split '.' name) of
                 Nothing -> return ()
                 _ -> throwError $ "namespace qualification " ++ show name ++ " has already been defined"
+
+          linkFrameEnv frameEnv prefix name =
+              do fs <- fs <$> get
+                 case Map.lookup name fs of
+                   Nothing -> throwError $ "Renamer.useNamespaceM: srcfile is not in the filesystem" ++
+                                           "\n\n\t prefix = " ++ prefix ++
+                                           "\n\n\t name = " ++ name ++
+                                           "\n\n\t fs = " ++ show fs ++ "\n"
+                   Just srcfile -> do let moduleEnv = fromJust (SrcFile.frame srcfile)
+                                      if null prefix
+                                      then return $ FrameEnv.addUnprefixedEnv frameEnv name moduleEnv
+                                      else return $ FrameEnv.addPrefixedEnv frameEnv prefix moduleEnv
 
 
 withScopeM :: RenamerM a -> RenamerM a
@@ -183,21 +212,20 @@ withScopeM m =
        currentFrame <- getCurrentFrameM
        let (frameEnv', frame') = FrameEnv.addFrame frameEnv currentFrame
        modify $ \state -> state { frameEnv = frameEnv'
-                                , currentFrame = frameId frame' }
+                                , currentFrame = Frame.frameId frame' }
        val <- m
-       modify $ \state -> state { currentFrame = frameId currentFrame }
+       modify $ \state -> state { currentFrame = Frame.frameId currentFrame }
        return val
 
 
-withPrefixedScopeM :: String -> RenamerM a -> RenamerM a
+withPrefixedScopeM :: [String] -> RenamerM a -> RenamerM a
 withPrefixedScopeM prefix m =
     do (val, frame) <- withScopeM $ do
                          val <- withNamespace prefix m
                          frame <- getCurrentFrameM
                          return (val, frame)
        frameEnv <- frameEnv <$> get
-       currentNamespace <- currentNamespace <$> get
-       let frameEnv' = FrameEnv.addPrefixedFrame frameEnv currentNamespace prefix frame
+       let frameEnv' = FrameEnv.addModuleFrame frameEnv prefix frame
        modify $ \state -> state { frameEnv = frameEnv' }
        return val
 
@@ -245,7 +273,7 @@ renameM (LambdaStx arg body) =
            (do addFnSymbolM arg arg'
                withScopeM $ renameOneM body)
 
-renameM stx@(ModuleStx "" ns) =
+renameM stx@(ModuleStx [] ns) =
     do Namespace _ stxs <- renameNamespaceM ns
        return stxs
 
@@ -274,50 +302,33 @@ renameM (WhereStx stx stxs) =
       return [WhereStx stx' stxs']
 
 
-mkInteractiveFrame :: SrcFile -> RenamerState -> RenamerState
-mkInteractiveFrame srcfile@(SrcFile name deps _ _) state =
-    case runStateT mkInteractiveFrameM state of
+mkInteractiveFrame :: Map String SrcFile -> [String] -> FrameEnv
+mkInteractiveFrame fs deps =
+    case runStateT mkInteractiveFrameM (initialRenamerState fs "Interactive") of
       Left str -> error str
-      Right (_, x) -> x
+      Right (x, _) -> x
     where mkInteractiveFrameM =
-              do frameEnv <- frameEnv <$> get
-                 let (frameEnv', interactiveFrame) = FrameEnv.addFrame frameEnv $ FrameEnv.getRootFrame frameEnv
-                 modify $ \state -> state { frameEnv = frameEnv'
-                                          , currentFrame = frameId interactiveFrame
-                                          , currentNamespace = "Interactive" }
-                 mapM_ (useNamespaceM "") (name:reverse deps)
+              do mapM_ (useNamespaceM "") deps
+                 frameEnv <$> get
 
 
--- edit: fix type signature
-saveSrcfile name deps frame content =
-    do let frameId = Frame.frameId frame
-       modify $ \state -> state { srcfileFrames = Map.insert name frameId (srcfileFrames state) }
-       return $ SrcFile name deps (Just frameId) content
+renameSrcFile :: SrcFile -> RenamerM SrcFile
+renameSrcFile srcfile@SrcFile { srcNs = Left ns } =
+    do ns' <- renameNamespaceM ns
+       return $ srcfile { renNs = Just ns' }
+
+renameSrcFile srcfile@SrcFile { srcNs = Right (_, binds) } =
+    do mapM_ (\name -> addFnSymbolM name name) $ Map.keys binds
+       return srcfile
 
 
-renameSrcFiles :: [SrcFile] -> RenamerM [SrcFile]
-renameSrcFiles = mapM renameSrcFile
-    where renameSrcFile (SrcFile name deps Nothing (Left ns)) =
-              do (ns', frame) <- withScopeM $ do
-                                   modify $ \state -> state { currentNamespace = name }
-                                   ns' <- renameNamespaceM ns
-                                   frame <- getCurrentFrameM
-                                   return (ns', frame)
-                 saveSrcfile name deps frame $ Left ns'
-
-          renameSrcFile srcfile@(SrcFile name deps Nothing content@(Right (_, binds))) =
-              do frame <- withScopeM $ do
-                            modify $ \state -> state { currentNamespace = name }
-                            mapM_ (\name -> addFnSymbolM name name) $ Map.keys binds
-                            getCurrentFrameM
-                 saveSrcfile name deps frame content
-                 
-
-rename :: [SrcFile] -> Either String ([SrcFile], RenamerState)
-rename srcfiles =
-    runStateT (renameSrcFiles srcfiles) initialRenamerState
+rename :: Map String SrcFile -> SrcFile -> Either String SrcFile
+rename fs srcfile =
+    do let state = initialRenamerState fs (SrcFile.name srcfile)
+       (srcfile', state') <- runStateT (renameSrcFile srcfile) state
+       return $ srcfile' { frame = Just (frameEnv state') }
 
 
-renameIncremental :: RenamerState -> Stx String -> Either String (Stx String, RenamerState)
-renameIncremental state stx =
-    runStateT (renameOneM stx) state
+renameInteractive :: Map String SrcFile -> SrcFile -> Stx String -> Either String (Stx String)
+renameInteractive fs srcfile stx =
+    fst <$> runStateT (renameOneM stx) (srcfileRenamerState fs srcfile)

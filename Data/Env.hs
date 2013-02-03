@@ -5,7 +5,7 @@ import qualified Data.Map as Map
 
 
 data Env a = Env (Maybe (Env a)) (Map String a)
-           deriving (Show)
+             deriving (Show)
 
 
 empty :: Env a

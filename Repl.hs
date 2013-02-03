@@ -5,17 +5,21 @@ import Prelude hiding (lex, catch)
 
 import Control.Monad.State
 import Data.Char (isSpace)
+import Data.Functor ((<$>))
 import Data.List (intercalate, isPrefixOf, nub)
 import Data.Map (Map)
-import qualified Data.Map as Map ((!), insert, empty)
+import qualified Data.Map as Map ((!), insert, elems, empty, keys, lookup, toList)
 import System.Console.GetOpt
 import System.Console.Readline
 
 --import System.IO.Error (catchIOError)
 import System.IO.Error (catch)
 
+import Config
+import qualified Data.Env as Env (getBinds)
 import Data.Exception
 import Data.SrcFile
+import qualified Data.SrcFile as SrcFile
 import Data.Stx
 import Data.Type
 import Interpreter
@@ -24,12 +28,16 @@ import Loader
 import Monad.InterpreterM
 import Parser
 import Printer.PrettyStx
-import Renamer
+-- edit: remove this hiding
+import Renamer hiding (fs)
 import Typechecker
 import Utils
 
 
-data ReplState = ReplState [SrcFile] RenamerState ExprEnv (Map String Type)
+data ReplState =
+    ReplState { fs :: Map String SrcFile
+              , interactive :: SrcFile }
+
 type ReplM a = StateT ReplState IO a
 
 
@@ -44,8 +52,6 @@ doPutRenamedStx = False
 doPutExpr = True
 doPutExprT = True
 doPutEnvironment = False
-
-doTypecheck = True
 
 
 putLine :: String -> IO ()
@@ -105,89 +111,121 @@ putEnvironment env
     | otherwise = return ()
 
 
-renamerEither :: Either String a -> a
-renamerEither fn = either throwRenamerException id fn
+renamerEither :: Monad m => Either String a -> m a
+renamerEither fn = return $ either throwRenamerException id fn
 
 
-typecheckerEither :: Either String a -> a
-typecheckerEither fn = either throwTypecheckerException id fn
+typecheckerEither :: Monad m => Either String a -> m a
+typecheckerEither fn = return $ either throwTypecheckerException id fn
 
 
-importFile :: [SrcFile] -> String -> IO ReplState
-importFile corefiles filename =
-    do srcfiles <- preload corefiles filename
-       let (srcfiles', renamerState) = renamerEither $ rename srcfiles
-           (_, exprEnv) = interpret srcfiles'
-       -- putStrLn $ show exprEnv -- edit: forcing evaluation
-       -- !symbols' <- liftIO $ return $ typecheckerEither $ typecheckStxs symbols stxs
-       return $ ReplState corefiles (mkInteractiveFrame (last srcfiles') renamerState) exprEnv Map.empty
+importFile :: Map String SrcFile -> String -> IO ReplState
+importFile fs filename =
+    do srcfiles <- preload fs filename
+       fs' <- loop Map.empty srcfiles
+       let interactiveDeps = map SrcFile.name srcfiles
+           interactiveFrameEnv = mkInteractiveFrame fs' interactiveDeps
+           interactive = mkInteractiveSrcFile interactiveDeps interactiveFrameEnv
+       return $ ReplState { fs = fs', interactive = interactive }
+    where updateFs fs srcfile = Map.insert (SrcFile.name srcfile) srcfile fs
+
+          loop fs [] = return fs
+          loop fs (srcs:srcss) =
+              do putStr $ SrcFile.name srcs
+                 rens <- renamerEither $ rename fs srcs
+                 let renfs = updateFs fs rens
+                 putStr ": renamed"
+                 typs <- typecheckerEither $ typecheck renfs rens
+                 let typfs = updateFs renfs typs
+                 putStr ", typechecked"
+                 let evals = interpret typfs typs
+                     evalfs = updateFs typfs evals
+                 putStrLn ", evaluated"
+                 loop evalfs srcss
 
 
-runM :: ExprEnv -> Stx String -> ReplM ExprEnv
-runM exprEnv stx =
-    do let (expr, exprEnv') = interpretIncremental exprEnv [stx]
-       liftIO $ do
-         putExpr expr
-         putEnvironment exprEnv'
-       return exprEnv'
+runInterpretM :: SrcFile -> Stx String -> ReplM SrcFile
+runInterpretM srcfile stx =
+    do let (srcfile', expr) = interpretInteractive srcfile stx
+       liftIO $ putExpr expr
+       return srcfile'
 
 
-runTypecheckM :: ExprEnv -> Map String Type -> Stx String -> ReplM (ExprEnv, Map String Type)
-runTypecheckM exprEnv symbols stx =
-    case typecheckIncremental symbols stx of
+runTypecheckM :: SrcFile -> Stx String -> ReplM SrcFile
+runTypecheckM srcfile stx =
+    case typecheckInteractive srcfile stx of
       Left str -> throwTypecheckerException str
-      Right (t, symbols') -> do let (expr, exprEnv') = interpretIncremental exprEnv [stx]
-                                liftIO $ do
-                                  putStrLn $ show symbols'
-                                  putStrLn ""
-                                  putExprT expr t
-                                  putEnvironment exprEnv'
-                                return (exprEnv', symbols')
+      Right (srcfile', t) -> do let (srcfile'', expr) = interpretInteractive srcfile' stx
+                                liftIO $ putExprT expr t
+                                return srcfile''
 
 
 runSnippetM :: String -> ReplM ()
 runSnippetM ln =
-    do ReplState corefiles renamerState exprEnv symbols <- get
+    do state <- get
        let tokens = lex ln
            stx = parseRepl tokens
-           (stx', renamerState') = renamerEither $ renameIncremental renamerState stx
+       fs <- fs <$> get
+       interactive <- interactive <$> get
+       stx' <- renamerEither $ renameInteractive fs interactive stx
        liftIO $ putRenamedStx stx'
-       if doTypecheck
-       then do (exprEnv', symbols') <- runTypecheckM exprEnv symbols stx'
-               put $ ReplState corefiles renamerState' exprEnv' symbols'
-       else do exprEnv' <- runM exprEnv stx'
-               put $ ReplState corefiles renamerState' exprEnv' symbols
+       let fn | doTypecheck = runTypecheckM
+             | otherwise = runInterpretM
+       interactive' <- fn interactive stx'
+       put $ state { interactive = interactive' }
 
-
--- runSnippetM :: String -> ReplM ()
--- runSnippetM ln =
---     do ReplState renamerState exprEnv symbols prelude <- get
---        let tokens = lex ln
---            stx = parseDefnOrExpr tokens
---            (stx', renamerState') = renamerEither $ renameIncremental renamerState stx
---        liftIO $ putRenamedStx stx'
---        case typecheckIncremental symbols stx' of
---          Left str -> throwTypecheckerException str
---          Right (t, symbols') -> do let (expr, exprEnv') = interpret exprEnv [stx']
---                                    liftIO $ do
---                                      putStrLn $ show symbols'
---                                      putStrLn ""
---                                      putExprT expr t
---                                      putStrLn ""
---                                      putEnvironment exprEnv'
---                                    put $ ReplState renamerState' exprEnv' symbols' prelude
 
 showModuleM :: Bool -> Bool -> String -> ReplM ()
 showModuleM showAll showBrief filename =
-    do ReplState corefiles _ _ _ <- get
-       srcfiles <- liftIO $ preload corefiles filename
-       let srcfiles' | showAll = srcfiles
-                     | otherwise = [last srcfiles]
-       liftIO $ mapM_ (putStrLn . showBriefly) srcfiles'
-    where showBriefly srcfile@(SrcFile name deps _ _)
-              | showBrief = "SrcFile " ++ show name ++ " " ++ show deps ++ " ..."
-              | otherwise = show srcfile
-                  
+    if filename == "Interactive" then
+        do interactive <- interactive <$> get
+           liftIO $ putStrLn $ showBriefly interactive
+    else
+        do fs <- fs <$> get
+           srcfiles <- liftIO $ preload fs filename
+           let srcfiles' | showAll = srcfiles
+                         | otherwise = [last srcfiles]
+           liftIO $ mapM_ (putStrLn . showBriefly) srcfiles'
+    where showDeps srcfile = 
+              "\n\n\t deps = " ++ intercalate ", " (SrcFile.deps srcfile)
+
+          showFrameEnv srcfile =
+              "\n\n\t frameEnv = " ++ show (SrcFile.frame srcfile)
+
+          showTs srcfile =
+              "\n\n\t ts = " ++ intercalate ('\n':replicate 14 ' ') (map showTuple $ Map.toList $ SrcFile.ts srcfile)
+              where showTuple (x, y) =
+                        x ++ " :: " ++ show y
+
+          showExprEnv srcfile =
+              "\n\n\t exprEnv = " ++ intercalate ", " (map fst $ Env.getBinds $ SrcFile.env srcfile)
+
+          showSrcNs SrcFile { srcNs = Left (Namespace uses _) } =
+              "\n\n\t srcNs = " ++ intercalate ", " (map use uses)
+              where use (x, "") = "use " ++ x
+                    use (x, y) = "use " ++ x ++ " as " ++ y
+
+          showSrcNs SrcFile { srcNs = Right _ } =
+              "\n\n\t srcNs = <built-in>"
+
+          showRenNs SrcFile { renNs = Nothing } =
+              "\n\n\t renNs = Nothing"
+
+          showRenNs SrcFile { renNs = Just (Namespace uses _) } =
+              "\n\n\t renNs = " ++ intercalate ", " (map use uses)
+              where use (x, "") = "use " ++ x
+                    use (x, y) = "use " ++ x ++ " as " ++ y
+
+          showBriefly srcfile
+              | showBrief = "SrcFile " ++ show (SrcFile.name srcfile) ++ " " ++ show (SrcFile.deps srcfile) ++ " ..."
+              | otherwise = SrcFile.name srcfile ++
+                            showDeps srcfile ++
+                            showFrameEnv srcfile ++
+                            showTs srcfile ++
+                            showExprEnv srcfile ++
+                            showSrcNs srcfile ++
+                            showRenNs srcfile
+
 
 showTokensM :: String -> ReplM ()
 showTokensM filename =
@@ -198,17 +236,24 @@ showTokensM filename =
 
 showRenamedM :: Bool -> String -> ReplM ()
 showRenamedM showAll filename =
-    do ReplState corefiles _ _ _ <- get
-       srcfiles <- liftIO $ preload corefiles filename
-       let (srcfiles', _) = renamerEither $ rename srcfiles
-       showFiles srcfiles'
+    let
+        filesM
+            | filename == "Interactive" =
+                do interactive <- interactive <$> get
+                   return [interactive]
+            | showAll =
+                Map.elems . fs <$> get
+            | otherwise =
+                do fs <- fs <$> get
+                   case Map.lookup filename fs of
+                     Nothing -> return []
+                     Just srcfile -> return [srcfile]
+    in       
+      filesM >>= showFiles
     where showFiles [] = return ()
-          showFiles [srcfile] | not showAll =
-              liftIO $ prettyPrintSrcFile srcfile
-          showFiles (srcfile:srcfiles)
-              | showAll = do liftIO $ prettyPrintSrcFile srcfile
-                             showFiles srcfiles
-              | otherwise = showFiles srcfiles
+          showFiles (srcfile:srcfiles) =
+              do liftIO $ prettyPrintSrcFile srcfile
+                 showFiles srcfiles
 
 
 data Flag
@@ -237,8 +282,8 @@ runCommandM "show" opts nonOpts
         showRenamedM showAll $ last nonOpts
 
 runCommandM "load" opts nonOpts =
-    do ReplState corefiles _ _ _ <- get
-       liftIO (importFile corefiles (last nonOpts)) >>= put
+    do fs <- fs <$> get
+       liftIO (importFile fs (last nonOpts)) >>= put
 
 runCommandM "l" opts nonOpts =
     runCommandM "load" opts nonOpts

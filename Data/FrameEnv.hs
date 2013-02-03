@@ -16,7 +16,10 @@ data FrameEnv =
     FrameEnv { frames :: Map Int Frame
              , frameCount :: Int
              , rootId :: Int
-             , namespaceFrames :: Map String ([Int], Map String Int) }
+             , moduleFrames :: Map String Frame
+             , unprefixedEnvs :: Map String FrameEnv
+             , prefixedEnvs :: Map String FrameEnv }
+    deriving (Show)
 
 
 empty :: FrameEnv
@@ -25,7 +28,9 @@ empty =
     FrameEnv { frames = Map.fromList [(frameId frame, frame)]
              , frameCount = 1
              , rootId = frameId frame
-             , namespaceFrames = Map.empty }
+             , moduleFrames = Map.empty
+             , unprefixedEnvs = Map.empty
+             , prefixedEnvs = Map.empty }
 
 
 getFrame :: FrameEnv -> Int -> Frame
@@ -56,12 +61,16 @@ addFrame frameEnv parent =
       (frameEnv'', frame)
 
 
-getSymbol :: FrameEnv -> Frame -> String -> Maybe Symbol
-getSymbol frameEnv frame@Frame { frameId, frameParent, frameSyms } name =
+getLexicalSymbol :: FrameEnv -> Frame -> String -> Maybe Symbol
+getLexicalSymbol frameEnv frame@Frame { frameId, frameParent, frameSyms } name =
     case Map.lookup name frameSyms of
       Nothing | frameId == frameParent -> Nothing
-              | otherwise -> getSymbol frameEnv (getFrame frameEnv frameParent) name
+              | otherwise -> getLexicalSymbol frameEnv (getFrame frameEnv frameParent) name
       Just sym -> Just sym
+
+
+getFrameSymbol _ frame@Frame { frameSyms } name =
+    Map.lookup name frameSyms
 
 
 addSymbol :: FrameEnv -> Frame -> String -> Symbol -> FrameEnv
@@ -70,59 +79,35 @@ addSymbol frameEnv frame@Frame { frameSyms } name sym =
     putFrame frameEnv frame'
 
 
-getUnprefixedFrameIds :: FrameEnv -> String -> [Int]
-getUnprefixedFrameIds frameEnv@FrameEnv { namespaceFrames } ns =
-    case Map.lookup ns namespaceFrames of
-      Nothing -> []
-      Just (frs, _) -> frs
+mkQual :: [String] -> String
+mkQual = intercalate "."
 
 
-getUnprefixedFrames :: FrameEnv -> String -> [Frame]
-getUnprefixedFrames frameEnv ns =
-    map (getFrame frameEnv) $ getUnprefixedFrameIds frameEnv ns
+getModuleFrame :: FrameEnv -> [String] -> Maybe Frame
+getModuleFrame frameEnv qual =
+    Map.lookup (mkQual qual) (moduleFrames frameEnv)
 
 
-setUnprefixedFrames :: FrameEnv -> String -> [Frame] -> FrameEnv
-setUnprefixedFrames frameEnv@FrameEnv { namespaceFrames } ns frames =
-    let
-        prefixedFrames = getPrefixedFrames frameEnv ns
-        namespaceFrames' = Map.insert ns (map frameId frames, prefixedFrames) namespaceFrames
-    in
-      frameEnv { namespaceFrames = namespaceFrames' }
+addModuleFrame :: FrameEnv -> [String] -> Frame -> FrameEnv
+addModuleFrame frameEnv qual frame =
+    frameEnv { moduleFrames = Map.insert (mkQual qual) frame (moduleFrames frameEnv) }
 
 
-addUnprefixedFrame :: FrameEnv -> String -> Frame -> FrameEnv
-addUnprefixedFrame frameEnv ns frame =
-    let unprefixedFrames = getUnprefixedFrames frameEnv ns in
-    setUnprefixedFrames frameEnv ns $ unprefixedFrames ++ [frame]
+getUnprefixedFrames :: FrameEnv -> [Frame]
+getUnprefixedFrames frameEnv@FrameEnv { unprefixedEnvs } =
+    map getRootFrame $ Map.elems unprefixedEnvs
 
 
-getPrefixedFrames :: FrameEnv -> String -> Map String Int
-getPrefixedFrames frameEnv@FrameEnv { namespaceFrames } ns =
-    case Map.lookup ns namespaceFrames of
-      Nothing -> Map.empty
-      Just (_, mp) -> mp
+addUnprefixedEnv :: FrameEnv -> String -> FrameEnv -> FrameEnv
+addUnprefixedEnv frameEnv@FrameEnv { unprefixedEnvs } name env =
+    frameEnv { unprefixedEnvs = Map.insert name env unprefixedEnvs }
 
 
-setPrefixedFrames :: FrameEnv -> String -> Map String Int -> FrameEnv
-setPrefixedFrames frameEnv@FrameEnv { namespaceFrames } ns frames =
-    let
-        unprefixedFrames = getUnprefixedFrameIds frameEnv ns
-        namespaceFrames' = Map.insert ns (unprefixedFrames, frames) namespaceFrames
-    in
-      frameEnv { namespaceFrames = namespaceFrames' }
+getPrefixedFrame :: FrameEnv -> [String] -> Maybe Frame
+getPrefixedFrame frameEnv@FrameEnv { prefixedEnvs } qual =
+    getRootFrame <$> Map.lookup (mkQual qual) prefixedEnvs
 
 
-getPrefixedFrame :: FrameEnv -> String -> [String] -> Maybe Frame
-getPrefixedFrame frameEnv ns qual =
-    let
-        prefixedFrames = getPrefixedFrames frameEnv ns
-        qual' = intercalate "." qual
-    in
-      getFrame frameEnv <$> Map.lookup qual' prefixedFrames
-
-
-addPrefixedFrame :: FrameEnv -> String -> String -> Frame -> FrameEnv
-addPrefixedFrame frameEnv ns name Frame { frameId } =
-    let prefixedFrames = Map.insert name frameId (getPrefixedFrames frameEnv ns) in
-    setPrefixedFrames frameEnv ns prefixedFrames
+addPrefixedEnv :: FrameEnv -> String -> FrameEnv -> FrameEnv
+addPrefixedEnv frameEnv@FrameEnv { prefixedEnvs } name env =
+    frameEnv { prefixedEnvs = Map.insert name env prefixedEnvs }

@@ -1,22 +1,26 @@
 module Main where
 
+import Data.Map (Map)
+import qualified Data.Map as Map (fromList)
 import System.Environment
 
-import qualified Core (srcfile)
+import Config
 import qualified CoreTypechecker (srcfile)
-import qualified Core.Environment (link)
-import qualified Core.IO (link)
-import qualified Core.Shell (link)
-
-import qualified Core.Happstack (link)
-
+-- import qualified Core.Environment (link)
+-- import qualified Core.IO (link)
+-- import qualified Core.Shell (link)
+-- import qualified Core.Happstack (link)
 import Data.SrcFile
-import Repl
+import qualified Data.SrcFile as SrcFile (name)
+import Repl hiding (fs)
 
 
-corefiles :: SrcFile
-corefiles | doTypecheck = CoreTypechecker.srcfile
-          | otherwise = Core.srcfile
+links :: [[Int] -> (SrcFile, [Int])]
+links = []
+    -- [Core.Environment.link,
+    --  Core.IO.link,
+    --  Core.Shell.link,
+    --  Core.Happstack.link]
 
 
 linkCorefiles :: [Int] -> [[Int] -> (SrcFile, [Int])] -> [SrcFile]
@@ -26,26 +30,17 @@ linkCorefiles ids (fn:fns) =
     srcfile:linkCorefiles ids' fns
 
 
-links :: [[Int] -> (SrcFile, [Int])]
-links = [Core.Environment.link,
-         Core.IO.link,
-         Core.Shell.link,
-
-         Core.Happstack.link]
+corefiles :: [SrcFile]
+corefiles = corefile:linkCorefiles (map (* (-1)) [1..]) links
 
 
-corefiles' :: [SrcFile]
-corefiles' = corefiles:linkCorefiles (map (* (-1)) [1..]) links
-
-
-preludeName :: String
-preludeName | doTypecheck = "PreludeTypechecker"
-            | otherwise = "Prelude"
+fs :: Map String SrcFile
+fs = Map.fromList $ map (\x -> (SrcFile.name x, x)) corefiles
 
 
 main :: IO ()
 main =
     do args <- getArgs
        case args of
-         [] -> importFile corefiles' preludeName >>= repl
-         filename:_ -> importFile corefiles' filename >>= batch "main:<>"
+         [] -> importFile fs preludeName >>= repl
+         filename:_ -> importFile fs filename >>= batch "main:<>"

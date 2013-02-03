@@ -2,6 +2,7 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 module Parser where
 
+import Config
 import Data.Exception
 import Data.Stx
 import Data.Pat
@@ -117,11 +118,17 @@ import Macros
 %%
 
 SrcFile:
-    me NameDotList Namespace { SrcFile $2 [] Nothing (Left $3) }
+    me NameDotList Namespace { mkParsedSrcFile $2 $3 }
+
+-- edit: eliminate NameDotList and NameDotList2
 
 NameDotList:
     NameDotList '.' name { $1 ++ "." ++ $3 }
   | name                 { $1 }
+
+NameDotList2:
+    NameDotList2 '.' name { $1 ++ [$3] }
+  | name                  { [$1] }
 
 Namespace:
     UseList DefnList { Namespace $1 $2 }
@@ -141,8 +148,8 @@ DefnList:
   | Defn                     { [$1] }
 
 Module:
-    module where '{' Namespace '}'      { ModuleStx "" $4 }
-  | module name where '{' Namespace '}' { ModuleStx $2 $5 }
+    module              where '{' Namespace '}' { ModuleStx [] $4 }
+  | module NameDotList2 where '{' Namespace '}' { ModuleStx $2 $5 }
 
 DefnOrExpr:
     Defn        { $1 }
@@ -411,6 +418,6 @@ data Token
 parsePrelude = parseSrcFile
 
 parseFile tks =
-  let SrcFile name deps Nothing (Left (Namespace uses stxs)) = parseSrcFile tks in
-  SrcFile name deps Nothing (Left (Namespace (("Core", ""):("Prelude", ""):uses) stxs))
+  let uses = [("Core", ""), (preludeName, "")] in
+  addImplicitDeps uses (parseSrcFile tks)
 }

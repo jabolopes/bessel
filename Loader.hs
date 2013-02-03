@@ -1,4 +1,5 @@
-{-# LANGUAGE ParallelListComp, TupleSections #-}
+{-# LANGUAGE NamedFieldPuns, ParallelListComp,
+             TupleSections #-}
 module Loader where
 
 import Prelude hiding (lex)
@@ -13,7 +14,9 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Tree
 
+import Config
 import Data.SrcFile
+import qualified Data.SrcFile as SrcFile
 import Data.Stx
 import Data.Pat
 import Lexer (lex)
@@ -57,14 +60,14 @@ dependenciesFileM :: String -> IO SrcFile
 dependenciesFileM filename =
     do str <- readFileM filename
        let tks = lex str
-           parseFn | filename == "Prelude" = parsePrelude
+           parseFn | isPrelude filename = parsePrelude
                    | otherwise = parseFile
-           (SrcFile name [] Nothing content@(Left ns)) = parseFn tks
+           srcfile@SrcFile { name, srcNs = Left ns } = parseFn tks
        (_, deps) <- runStateT (dependenciesNsM ns) []
        let deps' = nub $ sort deps
        if name /= filename
        then error $ "Loader.dependenciesFileM: me " ++ show name ++ " and filename " ++ show filename ++ " mismatch"
-       else return $ SrcFile name deps' Nothing content
+       else return $ srcfile { deps = deps' }
 
 
 preloadSrcFile :: Map String SrcFile -> String -> IO [SrcFile]
@@ -74,21 +77,21 @@ preloadSrcFile corefiles filename = preloadSrcFile' [] Set.empty [filename]
               | filename `Set.member` loaded =
                   preloadSrcFile' srcfiles loaded filenames
               | filename `Map.member` corefiles =
-                  do let srcfile@(SrcFile _ deps _ _) = corefiles Map.! filename
-                     preloadSrcFile' (srcfile:srcfiles) (Set.insert filename loaded) (deps ++ filenames)
+                  do let srcfile = corefiles Map.! filename
+                     preloadSrcFile' (srcfile:srcfiles) (Set.insert filename loaded) (deps srcfile ++ filenames)
               | otherwise =
-                  do srcfile@(SrcFile _ deps _ _) <- dependenciesFileM filename
-                     preloadSrcFile' (srcfile:srcfiles) (Set.insert filename loaded) (deps ++ filenames)
+                  do srcfile <- dependenciesFileM filename
+                     preloadSrcFile' (srcfile:srcfiles) (Set.insert filename loaded) (deps srcfile ++ filenames)
 
 
 buildNodes :: [SrcFile] -> Map String Int
 buildNodes srcfiles =
-    Map.fromList [ (name, i) | SrcFile name _ _ _ <- srcfiles | i <- [1..] ]
+    Map.fromList [ (SrcFile.name srcfile, i) | srcfile <- srcfiles | i <- [1..] ]
 
 
 buildEdges :: Map String Int -> [SrcFile] -> [(Int, Int)]
 buildEdges nodes srcfiles =
-    concatMap (\(SrcFile name deps _ _) -> zip (repeat (nodes Map.! name)) (map (nodes Map.!) deps)) srcfiles
+    concatMap (\srcfile -> zip (repeat (nodes Map.! SrcFile.name srcfile)) (map (nodes Map.!) (SrcFile.deps srcfile))) srcfiles
 
 
 replaceIndexes :: [SrcFile] -> [Int] -> [SrcFile]
@@ -115,10 +118,9 @@ buildGraph srcfiles =
         Just is -> Left $ replaceIndexes srcfiles is
 
 
-preload :: [SrcFile] -> String -> IO [SrcFile]
-preload corefiles filename =
-    do srcfiles <- preloadSrcFile corefilesMp filename
+preload :: Map String SrcFile -> String -> IO [SrcFile]
+preload fs filename =
+    do srcfiles <- preloadSrcFile fs filename
        case buildGraph srcfiles of
-         Left srcfiles' -> error $ "Loader.preload: module cycle in " ++ show srcfiles'
+         Left srcfiles' -> error $ "Loader.preload: module cycle in " ++ show (map SrcFile.name srcfiles')
          Right srcfiles' -> return srcfiles'
-    where corefilesMp = Map.fromList [ (name, srcfile) | srcfile@(SrcFile name _ _ _) <- corefiles ]

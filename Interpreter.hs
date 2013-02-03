@@ -1,12 +1,14 @@
-{-# LANGUAGE DoRec #-}
+{-# LANGUAGE DoRec, NamedFieldPuns #-}
 module Interpreter where
 
 import Control.Monad.State
 import Data.Functor ((<$>))
-import qualified Data.Map as Map (toList)
+import Data.Map as Map (Map)
+import qualified Data.Map as Map ((!), toList)
 
-import qualified Data.Env as Env (empty)
+import qualified Data.Env as Env (empty, union)
 import Data.SrcFile
+import qualified Data.SrcFile as SrcFile (env)
 import Data.Stx
 import Monad.InterpreterM
 
@@ -83,42 +85,35 @@ evalM (WhereStx stx stxs) =
       withEnvM $ evalM stx
 
 
-interpretIncremental :: ExprEnv -> [Stx String] -> (Expr, ExprEnv)
-interpretIncremental state stxs =
+interpretNamespace :: Map String SrcFile -> [String] -> Namespace String -> ExprEnv
+interpretNamespace fs deps (Namespace _ stxs) =
     let
-        m = do mapM_ evalM $ init stxs
-               evalM $ last stxs
+        envs = map (SrcFile.env . (fs Map.!)) deps
+        env = foldr1 Env.union envs
     in
-      runState m state
+      snd $ runState (mapM_ evalM stxs) env
 
 
-interpretNamespace (Namespace _ stxs) =
-    do mapM_ evalM $ init stxs
-       evalM $ last stxs
-
-
-interpretSrcFile :: ExprEnv -> SrcFile -> (Expr, ExprEnv)
-interpretSrcFile state (SrcFile _ _ _ (Left (Namespace _ stxs))) =
-    interpretIncremental state stxs
-
-interpretSrcFile state (SrcFile _ _ _ (Right (_, binds))) =
+interpretSrcFile :: Map String SrcFile -> SrcFile -> ExprEnv
+interpretSrcFile _ SrcFile { srcNs = Right (_, binds) } =
     let
-        binds' = map (\(name, (_, expr)) -> (name, expr)) $ Map.toList binds
+        binds' = [ (x, y) | (x, (_, y)) <- Map.toList binds ]
         m = do mapM_ (\(name, expr) -> addBindM name expr) binds'
                return $ snd $ last binds'
     in
-      runState m state
+      snd $ runState m Env.empty
+
+interpretSrcFile fs SrcFile { deps, renNs = Just ns } =
+    interpretNamespace fs deps ns
 
 
-interpretSrcFiles :: ExprEnv -> [SrcFile] -> (Expr, ExprEnv)
-interpretSrcFiles state [srcfile] =
-    interpretSrcFile state srcfile
-
-interpretSrcFiles state (srcfile:srcfiles) =
-    let (_, state') = interpretSrcFile state srcfile in
-    interpretSrcFiles state' srcfiles
+interpret :: Map String SrcFile -> SrcFile -> SrcFile
+interpret fs srcfile =
+    let env = interpretSrcFile fs srcfile in
+    srcfile { env = env }
 
 
-interpret :: [SrcFile] -> (Expr, ExprEnv)
-interpret srcfiles =
-    interpretSrcFiles Env.empty srcfiles
+interpretInteractive :: SrcFile -> Stx String -> (SrcFile, Expr)
+interpretInteractive srcfile stx =
+    let (expr, env) = runState (evalM stx) (SrcFile.env srcfile) in
+    (srcfile { env = env }, expr)

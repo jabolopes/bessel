@@ -85,8 +85,9 @@ link ids = (srcfile, drop 2 ids)
                    killThread threadId
                    return $ SeqExpr []
 
+          -- edit: fixed undefined
           srcfile :: SrcFile
-          srcfile = SrcFile "Core.Happstack" ["Core"] Nothing $ Right $
+          srcfile = SrcFile "Core.Happstack" ["Core"] Nothing undefined undefined $ Right $
                     ([tagTypename],
                      Map.fromList [("a", (ArrowT DynT DynT, tagM Html.a)),
                                    ("abbr", (ArrowT DynT DynT, tagM Html.abbr)),
