@@ -14,7 +14,6 @@ import Monad.InterpreterM
 data SrcFile
     = SrcFile { name :: String
               , deps :: [String]
-              , frame :: Maybe FrameEnv
               , symbols :: Map String Symbol
               , ts :: Map String Type
               , env :: ExprEnv
@@ -26,7 +25,6 @@ data SrcFile
 initial name srcNs =
     SrcFile { name = name
             , deps = []
-            , frame = Nothing
             , symbols = Map.empty
             , ts = Map.empty
             , env = Env.empty
@@ -39,12 +37,15 @@ mkParsedSrcFile name ns =
     (initial name (Left ns))
 
 
-mkInteractiveSrcFile :: [String] -> FrameEnv -> SrcFile
-mkInteractiveSrcFile deps frame =
-    let ns = (Left (Namespace [] [])) in
-    (initial "Interactive" ns) { deps = deps
-                               , frame = Just frame }
+mkInteractiveSrcFile :: [String] -> SrcFile
+mkInteractiveSrcFile deps =
+    let
+        uses = [ (x, "") | x <- deps ]
+        ns = (Left (Namespace uses []))
+    in
+      (initial "Interactive" ns) { deps = deps }
 
 
+addImplicitDeps :: [(String, String)] -> SrcFile -> SrcFile
 addImplicitDeps uses srcfile@SrcFile { srcNs = Left (Namespace uses' stxs) } =
     srcfile { srcNs = Left $ Namespace (uses ++ uses') stxs }

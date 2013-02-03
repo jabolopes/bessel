@@ -403,12 +403,6 @@ checkInstM t syms stx =
        (stx',) <$> consistentM syms' t' t
 
 
-typecheckIncremental :: Map String Type -> Stx String -> TypecheckerM (Type, Map String Type)
-typecheckIncremental syms stx =
-    do (t, _, syms') <- synthM (nothingSyms syms) stx
-       return (substituteExistTs syms' t, simpleSyms syms')
-
-
 typecheckStxs :: Context -> [Stx String] -> TypecheckerM Context
 typecheckStxs ctx stxs = typecheck ctx stxs
     where typecheck ctx [] = return ctx
@@ -433,6 +427,12 @@ typecheck _ srcfile@SrcFile { deps, srcNs = Right (_, binds) } =
 typecheck fs srcfile@SrcFile { deps, renNs = Just ns } =
     do ts <- typecheckNamespace fs deps ns
        return $ srcfile { ts = ts }
+
+
+typecheckIncremental :: Map String Type -> Stx String -> TypecheckerM (Type, Map String Type)
+typecheckIncremental syms stx =
+    do (t, _, syms') <- synthM (nothingSyms syms) stx
+       return (substituteExistTs syms' t, simpleSyms syms')
 
 
 typecheckInteractive :: SrcFile -> Stx String -> Either String (SrcFile, Type)

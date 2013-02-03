@@ -124,8 +124,7 @@ importFile fs filename =
     do srcfiles <- preload fs filename
        fs' <- loop Map.empty srcfiles
        let interactiveDeps = map SrcFile.name srcfiles
-           interactiveFrameEnv = mkInteractiveFrame fs' interactiveDeps
-           interactive = mkInteractiveSrcFile interactiveDeps interactiveFrameEnv
+           interactive = mkInteractiveSrcFile interactiveDeps
        return $ ReplState { fs = fs', interactive = interactive }
     where updateFs fs srcfile = Map.insert (SrcFile.name srcfile) srcfile fs
 
@@ -167,11 +166,11 @@ runSnippetM ln =
            stx = parseRepl tokens
        fs <- fs <$> get
        interactive <- interactive <$> get
-       stx' <- renamerEither $ renameInteractive fs interactive stx
+       (interactive', stx') <- renamerEither $ renameInteractive fs interactive stx
        liftIO $ putRenamedStx stx'
        let fn | doTypecheck = runTypecheckM
-             | otherwise = runInterpretM
-       interactive' <- fn interactive stx'
+              | otherwise = runInterpretM
+       interactive'' <- fn interactive' stx'
        put $ state { interactive = interactive' }
 
 
@@ -189,8 +188,8 @@ showModuleM showAll showBrief filename =
     where showDeps srcfile = 
               "\n\n\t deps = " ++ intercalate ", " (SrcFile.deps srcfile)
 
-          showFrameEnv srcfile =
-              "\n\n\t frameEnv = " ++ show (SrcFile.frame srcfile)
+          showSymbols srcfile =
+              "\n\n\t symbols = " ++ intercalate ", " (Map.keys $ SrcFile.symbols srcfile)
 
           showTs srcfile =
               "\n\n\t ts = " ++ intercalate ('\n':replicate 14 ' ') (map showTuple $ Map.toList $ SrcFile.ts srcfile)
@@ -201,7 +200,7 @@ showModuleM showAll showBrief filename =
               "\n\n\t exprEnv = " ++ intercalate ", " (map fst $ Env.getBinds $ SrcFile.env srcfile)
 
           showSrcNs SrcFile { srcNs = Left (Namespace uses _) } =
-              "\n\n\t srcNs = " ++ intercalate ", " (map use uses)
+              "\n\n\t srcNs = " ++ intercalate ('\n':replicate 17 ' ') (map use uses)
               where use (x, "") = "use " ++ x
                     use (x, y) = "use " ++ x ++ " as " ++ y
 
@@ -220,7 +219,7 @@ showModuleM showAll showBrief filename =
               | showBrief = "SrcFile " ++ show (SrcFile.name srcfile) ++ " " ++ show (SrcFile.deps srcfile) ++ " ..."
               | otherwise = SrcFile.name srcfile ++
                             showDeps srcfile ++
-                            showFrameEnv srcfile ++
+                            showSymbols srcfile ++
                             showTs srcfile ++
                             showExprEnv srcfile ++
                             showSrcNs srcfile ++

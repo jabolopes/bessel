@@ -1,3 +1,4 @@
+{-# LANGUAGE NamedFieldPuns #-}
 module Data.Frame where
 
 import Data.Map (Map)
@@ -28,3 +29,7 @@ copy :: Int -> Int -> Frame -> Frame
 copy id parentId frame =
     frame { frameId = id
           , frameParent = parentId }
+
+
+symbols :: Frame -> Map String Symbol
+symbols Frame { frameSyms } = frameSyms

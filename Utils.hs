@@ -7,6 +7,10 @@ cross [lst] = [[x] | x <- lst]
 cross (lst:lsts) = [x:l | x <- lst, l <- cross lsts]
 
 
+fromSingleton :: [a] -> a
+fromSingleton [x] = x
+
+
 primeId :: String -> String
 primeId id = id ++ "'"
 
