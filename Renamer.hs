@@ -21,6 +21,7 @@ import qualified Data.Symbol as Symbol
 import Data.Tuple (swap)
 import Utils (fromSingleton, split)
 
+import Debug.Trace
 
 data RenamerState =
     RenamerState { fs :: Map String SrcFile
@@ -67,10 +68,11 @@ genNameM name =
     do nslevel <- nslevel <$> get
        if nslevel
        then do
-         ns <- currentNamespace <$> get
-         let qual | null ns = name
-                  | otherwise = ns ++ "." ++ name
-         return qual
+         -- ns <- currentNamespace <$> get
+         -- let qual | null ns = name
+         --          | otherwise = ns ++ "." ++ name
+         -- return qual
+         return name
        else
          (name ++) . show <$> genNumM
 
@@ -130,11 +132,13 @@ getPrefixedSymbol prefix name =
 
           getNamespaceSymbol =
               do prefixedUses <- prefixedUses <$> get
-                 let prefix' = prefixedUses Map.! intercalate "." prefix
+                 prefix' <- case Map.lookup (intercalate "." prefix) prefixedUses of
+                               Nothing -> throwError $ "namespace or module " ++ show (intercalate "." prefix) ++ " is not defined"
+                               Just x -> return x
                  fs <- fs <$> get
                  let syms = SrcFile.symbols (fs Map.! prefix')
                  case Map.lookup name syms of
-                   Nothing -> throwError $ "name " ++ show name ++ " is not defined"
+                   Nothing -> throwError $ "name " ++ show (intercalate "." prefix ++ "." ++ name) ++ " is not defined"
                    Just sym -> return sym
 
 
@@ -301,13 +305,10 @@ renameM (WhereStx stx stxs) =
       return [WhereStx stx' stxs']
 
 
-
 renameSrcFile :: Map String SrcFile -> String -> Namespace String -> Either String (Namespace String, Map String Symbol)
 renameSrcFile fs name ns =
   do let state = initialRenamerState fs name
-
      (ns', state') <- runStateT (renameNamespaceM ns) state
-
      let symbols = Frame.symbols $ FrameEnv.getRootFrame $ frameEnv state'
          renSymbols = Map.fromList [ (Symbol.name sym, sym) | sym <- Map.elems symbols ]
      return (ns', renSymbols)
@@ -325,10 +326,10 @@ rename fs srcfile@SrcFile { t = InteractiveT, symbols, srcNs = Just ns } =
     do (ns', renSymbols) <- renameSrcFile interactiveFs interactiveName interactiveNs
        return $ srcfile { symbols = Map.union renSymbols symbols, renNs = Just ns' }
     where interactiveName = ""
-          
+
           interactiveNs =
-            let  SrcFile { srcNs = Just (Namespace uses stxs) } = srcfile in
+            let SrcFile { srcNs = Just (Namespace uses stxs) } = srcfile in
             Namespace (uses ++ [("Interactive", "")]) stxs
-            
+
           interactiveFs =
             Map.insert "Interactive" srcfile { srcNs = Just interactiveNs } fs

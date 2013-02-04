@@ -123,8 +123,7 @@ importFile :: Map String SrcFile -> String -> IO ReplState
 importFile fs filename =
     do srcfiles <- preload fs filename
        fs' <- loop Map.empty srcfiles
-       let interactiveDeps = map SrcFile.name srcfiles
-           interactive = mkInteractiveSrcFile interactiveDeps
+       let interactive = mkInteractiveSrcFile $ map SrcFile.name srcfiles
        return $ ReplState { fs = fs', interactive = interactive }
     where updateFs fs srcfile = Map.insert (SrcFile.name srcfile) srcfile fs
 
