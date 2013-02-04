@@ -62,7 +62,7 @@ dependenciesFileM filename =
        let tks = lex str
            parseFn | isPrelude filename = parsePrelude
                    | otherwise = parseFile
-           srcfile@SrcFile { name, srcNs = Left ns } = parseFn tks
+           srcfile@SrcFile { name, srcNs = Just ns } = parseFn tks
        (_, deps) <- runStateT (dependenciesNsM ns) []
        let deps' = nub $ sort deps
        if name /= filename

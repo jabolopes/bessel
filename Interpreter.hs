@@ -4,11 +4,12 @@ module Interpreter where
 import Control.Monad.State
 import Data.Functor ((<$>))
 import Data.Map as Map (Map)
-import qualified Data.Map as Map ((!), fromList, keys, toList, union)
+import qualified Data.Map as Map ((!), fromList, insert, keys, lookup, toList, union)
+import Data.Maybe (catMaybes)
 
 import qualified Data.Env as Env (initial, empty, getBinds)
 import Data.SrcFile
-import qualified Data.SrcFile as SrcFile (exprs, symbols)
+import qualified Data.SrcFile as SrcFile (deps, symbols, exprs, renNs)
 import Data.Stx
 import Monad.InterpreterM
 
@@ -83,45 +84,50 @@ evalM (WhereStx stx stxs) =
       withEnvM $ evalM stx
 
 
-interpretNamespace :: Map String SrcFile -> [String] -> Namespace String -> ExprEnv
+interpretNamespace :: Map String SrcFile -> [String] -> Namespace String -> ([Expr], ExprEnv)
 interpretNamespace fs deps (Namespace _ stxs) =
     let
         exprss = map (SrcFile.exprs . (fs Map.!)) deps
         env = Env.initial (foldr1 Map.union exprss)
     in
-      snd $ runState (mapM_ evalM stxs) env
+     runState (mapM evalM stxs) env
 
 
-interpretSrcFile :: Map String SrcFile -> SrcFile -> ExprEnv
-interpretSrcFile _ SrcFile { srcNs = Right (_, binds) } =
+envToExprs :: SrcFile -> ExprEnv -> Map String Expr
+envToExprs srcfile exprEnv =
     let
-        binds' = [ (x, y) | (x, (_, y)) <- Map.toList binds ]
-        m = do mapM_ (\(name, expr) -> addBindM name expr) binds'
-               return $ snd $ last binds'
+        binds = Env.getBinds exprEnv
+        names = Map.keys (SrcFile.symbols srcfile)
     in
-      snd $ runState m Env.empty
-
-interpretSrcFile fs SrcFile { deps, renNs = Just ns } =
-    interpretNamespace fs deps ns
+     Map.fromList $ catMaybes [ case Map.lookup name binds of
+                                   Nothing -> Nothing
+                                   Just sym -> Just (name, sym) | name <- names ]
 
 
 interpret :: Map String SrcFile -> SrcFile -> SrcFile
-interpret fs srcfile =
+interpret _ srcfile@SrcFile { t = CoreT } =
+    srcfile
+
+interpret fs srcfile@SrcFile { t = SrcT, deps, renNs = Just ns } =
     let
-        binds = Env.getBinds $ interpretSrcFile fs srcfile
-        names = Map.keys (SrcFile.symbols srcfile)
-        exprs = Map.fromList [ (name, binds Map.! name) | name <- names ]
+        (_, env) = interpretNamespace fs deps ns
+        env' = envToExprs srcfile env
     in
-      srcfile { exprs = exprs }
+     srcfile { exprs = env' }
+     
+interpret _ SrcFile { t = InteractiveT } =
+    error "Interpreter.interpret: for interactive srcfiles use 'interpretInteractive' instead of 'interpret'"
 
 
-interpretInteractiveM fs srcfile stx =
-    do interpreterSrcFile fs srcfile
+interpretInteractive :: Map String SrcFile -> SrcFile -> (SrcFile, Expr)
+interpretInteractive fs srcfile@SrcFile { t = InteractiveT, deps, renNs = Just ns } =
+    let
+        (exprs, env) = interpretNamespace interactiveFs interactiveDeps ns
+        env' = envToExprs srcfile env
+    in
+     (srcfile { exprs = Map.union (SrcFile.exprs srcfile) env' }, last exprs)
+    where interactiveDeps =
+            SrcFile.deps srcfile ++ ["Interactive"]
 
-
-interpretInteractive :: SrcFile -> Stx String -> (SrcFile, Expr)
-interpretInteractive srcfile stx =
-    
-
-    let (expr, env) = runState (evalM stx) (SrcFile.env srcfile) in
-    (srcfile { env = env }, expr)
+          interactiveFs =
+            Map.insert "Interactive" srcfile fs

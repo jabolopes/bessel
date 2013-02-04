@@ -5,6 +5,7 @@ import Data.Functor ((<$>))
 import Data.List (intercalate)
 import Data.Map (Map)
 import qualified Data.Map as Map
+import Data.Maybe (catMaybes)
 
 import Data.Context
 import qualified Data.Context as Context
@@ -403,39 +404,59 @@ checkInstM t syms stx =
        (stx',) <$> consistentM syms' t' t
 
 
-typecheckStxs :: Context -> [Stx String] -> TypecheckerM Context
+typecheckSubstitute :: Context -> Stx String -> TypecheckerM (Type, Context)
+typecheckSubstitute ctx stx =
+    do (t, _, ctx') <- synthM ctx stx
+       return (substituteExistTs ctx' t, ctx')
+
+
+typecheckStxs :: Context -> [Stx String] -> TypecheckerM (Type, Context)
 typecheckStxs ctx stxs = typecheck ctx stxs
-    where typecheck ctx [] = return ctx
+    where typecheck ctx [stx] = typecheckSubstitute ctx stx
           typecheck ctx (stx:stxs) =
-            do (_, _, ctx') <- synthM ctx stx
+            do (_, ctx') <- typecheckSubstitute ctx stx
                typecheck ctx' stxs
 
 
-typecheckNamespace :: Map String SrcFile -> [String] -> Namespace String -> Either String (Map String Type)
+typecheckNamespace :: Map String SrcFile -> [String] -> Namespace String -> Either String (Type, Map String Type)
 typecheckNamespace fs deps (Namespace _ stxs) =
-    let
-        tss = map (SrcFile.ts . (fs Map.!)) deps
-        ctx = nothingSyms $ foldr1 Map.union tss
-    in
-      simpleSyms <$> typecheckStxs ctx stxs
+    do let tss = map (SrcFile.ts . (fs Map.!)) deps
+           ts = nothingSyms $ foldr1 Map.union tss
+       (t, ctx) <- typecheckStxs ts stxs
+       return (t, simpleSyms ctx)
+       
+
+typecheckSrcFile :: Map String SrcFile -> SrcFile -> Either String (Map String Type, Type)
+typecheckSrcFile fs srcfile@SrcFile { deps, renNs = Just ns } =
+    do (t, ts) <- typecheckNamespace fs deps ns
+       let names = Map.keys (SrcFile.symbols srcfile)
+           ts' = Map.fromList $ catMaybes [ case Map.lookup name ts of
+                                               Nothing -> Nothing
+                                               Just t -> Just (name, t) | name <- names ]
+       return (ts', t)
 
 
 typecheck :: Map String SrcFile -> SrcFile -> Either String SrcFile
-typecheck _ srcfile@SrcFile { deps, srcNs = Right (_, binds) } =
-    return $ srcfile { ts = Map.map fst binds }
+typecheck _ srcfile@SrcFile { t = CoreT } =
+    return srcfile
 
-typecheck fs srcfile@SrcFile { deps, renNs = Just ns } =
-    do ts <- typecheckNamespace fs deps ns
+typecheck fs srcfile@SrcFile { t = SrcT } =
+    do (ts, t) <- typecheckSrcFile fs srcfile
        return $ srcfile { ts = ts }
 
-
-typecheckIncremental :: Map String Type -> Stx String -> TypecheckerM (Type, Map String Type)
-typecheckIncremental syms stx =
-    do (t, _, syms') <- synthM (nothingSyms syms) stx
-       return (substituteExistTs syms' t, simpleSyms syms')
+typecheck fs srcfile@SrcFile { t = InteractiveT } =
+    Left "Typechecker.typecheck: for interactive srcfiles use 'typecheckInteractive' instead of 'typecheck'"
 
 
-typecheckInteractive :: Map String Type -> Stx String -> Either String (Type, Map String Type)
-typecheckInteractive ts stx =
-    do (t, ts') <- typecheckIncremental ts stx
-       return (t, ts')
+typecheckInteractive :: Map String SrcFile -> SrcFile -> Either String (SrcFile, Type)
+typecheckInteractive fs srcfile =
+     do (ts, t) <- typecheckSrcFile interactiveFs interactiveSrcfile
+        return (srcfile { ts = Map.union (SrcFile.ts srcfile) ts }, t)
+    where interactiveDeps =
+            SrcFile.deps srcfile ++ ["Interactive"]
+            
+          interactiveSrcfile =
+            srcfile { deps = interactiveDeps }
+
+          interactiveFs =
+            Map.insert "Interactive" srcfile fs

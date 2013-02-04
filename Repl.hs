@@ -143,23 +143,20 @@ importFile fs filename =
                  loop evalfs srcss
 
 
-runInterpretM :: SrcFile -> Stx String -> ReplM SrcFile
-runInterpretM srcfile stx =
-    do let (srcfile', expr) = interpretInteractive srcfile stx
-       liftIO $ putExpr expr
+interpretM :: Maybe Type -> Map String SrcFile -> SrcFile -> ReplM SrcFile
+interpretM mt fs srcfile =
+    do let (srcfile', expr) = interpretInteractive fs srcfile
+       liftIO $ putExprM mt expr
        return srcfile'
+    where putExprM Nothing expr = putExpr expr
+          putExprM (Just t) expr = putExprT expr t
 
 
-runTypecheckM :: SrcFile -> Stx String -> ReplM SrcFile
-runTypecheckM srcfile stx =
-    -- case typecheckInteractive srcfile stx of
-    do fs <- fs <$> get
-       let corefile = fs Map.! "Core"
-       case typecheckInteractive (SrcFile.ts corefile) stx of
+typecheckM :: Map String SrcFile -> SrcFile -> ReplM SrcFile
+typecheckM fs srcfile =
+    do case typecheckInteractive fs srcfile of
          Left str -> throwTypecheckerException str
-         Right (srcfile', t) -> do let (srcfile'', expr) = interpretInteractive srcfile stx
-                                   liftIO $ putExprT expr t
-                                   return srcfile''
+         Right (srcfile', t) -> interpretM (Just t) fs srcfile'
 
 
 runSnippetM :: String -> ReplM ()
@@ -168,26 +165,34 @@ runSnippetM ln =
        let tokens = lex ln
            stx = parseRepl tokens
        fs <- fs <$> get
-       interactive <- interactive <$> get
-       (interactive', stx') <- renamerEither $ renameInteractive fs interactive stx
-       liftIO $ putRenamedStx stx'
-       let fn | doTypecheck = runTypecheckM
-              | otherwise = runInterpretM
-       interactive'' <- fn interactive' stx'
-       put $ state { interactive = interactive' }
+       interactive <- putStxInInteractive stx . interactive <$> get
+       interactive' <- renamerEither $ rename fs interactive
+       -- liftIO $ putRenamedStx stx'
+       let fn | doTypecheck = typecheckM
+              | otherwise = interpretM Nothing
+       interactive'' <- fn fs interactive'
+       put $ state { interactive = interactive'' }
+    where putStxInInteractive stx srcfile =
+            let Just (Namespace uses _) = SrcFile.srcNs srcfile in
+            srcfile { srcNs = Just (Namespace uses [stx]) }
 
 
 showModuleM :: Bool -> Bool -> String -> ReplM ()
 showModuleM showAll showBrief filename =
-    if filename == "Interactive" then
-        do interactive <- interactive <$> get
-           liftIO $ putStrLn $ showBriefly interactive
-    else
-        do fs <- fs <$> get
-           srcfiles <- liftIO $ preload fs filename
-           let srcfiles' | showAll = srcfiles
-                         | otherwise = [last srcfiles]
-           liftIO $ mapM_ (putStrLn . showBriefly) srcfiles'
+    let
+      filesM
+        | filename == "Interactive" =
+          do interactive <- interactive <$> get
+             return [interactive]
+        | showAll =
+            Map.elems . fs <$> get
+        | otherwise =
+          do fs <- fs <$> get
+             case Map.lookup filename fs of
+               Nothing -> return []
+               Just srcfile -> return [srcfile]
+    in
+     filesM >>= (liftIO . mapM_ (putStrLn . showSrcFile))
     where showDeps srcfile = 
               "\n\n\t deps = " ++ intercalate ", " (SrcFile.deps srcfile)
 
@@ -200,15 +205,21 @@ showModuleM showAll showBrief filename =
                         x ++ " :: " ++ show y
 
           showExprs srcfile =
-              "\n\n\t exprs = " ++ intercalate ", " (map fst $ Map.toList $ SrcFile.exprs srcfile)
+              "\n\n\t exprs = " ++ intercalate ", " (map show $ Map.toList $ SrcFile.exprs srcfile)
 
-          showSrcNs SrcFile { srcNs = Left (Namespace uses _) } =
-              "\n\n\t srcNs = " ++ intercalate ('\n':replicate 17 ' ') (map use uses)
+          showSrcNs SrcFile { t = CoreT } =
+              "\n\n\t srcNs = <built-in>"
+
+          showSrcNs SrcFile { t = InteractiveT, srcNs = Just (Namespace uses [stx]) } =
+              "\n\n\t srcNs = " ++ intercalate ('\n':replicate 17 ' ') (map use uses) ++
+              "\n\n\t         " ++ show stx
               where use (x, "") = "use " ++ x
                     use (x, y) = "use " ++ x ++ " as " ++ y
 
-          showSrcNs SrcFile { srcNs = Right _ } =
-              "\n\n\t srcNs = <built-in>"
+          showSrcNs SrcFile { srcNs = Just (Namespace uses _) } =
+              "\n\n\t srcNs = " ++ intercalate ('\n':replicate 17 ' ') (map use uses)
+              where use (x, "") = "use " ++ x
+                    use (x, y) = "use " ++ x ++ " as " ++ y
 
           showRenNs SrcFile { renNs = Nothing } =
               "\n\n\t renNs = Nothing"
@@ -218,7 +229,7 @@ showModuleM showAll showBrief filename =
               where use (x, "") = "use " ++ x
                     use (x, y) = "use " ++ x ++ " as " ++ y
 
-          showBriefly srcfile
+          showSrcFile srcfile
               | showBrief = "SrcFile " ++ show (SrcFile.name srcfile) ++ " " ++ show (SrcFile.deps srcfile) ++ " ..."
               | otherwise = SrcFile.name srcfile ++
                             showDeps srcfile ++

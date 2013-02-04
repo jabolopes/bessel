@@ -568,8 +568,8 @@ listPredT :: Type
 listPredT = ArrowT (SeqT DynT) BoolT
 
 
-syms :: [(String, Type, Expr)]
-syms = [
+desc :: [(String, Type, Expr)]
+desc = [
   -- constants
   ("false", BoolT, false),
   ("true", BoolT, true),
@@ -665,6 +665,4 @@ k expr = FnExpr $ \_ -> return expr
 
 -- edit: fixed undefined
 srcfile :: SrcFile
-srcfile =
-    let srcNs = ([], Map.fromList $ map (\(a, b, c) -> (a, (b, c))) syms) in
-    SrcFile.initial "Core" (Right srcNs)
+srcfile = mkCoreSrcFile "Core" [] desc

@@ -1,51 +1,73 @@
 module Data.SrcFile where
 
 import Data.Map (Map)
-import qualified Data.Map as Map (empty)
+import qualified Data.Map as Map (empty, fromList)
 
 import qualified Data.Env as Env
 import Data.FrameEnv
 import Data.Stx
-import Data.Symbol
+import Data.Symbol (Symbol (..))
 import Data.Type
 import Monad.InterpreterM
 
+data SrcFileT = CoreT
+              | SrcT
+              | InteractiveT
+              deriving (Show)
 
 data SrcFile
-    = SrcFile { name :: String
+    = SrcFile { t :: SrcFileT
+              , name :: String
               , deps :: [String]
               , symbols :: Map String Symbol
               , ts :: Map String Type
               , exprs :: Map String Expr
-              , srcNs :: (Either (Namespace String) ([String], Map String (Type, Expr)))
+              , srcNs :: Maybe (Namespace String)
               , renNs :: Maybe (Namespace String) }
       deriving (Show)
 
 
-initial name srcNs =
-    SrcFile { name = name
-            , deps = []
+initial :: SrcFileT -> String -> [String] -> SrcFile
+initial t name deps =
+    SrcFile { t = t
+            , name = name
+            , deps = deps
             , symbols = Map.empty
             , ts = Map.empty
             , exprs = Map.empty
-            , srcNs = srcNs
+            , srcNs = Nothing
             , renNs = Nothing }
 
 
-mkParsedSrcFile :: String -> Namespace String -> SrcFile
-mkParsedSrcFile name ns =
-    (initial name (Left ns))
+mkCoreSrcFile :: String -> [String] -> [(String, Type, Expr)] -> SrcFile
+mkCoreSrcFile name deps desc =
+    (initial CoreT name deps) { symbols = symbols
+                              , ts = ts
+                              , exprs = exprs }
+    where symbols =
+            Map.fromList [ (x, FnSymbol x) | (x, _, _) <- desc ]
+            
+          ts =
+            Map.fromList [ (x, y) | (x, y, _) <- desc ]
+            
+          exprs =
+            Map.fromList [ (x, y) | (x, _, y) <- desc ]
 
 
 mkInteractiveSrcFile :: [String] -> SrcFile
 mkInteractiveSrcFile deps =
     let
         uses = [ (x, "") | x <- deps ]
-        ns = (Left (Namespace uses []))
+        srcNs = Namespace uses []
     in
-      (initial "Interactive" ns) { deps = deps }
+      (initial InteractiveT "Interactive" deps) { srcNs = Just srcNs }
+
+
+mkParsedSrcFile :: String -> Namespace String -> SrcFile
+mkParsedSrcFile name ns =
+    (initial SrcT name []) { srcNs = Just ns }
 
 
 addImplicitDeps :: [(String, String)] -> SrcFile -> SrcFile
-addImplicitDeps uses srcfile@SrcFile { srcNs = Left (Namespace uses' stxs) } =
-    srcfile { srcNs = Left $ Namespace (uses ++ uses') stxs }
+addImplicitDeps uses srcfile@SrcFile { srcNs = Just (Namespace uses' stxs) } =
+    srcfile { srcNs = Just $ Namespace (uses ++ uses') stxs }

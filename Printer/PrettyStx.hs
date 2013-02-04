@@ -131,7 +131,7 @@ prettyPrintNamespace ns =
 
 
 prettyPrintSrcFile :: SrcFile -> IO ()
-prettyPrintSrcFile SrcFile { name, srcNs = Right _ } =
+prettyPrintSrcFile SrcFile { t = CoreT, name } =
     runStateT (do putPrinter $ "me " ++ name
                   nlPrinter) initialPrinterState >> return ()
 

@@ -4,21 +4,21 @@ import Prelude hiding (id)
 
 import qualified Data.Map as Map (fromList)
 
-import Core hiding (syms, srcfile)
+import Core hiding (desc, srcfile)
 import Data.SrcFile
 import qualified Data.SrcFile as SrcFile (initial)
 import Data.Type
 import Monad.InterpreterM
 
 
-syms :: [(String, (Type, Expr))]
-syms = [
+desc :: [(String, Type, Expr)]
+desc = [
  --  -- constants
  --  ("false", BoolT, false),
  --  ("true", BoolT, true),
  --  -- predicates
  --  --- predicates for numbers
-  ("isint", (predT, m isint)),
+  ("isint", predT, m isint),
  --  ("isreal", predT, m isreal),
  --  ("isnum", predT, m isnum),
  --  ("ispos", predT, m ispos),
@@ -59,7 +59,7 @@ syms = [
  --  ("o", ArrowT (SeqT (ArrowT DynT DynT)) (ArrowT DynT DynT), m o),
  --  ("cons", (ForallT "a" (ArrowT (SeqT (ArrowT (TvarT "a") DynT)) (ArrowT (TvarT "a") DynT))), m cons),
  --  -- ("cons", (ForallT "a" (ForallT "b" (ArrowT (SeqT (ArrowT (TvarT "a") (TvarT "b"))) (ArrowT (TvarT "a") (TvarT "b"))))), m cons),
- ("ifthen", (ForallT "a" (ForallT "b" (ArrowT (TupT [ArrowT (TvarT "a") BoolT, ArrowT (TvarT "a") (TvarT "b")]) (ArrowT (TvarT "a") (TvarT "b")))), m cond)),
+ ("ifthen", ForallT "a" (ForallT "b" (ArrowT (TupT [ArrowT (TvarT "a") BoolT, ArrowT (TvarT "a") (TvarT "b")]) (ArrowT (TvarT "a") (TvarT "b")))), m cond),
  -- ("ifelse", (ForallT "a"
  --             (ForallT "b"
  --              (ForallT "c"
@@ -98,14 +98,12 @@ syms = [
 --  -- io
 --  ("out", ArrowT (SeqT (SeqT CharT)) (SeqT (SeqT CharT)), m out),
 --  -- misc
- ("id", (ForallT "a" (ArrowT (TvarT "a") (TvarT "a")), m id)),
+ ("id", ForallT "a" (ArrowT (TvarT "a") (TvarT "a")), m id),
  -- ("signal", ForallT "a" (ArrowT (TvarT "a") (ForallT "b" (TvarT "b"))), m signal),
 
- ("K", (ForallT "a" (ArrowT (TvarT "a") (ForallT "b" (ArrowT (TvarT "b") (TvarT "a")))), m k))]
+ ("K", ForallT "a" (ArrowT (TvarT "a") (ForallT "b" (ArrowT (TvarT "b") (TvarT "a")))), m k)]
 
 
 -- edit: fix the undefined
 srcfile :: SrcFile
-srcfile =
-    let srcNs = ([], Map.fromList syms) in
-    SrcFile.initial "Core" (Right srcNs)
+srcfile = mkCoreSrcFile "Core" [] desc
