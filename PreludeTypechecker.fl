@@ -1,3 +1,5 @@
 me PreludeTypechecker
 
 use Core
+
+def f := 0

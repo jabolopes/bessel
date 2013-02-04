@@ -6,17 +6,18 @@ import Control.Monad.State
 import Data.Functor ((<$>))
 import Data.List (intercalate, nub, partition, sort)
 import Data.Map (Map)
-import qualified Data.Map as Map ((!), empty, fromList, insert, keys, lookup)
+import qualified Data.Map as Map ((!), elems, empty, fromList, insert, keys, lookup, union)
 import Data.Maybe (catMaybes, fromJust)
 
 import Data.Frame (Frame)
 import qualified Data.Frame as Frame (frameId, symbols)
 import Data.FrameEnv (FrameEnv)
 import qualified Data.FrameEnv as FrameEnv
-import Data.SrcFile (SrcFile(..))
-import qualified Data.SrcFile as SrcFile (name, symbols)
+import Data.SrcFile (SrcFileT (..), SrcFile(..))
+import qualified Data.SrcFile as SrcFile (name, srcNs, symbols)
 import Data.Stx
-import Data.Symbol
+import Data.Symbol (Symbol (..))
+import qualified Data.Symbol as Symbol
 import Data.Tuple (swap)
 import Utils (fromSingleton, split)
 
@@ -296,33 +297,34 @@ renameM (WhereStx stx stxs) =
       return [WhereStx stx' stxs']
 
 
-renameSrcFile :: SrcFile -> RenamerM SrcFile
-renameSrcFile srcfile@SrcFile { srcNs = Left ns } =
-    do ns' <- renameNamespaceM ns
-       return $ srcfile { renNs = Just ns' }
 
-renameSrcFile srcfile@SrcFile { srcNs = Right (_, binds) } =
-    do mapM_ (\name -> addFnSymbolM name name) $ Map.keys binds
-       return srcfile
+renameSrcFile :: Map String SrcFile -> String -> Namespace String -> Either String (Namespace String, Map String Symbol)
+renameSrcFile fs name ns =
+  do let state = initialRenamerState fs name
+
+     (ns', state') <- runStateT (renameNamespaceM ns) state
+
+     let symbols = Frame.symbols $ FrameEnv.getRootFrame $ frameEnv state'
+         renSymbols = Map.fromList [ (Symbol.name sym, sym) | sym <- Map.elems symbols ]
+     return (ns', renSymbols)
 
 
 rename :: Map String SrcFile -> SrcFile -> Either String SrcFile
-rename fs srcfile =
-    do let state = initialRenamerState fs (SrcFile.name srcfile)
-       (srcfile', state') <- runStateT (renameSrcFile srcfile) state
-       let symbols = Frame.symbols $ FrameEnv.getRootFrame $ frameEnv state'
-       return $ srcfile' { symbols = symbols }
+rename _ srcfile@SrcFile { t = CoreT } =
+    return srcfile
 
+rename fs srcfile@SrcFile { t = SrcT, name, srcNs = Just ns } =
+    do (ns', renSymbols) <- renameSrcFile fs name ns
+       return $ srcfile { symbols = renSymbols, renNs = Just ns' }
 
-renameInteractiveM :: SrcFile -> Stx String -> RenamerM (SrcFile, Stx String)
-renameInteractiveM srcfile stx =
-    do srcfile' <- renameSrcFile srcfile
-       modify $ \state -> state { fs = Map.insert (SrcFile.name srcfile') srcfile' (fs state)
-                                , unprefixedUses = SrcFile.name srcfile:unprefixedUses state }
-       stx' <- renameOneM stx
-       return (srcfile', stx')
-
-
-renameInteractive :: Map String SrcFile -> SrcFile -> Stx String -> Either String (SrcFile, Stx String)
-renameInteractive fs srcfile stx =
-    fst <$> runStateT (renameInteractiveM srcfile stx) (initialRenamerState fs (SrcFile.name srcfile))
+rename fs srcfile@SrcFile { t = InteractiveT, symbols, srcNs = Just ns } =
+    do (ns', renSymbols) <- renameSrcFile interactiveFs interactiveName interactiveNs
+       return $ srcfile { symbols = Map.union renSymbols symbols, renNs = Just ns' }
+    where interactiveName = ""
+          
+          interactiveNs =
+            let  SrcFile { srcNs = Just (Namespace uses stxs) } = srcfile in
+            Namespace (uses ++ [("Interactive", "")]) stxs
+            
+          interactiveFs =
+            Map.insert "Interactive" srcfile { srcNs = Just interactiveNs } fs
