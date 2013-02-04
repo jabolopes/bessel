@@ -12,8 +12,12 @@ empty :: Env a
 empty = Env Nothing Map.empty
 
 
-getBinds :: Env a -> [(String, a)]
-getBinds (Env _ binds) = Map.toList binds
+initial :: Map String a -> Env a
+initial mp = Env Nothing mp
+
+
+getBinds :: Env a -> Map String a
+getBinds (Env _ binds) =  binds
 
 
 addBind :: Env a -> String -> a -> Env a

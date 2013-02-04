@@ -4,11 +4,11 @@ module Interpreter where
 import Control.Monad.State
 import Data.Functor ((<$>))
 import Data.Map as Map (Map)
-import qualified Data.Map as Map ((!), toList)
+import qualified Data.Map as Map ((!), fromList, keys, toList, union)
 
-import qualified Data.Env as Env (empty, union)
+import qualified Data.Env as Env (initial, empty, getBinds)
 import Data.SrcFile
-import qualified Data.SrcFile as SrcFile (env)
+import qualified Data.SrcFile as SrcFile (exprs, symbols)
 import Data.Stx
 import Monad.InterpreterM
 
@@ -24,8 +24,7 @@ evalM (IdStx str) =
        case msym of
          Just expr -> return expr
          Nothing -> error $ "Interpreter.evalM(IdStx): unbound symbols must be caught by the renamer" ++
-                            "\n\n\t str = " ++ str ++
-                            "\n\n"
+                            "\n\n\t str = " ++ str ++ "\n"
 
 evalM (AppStx stx1 stx2) =
     do expr1 <- evalM stx1
@@ -36,8 +35,7 @@ evalM (AppStx stx1 stx2) =
                       "\n\n\t stx1 = " ++ show stx1 ++
                       "\n\n\t -> expr1 = " ++ show expr1 ++
                       "\n\n\t stx2 = " ++ show stx2 ++
-                      "\n\n\t -> expr2 = " ++ show expr2 ++
-                      "\n\n"
+                      "\n\n\t -> expr2 = " ++ show expr2 ++ "\n"
 
 evalM (DefnStx Def str body) =
     do rec addBindM str expr
@@ -59,7 +57,7 @@ evalM (LambdaStx str body) =
 evalM (ModuleStx prefix ns) =
     error $ "Interpreter.evalM(ModuleStx): modules must be flattened by the renamer" ++
             "\n\n\t prefix = " ++ show prefix ++
-            "\n\n\t namespace = " ++ show ns ++ "\n\n"
+            "\n\n\t namespace = " ++ show ns ++ "\n"
 
 evalM (TypeStx name stxs) =
     do mapM_ evalM stxs
@@ -88,8 +86,8 @@ evalM (WhereStx stx stxs) =
 interpretNamespace :: Map String SrcFile -> [String] -> Namespace String -> ExprEnv
 interpretNamespace fs deps (Namespace _ stxs) =
     let
-        envs = map (SrcFile.env . (fs Map.!)) deps
-        env = foldr1 Env.union envs
+        exprss = map (SrcFile.exprs . (fs Map.!)) deps
+        env = Env.initial (foldr1 Map.union exprss)
     in
       snd $ runState (mapM_ evalM stxs) env
 
@@ -109,11 +107,21 @@ interpretSrcFile fs SrcFile { deps, renNs = Just ns } =
 
 interpret :: Map String SrcFile -> SrcFile -> SrcFile
 interpret fs srcfile =
-    let env = interpretSrcFile fs srcfile in
-    srcfile { env = env }
+    let
+        binds = Env.getBinds $ interpretSrcFile fs srcfile
+        names = Map.keys (SrcFile.symbols srcfile)
+        exprs = Map.fromList [ (name, binds Map.! name) | name <- names ]
+    in
+      srcfile { exprs = exprs }
+
+
+interpretInteractiveM fs srcfile stx =
+    do interpreterSrcFile fs srcfile
 
 
 interpretInteractive :: SrcFile -> Stx String -> (SrcFile, Expr)
 interpretInteractive srcfile stx =
+    
+
     let (expr, env) = runState (evalM stx) (SrcFile.env srcfile) in
     (srcfile { env = env }, expr)

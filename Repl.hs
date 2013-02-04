@@ -152,11 +152,14 @@ runInterpretM srcfile stx =
 
 runTypecheckM :: SrcFile -> Stx String -> ReplM SrcFile
 runTypecheckM srcfile stx =
-    case typecheckInteractive srcfile stx of
-      Left str -> throwTypecheckerException str
-      Right (srcfile', t) -> do let (srcfile'', expr) = interpretInteractive srcfile' stx
-                                liftIO $ putExprT expr t
-                                return srcfile''
+    -- case typecheckInteractive srcfile stx of
+    do fs <- fs <$> get
+       let corefile = fs Map.! "Core"
+       case typecheckInteractive (SrcFile.ts corefile) stx of
+         Left str -> throwTypecheckerException str
+         Right (srcfile', t) -> do let (srcfile'', expr) = interpretInteractive srcfile stx
+                                   liftIO $ putExprT expr t
+                                   return srcfile''
 
 
 runSnippetM :: String -> ReplM ()
@@ -196,8 +199,8 @@ showModuleM showAll showBrief filename =
               where showTuple (x, y) =
                         x ++ " :: " ++ show y
 
-          showExprEnv srcfile =
-              "\n\n\t exprEnv = " ++ intercalate ", " (map fst $ Env.getBinds $ SrcFile.env srcfile)
+          showExprs srcfile =
+              "\n\n\t exprs = " ++ intercalate ", " (map fst $ Map.toList $ SrcFile.exprs srcfile)
 
           showSrcNs SrcFile { srcNs = Left (Namespace uses _) } =
               "\n\n\t srcNs = " ++ intercalate ('\n':replicate 17 ' ') (map use uses)
@@ -221,7 +224,7 @@ showModuleM showAll showBrief filename =
                             showDeps srcfile ++
                             showSymbols srcfile ++
                             showTs srcfile ++
-                            showExprEnv srcfile ++
+                            showExprs srcfile ++
                             showSrcNs srcfile ++
                             showRenNs srcfile
 

@@ -16,7 +16,7 @@ data SrcFile
               , deps :: [String]
               , symbols :: Map String Symbol
               , ts :: Map String Type
-              , env :: ExprEnv
+              , exprs :: Map String Expr
               , srcNs :: (Either (Namespace String) ([String], Map String (Type, Expr)))
               , renNs :: Maybe (Namespace String) }
       deriving (Show)
@@ -27,7 +27,7 @@ initial name srcNs =
             , deps = []
             , symbols = Map.empty
             , ts = Map.empty
-            , env = Env.empty
+            , exprs = Map.empty
             , srcNs = srcNs
             , renNs = Nothing }
 

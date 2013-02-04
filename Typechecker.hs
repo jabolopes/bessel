@@ -435,7 +435,7 @@ typecheckIncremental syms stx =
        return (substituteExistTs syms' t, simpleSyms syms')
 
 
-typecheckInteractive :: SrcFile -> Stx String -> Either String (SrcFile, Type)
-typecheckInteractive srcfile stx =
-    do (t, ts) <- typecheckIncremental (SrcFile.ts srcfile) stx
-       return (srcfile { ts = ts }, t)
+typecheckInteractive :: Map String Type -> Stx String -> Either String (Type, Map String Type)
+typecheckInteractive ts stx =
+    do (t, ts') <- typecheckIncremental ts stx
+       return (t, ts')
