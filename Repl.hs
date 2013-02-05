@@ -35,7 +35,8 @@ import Utils
 
 
 data ReplState =
-    ReplState { fs :: Map String SrcFile
+    ReplState { initialFs :: Map String SrcFile
+              , fs :: Map String SrcFile
               , interactive :: SrcFile }
 
 type ReplM a = StateT ReplState IO a
@@ -119,27 +120,39 @@ typecheckerEither :: Monad m => Either String a -> m a
 typecheckerEither fn = return $ either throwTypecheckerException id fn
 
 
+stageFiles :: [SrcFile] -> IO (Map String SrcFile)
+stageFiles srcfiles =
+    do liftIO $ putStrLn $ "Staging " ++ show n ++ " namespaces"
+       loop Map.empty srcfiles [1..]
+    where n = length srcfiles
+          
+          putHeader i =
+              putStr $ "[" ++ show i ++ "/" ++ show n ++ "] "
+
+          updateFs fs srcfile = Map.insert (SrcFile.name srcfile) srcfile fs
+          
+          loop fs [] _ = return fs
+          loop fs (srcs:srcss) (i:is) =
+              do putHeader i
+                 putStr $ SrcFile.name srcs ++ ": "
+                 !rens <- renamerEither $ rename fs srcs
+                 let renfs = updateFs fs rens
+                 putStr "renamed, "
+                 !typs <- typecheckerEither $ typecheck renfs rens
+                 let typfs = updateFs renfs typs
+                 putStr "typechecked, "
+                 let evals = interpret typfs typs
+                     evalfs = updateFs typfs evals
+                 putStrLn "evaluated"
+                 loop evalfs srcss is
+
+
 importFile :: Map String SrcFile -> String -> IO ReplState
 importFile fs filename =
     do srcfiles <- preload fs filename
-       fs' <- loop Map.empty srcfiles
+       fs' <- stageFiles srcfiles
        let interactive = mkInteractiveSrcFile $ map SrcFile.name srcfiles
-       return $ ReplState { fs = fs', interactive = interactive }
-    where updateFs fs srcfile = Map.insert (SrcFile.name srcfile) srcfile fs
-
-          loop fs [] = return fs
-          loop fs (srcs:srcss) =
-              do putStr $ SrcFile.name srcs
-                 rens <- renamerEither $ rename fs srcs
-                 let renfs = updateFs fs rens
-                 putStr ": renamed"
-                 typs <- typecheckerEither $ typecheck renfs rens
-                 let typfs = updateFs renfs typs
-                 putStr ", typechecked"
-                 let evals = interpret typfs typs
-                     evalfs = updateFs typfs evals
-                 putStrLn ", evaluated"
-                 loop evalfs srcss
+       return $ ReplState { initialFs = fs, fs = fs', interactive = interactive }
 
 
 interpretM :: Maybe Type -> Map String SrcFile -> SrcFile -> ReplM SrcFile
@@ -188,26 +201,24 @@ showModuleM showAll showBrief filename =
         | otherwise =
           do fs <- fs <$> get
              case Map.lookup filename fs of
-               Nothing -> return []
+               Nothing -> do liftIO $ do
+                               putStrLn $ "namespace " ++ show filename ++ " has not been staged"
+                               putStrLn $ "stages namespaces are " ++ intercalate ", " (map SrcFile.name (Map.elems fs))
+                             return []
                Just srcfile -> return [srcfile]
     in
      filesM >>= (liftIO . mapM_ (putStrLn . showSrcFile))
     where showDeps srcfile = 
-              "\n\n\t deps = " ++ intercalate ", " (SrcFile.deps srcfile)
+              "\n\n\t deps = " ++ intercalate ('\n':replicate 16 ' ') (SrcFile.deps srcfile)
 
-          showSymbols srcfile =
-              "\n\n\t symbols = " ++ intercalate ", " (Map.keys $ SrcFile.symbols srcfile)
+          showDefs srcfile =
+              "\n\n\t defs = " ++ intercalate spacer [ showTuple (x, e x, t x) | x <- Map.keys (SrcFile.symbols srcfile) ]
+              where spacer = '\n':replicate 16 ' '
+                    e name = SrcFile.exprs srcfile Map.! name
+                    t name = SrcFile.ts srcfile Map.! name
+                    showTuple (x, y, z) = x ++ " = " ++ show y ++ " :: " ++ show z
 
-          showTs srcfile =
-              "\n\n\t ts = " ++ intercalate ('\n':replicate 14 ' ') (map showTuple $ Map.toList $ SrcFile.ts srcfile)
-              where showTuple (x, y) =
-                        x ++ " :: " ++ show y
-
-          showExprs srcfile =
-              "\n\n\t exprs = " ++ intercalate ", " (map show $ Map.toList $ SrcFile.exprs srcfile)
-
-          showSrcNs SrcFile { t = CoreT } =
-              "\n\n\t srcNs = <built-in>"
+          showSrcNs SrcFile { t = CoreT } = ""
 
           showSrcNs SrcFile { t = InteractiveT, srcNs = Just (Namespace uses [stx]) } =
               "\n\n\t srcNs = " ++ intercalate ('\n':replicate 17 ' ') (map use uses) ++
@@ -224,17 +235,18 @@ showModuleM showAll showBrief filename =
               "\n\n\t renNs = Nothing"
 
           showRenNs SrcFile { renNs = Just (Namespace uses _) } =
-              "\n\n\t renNs = " ++ intercalate ", " (map use uses)
+              "\n\n\t renNs = " ++ intercalate ('\n':replicate 17 ' ') (map use uses)
               where use (x, "") = "use " ++ x
                     use (x, y) = "use " ++ x ++ " as " ++ y
 
           showSrcFile srcfile
               | showBrief = "SrcFile " ++ show (SrcFile.name srcfile) ++ " " ++ show (SrcFile.deps srcfile) ++ " ..."
-              | otherwise = SrcFile.name srcfile ++
+              | otherwise = SrcFile.name srcfile ++ " (" ++ show (SrcFile.t srcfile) ++ ")" ++
                             showDeps srcfile ++
-                            showSymbols srcfile ++
-                            showTs srcfile ++
-                            showExprs srcfile ++
+                            showDefs srcfile ++
+                            -- showSymbols srcfile ++
+                            -- showTs srcfile ++
+                            -- showExprs srcfile ++
                             showSrcNs srcfile ++
                             showRenNs srcfile
 
@@ -294,7 +306,7 @@ runCommandM "show" opts nonOpts
         showRenamedM showAll $ last nonOpts
 
 runCommandM "load" opts nonOpts =
-    do fs <- fs <$> get
+    do fs <- initialFs <$> get
        liftIO (importFile fs (last nonOpts)) >>= put
 
 runCommandM "l" opts nonOpts =

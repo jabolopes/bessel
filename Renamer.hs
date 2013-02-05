@@ -1,4 +1,4 @@
-{-# LANGUAGE DoRec, NamedFieldPuns #-}
+{-# LANGUAGE BangPatterns, DoRec, NamedFieldPuns #-}
 module Renamer where
 
 import Control.Monad.Error
@@ -21,7 +21,6 @@ import qualified Data.Symbol as Symbol
 import Data.Tuple (swap)
 import Utils (fromSingleton, split)
 
-import Debug.Trace
 
 data RenamerState =
     RenamerState { fs :: Map String SrcFile
@@ -215,7 +214,7 @@ withPrefixedScopeM prefix m =
 
 
 renameNamespaceM :: Namespace String -> RenamerM (Namespace String)
-renameNamespaceM stx@(Namespace uses stxs) =
+renameNamespaceM (Namespace uses stxs) =
     do let (unprefixed, prefixed) = partition (null . snd) uses
 
        checkUniqueImports unprefixed prefixed
@@ -240,6 +239,21 @@ renameNamespaceM stx@(Namespace uses stxs) =
                   throwError "renameNamespaceM: duplicated qualified in 'use' forms"
               | otherwise =
                   return ()
+
+
+renameModuleM :: Namespace String -> RenamerM (Namespace String)
+renameModuleM (Namespace uses stxs) =
+    do let (unprefixed, prefixed) = partition (null . snd) uses
+
+       -- edit: check that the new imports don't collide with the old ones
+       -- checkUniqueImports unprefixed prefixed
+       -- checkUniqueQualifiers prefixed
+
+       modify $ \state -> state { unprefixedUses = unprefixedUses state ++ map fst unprefixed
+                                , prefixedUses = Map.union (prefixedUses state) (Map.fromList (map swap prefixed)) }
+
+       withNslevel True $
+         Namespace uses . concat <$> mapM renameM stxs
 
 
 renameOneM stx = fromSingleton <$> renameM stx
@@ -277,11 +291,11 @@ renameM (LambdaStx arg body) =
                withScopeM $ renameOneM body)
 
 renameM stx@(ModuleStx [] ns) =
-    do Namespace _ stxs <- renameNamespaceM ns
+    do Namespace _ stxs <- renameModuleM ns
        return stxs
 
 renameM stx@(ModuleStx prefix ns) =
-    do Namespace _ stxs <- withPrefixedScopeM prefix (renameNamespaceM ns)
+    do Namespace _ stxs <- withPrefixedScopeM prefix (renameModuleM ns)
        return stxs
 
 renameM (TypeStx name stxs) =
@@ -315,6 +329,10 @@ renameSrcFile fs name ns =
 
 
 rename :: Map String SrcFile -> SrcFile -> Either String SrcFile
+-- rename _ SrcFile { t, name, deps, srcNs }
+--     | trace ("rename: " ++ name ++ " :: " ++ show t ++ "\n" ++ show deps ++ "\n\n\t" ++ show srcNs ++ "\n") False = undefined
+
+
 rename _ srcfile@SrcFile { t = CoreT } =
     return srcfile
 
@@ -328,8 +346,8 @@ rename fs srcfile@SrcFile { t = InteractiveT, symbols, srcNs = Just ns } =
     where interactiveName = ""
 
           interactiveNs =
-            let SrcFile { srcNs = Just (Namespace uses stxs) } = srcfile in
-            Namespace (uses ++ [("Interactive", "")]) stxs
+              let SrcFile { srcNs = Just (Namespace uses stxs) } = srcfile in
+              Namespace (uses ++ [(SrcFile.name srcfile, "")]) stxs
 
           interactiveFs =
-            Map.insert "Interactive" srcfile { srcNs = Just interactiveNs } fs
+              Map.insert (SrcFile.name srcfile) srcfile { srcNs = Just interactiveNs } fs
