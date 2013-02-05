@@ -292,30 +292,49 @@ options = [Option "a" [] (NoArg ShowAll) "Show all",
 
 
 runCommandM :: String -> [Flag] -> [String] -> ReplM ()
-runCommandM "show" opts nonOpts
-    | head nonOpts == "module" =
-        let showAll = ShowAll `elem` opts
-            showBrief = ShowBrief `elem` opts in
-        showModuleM showAll showBrief $ last nonOpts
+runCommandM "show" _ ["namespace"] =
+    liftIO $ putStrLn ":show namespace [-a] [-b] <namespace>"
 
-    | head nonOpts == "tokens" =
-        showTokensM $ last nonOpts
+runCommandM "show" opts ("namespace":nonOpts) =
+    let showAll = ShowAll `elem` opts
+        showBrief = ShowBrief `elem` opts
+    in
+      showModuleM showAll showBrief $ last nonOpts
 
-    | head nonOpts == "renamed" =
-        let showAll = ShowAll `elem` opts in
-        showRenamedM showAll $ last nonOpts
+runCommandM "show" _ ["tokens"] =
+    liftIO $ putStrLn ":show tokens <namespace>"
 
-runCommandM "load" opts nonOpts =
+runCommandM "show" _ ("tokens":nonOpts) =
+    showTokensM $ last nonOpts
+
+runCommandM "show" _ ["renamed"] =
+    liftIO $ putStrLn ":show renamed [-a] <namespace>"
+
+runCommandM "show" opts ("renamed":nonOpts) =
+    let showAll = ShowAll `elem` opts in
+    showRenamedM showAll $ last nonOpts
+
+runCommandM "show" _ _ =
+    liftIO $ putStrLn $ ":show [ namespace | tokens | renamed ]"
+
+runCommandM "load" _ [] =
+    liftIO $ putStrLn $ ":load [ <namespace> | <file/namespace> ]"
+
+runCommandM "load" _ nonOpts =
     do fs <- initialFs <$> get
        liftIO (importFile fs (last nonOpts)) >>= put
 
 runCommandM "l" opts nonOpts =
     runCommandM "load" opts nonOpts
 
+runCommandM _ _ _ =
+    liftIO $ putStrLn $ ":show | :load"
+
 
 dispatchCommandM :: String -> ReplM ()
 dispatchCommandM ln =
     case getOpt Permute options (split ' ' ln) of
+      (opts, [], []) -> runCommandM "" opts []
       (opts, nonOpts, []) -> runCommandM (head nonOpts) opts (tail nonOpts)
       (_, _, errs) -> error $ intercalate "\n" errs
 
