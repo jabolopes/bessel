@@ -64,20 +64,19 @@ dependenciesFileM filename =
                    | otherwise = parseFile
            srcfile@SrcFile { name, srcNs = Just ns } = parseFn tks
        (_, deps) <- runStateT (dependenciesNsM ns) []
-       let deps' = nub $ sort deps
        if name /= filename
        then error $ "Loader.dependenciesFileM: me " ++ show name ++ " and filename " ++ show filename ++ " mismatch"
-       else return $ srcfile { deps = deps' }
+       else return $ srcfile { deps = nub (sort deps) }
 
 
 preloadSrcFile :: Map String SrcFile -> String -> IO [SrcFile]
-preloadSrcFile corefiles filename = preloadSrcFile' [] Set.empty [filename]
+preloadSrcFile fs filename = preloadSrcFile' [] Set.empty [filename]
     where preloadSrcFile' srcfiles _ [] = return srcfiles
           preloadSrcFile' srcfiles loaded (filename:filenames)
               | filename `Set.member` loaded =
                   preloadSrcFile' srcfiles loaded filenames
-              | filename `Map.member` corefiles =
-                  do let srcfile = corefiles Map.! filename
+              | filename `Map.member` fs =
+                  do let srcfile = fs Map.! filename
                      preloadSrcFile' (srcfile:srcfiles) (Set.insert filename loaded) (deps srcfile ++ filenames)
               | otherwise =
                   do srcfile <- dependenciesFileM filename

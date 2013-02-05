@@ -9,7 +9,7 @@ import Data.Maybe (catMaybes)
 
 import qualified Data.Env as Env (initial, empty, getBinds)
 import Data.SrcFile
-import qualified Data.SrcFile as SrcFile (deps, symbols, exprs, renNs)
+import qualified Data.SrcFile as SrcFile (name, deps, symbols, exprs, renNs)
 import Data.Stx
 import Monad.InterpreterM
 
@@ -127,7 +127,7 @@ interpretInteractive fs srcfile@SrcFile { t = InteractiveT, deps, renNs = Just n
     in
      (srcfile { exprs = Map.union (SrcFile.exprs srcfile) env' }, last exprs)
     where interactiveDeps =
-            SrcFile.deps srcfile ++ ["Interactive"]
+            SrcFile.deps srcfile ++ [SrcFile.name srcfile]
 
           interactiveFs =
-            Map.insert "Interactive" srcfile fs
+            Map.insert (SrcFile.name srcfile) srcfile fs
