@@ -440,6 +440,9 @@ typecheck :: Map String SrcFile -> SrcFile -> Either String SrcFile
 typecheck _ srcfile@SrcFile { t = CoreT } =
     return srcfile
 
+typecheck _ srcfile@SrcFile { t = SrcT, renNs = Just (Namespace _ []) } =
+    return srcfile
+
 typecheck fs srcfile@SrcFile { t = SrcT } =
     do (ts, t) <- typecheckSrcFile fs srcfile
        return $ srcfile { ts = ts }
