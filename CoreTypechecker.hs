@@ -57,8 +57,8 @@ desc = [
  --  ("abs", ArrowT DynT DynT, m abs),
  --  -- combining forms
  --  ("o", ArrowT (SeqT (ArrowT DynT DynT)) (ArrowT DynT DynT), m o),
- --  ("cons", (ForallT "a" (ArrowT (SeqT (ArrowT (TvarT "a") DynT)) (ArrowT (TvarT "a") DynT))), m cons),
- --  -- ("cons", (ForallT "a" (ForallT "b" (ArrowT (SeqT (ArrowT (TvarT "a") (TvarT "b"))) (ArrowT (TvarT "a") (TvarT "b"))))), m cons),
+ -- ("cons", (ForallT "a" (ArrowT (SeqT (ArrowT (TvarT "a") DynT)) (ArrowT (TvarT "a") DynT))), m cons),
+ ("cons", (ForallT "a" (ForallT "b" (ArrowT (SeqT (ArrowT (TvarT "a") (TvarT "b"))) (ArrowT (TvarT "a") (TvarT "b"))))), m cons),
  ("ifthen", ForallT "a" (ForallT "b" (ArrowT (TupT [ArrowT (TvarT "a") BoolT, ArrowT (TvarT "a") (TvarT "b")]) (ArrowT (TvarT "a") (TvarT "b")))), m cond),
  -- ("ifelse", (ForallT "a"
  --             (ForallT "b"
@@ -101,7 +101,14 @@ desc = [
  ("id", ForallT "a" (ArrowT (TvarT "a") (TvarT "a")), m id),
  -- ("signal", ForallT "a" (ArrowT (TvarT "a") (ForallT "b" (TvarT "b"))), m signal),
 
- ("K", ForallT "a" (ArrowT (TvarT "a") (ForallT "b" (ArrowT (TvarT "b") (TvarT "a")))), m k)]
+ ("K", ForallT "a" (ArrowT (TvarT "a") (ForallT "b" (ArrowT (TvarT "b") (TvarT "a")))), m k),
+
+ ("app", ForallT "a"
+          (ForallT "b"
+           (ArrowT (ArrowT (TvarT "a") (TvarT "b"))
+            (ArrowT (ArrowT (TvarT "a") (TvarT "b"))
+             (ArrowT (TvarT "a")
+              (TupT [TvarT "b", TvarT "b"]))))), m id)]
 
 
 -- edit: fix the undefined
