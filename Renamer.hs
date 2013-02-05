@@ -33,14 +33,14 @@ data RenamerState =
                  , prefixedUses :: Map String String }
 
 
-initialRenamerState :: Map String SrcFile -> String -> RenamerState
-initialRenamerState fs ns =
+initialRenamerState :: Map String SrcFile -> RenamerState
+initialRenamerState fs =
     let frameEnv = FrameEnv.empty in
     RenamerState { fs = fs
                  , frameEnv = frameEnv
                  , currentFrame = FrameEnv.rootId frameEnv
                  , currentCount = 0
-                 , currentNamespace = ns
+                 , currentNamespace = ""
                  , nslevel = True
                  , unprefixedUses = []
                  , prefixedUses = Map.empty }
@@ -67,11 +67,11 @@ genNameM name =
     do nslevel <- nslevel <$> get
        if nslevel
        then do
-         -- ns <- currentNamespace <$> get
-         -- let qual | null ns = name
-         --          | otherwise = ns ++ "." ++ name
-         -- return qual
-         return name
+         ns <- currentNamespace <$> get
+         let qual | null ns = name
+                  | otherwise = ns ++ "." ++ name
+         return qual
+         -- return name
        else
          (name ++) . show <$> genNumM
 
@@ -319,9 +319,9 @@ renameM (WhereStx stx stxs) =
       return [WhereStx stx' stxs']
 
 
-renameSrcFile :: Map String SrcFile -> String -> Namespace String -> Either String (Namespace String, Map String Symbol)
-renameSrcFile fs name ns =
-  do let state = initialRenamerState fs name
+renameSrcFile :: Map String SrcFile -> Namespace String -> Either String (Namespace String, Map String Symbol)
+renameSrcFile fs ns =
+  do let state = initialRenamerState fs
      (ns', state') <- runStateT (renameNamespaceM ns) state
      let symbols = Frame.symbols $ FrameEnv.getRootFrame $ frameEnv state'
          renSymbols = Map.fromList [ (Symbol.name sym, sym) | sym <- Map.elems symbols ]
@@ -336,16 +336,14 @@ rename :: Map String SrcFile -> SrcFile -> Either String SrcFile
 rename _ srcfile@SrcFile { t = CoreT } =
     return srcfile
 
-rename fs srcfile@SrcFile { t = SrcT, name, srcNs = Just ns } =
-    do (ns', renSymbols) <- renameSrcFile fs name ns
+rename fs srcfile@SrcFile { t = SrcT, srcNs = Just ns } =
+    do (ns', renSymbols) <- renameSrcFile fs ns
        return $ srcfile { symbols = renSymbols, renNs = Just ns' }
 
 rename fs srcfile@SrcFile { t = InteractiveT, symbols, srcNs = Just ns } =
-    do (ns', renSymbols) <- renameSrcFile interactiveFs interactiveName interactiveNs
+    do (ns', renSymbols) <- renameSrcFile interactiveFs interactiveNs
        return $ srcfile { symbols = Map.union renSymbols symbols, renNs = Just ns' }
-    where interactiveName = ""
-
-          interactiveNs =
+    where interactiveNs =
               let SrcFile { srcNs = Just (Namespace uses stxs) } = srcfile in
               Namespace (uses ++ [(SrcFile.name srcfile, "")]) stxs
 
