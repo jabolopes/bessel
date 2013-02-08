@@ -68,3 +68,14 @@ signalStx id str =
 
 stringStx :: String -> Stx a
 stringStx str = SeqStx $ map CharStx str
+
+
+
+showAbbrev (IntStx i) = show i
+
+showAbbrev (IdStx name) = name
+
+showAbbrev (AppStx stx1 stx2) =
+  "(app " ++ showAbbrev stx1 ++ " " ++ showAbbrev stx2 ++ ")"
+
+showAbbrev stx = show stx

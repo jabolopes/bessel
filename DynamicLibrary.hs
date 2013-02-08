@@ -1,6 +1,6 @@
 module DynamicLibrary where
 
-import Prelude hiding ((&&), (||), (<=), not, and, or, id, compare, div, floor, ceiling, abs, reverse)
+import Prelude hiding ((&&), (||), (<=), not, and, or, id, compare, div, floor, ceiling, abs, reverse, seq)
 import qualified Prelude
 
 import Data.Functor ((<$>))
@@ -663,7 +663,24 @@ syms = [
 
  -- ("ap", ForallT "a" (ForallT "b" (ArrowT (ArrowT (TvarT "a") (TvarT "b")) (ArrowT (TvarT "a") (TvarT "b")))), m ap),
 
- ("K", ForallT "a" (ArrowT (TvarT "a") (ForallT "b" (ArrowT (TvarT "b") (TvarT "a")))), m k)]
+ ("K", ForallT "a" (ArrowT (TvarT "a") (ForallT "b" (ArrowT (TvarT "b") (TvarT "a")))), m k),
+ 
+ ("app", ForallT "a"
+          (ForallT "b"
+           (ArrowT (ArrowT (TvarT "a") (TvarT "b"))
+            (ArrowT (ArrowT (TvarT "a") (TvarT "b"))
+             (ArrowT (TvarT "a")
+              (TupT [TvarT "b", TvarT "b"]))))), m id),
+ 
+  ("seq", ForallT "a"
+          (ForallT "b"
+           (ArrowT (ArrowT (TvarT "a") (TvarT "b"))
+            (ArrowT (ArrowT (TvarT "a") (TvarT "b"))
+              (SeqT (ArrowT (TvarT "a") (TvarT "b")))))), m seq)]
+       
+       
+seq fn1@(FnExpr _) =
+  FnExpr $ \fn2@(FnExpr _) -> return (SeqExpr [fn1, fn2])
 
 
 ap :: Expr -> Expr

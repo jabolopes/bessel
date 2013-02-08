@@ -2,6 +2,7 @@
 module Data.Context where
 
 import Data.Functor ((<$>))
+import Data.List
 import Data.Map (Map)
 import qualified Data.Map as Map
 
@@ -70,7 +71,8 @@ dropContext ctx@Context { syms } name =
 
 
 nothingSyms :: Map String Type -> Context
-nothingSyms syms = Context { syms = syms', count = 0 }
+-- nothingSyms syms = Context { syms = syms', count = 0 }
+nothingSyms syms = Context { syms = syms', count = 97 }
   where syms' = map (\(name, t) -> (name, (t, Nothing))) $ Map.toList syms
 
 
@@ -78,3 +80,15 @@ simpleSyms :: Context -> Map String Type
 simpleSyms Context { syms } = Map.fromList $ map simple syms
   where simple (name, (t, Nothing)) = (name, t)
         simple (name, (t, Just t')) = (name, t')
+
+
+isWellformed :: Context -> Type -> Type -> Bool
+isWellformed Context { syms } (ExistT var1) (ExistT var2) =
+  let
+    i1 = var1 `findT` syms
+    i2 = var2 `findT` syms
+  in
+   i1 <= i2
+  where findT name = findIndex (\(x, _) -> x == name)
+
+isWellformed _ _ _ = True

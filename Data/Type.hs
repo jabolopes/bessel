@@ -85,7 +85,9 @@ freshForallT count t =
 
           freshForallT' (vars, n) (ForallT var forallT) =
               let
-                  var' = var ++ show n
+                  -- var' = var ++ show n
+                  -- edit: toEnum overflows
+                  var' = [toEnum n]
                   vars' = Map.insert var var' vars
                   n' = n + 1
                   (state', forallT') = freshForallT' (vars', n') forallT
