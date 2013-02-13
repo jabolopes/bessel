@@ -174,23 +174,22 @@ occursT t (ForallT _ forallT) = occursT t forallT
 occursT _ _ = False
 
 
+-- unifyT :: Type -> Type -> Type
+-- unifyT t1 t2
+--     | t1 == t2 = t1
 
-unifyT :: Type -> Type -> Type
-unifyT t1 t2
-    | t1 == t2 = t1
+-- unifyT (TupT ts1) (TupT ts2) =
+--     let ts = zipWith unifyT ts1 ts2 in
+--     if all (== (head ts)) ts then
+--         SeqT $ head ts
+--     else
+--         TupT ts
 
-unifyT (TupT ts1) (TupT ts2) =
-    let ts = zipWith unifyT ts1 ts2 in
-    if all (== (head ts)) ts then
-        SeqT $ head ts
-    else
-        TupT ts
+-- unifyT (SeqT t1) (SeqT t2) =
+--     SeqT $ unifyT t1 t2
 
-unifyT (SeqT t1) (SeqT t2) =
-    SeqT $ unifyT t1 t2
+-- unifyT (ArrowT arg1 res1) (ArrowT arg2 res2) =
+--     let t1 = unifyT arg1 arg2 in
+--     ArrowT t1 $ unifyT res1 res2
 
-unifyT (ArrowT arg1 res1) (ArrowT arg2 res2) =
-    let t1 = unifyT arg1 arg2 in
-    ArrowT t1 $ unifyT res1 res2
-
-unifyT t1 t2 = DynT
+-- unifyT t1 t2 = DynT

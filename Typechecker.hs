@@ -29,13 +29,23 @@ logT desc t1 t2 =
     debugConsistentTT (desc ++ ": " ++ show t1 ++ " < " ++ show t2)
 
 
+resolve ctx existT@(ExistT _) fnT@(ArrowT _ _)
+  = resolve ctx fnT existT
+
+resolve ctx (ArrowT _ resT) existT@(ExistT var)
+  | resT == existT =
+    updateContext ctx var (unifType existT DynT)
+
+
 consistentT :: Context -> Type -> Type -> Maybe Context
 -- consistentT ctx t1 t2 | debugConsistentTF ("consistentT:\n  " ++ intercalate "\n  " (map show (syms ctx)) ++ "\n  " ++ show t1 ++ " ~~ " ++ show t2 ++ "\n") = undefined
 -- consistentT ctx t1 t2 | debugConsistentTF ("consistentT: " ++ show t1 ++ " ~~ " ++ show t2 ++ "\n") = undefined
 
-consistentT syms t1 t2
-    | t1 /= t2 && (occursT t1 t2 || occursT t2 t1) =
-        error $ "OCCURS: " ++ show t1 ++ " < " ++ show t2
+consistentT ctx t1 t2
+    -- | t1 /= t2 && (occursT t1 t2 || occursT t2 t1) =
+    --     error $ "OCCURS: " ++ show t1 ++ " < " ++ show t2
+  | t1 /= t2 && (occursT t1 t2 || occursT t2 t1) =
+    return $ resolve ctx t1 t2
 
 consistentT syms t1 t2
     | isAtomicT t1 && t1 == t2 && logT "(=atomic)" t1 t2 = return syms
