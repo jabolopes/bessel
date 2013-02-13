@@ -1,4 +1,5 @@
-{-# LANGUAGE NamedFieldPuns, TupleSections #-}
+{-# LANGUAGE BangPatterns, NamedFieldPuns,
+             TupleSections #-}
 module Typechecker where
 
 import Data.Functor ((<$>))
@@ -33,8 +34,8 @@ consistentT :: Context -> Type -> Type -> Maybe Context
 -- consistentT ctx t1 t2 | debugConsistentTF ("consistentT: " ++ show t1 ++ " ~~ " ++ show t2 ++ "\n") = undefined
 
 consistentT syms t1 t2
-    | t1 /= t2 && (occursT t1 t2 || occursT t2 t1) = error $ "OCCURS: " ++ show t1 ++ " < " ++ show t2
-    -- | t1 /= t2 && occursT t1 t2 = error $ "OCCURS: " ++ show t1 ++ " < " ++ show t2
+    | t1 /= t2 && (occursT t1 t2 || occursT t2 t1) =
+        error $ "OCCURS: " ++ show t1 ++ " < " ++ show t2
 
 consistentT syms t1 t2
     | isAtomicT t1 && t1 == t2 && logT "(=atomic)" t1 t2 = return syms
