@@ -29,12 +29,11 @@ logT desc t1 t2 =
     debugConsistentTT (desc ++ ": " ++ show t1 ++ " < " ++ show t2)
 
 
-resolve ctx existT@(ExistT _) fnT@(ArrowT _ _)
-  = resolve ctx fnT existT
+resolve ctx existT@(ExistT var) (ArrowT _ _) =
+  updateContext ctx var (unifType existT DynT)
 
-resolve ctx (ArrowT _ resT) existT@(ExistT var)
-  | resT == existT =
-    updateContext ctx var (unifType existT DynT)
+resolve ctx (ArrowT _ _) existT@(ExistT var) =
+  updateContext ctx var (unifType existT DynT)
 
 
 consistentT :: Context -> Type -> Type -> Maybe Context
