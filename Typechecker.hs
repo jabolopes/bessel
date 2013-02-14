@@ -286,9 +286,9 @@ synthM :: Context -> Stx String -> SynthM
 
 synthM syms stx =
   substitute <$> synthAbstrM syms stx
-  where substitute (t, _, _) | debugF (showAbbrev stx ++ " => " ++ show t) =
-          undefined
-        
+  where substitute (t, _, _)
+          | debugF (showAbbrev stx ++ " => " ++ show t) = undefined
+
         substitute (t@(ExistT _), stx', syms') =
           (substituteExistTs syms' t, stx', syms')
              
