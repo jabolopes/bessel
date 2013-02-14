@@ -7,12 +7,13 @@ import Control.Monad.State
 import Data.Char (isSpace)
 import Data.List (isPrefixOf)
 import Data.Map (Map)
-import qualified Data.Map as Map ((!), insert)
+import qualified Data.Map as Map ((!), insert, toList)
 import System.Console.Readline
 
 --import System.IO.Error (catchIOError)
 import System.IO.Error (catch)
 
+import qualified Data.Context as Context (syms)
 import Data.Exception
 import Data.Type
 import Data.Stx
@@ -144,7 +145,8 @@ runSnippetM ln =
          Left str -> throwTypecheckerException str
          Right (t, symbols') -> do let (expr, exprEnv') = interpret exprEnv [stx']
                                    liftIO $ do
-                                     putStrLn $ show symbols'
+                                     putStrLn ""
+                                     mapM_ (putStrLn . ("    " ++) . show) $ Map.toList symbols'
                                      putStrLn ""
                                      putExprT expr t
                                      putStrLn ""
