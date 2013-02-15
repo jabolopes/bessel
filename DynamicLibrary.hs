@@ -664,21 +664,37 @@ syms = [
  -- ("ap", ForallT "a" (ForallT "b" (ArrowT (ArrowT (TvarT "a") (TvarT "b")) (ArrowT (TvarT "a") (TvarT "b")))), m ap),
 
  ("K", ForallT "a" (ArrowT (TvarT "a") (ForallT "b" (ArrowT (TvarT "b") (TvarT "a")))), m k),
- 
+
+ ("K2", ForallT "a"
+        (ArrowT (TvarT "a")
+         (ForallT "b"
+          (ArrowT (TvarT "b")
+           (ForallT "c"
+            (ArrowT (TvarT "c") (TvarT "a")))))), m k2),
+
  ("app", ForallT "a"
           (ForallT "b"
            (ArrowT (ArrowT (TvarT "a") (TvarT "b"))
             (ArrowT (ArrowT (TvarT "a") (TvarT "b"))
              (ArrowT (TvarT "a")
               (TupT [TvarT "b", TvarT "b"]))))), m id),
- 
+
+ ("app2", ForallT "a"
+          (ForallT "b"
+           (ArrowT (ArrowT (TvarT "a") (TvarT "b"))
+            (ArrowT (ArrowT (TvarT "a") (TvarT "b"))
+             (ArrowT (ArrowT (TvarT "a") (TvarT "b"))
+              (ArrowT (TvarT "a")
+               (TupT [TvarT "b", TvarT "b"])))))), m id),
+
+
   ("seq", ForallT "a"
           (ForallT "b"
            (ArrowT (ArrowT (TvarT "a") (TvarT "b"))
             (ArrowT (ArrowT (TvarT "a") (TvarT "b"))
               (SeqT (ArrowT (TvarT "a") (TvarT "b")))))), m seq)]
-       
-       
+
+
 seq fn1@(FnExpr _) =
   FnExpr $ \fn2@(FnExpr _) -> return (SeqExpr [fn1, fn2])
 
@@ -689,6 +705,9 @@ ap (FnExpr fn) = FnExpr $ \expr -> fn expr
 
 k :: Expr -> Expr
 k expr = FnExpr $ \_ -> return expr
+
+k2 :: Expr -> Expr
+k2 expr = FnExpr $ \_ -> return $ FnExpr $ \_ -> return expr
 
 
 env :: Env Expr
