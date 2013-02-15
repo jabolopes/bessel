@@ -37,6 +37,11 @@ instance Show Type where
     show (ArrowT t1 t2) = show t1 ++ " -> " ++ show t2
 
     show (ExistT str) = str
+    
+    show (ForallT var t@(ForallT _ _)) = "forall " ++ var ++ showForall t
+      where showForall (ForallT var t) = "," ++ var ++ showForall t
+            showForall t = ". " ++ show t
+
     show (ForallT var t) = "forall " ++ var ++ ". " ++ show t
     show (TvarT str) = str
 
