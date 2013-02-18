@@ -692,7 +692,12 @@ syms = [
           (ForallT "b"
            (ArrowT (ArrowT (TvarT "a") (TvarT "b"))
             (ArrowT (ArrowT (TvarT "a") (TvarT "b"))
-              (SeqT (ArrowT (TvarT "a") (TvarT "b")))))), m seq)]
+              (SeqT (ArrowT (TvarT "a") (TvarT "b")))))), m seq),
+
+  ("list", ForallT "a"
+           (ArrowT (TvarT "a")
+            (ArrowT (TvarT "a")
+             (SeqT (TvarT "a")))), m list)]
 
 
 seq fn1@(FnExpr _) =
@@ -708,6 +713,9 @@ k expr = FnExpr $ \_ -> return expr
 
 k2 :: Expr -> Expr
 k2 expr = FnExpr $ \_ -> return $ FnExpr $ \_ -> return expr
+
+
+list expr1 = FnExpr $ \expr2 -> return $ SeqExpr [expr1, expr2]
 
 
 env :: Env Expr

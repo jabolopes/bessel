@@ -76,8 +76,8 @@ nothingSyms syms = Context { syms = syms', count = 97 }
   where syms' = map (\(name, t) -> (name, (t, Nothing))) $ Map.toList syms
 
 
-simpleSyms :: Context -> Map String Type
-simpleSyms Context { syms } = Map.fromList $ map simple syms
+simpleSyms :: Context -> [(String, Type)]
+simpleSyms Context { syms } = map simple syms
   where simple (name, (t, Nothing)) = (name, t)
         simple (name, (t, Just t')) = (name, t')
 

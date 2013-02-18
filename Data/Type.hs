@@ -46,6 +46,16 @@ instance Show Type where
     show (TvarT str) = str
 
 
+isExistT :: Type -> Bool
+isExistT (ExistT _) = True
+isExistT _ = False
+
+
+isForallT :: Type -> Bool
+isForallT (ForallT _ _) = True
+isForallT _ = False
+
+
 isAtomicT :: Type -> Bool
 isAtomicT (ArrowT _ _) = False
 isAtomicT _ = True

@@ -7,7 +7,7 @@ import Control.Monad.State
 import Data.Char (isSpace)
 import Data.List (isPrefixOf)
 import Data.Map (Map)
-import qualified Data.Map as Map ((!), insert, toList)
+import qualified Data.Map as Map ((!), fromList, insert, toList)
 import System.Console.Readline
 
 --import System.IO.Error (catchIOError)
@@ -27,7 +27,7 @@ import Renamer
 import Typechecker
 
 
-data ReplState = ReplState RenamerState ExprEnv (Map String Type) [Stx String]
+data ReplState = ReplState RenamerState ExprEnv [(String, Type)] [Stx String]
 type ReplM a = StateT ReplState IO a
 
 
@@ -141,17 +141,17 @@ runSnippetM ln =
            stx = parseDefnOrExpr tokens
            (stx', renamerState') = renamerEither $ renameIncremental renamerState stx
        liftIO $ putRenamedStx stx'
-       case typecheckIncremental symbols stx' of
+       case typecheckIncremental (Map.fromList symbols) stx' of -- edit: eliminate this Map.fromList
          Left str -> throwTypecheckerException str
          Right (t, symbols') -> do let (expr, exprEnv') = interpret exprEnv [stx']
                                    liftIO $ do
                                      putStrLn ""
-                                     mapM_ (putStrLn . ("    " ++) . show) $ Map.toList symbols'
+                                     mapM_ (putStrLn . ("    " ++) . show) $ reverse symbols'
                                      putStrLn ""
                                      putExprT expr t
                                      putStrLn ""
                                      putEnvironment exprEnv'
-                                   put $ ReplState renamerState' exprEnv' symbols' prelude
+                                   put $ ReplState renamerState' exprEnv' symbols prelude
 
 promptM :: String -> ReplM Bool
 promptM ln =
@@ -161,7 +161,7 @@ promptM ln =
        process ln
     where processM modName =
               do ReplState _ _ symbols prelude <- get
-                 liftIO (importFile symbols prelude modName) >>= put
+                 liftIO (importFile (Map.fromList symbols) prelude modName) >>= put
                  return False
 
           process :: String -> ReplM Bool

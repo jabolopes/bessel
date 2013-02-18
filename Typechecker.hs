@@ -160,22 +160,22 @@ substituteExistTs _ t@BoolT = t
 substituteExistTs _ t@IntT  = t
 substituteExistTs _ t@DoubleT = t
 substituteExistTs _ t@CharT = t
-substituteExistTs syms (TupT ts) = TupT $ map (substituteExistTs syms) ts
-substituteExistTs syms (SeqT t) = SeqT $ substituteExistTs syms t
-substituteExistTs syms t@DynT = t
+substituteExistTs ctx (TupT ts) = TupT $ map (substituteExistTs ctx) ts
+substituteExistTs ctx (SeqT t) = SeqT $ substituteExistTs ctx t
+substituteExistTs ctx t@DynT = t
 
-substituteExistTs syms (ArrowT t1 t2) =
-  ArrowT (substituteExistTs syms t1) (substituteExistTs syms t2)
+substituteExistTs ctx (ArrowT t1 t2) =
+  ArrowT (substituteExistTs ctx t1) (substituteExistTs ctx t2)
 
-substituteExistTs syms t@(ExistT var) =
-  case lookupContext syms var of
+substituteExistTs ctx t@(ExistT var) =
+  case lookupContext ctx var of
     Nothing -> error $ "Typechecker.substituteExistTs: " ++ show var
     Just (ExistT var', Nothing) | var == var' -> t
-    Just (t', Nothing) -> substituteExistTs syms t'
-    Just (_, Just t') -> substituteExistTs syms t'
+    Just (t', Nothing) -> substituteExistTs ctx t'
+    Just (_, Just t') -> substituteExistTs ctx t'
 
-substituteExistTs syms (ForallT vars t) = ForallT vars $ substituteExistTs syms t
-substituteExistTs syms t@(TvarT _) = t
+substituteExistTs ctx (ForallT vars t) = ForallT vars $ substituteExistTs ctx t
+substituteExistTs ctx t@(TvarT _) = t
 
 
 substituteTvarT :: Type -> String -> Type -> Type
@@ -459,14 +459,14 @@ checkInstM t syms stx =
        (stx',) <$> consistentM syms' t' t
 
 
-typecheckIncremental :: Map String Type -> Stx String -> TypecheckerM (Type, Map String Type)
+typecheckIncremental :: Map String Type -> Stx String -> TypecheckerM (Type, [(String, Type)])
 typecheckIncremental syms stx =
     do (t, _, syms') <- synthM (nothingSyms syms) stx
        let !_ | debugT ("type before the final substitution: " ++ show t) = True
        return (substituteExistTs syms' t, simpleSyms syms')
 
 
-typecheckStxs :: Map String Type -> [Stx String] -> TypecheckerM (Map String Type)
+typecheckStxs :: Map String Type -> [Stx String] -> TypecheckerM [(String, Type)]
 typecheckStxs syms stxs = typecheck (nothingSyms syms) stxs
     where typecheck syms [] = return $ simpleSyms syms
           typecheck syms (stx:stxs) =
