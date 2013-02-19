@@ -146,7 +146,7 @@ runSnippetM ln =
          Right (t, symbols') -> do let (expr, exprEnv') = interpret exprEnv [stx']
                                    liftIO $ do
                                      putStrLn ""
-                                     mapM_ (putStrLn . ("    " ++) . show) $ reverse symbols'
+                                     mapM_ (putStrLn . ("    " ++) . show) $ filter (\x -> "^" `isPrefixOf` (fst x)) $ reverse symbols'
                                      putStrLn ""
                                      putExprT expr t
                                      putStrLn ""
