@@ -1,6 +1,8 @@
 {-# LANGUAGE ParallelListComp #-}
 module Data.Stx where
 
+import Data.List (intercalate)
+
 
 data DefnKw
     = Def
@@ -66,16 +68,19 @@ signalStx id str =
                                                appStx "K" $ stringStx str,
                                                IdStx "id"])])
 
+
 stringStx :: String -> Stx a
 stringStx str = SeqStx $ map CharStx str
 
 
-
+showAbbrev :: Stx String -> String
 showAbbrev (IntStx i) = show i
+showAbbrev (DoubleStx d) = show d
 
 showAbbrev (IdStx name) = name
+showAbbrev (SeqStx stxs) = "[" ++ intercalate ", " (map showAbbrev stxs) ++ "]"
 
 showAbbrev (AppStx stx1 stx2) =
-  "(app " ++ showAbbrev stx1 ++ " " ++ showAbbrev stx2 ++ ")"
+  showAbbrev stx1 ++ " " ++ showAbbrev stx2
 
 showAbbrev stx = show stx
