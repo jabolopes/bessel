@@ -208,3 +208,27 @@ occursT _ _ = False
 --     ArrowT t1 $ unifyT res1 res2
 
 -- unifyT t1 t2 = DynT
+
+
+-- 'substituteTvarT' @t1 var t2@ replaces type variables
+-- named @var@ that occur in @t2@ with @t1@.
+substituteTvarT :: Type -> String -> Type -> Type
+substituteTvarT _ _ BoolT = BoolT
+substituteTvarT _ _ IntT = IntT
+substituteTvarT _ _ DoubleT = DoubleT
+substituteTvarT _ _ CharT = CharT
+substituteTvarT t var (TupT ts) = TupT $ map (substituteTvarT t var) ts
+substituteTvarT t var (SeqT seqT) = SeqT $ substituteTvarT t var seqT
+substituteTvarT t var DynT = DynT
+
+substituteTvarT t var (ArrowT fnT argT) =
+  ArrowT (substituteTvarT t var fnT) (substituteTvarT t var argT)
+
+substituteTvarT _ _ t@(ExistT _) = t
+
+substituteTvarT t var (ForallT vars forallT) =
+  ForallT vars $ substituteTvarT t var forallT
+
+substituteTvarT t var1 tvarT@(TvarT var2)
+  | var1 == var2 = t
+  | otherwise = tvarT

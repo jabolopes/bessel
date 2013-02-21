@@ -686,22 +686,25 @@ syms = [
              (ArrowT (ArrowT (TvarT "a") (TvarT "b"))
               (ArrowT (TvarT "a")
                (TupT [TvarT "b", TvarT "b"])))))), m id),
+ 
+ ("ap", ForallT "a"
+        (ArrowT (TvarT "a")
+         (ArrowT (TvarT "a")
+          (SeqT (TvarT "a")))), m id),
 
-
-  ("seq", ForallT "a"
-          (ForallT "b"
-           (ArrowT (ArrowT (TvarT "a") (TvarT "b"))
-            (ArrowT (ArrowT (TvarT "a") (TvarT "b"))
-              (SeqT (ArrowT (TvarT "a") (TvarT "b")))))), m seq),
-
-  ("list", ForallT "a"
-           (ArrowT (TvarT "a")
-            (ArrowT (TvarT "a")
-             (SeqT (TvarT "a")))), m list)]
-
-
-seq fn1@(FnExpr _) =
-  FnExpr $ \fn2@(FnExpr _) -> return (SeqExpr [fn1, fn2])
+ ("seq", ForallT "a"
+         (ArrowT (SeqT (TvarT "a")) (SeqT (TvarT "a"))), m id),
+  
+ ("seq3", ForallT "a"
+          (ArrowT (SeqT (ArrowT (TvarT "a") (ArrowT (TvarT "a") (TvarT "a")))) 
+           (SeqT (TvarT "a"))), m id),
+  
+ ("int", ArrowT IntT IntT, m id),
+ ("real", ArrowT DoubleT DoubleT, m id),
+  
+ ("addi", ArrowT IntT (ArrowT IntT IntT), m id),
+ ("addr", ArrowT DoubleT (ArrowT DoubleT DoubleT), m id),
+ ("cat", ArrowT (SeqT CharT) (ArrowT (SeqT CharT) (SeqT CharT)), m id)]
 
 
 ap :: Expr -> Expr
@@ -715,7 +718,8 @@ k2 :: Expr -> Expr
 k2 expr = FnExpr $ \_ -> return $ FnExpr $ \_ -> return expr
 
 
-list expr1 = FnExpr $ \expr2 -> return $ SeqExpr [expr1, expr2]
+seq :: Expr -> Expr
+seq expr1 = FnExpr $ \expr2 -> return $ SeqExpr [expr1, expr2]
 
 
 env :: Env Expr
