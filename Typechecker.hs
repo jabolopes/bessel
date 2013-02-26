@@ -182,22 +182,26 @@ subT ctx t1 t2
                               ("ctx |- " ++ show t1 ++ " < " ++ show t2 ++ " -| ctx")
          return ctx
 
-subT syms t1@(TupT ts1) t2@(TupT ts2)
+subT ctx t1@(TupT ts1) t2@(TupT ts2)
     | length ts1 == length ts2 && logT "(tup ~ tup)" t1 t2 =
-        subT' syms ts1 ts2
-    where subT' syms [] [] = return syms
-	  subT' syms (t1:ts1) (t2:ts2) =
-    	      do syms' <- subT syms t1 t2
-	      	 subT' syms' ts1 ts2
+        subT' ctx ts1 ts2
+    where subT' ctx [] [] = return ctx
+	  subT' ctx (t1:ts1) (t2:ts2) =
+    	      do ctx' <- subT ctx t1 t2
+	      	 subT' ctx' ts1 ts2
 
 subT syms t1@(TupT ts1) t2@(SeqT t)
-    | logT "(tup ~ seq)" t1 t2 = subT syms t1 (TupT (replicate (length ts1) t))
+    | logT "(tup ~ seq)" t1 t2 =
+        subT syms t1 (TupT (replicate (length ts1) t))
 
+-- edit: seq is not a subtype of tup. consistentT handles symmetry
 subT syms t1@(SeqT t) t2@(TupT ts2)
-    | logT "(seq ~ tup)" t1 t2 = subT syms (TupT (replicate (length ts2) t)) t2
+    | logT "(seq ~ tup)" t1 t2 =
+        subT syms (TupT (replicate (length ts2) t)) t2
 
 subT syms t1@(SeqT seqT1) t2@(SeqT seqT2)
-    | logT "(seq ~ seq)" t1 t2 = subT syms seqT1 seqT2
+    | logT "(seq ~ seq)" t1 t2 =
+        subT syms seqT1 seqT2
 
 -- →E
 subT ctx t1@(ArrowT argT1 rangeT1) t2@(ArrowT argT2 rangeT2) =
@@ -517,6 +521,7 @@ checkInstM t@DynT syms (LambdaStx arg body) =
     do (body', syms') <- checkM t (insertContext syms arg (simpleType DynT)) body
        Right (LambdaStx arg body', syms')
 
+-- edit: make sure the existential var is unassigned?
 checkInstM (ExistT var) ctx stx@(LambdaStx _ _) =
     let (existT, ctx') = arrowifyVar ctx var in
     checkInstM existT ctx' stx
