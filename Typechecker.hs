@@ -151,7 +151,6 @@ consistentT ctx t1@(ExistT var1) t2@(ExistT var2)
                   Just $ updateContext ctx''' var1 (unifType t1 DynT)
        x -> x
 
-
 consistentT ctx t1 t2@(ExistT var)
   | not (isEmptyTypeContext ctx var) && logT "(~~R)" t1 t2 =
     let Right (ctx', t2') = typeContext ctx var in
@@ -465,10 +464,10 @@ checkM t ctx stx = checkInstM t ctx stx
 checkInstM :: Type -> Context -> Stx String -> CheckM
 
 -- C-Forall-I
-checkInstM (ForallT var t) syms stx | isValueStx stx =
-    do let syms' = insertContext syms var (simpleType (TvarT var))
-       (stx', syms'') <- checkM t syms' stx
-       return (stx', dropContext syms'' var)
+checkInstM (ForallT var t) ctx stx | isValueStx stx =
+    do let ctx' = insertContext ctx var (simpleType (TvarT var))
+       (stx', ctx'') <- checkM t ctx' stx
+       return (stx', dropContext ctx'' var)
 
 -- C-Int
 checkInstM t syms (IntStx i) = (IntStx i,) <$> subM syms IntT t
@@ -518,15 +517,15 @@ checkInstM t@DynT syms (LambdaStx arg body) =
     do (body', syms') <- checkM t (insertContext syms arg (simpleType DynT)) body
        Right (LambdaStx arg body', syms')
 
-checkInstM (ExistT var) syms stx@(LambdaStx _ _) =
-    let (existT, syms') = arrowifyVar syms var in
-    checkInstM existT syms' stx
+checkInstM (ExistT var) ctx stx@(LambdaStx _ _) =
+    let (existT, ctx') = arrowifyVar ctx var in
+    checkInstM existT ctx' stx
 
 -- C-App
-checkInstM t syms (AppStx fn arg) =
-    do (ArrowT argT rangeT, fn', syms') <- synthAppFnM syms fn
-       (arg', syms'') <- checkM argT syms' arg
-       (AppStx fn' arg',) <$> subM syms'' rangeT t
+checkInstM t ctx (AppStx fn arg) =
+    do (ArrowT argT rangeT, fn', ctx') <- synthAppFnM ctx fn
+       (arg', ctx'') <- checkM argT ctx' arg
+       (AppStx fn' arg',) <$> subM ctx'' rangeT t
 
 -- C-Where
 checkInstM t syms stx@(WhereStx _ _) =
