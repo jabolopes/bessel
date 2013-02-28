@@ -72,8 +72,7 @@ unifType t1 t2 = (t1, Just t2)
 freshForallT :: Int -> Type -> (Int, Type)
 freshForallT count t =
     let ((_, count'), t') = freshForallT' (Map.empty, count) t in (count', t')
-    where freshForallT' :: (Map String String, Int) -> Type -> ((Map String String, Int), Type)
-          freshForallT' state t@BoolT = (state, t)
+    where freshForallT' state t@BoolT = (state, t)
           freshForallT' state t@IntT = (state, t)
           freshForallT' state t@DoubleT = (state, t)
           freshForallT' state t@CharT = (state, t)
@@ -92,8 +91,8 @@ freshForallT count t =
 
           freshForallT' state (ArrowT t1 t2) =
               let
-                  (state', t1') = (freshForallT' state t1)
-                  (state'', t2') = (freshForallT' state' t2)
+                  (state', t1') = freshForallT' state t1
+                  (state'', t2') = freshForallT' state' t2
               in
                 (state'', ArrowT t1' t2')
 
@@ -109,8 +108,10 @@ freshForallT count t =
               in
                 (state', ForallT var' forallT')
 
-          freshForallT' state@(vars, _) (TvarT var) =
-              (state, TvarT (vars Map.! var))
+          freshForallT' state@(vars, _) t@(TvarT var) =
+              case Map.lookup var vars of
+                Nothing -> (state, t)
+                Just var' -> (state, TvarT var')
 
 
 kickForalls :: Type -> Type
