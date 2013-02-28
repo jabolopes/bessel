@@ -1,4 +1,4 @@
-module Config (doTypecheck, preludeName, isPrelude, corefile) where
+module Config (doTypecheck, isPrelude, preludeName, corefile) where
 
 import qualified Core (srcfile)
 import qualified CoreTypechecker (srcfile)

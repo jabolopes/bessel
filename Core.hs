@@ -139,7 +139,7 @@ and expr = expr
 
 
 not :: Expr -> Expr
-not (BoolExpr b) = BoolExpr $ Prelude.not b
+not expr | isFalseExpr expr = true
 not _ = false
 
 
@@ -536,7 +536,7 @@ out expr = signal $ SeqExpr [boxString "out", boxString "arg1", expr]
 -- misc
 
 id :: Expr -> Expr
-id expr = expr
+id = Prelude.id
 
 
 -- edit: delta
@@ -616,7 +616,10 @@ desc = [
   ("o", ArrowT (SeqT (ArrowT DynT DynT)) (ArrowT DynT DynT), m o),
   ("cons", (ForallT "a" (ArrowT (SeqT (ArrowT (TvarT "a") DynT)) (ArrowT (TvarT "a") DynT))), m cons),
   -- ("cons", (ForallT "a" (ForallT "b" (ArrowT (SeqT (ArrowT (TvarT "a") (TvarT "b"))) (ArrowT (TvarT "a") (TvarT "b"))))), m cons),
-  ("ifthen", (ForallT "a" (ForallT "b" (ArrowT (TupT [ArrowT (TvarT "a") BoolT, ArrowT (TvarT "a") (TvarT "b")]) (ArrowT (TvarT "a") (TvarT "b"))))), m cond),
+  ("ifthen", (ForallT "a"
+              (ForallT "b"
+               (ArrowT (TupT [ArrowT (TvarT "a") BoolT, ArrowT (TvarT "a") (TvarT "b")])
+                (ArrowT (TvarT "a") (TvarT "b"))))), m cond),
   ("ifelse", (ForallT "a"
               (ForallT "b"
                (ForallT "c"
@@ -655,12 +658,7 @@ desc = [
   ("out", ArrowT (SeqT (SeqT CharT)) (SeqT (SeqT CharT)), m out),
   -- misc
   ("id", ForallT "a" (ArrowT (TvarT "a") (TvarT "a")), m id),
-  ("signal", ForallT "a" (ArrowT (TvarT "a") (ForallT "b" (TvarT "b"))), m signal),
-  ("K", ForallT "a" (ArrowT (TvarT "a") (ForallT "b" (ArrowT (TvarT "b") (TvarT "a")))), m k)]
-
-
-k :: Expr -> Expr
-k expr = FnExpr $ \_ -> return expr
+  ("signal", ForallT "a" (ArrowT (TvarT "a") (ForallT "b" (TvarT "b"))), m signal)]
 
 
 -- edit: fixed undefined

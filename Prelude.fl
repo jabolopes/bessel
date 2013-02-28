@@ -1,11 +1,11 @@
 me Prelude
 
 use Core
-use Core.Environment
-use Core.IO
-use Core.Shell
+-- use Core.Environment
+-- use Core.IO
+-- use Core.Shell
 
-use Core.Happstack
+-- use Core.Happstack
 
 
 -- first dependecies

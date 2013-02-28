@@ -109,7 +109,6 @@ exdefExprMacro defpat@(Pat _ defns) pats stx body =
 
 -- lambda
 
-
 lambdaStx :: String -> Pat -> Stx String -> String -> Stx String
 lambdaStx arg (Pat pred defns) body sigdesc =
     let
@@ -118,18 +117,19 @@ lambdaStx arg (Pat pred defns) body sigdesc =
 
         lambda = LambdaStx _arg $ WhereStx body (defns')
         body' = applyStx "ifelse" [pred, lambda, signalStx sigdesc arg]
-        -- body' = applyStx "cond" [pred, lambda, signalStx sigdesc arg]
     in
       body'
 
 
 lambdaMacro :: Pat -> Stx String -> Stx String
+lambdaMacro (Pat (IdStx "tt") [(arg, IdStx "id")]) body =
+    LambdaStx arg body
+
 lambdaMacro pat body =
     lambdaStx "arg" pat body "lambda"
 
 
 -- type
-
 
 typeExprMacro :: String -> Stx String -> Stx String
 typeExprMacro name stx =

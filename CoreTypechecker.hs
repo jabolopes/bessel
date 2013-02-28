@@ -38,7 +38,7 @@ desc = [
  --  --- identically true and false predicates
  --  ("ff", predT, m ff),
  --  ("isval", predT, m isval),
- --  ("tt", predT, m tt),
+  ("tt", predT, m tt),
  --  -- boolean and comparison functions
  --  --- boolean functions
  --  ("and", ArrowT (SeqT BoolT) BoolT, m and),
@@ -56,17 +56,23 @@ desc = [
  --  ("ceiling", ArrowT DynT DynT, m ceiling),
  --  ("abs", ArrowT DynT DynT, m abs),
  --  -- combining forms
- --  ("o", ArrowT (SeqT (ArrowT DynT DynT)) (ArrowT DynT DynT), m o),
+  ("o", ArrowT (SeqT (ArrowT DynT DynT)) (ArrowT DynT DynT), m o),
  -- ("cons", (ForallT "a" (ArrowT (SeqT (ArrowT (TvarT "a") DynT)) (ArrowT (TvarT "a") DynT))), m cons),
- ("cons", (ForallT "a" (ForallT "b" (ArrowT (SeqT (ArrowT (TvarT "a") (TvarT "b"))) (ArrowT (TvarT "a") (TvarT "b"))))), m cons),
- ("ifthen", ForallT "a" (ForallT "b" (ArrowT (TupT [ArrowT (TvarT "a") BoolT, ArrowT (TvarT "a") (TvarT "b")]) (ArrowT (TvarT "a") (TvarT "b")))), m cond),
- -- ("ifelse", (ForallT "a"
- --             (ForallT "b"
- --              (ForallT "c"
- --               (ArrowT (TupT [ArrowT (TvarT "a") BoolT,
- --                              ArrowT (TvarT "a") (TvarT "b"),
- --                              ArrowT (TvarT "a") (TvarT "c")])
- --                (ArrowT (TvarT "a") DynT))))), m cond),
+  ("cons", ForallT "a"
+           (ForallT "b"
+            (ArrowT (SeqT (ArrowT (TvarT "a") (TvarT "b")))
+             (ArrowT (TvarT "a") (TvarT "b")))), m cons),
+  ("ifthen", ForallT "a"
+             (ForallT "b"
+              (ArrowT (TupT [ArrowT (TvarT "a") BoolT, ArrowT (TvarT "a") (TvarT "b")])
+               (ArrowT (TvarT "a") (TvarT "b")))), m cond),
+  ("ifelse", (ForallT "a"
+              (ForallT "b"
+               (ForallT "c"
+                (ArrowT (TupT [ArrowT (TvarT "a") BoolT,
+                               ArrowT (TvarT "a") (TvarT "b"),
+                               ArrowT (TvarT "a") (TvarT "c")])
+                 (ArrowT (TvarT "a") DynT))))), m cond),
  -- ("ifelse", ArrowT (TupT [ArrowT DynT BoolT, ArrowT DynT DynT, ArrowT DynT DynT]) (ArrowT DynT DynT), m cond),
 --  ("cond", ArrowT (SeqT (ArrowT DynT DynT)) (ArrowT DynT DynT), m cond),
 --  ("apply", ArrowT (TupT [ArrowT DynT DynT, DynT]) DynT, FnExpr apply),
@@ -98,17 +104,69 @@ desc = [
 --  -- io
 --  ("out", ArrowT (SeqT (SeqT CharT)) (SeqT (SeqT CharT)), m out),
 --  -- misc
- ("id", ForallT "a" (ArrowT (TvarT "a") (TvarT "a")), m id),
- -- ("signal", ForallT "a" (ArrowT (TvarT "a") (ForallT "b" (TvarT "b"))), m signal),
+  ("id", ForallT "a" (ArrowT (TvarT "a") (TvarT "a")), m id),
+  ("signal", ForallT "a" (ArrowT (TvarT "a") (ForallT "b" (TvarT "b"))), m signal),
 
- ("K", ForallT "a" (ArrowT (TvarT "a") (ForallT "b" (ArrowT (TvarT "b") (TvarT "a")))), m k),
+  ("K", ForallT "a"
+        (ArrowT (TvarT "a")
+         (ForallT "b"
+          (ArrowT (TvarT "b") (TvarT "a")))), m k),
+  
+  ("K2", ForallT "a"
+         (ArrowT (TvarT "a")
+          (ForallT "b"
+           (ArrowT (TvarT "b")
+            (ForallT "c"
+             (ArrowT (TvarT "c") (TvarT "a")))))), m k2),
 
- ("app", ForallT "a"
+  ("app", ForallT "a"
           (ForallT "b"
            (ArrowT (ArrowT (TvarT "a") (TvarT "b"))
             (ArrowT (ArrowT (TvarT "a") (TvarT "b"))
              (ArrowT (TvarT "a")
-              (TupT [TvarT "b", TvarT "b"]))))), m id)]
+              (TupT [TvarT "b", TvarT "b"]))))), m id),
+
+  ("app2", ForallT "a"
+           (ForallT "b"
+            (ArrowT (ArrowT (TvarT "a") (TvarT "b"))
+             (ArrowT (ArrowT (TvarT "a") (TvarT "b"))
+              (ArrowT (ArrowT (TvarT "a") (TvarT "b"))
+               (ArrowT (TvarT "a")
+                (TupT [TvarT "b", TvarT "b"])))))), m id),
+ 
+  ("ap", ForallT "a"
+         (ArrowT (TvarT "a")
+          (ArrowT (TvarT "a")
+           (SeqT (TvarT "a")))), m id),
+
+  ("seq", ForallT "a"
+          (ArrowT (SeqT (TvarT "a")) (SeqT (TvarT "a"))), m id),
+  
+  ("seq3", ForallT "a"
+           (ArrowT (SeqT (ArrowT (TvarT "a") (ArrowT (TvarT "a") (TvarT "a")))) 
+            (SeqT (TvarT "a"))), m id),
+  
+  ("int", ArrowT IntT IntT, m id),
+  ("real", ArrowT DoubleT DoubleT, m id),
+  
+  ("addi", ArrowT IntT (ArrowT IntT IntT), m id),
+  ("addr", ArrowT DoubleT (ArrowT DoubleT DoubleT), m id),
+  ("cat", ArrowT (SeqT CharT) (ArrowT (SeqT CharT) (SeqT CharT)), m id)]
+
+
+ap :: Expr -> Expr
+ap (FnExpr fn) = FnExpr $ \expr -> fn expr
+
+
+k :: Expr -> Expr
+k expr = FnExpr $ \_ -> return expr
+
+k2 :: Expr -> Expr
+k2 expr = FnExpr $ \_ -> return $ FnExpr $ \_ -> return expr
+
+
+seq :: Expr -> Expr
+seq expr1 = FnExpr $ \expr2 -> return $ SeqExpr [expr1, expr2]
 
 
 -- edit: fix the undefined

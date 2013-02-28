@@ -18,6 +18,7 @@ import System.IO.Error (catch)
 import Config
 import qualified Data.Env as Env (getBinds)
 import Data.Exception
+import Data.Maybe
 import Data.SrcFile
 import qualified Data.SrcFile as SrcFile
 import Data.Stx
@@ -38,6 +39,7 @@ data ReplState =
     ReplState { initialFs :: Map String SrcFile
               , fs :: Map String SrcFile
               , interactive :: SrcFile }
+
 
 type ReplM a = StateT ReplState IO a
 
@@ -130,20 +132,28 @@ stageFiles srcfiles =
               putStr $ "[" ++ show i ++ "/" ++ show n ++ "] "
 
           updateFs fs srcfile = Map.insert (SrcFile.name srcfile) srcfile fs
-          
+
+          typecheckM fs srcs
+            | doTypecheck = typecheckerEither (typecheck fs srcs)
+            | otherwise = return srcs
+
           loop fs [] _ = return fs
           loop fs (srcs:srcss) (i:is) =
               do putHeader i
                  putStr $ SrcFile.name srcs ++ ": "
+
                  !rens <- renamerEither $ rename fs srcs
                  let renfs = updateFs fs rens
                  putStr "renamed, "
-                 !typs <- typecheckerEither $ typecheck renfs rens
+
+                 !typs <- typecheckM renfs rens
                  let typfs = updateFs renfs typs
-                 putStr "typechecked, "
+                 when doTypecheck (putStr "typechecked, ")
+
                  let evals = interpret typfs typs
                      evalfs = updateFs typfs evals
                  putStrLn "evaluated"
+
                  loop evalfs srcss is
 
 
@@ -260,24 +270,27 @@ showTokensM filename =
 
 showRenamedM :: Bool -> String -> ReplM ()
 showRenamedM showAll filename =
-    let
-        filesM
-            | filename == "Interactive" =
-                do interactive <- interactive <$> get
-                   return [interactive]
-            | showAll =
-                Map.elems . fs <$> get
-            | otherwise =
-                do fs <- fs <$> get
-                   case Map.lookup filename fs of
-                     Nothing -> return []
-                     Just srcfile -> return [srcfile]
-    in       
-      filesM >>= showFiles
+  do ensureLoadedM filename
+     let filesM
+           | filename == "Interactive" =
+             do interactive <- interactive <$> get
+                return [interactive]
+           | showAll =
+               Map.elems . fs <$> get
+           | otherwise =
+                 do fs <- fs <$> get
+                    return $ (:[]) $ fromJust $ Map.lookup filename fs
+     filesM >>= showFiles
     where showFiles [] = return ()
           showFiles (srcfile:srcfiles) =
               do liftIO $ prettyPrintSrcFile srcfile
                  showFiles srcfiles
+
+          -- edit: check if file has been changed on disk
+          ensureLoadedM filename =
+            do fs <- fs <$> get
+               when (isNothing (Map.lookup filename fs)) $ do
+                 liftIO (importFile fs filename) >>= put
 
 
 data Flag
