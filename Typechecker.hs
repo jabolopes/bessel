@@ -581,7 +581,6 @@ typecheckNamespace fs deps (Namespace _ stxs) =
        (t, ctx) <- typecheckStxs ts stxs
        
        let !_ | trace ((("    " ++) . show) $ filter (\x -> "^" `isPrefixOf` (fst x)) $ reverse $ Context.syms ctx) True = True
-           !_ | trace ((("    " ++) . show) $ reverse $ Context.syms ctx) True = True
 
        return (t, Map.fromList (simpleSyms ctx))
        
