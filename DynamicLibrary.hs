@@ -593,7 +593,7 @@ syms = [
   --- identically true and false predicates
   -- ("ff", ForallT "a" (ArrowT (TvarT "a") BoolT), m ff),
   -- ("isval", ForallT "a" (ArrowT (TvarT "a") BoolT), m isval),
-  -- ("tt", ForallT "a" (ArrowT (TvarT "a") BoolT), m tt),
+  ("tt", ForallT "a" (ArrowT (TvarT "a") BoolT), m tt),
   -- boolean and comparison functions
   --- boolean functionsg
   -- ("and", ArrowT (SeqT BoolT) BoolT, m and),
@@ -611,7 +611,7 @@ syms = [
   -- ("ceiling", ArrowT DynT DynT, m ceiling),
   -- ("abs", ArrowT DynT DynT, m abs),
   -- combining forms
-  -- ("o", ArrowT (SeqT (ArrowT DynT DynT)) (ArrowT DynT DynT), m o),
+  ("o", ArrowT (SeqT (ArrowT DynT DynT)) (ArrowT DynT DynT), m o),
   ("cons", (ForallT "a"
             (ForallT "b"
              (ArrowT (SeqT (ArrowT (TvarT "a") (TvarT "b")))
@@ -621,13 +621,13 @@ syms = [
  --               (ArrowT (TupT [ArrowT (TvarT "a") BoolT,
  --                              ArrowT (TvarT "a") (TvarT "b")])
  --                (ArrowT (TvarT "a") (TvarT "b"))))), m cond),
- --  ("ifelse", (ForallT "a"
- --              (ForallT "b"
- --               (ForallT "c"
- --                (ArrowT (TupT [ArrowT (TvarT "a") BoolT,
- --                               ArrowT (TvarT "a") (TvarT "b"),
- --                               ArrowT (TvarT "a") (TvarT "c")])
- --                 (ArrowT (TvarT "a") DynT))))), m cond),
+  ("ifelse", (ForallT "a"
+              (ForallT "b"
+               (ForallT "c"
+                (ArrowT (TupT [ArrowT (TvarT "a") BoolT,
+                               ArrowT (TvarT "a") (TvarT "b"),
+                               ArrowT (TvarT "a") (TvarT "c")])
+                 (ArrowT (TvarT "a") DynT))))), m cond),
  -- ("cond", ArrowT (SeqT (ArrowT DynT DynT)) (ArrowT DynT DynT), m cond),
  -- ("apply", ForallT "a" (ForallT "b" (ArrowT (TupT [ArrowT (TvarT "a") (TvarT "b"), (TvarT "a")]) (TvarT "b"))), FnExpr apply),
 --  ("lift", ArrowT (ArrowT DynT DynT) (ArrowT DynT DynT), m lift),
@@ -659,7 +659,7 @@ syms = [
 --  ("out", ArrowT (SeqT (SeqT CharT)) (SeqT (SeqT CharT)), m out),
 --  -- misc
  ("id", ForallT "a" (ArrowT (TvarT "a") (TvarT "a")), m id),
- -- ("signal", ForallT "a" (ArrowT (TvarT "a") (ForallT "b" (TvarT "b"))), m signal),
+ ("signal", ForallT "a" (ArrowT (TvarT "a") (ForallT "b" (TvarT "b"))), m signal),
 
  -- ("ap", ForallT "a" (ForallT "b" (ArrowT (ArrowT (TvarT "a") (TvarT "b")) (ArrowT (TvarT "a") (TvarT "b")))), m ap),
 

@@ -28,7 +28,7 @@ debugConsistentTT desc = (debugConsistentT && trace desc True) || True
 
 
 logT desc t1 t2 =
-    debugConsistentTT $ desc ++ ": " ++ show t1 ++ " < " ++ show t2
+    debugConsistentTT $ desc ++ ": " ++ show t1 ++ " <: " ++ show t2
 
 
 judgementM :: String -> String -> String -> ()
@@ -171,15 +171,15 @@ subT ctx t1 t2
   -- | t1 /= t2 && (occursContextT ctx t1 t2) =
   --   return $ resolve ctx t1 t2
   -- | t1 /= t2 && (occursT t1 t2 || occursT t2 t1) =
-  --   error $ "occurs " ++ show t1 ++  " < " ++ show t2
+  --   error $ "occurs " ++ show t1 ++  " <: " ++ show t2
   | occursContextT ctx t1 t2 =
-    throwTypecheckerException $ "occurs " ++ show t1 ++  " < " ++ show t2
+    throwTypecheckerException $ "occurs " ++ show t1 ++  " <: " ++ show t2
 
 subT ctx t1 t2
     | isAtomicT t1 && t1 == t2 =
-      do let !() = judgementM "Sub="
+      do let !() = judgementM "<Refl"
                               ""
-                              ("ctx |- " ++ show t1 ++ " < " ++ show t2 ++ " -| ctx")
+                              ("ctx |- " ++ show t1 ++ " <: " ++ show t2 ++ " -| ctx")
          return ctx
 
 subT ctx t1@(TupT ts1) t2@(TupT ts2)
@@ -190,24 +190,27 @@ subT ctx t1@(TupT ts1) t2@(TupT ts2)
     	      do ctx' <- subT ctx t1 t2
 	      	 subT' ctx' ts1 ts2
 
-subT syms t1@(TupT ts1) t2@(SeqT t)
-    | logT "(tup ~ seq)" t1 t2 =
-        subT syms t1 (TupT (replicate (length ts1) t))
+subT ctx t1@(TupT ts1) t2@(SeqT t) =
+    do let t2' = TupT (replicate (length ts1) t)
 
--- edit: seq is not a subtype of tup. consistentT handles symmetry
-subT syms t1@(SeqT t) t2@(TupT ts2)
-    | logT "(seq ~ tup)" t1 t2 =
-        subT syms (TupT (replicate (length ts2) t)) t2
+       let !() = judgementM "<TupSeq"
+                            ("ctx1 |- " ++ show t1 ++ " <: " ++ show t2' ++ " -| ctx2")
+                            ("ctx1 |- " ++ show t1 ++ " <: " ++ show t2 ++ " -| ctx2 ")
 
-subT syms t1@(SeqT seqT1) t2@(SeqT seqT2)
-    | logT "(seq ~ seq)" t1 t2 =
-        subT syms seqT1 seqT2
+       subT ctx t1 t2'
+
+subT ctx t1@(SeqT seqT1) t2@(SeqT seqT2) =
+     do let !() = judgementM "<SeqSeq"
+                             ("ctx1 |- " ++ show seqT1 ++ " <: " ++ show seqT2 ++ " -| ctx2")
+                             ("ctx1 |- " ++ show t1 ++ " <: " ++ show t2 ++ " -| ctx2")
+
+        subT ctx seqT1 seqT2
 
 -- →E
 subT ctx t1@(ArrowT argT1 rangeT1) t2@(ArrowT argT2 rangeT2) =
-  do let !() = judgementM "Sub->"
-                          ("ctx |- " ++ show argT2 ++ " < " ++ show argT1 ++ " -| ctx' |- " ++ show rangeT1 ++ " < " ++ show rangeT2 ++ " -| ctx''")
-                          ("ctx |- " ++ show t1 ++ " < " ++ show t2 ++ " -| ctx''")
+  do let !() = judgementM "<Arrow"
+                          ("ctx1 |- " ++ show argT2 ++ " <: " ++ show argT1 ++ " -| ctx2 |- " ++ show rangeT1 ++ " <: " ++ show rangeT2 ++ " -| ctx3")
+                          ("ctx1 |- " ++ show t1 ++ " <: " ++ show t2 ++ " -| ctx3")
 
      ctx' <- subT ctx argT2 argT1
      subT ctx' rangeT1 rangeT2
@@ -227,58 +230,67 @@ subT ctx t1@(ArrowT argT1 rangeT1) t2@(ArrowT argT2 rangeT2) =
 -- →α̂L
 subT ctx t1@(ExistT var) t2@(ArrowT _ _)
   | isEmptyTypeContext ctx var =
+      do let !() = judgementM "<ArrowifyL"
+                              ("ctx1," ++ var ++ "1," ++ var ++ "2," ++ var ++ "=" ++ var ++ "1->" ++ var ++ "2 |- " ++ show t1 ++ " <: " ++ show t2 ++ " -| ctx2")
+                              ("ctx1[" ++ var ++ "] |- " ++ show var ++ " <: " ++ show t2 ++ " -| ctx2")
 
-    let !() = judgementM "Sub->L"
-                         ("ctx1," ++ var ++ "1," ++ var ++ "2," ++ var ++ "=" ++ var ++ "1->" ++ var ++ "2,ctx2 |- " ++ show t1 ++ " < " ++ show t2 ++ " -| ctx'")
-                         ("ctx1," ++ var ++ ",ctx2 |- " ++ show var ++ " < " ++ show t2 ++ " -| ctx'") in
-
-    let (_, ctx') = arrowifyVar ctx var in
-    subT ctx' t1 t2
+         let (_, ctx') = arrowifyVar ctx var
+         subT ctx' t1 t2
 
 -- →α̂R
-
 subT ctx t1@(ArrowT _ _) t2@(ExistT var)
   | isEmptyTypeContext ctx var =
+      do let !() = judgementM "<ArrowifyR"
+                              ("ctx1," ++ var ++ "1," ++ var ++ "2," ++ var ++ "=" ++ var ++ "1->" ++ var ++ "2 |- " ++ show t1 ++ " <: " ++ show t2 ++ " -| ctx2")
+                              ("ctx1[" ++ var ++ "] |- " ++ show t1 ++ " <: " ++ var ++ " -| ctx2")
 
-    let !() = judgementM "Sub->R"
-                         ("ctx1," ++ var ++ "1," ++ var ++ "2," ++ var ++ "=" ++ var ++ "1->" ++ var ++ "2,ctx2 |- " ++ show t1 ++ " < " ++ show t2 ++ " -| ctx'")
-                         ("ctx1," ++ var ++ ",ctx2 |- " ++ show t1 ++ " < " ++ var ++ " -| ctx'") in
-
-    let (_, ctx') = arrowifyVar ctx var in
-    subT ctx' t1 t2
-
--- ∀R
-subT ctx t1 t2@(ForallT var forallT) =
-  do let !() = judgementM "SubForallR"               
-                          ("ctx," ++ var ++ " |- " ++ show t1 ++ " < " ++ show forallT ++ " -| ctx'," ++ var ++ "ctx''")
-                          ("ctx |- " ++ show t1 ++ " < " ++ show t2 ++ " -| ctx''")
-
-     let ctx' = insertContext ctx var (simpleType (TvarT var))
-     ctx'' <- subT ctx' t1 forallT
-     return $ dropContext ctx'' var
+         let (_, ctx') = arrowifyVar ctx var
+         subT ctx' t1 t2
 
 -- ∀Lα̂
 subT ctx t1@(ForallT var _) t2 =
       do let (ctx', t1') = eliminateForall ctx t1
                 
-         let !() = judgementM "SubForallL"
-                              ("ctx," ++ var ++ " |- " ++ show t1' ++ " < " ++ show t2 ++ " -| ctx',ctx''")
-                              ("ctx |- " ++ show t1 ++ " < " ++ show t2 ++ " -| ctx'")
+         let !() = judgementM "<ForallL"
+                              ("ctx1,<|," ++ var ++ " |- " ++ show t1' ++ " <: " ++ show t2 ++ " -| ctx2',<|,ctx2''")
+                              ("ctx1 |- " ++ show t1 ++ " <: " ++ show t2 ++ " -| ctx2'")
 
          subT ctx' t1' t2
 
+-- ∀R
+subT ctx t1 t2@(ForallT var forallT) =
+    do let !() = judgementM "<ForallR"
+                            ("ctx1," ++ var ++ " |- " ++ show t1 ++ " <: " ++ show forallT ++ " -| ctx2'," ++ var ++ "ctx2''")
+                            ("ctx1 |- " ++ show t1 ++ " <: " ++ show t2 ++ " -| ctx2''")
+
+       let ctx' = insertContext ctx var (simpleType (TvarT var))
+       ctx'' <- subT ctx' t1 forallT
+       return $ dropContext ctx'' var
+
 -- α̂SubstR
 subT ctx t1 t2@(ExistT var)
-  | not (isEmptyTypeContext ctx var) && logT "(aSubstR<=)" t1 t2 =
-    consistentT ctx t1 t2
+  | not (isEmptyTypeContext ctx var) =
+      do let Right (_, varT) = typeContext ctx var
+
+         let !() = judgementM "<ConsistentR"
+                              ("ctx1[" ++ var ++ "=" ++ show varT ++ "] |- " ++ show t1 ++ " ~ " ++ show t2 ++ " -| ctx2")
+                              ("ctx1[" ++ var ++ "=" ++ show varT ++ "] |- " ++ show t1 ++ " <: " ++ show t2 ++ " -| ctx2")
+
+         consistentT ctx t1 t2
   -- | not (isEmptyTypeContext ctx var) && logT "(aSubstR<=)" t1 t2 =
   --   case typeContext ctx var of
   --     Right (ctx', t2') | t2 /= t2' -> subT ctx' t1 t2'
 
 -- α̂SubstL
 subT ctx t1@(ExistT var) t2
-  | not (isEmptyTypeContext ctx var) && logT "(aSubstL<=)" t1 t2 =
-    consistentT ctx t1 t2
+  | not (isEmptyTypeContext ctx var) =
+      do let Right (_, varT) = typeContext ctx var
+
+         let !() = judgementM "<ConsistentR"
+                              ("ctx1[" ++ var ++ "=" ++ show varT ++ "] |- " ++ show t1 ++ " ~ " ++ show t2 ++ " -| ctx2")
+                              ("ctx1[" ++ var ++ "=" ++ show varT ++ "] |- " ++ show t1 ++ " <: " ++ show t2 ++ " -| ctx2")
+
+         consistentT ctx t1 t2
     -- | not (isEmptyTypeContext ctx var) && logT "(aSubstL<=)" t1 t2 =
     -- case typeContext ctx var of
     --   Right (ctx', t1') | t1 /= t1' -> subT ctx' t1' t2
@@ -287,33 +299,37 @@ subT ctx t1@(ExistT var) t2
 subT ctx t1 t2@(ExistT var)
     | isEmptyTypeContext ctx var && isAtomicT t1 && isWellformed ctx t2 t1 =
 
-      do let !() = judgementM "SubInstR"
+      do let !() = judgementM "<InstR"
                               ("ctx1 |- " ++ show t1 ++ " wf")
-                              ("ctx1," ++ var ++ ",ctx2 |- " ++ show t1 ++ " < " ++ var ++ " -| ctx1," ++ var ++ "=" ++ show t1 ++ ",ctx2")
+                              ("ctx1," ++ var ++ ",ctx2 |- " ++ show t1 ++ " <: " ++ var ++ " -| ctx1," ++ var ++ "=" ++ show t1 ++ ",ctx2")
 
          return $ updateContext ctx var (unifType t2 t1)
 
 -- α̂⁼L
 subT ctx t1@(ExistT var) t2
     | isEmptyTypeContext ctx var && isAtomicT t2 && isWellformed ctx t1 t2 =
-      
-      do let !() = judgementM "SubInstL"
+
+      do let !() = judgementM "<InstL"
                               ("ctx1 |- " ++ show t2 ++ " wf")
-                              ("ctx1," ++ var ++ ",ctx2 |- " ++ show t2 ++ " < " ++ var ++ " -| ctx1," ++ var ++ "=" ++ show t2 ++ ",ctx2")
-        
+                              ("ctx1," ++ var ++ ",ctx2 |- " ++ show t2 ++ " <: " ++ var ++ " -| ctx1," ++ var ++ "=" ++ show t2 ++ ",ctx2")
+
          return $ updateContext ctx var (unifType t1 t2)
 
-subT syms DynT _ = return syms
-subT syms _ DynT = return syms
+subT ctx t1 t2@DynT =
+    do let !() = judgementM "<Dyn"
+                            ""
+                            ("ctx |- " ++ show t1 ++ " <: " ++ show t2 ++ "-| ctx")
+
+       return ctx
 
 subT _ _ _ = Nothing
 
 
 subM :: Context -> Type -> Type -> Either String Context
-subM syms t1 t2 =
-  case subT syms t1 t2 of
-    Nothing -> Left $ "\n\n\ttype inconsistency: " ++ show t1 ++ " < " ++ show t2 ++ " (false)\n"
-    Just syms' -> Right syms'
+subM ctx t1 t2 =
+  case subT ctx t1 t2 of
+    Nothing -> Left $ "\n\n\ttype inconsistency: " ++ show t1 ++ " <: " ++ show t2 ++ " (false)\n"
+    Just ctx' -> Right ctx'
 
 
 type TypecheckerM a = Either String a
@@ -395,7 +411,7 @@ synthAbstrM syms (SeqStx stxs) =
 synthAbstrM ctx (IdStx name) =
     do (ctx', t) <- typeContext ctx name
 
-       let !() = judgementM "var"
+       let !() = judgementM "=>Var"
                             ("ctx(" ++ name ++ ") = " ++ show t)
                             ("ctx |- " ++ name ++ " => " ++ show t ++ " -| ctx")
 
@@ -430,9 +446,9 @@ synthAbstrM syms stx@(AppStx fn arg) =
     where synthApp t@(ArrowT argT rangeT) fn' syms' =
             do (arg', syms'') <- checkM argT syms' arg
                
-               let !() = judgementM "->E"
-                                    ("ctx |- " ++ showAbbrev fn ++ " => " ++ show t ++ " -| ctx' |- " ++ showAbbrev arg ++ " <= " ++ show argT ++ " -| ctx''")
-                                    ("ctx |- " ++ showAbbrev stx ++ " => " ++ show rangeT ++ " -| ctx''")
+               let !() = judgementM "=>Arrow"
+                                    ("ctx1 |- " ++ showAbbrev fn ++ " => " ++ show t ++ " -| ctx2 |- " ++ showAbbrev arg ++ " <= " ++ show argT ++ " -| ctx3")
+                                    ("ctx1 |- " ++ showAbbrev stx ++ " => " ++ show rangeT ++ " -| ctx3")
 
                return (rangeT, AppStx fn' arg', syms'')
 
@@ -459,9 +475,9 @@ synthAbstrM _ stx =
 
 
 checkM :: Type -> Context -> Stx String -> CheckM
--- checkM (ExistT var) ctx stx =
---   do (ctx', t) <- typeContext ctx var
---      checkInstM t ctx' stx
+checkM (ExistT var) ctx stx =
+  do (ctx', t) <- typeContext ctx var
+     checkInstM t ctx' stx
 checkM t ctx stx = checkInstM t ctx stx
 
 
@@ -540,8 +556,8 @@ checkInstM t syms stx@(WhereStx _ _) =
 checkInstM t syms stx =
     do (t', stx', syms') <- synthAbstrM syms stx
 
-       let !() = judgementM "sub"
-                            ("ctx1 |- " ++ showAbbrev stx ++ " => " ++ show t' ++ " -| ctx2 |- " ++ show t' ++ " < " ++ show t)
+       let !() = judgementM "=>Sub"
+                            ("ctx1 |- " ++ showAbbrev stx ++ " => " ++ show t' ++ " -| ctx2 |- " ++ show t' ++ " <: " ++ show t)
                             ("ctx1 |- " ++ showAbbrev stx ++ " <= " ++ show t ++ " -| ctx2")
 
        (stx',) <$> subM syms' t' t
