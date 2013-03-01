@@ -111,7 +111,7 @@ desc = [
         (ArrowT (TvarT "a")
          (ForallT "b"
           (ArrowT (TvarT "b") (TvarT "a")))), m k),
-  
+
   ("K2", ForallT "a"
          (ArrowT (TvarT "a")
           (ForallT "b"
@@ -133,29 +133,29 @@ desc = [
               (ArrowT (ArrowT (TvarT "a") (TvarT "b"))
                (ArrowT (TvarT "a")
                 (TupT [TvarT "b", TvarT "b"])))))), m id),
- 
+
   ("ap", ForallT "a"
          (ArrowT (TvarT "a")
           (ArrowT (TvarT "a")
-           (SeqT (TvarT "a")))), m id),
+           (SeqT (TvarT "a")))), m ap),
 
   ("seq", ForallT "a"
           (ArrowT (SeqT (TvarT "a")) (SeqT (TvarT "a"))), m id),
-  
+
   ("seq3", ForallT "a"
            (ArrowT (SeqT (ArrowT (TvarT "a") (ArrowT (TvarT "a") (TvarT "a")))) 
             (SeqT (TvarT "a"))), m id),
-  
+
   ("int", ArrowT IntT IntT, m id),
   ("real", ArrowT DoubleT DoubleT, m id),
-  
+
   ("addi", ArrowT IntT (ArrowT IntT IntT), m id),
   ("addr", ArrowT DoubleT (ArrowT DoubleT DoubleT), m id),
   ("cat", ArrowT (SeqT CharT) (ArrowT (SeqT CharT) (SeqT CharT)), m id)]
 
 
 ap :: Expr -> Expr
-ap (FnExpr fn) = FnExpr $ \expr -> fn expr
+ap expr1 = FnExpr $ \expr2 -> return $ SeqExpr [expr1, expr2]
 
 
 k :: Expr -> Expr

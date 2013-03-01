@@ -2,7 +2,7 @@
              TupleSections #-}
 module Typechecker where
 
-import Control.Monad (liftM)
+import Control.Monad (liftM, when)
 import Data.Functor ((<$>))
 import Data.List (intercalate, isPrefixOf)
 import Data.Map (Map)
@@ -53,17 +53,17 @@ judgementM name str1 str2 =
 
 -- types and contexts
 
-eliminateForall :: Context -> Type -> (Context, Type)
-eliminateForall ctx (ForallT var forallT) =
+eliminateForalls :: Context -> Type -> (Context, Type)
+eliminateForalls ctx (ForallT var forallT) =
   let
     var' = '^':var
     existT = ExistT var'
     ctx' = insertContext ctx var' (simpleType existT)
     forallT' = substituteTvarT existT var forallT
   in
-   eliminateForall ctx' forallT'
+   eliminateForalls ctx' forallT'
 
-eliminateForall ctx t = (ctx, t)
+eliminateForalls ctx t = (ctx, t)
 
 
 substituteExistTs :: Context -> Type -> Type
@@ -222,7 +222,7 @@ subT ctx t1@(ArrowT _ _) t2@(ExistT var)
 
 -- ∀Lα̂
 subT ctx t1@(ForallT var _) t2 =
-      do let (ctx', t1') = eliminateForall ctx t1
+      do let (ctx', t1') = eliminateForalls ctx t1
                 
          let !() = judgementM "<ForallL"
                               ("ctx1,<|," ++ var ++ " |- " ++ show t1' ++ " <: " ++ show t2 ++ " -| ctx2',<|,ctx2''")
@@ -310,28 +310,6 @@ type SynthM = TypecheckerM (Type, Stx (String, Type, Type), Context)
 type CheckM = TypecheckerM (Stx (String, Type, Type), Context)
 
 
-synthOuterForallM :: SynthM -> SynthM
-synthOuterForallM m =
-  do (t, stx, ctx) <- m
-     let (ctx', t') = eliminateForall ctx t
-     return (t', stx, ctx')
-
-     -- let !() = judgementM "forallEa"
-     --                      ("ctx |- " ++ show stx ++ " => " ++ show t ++ " -| ctx'")
-     --                      ("ctx |- " ++ show stx ++ " => " ++ show t' ++ " -| ctx', ...")
-
-
-synthAppFnM :: Context -> Stx String -> SynthM
-synthAppFnM syms fn =
-    do (t, stx, syms') <- synthOuterForallM $ synthM syms fn
-       t' <- case t of
-               ArrowT _ _ -> return t
-               DynT -> return $ ArrowT DynT DynT
-               t -> Left $ "\n\n\tsynthAppFnM: expected arrow type" ++
-                           "\n\n\t t = " ++ show t ++ "\n"
-       return (t', stx, syms')
-
-
 checkSeqM :: [Type] -> Context -> [Stx String] -> CheckM
 -- checkSeqM ts _ _ | debugF ("checkSeqM: " ++ show ts) = undefined
 checkSeqM ts ctx stxs = check [] ts ctx stxs
@@ -352,35 +330,63 @@ typecheckWhereM m syms (WhereStx stx (stxs)) =
 
 
 synthM :: Context -> Stx String -> SynthM
-synthM ctx stx =
-  substitute <$> synthAbstrM ctx stx
-  where substitute (t@(ExistT _), stx', ctx') =
-          (substituteExistTs ctx' t, stx', ctx')
+synthM ctx stx = synthSubst <$> synthAbstrM ctx stx
+  where -- ⇑Subst
+        synthSubst (t@(ExistT var), stx', ctx') | not (isEmptyTypeContext ctx' var) =
+          let
+            t' = substituteExistTs ctx' t
+            !() = judgementM "=>Subst"
+                             ("ctx1 |- " ++ showAbbrev stx ++ " => " ++ show t ++ " -| ctx2")
+                             ("ctx1 |- " ++ showAbbrev stx ++ " => " ++ show t' ++ " -| ctx2")
+          in
+           (t', stx', ctx')
 
-        substitute val = val
+        synthSubst val = val
 
 
 synthAbstrM :: Context -> Stx String -> SynthM
 
--- S-Char
-synthAbstrM syms (CharStx i) = Right (CharT, CharStx i, syms)
+-- ⇑Const (Char)
+synthAbstrM ctx (CharStx c) =
+  do let t = CharT
+         !() = judgementM "=>Const"
+                          ("ctx |- " ++ show c ++ " : " ++ show t)
+                          ("ctx |- " ++ show c ++ " => " ++ show t ++ " -| ctx")
+     return (t, CharStx c, ctx)
 
--- S-Int
-synthAbstrM syms (IntStx i) = Right (IntT, IntStx i, syms)
+-- ⇑Const (Int)
+synthAbstrM ctx (IntStx i) =
+  do let t = IntT
+         !() = judgementM "=>Const"
+                          ("ctx |- " ++ show i ++ " : " ++ show t)
+                          ("ctx |- " ++ show i ++ " => " ++ show t ++ " -| ctx")
+     return (t, IntStx i, ctx)
 
--- S-Double
-synthAbstrM syms (DoubleStx i) = Right (DoubleT, DoubleStx i, syms)
+-- ⇑Const (Double)
+synthAbstrM ctx (DoubleStx d) =
+  do let t = DoubleT
+         !() = judgementM "=>Const"
+                          ("ctx |- " ++ show d ++ " : " ++ show t)
+                          ("ctx |- " ++ show d ++ " => " ++ show t ++ " -| ctx")
+     return (DoubleT, DoubleStx d, ctx)
 
--- S-Seq
-synthAbstrM syms (SeqStx stxs) =
-    do (ts, stxs', syms') <- synth [] [] syms stxs
-       Right (kickForalls (TupT ts), SeqStx stxs', syms')
-    where synth ts stxs syms [] = return (reverse ts, reverse stxs, syms)
-          synth ts stxs syms (stx:stxs') =
-            do (t, stx', syms') <- synthM syms stx
-               synth (t:ts) (stx':stxs) syms' stxs'
+-- ⇑Seq
+synthAbstrM ctx stx@(SeqStx stxs) =
+    do (ts, stxs', ctx') <- synth [] [] ctx stxs
+       
+       let !() = judgementM "=>Seq"
+                            "ctx1 |- ... -| ctxn+1"
+                            ("ctx1 |- " ++ showAbbrev stx ++ " => " ++ show (TupT ts) ++ " -| ctxn+1")
 
--- S-Var
+       return (kickForalls (TupT ts), SeqStx stxs', ctx')
+    where synth ts stxs ctx [] =
+            return (reverse ts, reverse stxs, ctx)
+
+          synth ts stxs ctx (stx:stxs') =
+            do (t, stx', ctx') <- synthM ctx stx
+               synth (t:ts) (stx':stxs) ctx' stxs'
+
+-- ⇑Var
 synthAbstrM ctx (IdStx name) =
     do (ctx', t) <- typeContext ctx name
 
@@ -390,159 +396,181 @@ synthAbstrM ctx (IdStx name) =
 
        return (t, IdStx (name, t, t), ctx')
 
--- S-Abs (annotated)
+-- ⇑Lambda (annotated)
 -- synthAbstrM syms Synth stx@(LambdaStx arg body) =
 --     error "synthAbstrM: LambdaStx (annotated): Synth: not implemented"
 
--- S-Abs (unannotated) no rule in Pierce's paper, use Siek instead
--- edit: to fix
--- synthAbstrM syms (LambdaStx arg body) =
---     do (bodyT, body', syms') <- synthM (insertContext syms arg (simpleType DynT)) body
---        Right (ArrowT (argT body') bodyT, LambdaStx arg body', syms')
---     where argT body =
---               case find (\(IdStx (name, _, _)) -> name == arg) $ idsOf body of
---                 Nothing -> DynT
---                 Just (IdStx (_, _, argT)) -> argT
+-- ⇑Lambda (unannotated) no rule in Pierce's paper, use Siek instead
+-- synthAbstrM ctx (LambdaStx arg body) =
+--     do let arg' = '^':arg
+--            argT = ExistT arg'
+--            ctx' = insertContext ctx arg' (simpleType argT)
+--            ctx'' = insertContext ctx' arg (simpleType argT)
+--        (bodyT, body', ctx''') <- synthM ctx'' body
+--        return (ArrowT argT bodyT, LambdaStx arg body', ctx''')
 
--- S-Abs (unannotated) no rule in Pierce's paper, use Siek instead
-synthAbstrM ctx (LambdaStx arg body) =
-    do let arg' = '^':arg
-           argT = ExistT arg'
-           ctx' = insertContext ctx arg' (simpleType argT)
-           ctx'' = insertContext ctx' arg (simpleType argT)
-       (bodyT, body', ctx''') <- synthM ctx'' body
-       return (ArrowT argT bodyT, LambdaStx arg body', ctx''')
+-- ⇑LetChk
+synthAbstrM ctx stx@(AppStx fn@(LambdaStx x body) arg@(LambdaStx _ _)) =
+    do let evar = ['^', toEnum (count ctx)]
+           evarT = ExistT evar
+           ctx' = insertContext ctx { count = count ctx + 1 } evar (simpleType evarT)
+           
+       (arg', ctx'') <- checkM evarT ctx' arg
+       (rangeT, body', ctx''') <- synthM (insertContext ctx'' x (simpleType evarT)) body
 
--- S-App with lambda
+       let !() = judgementM "=>LetChk"
+                            ("ctx1," ++ evar ++ " |- " ++ showAbbrev arg ++ " <= " ++ show evarT ++ " -| ctx2  ctx2," ++ x ++ ":^a" ++ " |- " ++ showAbbrev body ++ " => " ++ show rangeT ++ " -| ctx3")
+                            ("ctx1 |- " ++ showAbbrev stx ++ " => " ++ show rangeT ++ " -| ctx3")
+
+       return (rangeT, AppStx (LambdaStx x body') arg', ctx''')
+
+-- ⇑LetSyn
 synthAbstrM ctx stx@(AppStx fn@(LambdaStx x body) arg) =
     do (argT, arg', ctx') <- synthM ctx arg
-       (rangeT, body', ctx'') <- synthBody ctx' x argT body
-       
-       let lambdaT = ArrowT argT rangeT
+       (rangeT, body', ctx'') <- synthM (insertContext ctx' x (simpleType argT)) body
 
-       (fn', ctx''') <- checkLambda ctx'' lambdaT fn
+       let !() = judgementM "=>LetSyn"
+                            ("ctx1 |- " ++ showAbbrev arg ++ " => " ++ show argT ++ " -| ctx2  ctx2," ++ x ++ ":" ++ show argT ++ " |- " ++ showAbbrev body ++ " => " ++ show rangeT ++ " -| ctx3")
+                            ("ctx1 |- " ++ showAbbrev stx ++ " => " ++ show rangeT ++ " -| ctx3")
 
-       let !() = judgementM "=>Lambda"
-                            ("ctx1 |- " ++ showAbbrev arg ++ " => " ++ show argT ++ " -| ctx2 |- " ++ showAbbrev body ++ " => " ++ show rangeT ++ " -| ctx3 |- " ++ showAbbrev fn ++ " <= " ++ show lambdaT ++ " -| ctx4")
-                            ("ctx1 |- " ++ showAbbrev stx ++ " => " ++ show lambdaT ++ " -| ctx4")
+       return (rangeT, AppStx (LambdaStx x body') arg', ctx'')
 
-       Right (rangeT, AppStx fn' arg', ctx''')
-    where synthBody ctx arg argT body =
-            let ctx' = insertContext ctx arg (simpleType argT) in
-            synthM ctx' body
 
-          checkLambda ctx lambdaT stx =
-            checkM lambdaT ctx stx
-
--- S-App
+-- ⇑AppArrow
+-- ⇑AppEvar
 synthAbstrM ctx stx@(AppStx fn arg) =
-    do (t, fn', ctx') <- synthAppFnM ctx fn
+    do (t, fn', ctx') <- synthForallM ctx fn
        synthApp t fn' ctx'
-    where synthApp t@(ArrowT argT rangeT) fn' ctx' =
-            do (arg', ctx'') <- checkM argT ctx' arg
-               
-               let !() = judgementM "=>Arrow"
+    where -- ⇑Forall
+          synthForallM :: Context -> Stx String -> SynthM
+          synthForallM ctx stx =
+            do (t', stx', ctx') <- synthM ctx stx
+               let (ctx'', t'') = eliminateForalls ctx' t'
+
+               when (isForallT t') $ do
+                 let !() = judgementM "=>Forall"
+                                      ("ctx1 |- " ++ showAbbrev stx ++ " => " ++ show t' ++ " -| ctx2")
+                                      ("ctx1 |- " ++ showAbbrev stx ++ " => " ++ show t'' ++ " -| ctx2,...")
+                 return ()
+
+               return (t'', stx', ctx'')
+
+          synthApp t@(ArrowT argT rangeT) fn' ctx =
+            do (arg', ctx') <- checkM argT ctx arg
+
+               let !() = judgementM "=>AppArrow"
                                     ("ctx1 |- " ++ showAbbrev fn ++ " => " ++ show t ++ " -| ctx2 |- " ++ showAbbrev arg ++ " <= " ++ show argT ++ " -| ctx3")
                                     ("ctx1 |- " ++ showAbbrev stx ++ " => " ++ show rangeT ++ " -| ctx3")
 
+               return (rangeT, AppStx fn' arg', ctx')
+
+          synthApp t@DynT fn' ctx =
+            do let argT = DynT
+                   rangeT = DynT
+               (arg', ctx') <- checkM argT ctx arg
+
+               let !() = judgementM "=>AppDyn"
+                                    ("ctx1 |- " ++ showAbbrev fn ++ " => " ++ show t ++ " -| ctx2 |- " ++ showAbbrev arg ++ " <= " ++ show argT ++ " -| ctx3")
+                                    ("ctx1 |- " ++ showAbbrev stx ++ " => " ++ show rangeT ++ " -| ctx3")
+
+               return (rangeT, AppStx fn' arg', ctx')
+
+          synthApp t@(ExistT var) fn' ctx =
+            do let (t'@(ArrowT argT rangeT), ctx') = arrowifyVar ctx var
+
+               let !() = judgementM "=>AppEvar"
+                                    ("ctx1 |- " ++ showAbbrev fn ++ " => " ++ show t ++ " -| ctx2[" ++ show t ++ "]  ctx2[" ++ show argT ++ "," ++ show rangeT ++ "," ++ show t ++ "=" ++ show t' ++ "] |- " ++ showAbbrev arg ++ " <= " ++ show argT ++ " -| ctx3")
+                                    ("ctx1 |- " ++ showAbbrev stx ++ " => " ++ show rangeT ++ " -| ctx3")
+
+               (arg', ctx'') <- checkM argT ctx' arg
                return (rangeT, AppStx fn' arg', ctx'')
 
-          synthApp (ExistT var) fn ctx =
-            do let (ArrowT a1t a2t, ctx') = arrowifyVar ctx var
-               (arg', ctx'') <- checkM a1t ctx' arg
-               return (a2t, AppStx fn arg', ctx'')
+-- ⇑Others
+synthAbstrM ctx stx@(WhereStx _ _) =
+    typecheckWhereM synthM ctx stx
 
--- S-Others
-synthAbstrM syms stx@(WhereStx _ _) =
-    typecheckWhereM synthM syms stx
+synthAbstrM ctx (DefnStx Def name body) =
+    do (bodyT, body', ctx') <- synthM (insertContext ctx name (simpleType DynT)) body
+       return (bodyT, DefnStx Def name body', insertContext ctx' name (simpleType bodyT))
 
-synthAbstrM syms (DefnStx Def name body) =
-    do (bodyT, body', syms') <- synthM (insertContext syms name (simpleType DynT)) body
-       Right (bodyT, DefnStx Def name body', insertContext syms' name (simpleType bodyT))
-
-synthAbstrM syms (DefnStx NrDef name body) =
-    do (bodyT, body', syms') <- synthM syms body
-       Right (bodyT, DefnStx NrDef name body', insertContext syms' name (simpleType bodyT))
+synthAbstrM ctx (DefnStx NrDef name body) =
+    do (bodyT, body', ctx') <- synthM ctx body
+       return (bodyT, DefnStx NrDef name body', insertContext ctx' name (simpleType bodyT))
 
 synthAbstrM _ stx =
-    throwTypecheckerException $ "\n\n\tsynthAbstrM: unhandled case" ++
-                                "\n\n\t stx = " ++ show stx ++ "\n"
+    Left $ "\n\n\tsynthAbstrM: unhandled case" ++
+           "\n\n\t stx = " ++ show stx ++ "\n"
 
 
+-- edit: check (ExistT var) is necessary for lambda terms (Joshua said)
+-- but it conflicts with the following examples
+--
+--  ap:1:2.0
+--
+-- because the derivation rules must reach the consistency relation
+-- and this substitution makes it impossible.  Perhaps this rule
+-- needs only to be applied around lambda terms...
 checkM :: Type -> Context -> Stx String -> CheckM
-checkM (ExistT var) ctx stx =
-  do (ctx', t) <- typeContext ctx var
-     checkInstM t ctx' stx
+-- checkM t@(ExistT var) ctx stx | not (isEmptyTypeContext ctx var) =
+--   do let Right (ctx', t') = typeContext ctx var
+
+--      let !() = judgementM "<=Subst"
+--                            ("ctx1 |- " ++ showAbbrev stx ++ " <= " ++ show t' ++ " -| ctx2")
+--                            ("ctx1 |- " ++ showAbbrev stx ++ " <= " ++ show t ++ " -| ctx2")
+
+--      checkInstM t' ctx' stx
+
 checkM t ctx stx = checkInstM t ctx stx
 
 
 checkInstM :: Type -> Context -> Stx String -> CheckM
 
--- C-Forall-I
-checkInstM (ForallT var t) ctx stx | isValueStx stx =
-    do let ctx' = insertContext ctx var (simpleType (TvarT var))
-       (stx', ctx'') <- checkM t ctx' stx
+-- ⇓Forall
+checkInstM t@(ForallT var forallT) ctx stx | isValueStx stx =
+    do let !() = judgementM "<=Forall"
+                            ("ctx1," ++ var ++ " |- " ++ showAbbrev stx ++ " <= " ++ show forallT ++ " -| ctx2'," ++ var ++ ",ctx2''")
+                            ("ctx1 |- " ++ showAbbrev stx ++ " <= " ++ show t ++ " -| ctx2'")
+
+       let ctx' = insertContext ctx var (simpleType (TvarT var))
+       (stx', ctx'') <- checkM forallT ctx' stx
        return (stx', dropContext ctx'' var)
 
--- C-Int
-checkInstM t syms (IntStx i) = (IntStx i,) <$> subM syms IntT t
+-- ⇓SeqTup
+checkInstM t@(TupT ts) ctx (SeqStx stxs)
+  | length ts == length stxs =
+    checkSeqM ts ctx stxs
+  | otherwise =
+    Left $ "\n\n\tcheckInstM: SeqStx: different length" ++
+           "\n\n\t ts = " ++ show ts ++
+           "\n\n\t t = " ++ show t ++
+           "\n\n\t stxs = " ++ show stxs ++ "\n"
 
--- C-Double
-checkInstM t syms (DoubleStx d) = (DoubleStx d,) <$> subM syms DoubleT t
+-- ⇓SeqList
+checkInstM (SeqT t) ctx stx@(SeqStx stxs) =
+    checkInstM (TupT (replicate (length stxs) t)) ctx stx
 
--- C-Char
-checkInstM t syms (CharStx c) = (CharStx c,) <$> subM syms CharT t
-
--- C-Seq
-checkInstM t@(TupT ts) syms (SeqStx stxs) =
-    if length ts == length stxs
-    then checkSeqM ts syms stxs
-    else Left $ "\n\n\tcheckInstM: SeqStx: different length" ++
-                "\n\n\t ts = " ++ show ts ++
-                "\n\n\t t = " ++ show t ++
-                "\n\n\t stxs = " ++ show stxs ++ "\n"
-
-checkInstM (SeqT t) syms (SeqStx stxs) =
-    checkSeqM (replicate (length stxs) t) syms stxs
-
-checkInstM t@DynT syms (SeqStx stxs) =
-    checkSeqM (replicate (length stxs) t) syms stxs
-
--- checkInstM t ctx stx@(SeqStx stxs) =
---     do (seqT, stx', ctx') <- synthM ctx stx
---        -- edit: return value Stx
---        (stx',) <$> subM ctx' seqT t
-
--- -- C-Var
--- info: this is a particular instance of the subsumption rule (C-Sub below)?
--- checkInstM t syms (IdStx name) =
---     do idT <- typeContext syms name
---        (IdStx (name, idT, t),) <$> subM syms idT t
+-- ⇓SeqDyn
+checkInstM t@DynT ctx stx@(SeqStx _) =
+    checkInstM (SeqT DynT) ctx stx
 
 -- C-Abs (annotated)
 -- checkInstM syms (Check _) stx@(LambdaStx arg body) =
 --     error "checkInstM: LambdaStx (annotated): Check: not implemented"
 
--- C-Abs (unannotated)
-checkInstM (ArrowT argT rangeT) syms (LambdaStx arg body) =
-    do (body', syms') <- checkM rangeT (insertContext syms arg (simpleType argT)) body
-       Right (LambdaStx arg body', dropContext syms' arg)
+-- ⇓LambdaArrow
+checkInstM (ArrowT argT rangeT) ctx (LambdaStx arg body) =
+    do (body', ctx') <- checkM rangeT (insertContext ctx arg (simpleType argT)) body
+       Right (LambdaStx arg body', dropContext ctx' arg)
 
+-- ⇓LambdaDyn
 checkInstM t@DynT syms (LambdaStx arg body) =
     do (body', syms') <- checkM t (insertContext syms arg (simpleType DynT)) body
        Right (LambdaStx arg body', syms')
 
--- edit: make sure the existential var is unassigned?
-checkInstM (ExistT var) ctx stx@(LambdaStx _ _) =
+-- ⇓LambdaEvar
+checkInstM (ExistT var) ctx stx@(LambdaStx _ _) | isEmptyTypeContext ctx var =
     let (existT, ctx') = arrowifyVar ctx var in
     checkInstM existT ctx' stx
-
--- -- C-App
--- edit: Why do I need this rule?
--- checkInstM t ctx (AppStx fn arg) =
---     do (ArrowT argT rangeT, fn', ctx') <- synthAppFnM ctx fn
---        (arg', ctx'') <- checkM argT ctx' arg
---        (AppStx fn' arg',) <$> subM ctx'' rangeT t
 
 -- C-Where
 checkInstM t syms stx@(WhereStx _ _) =
