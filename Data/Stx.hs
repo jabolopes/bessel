@@ -111,6 +111,6 @@ showAbbrev (AppStx stx1 stx2) =
                   | otherwise = showAbbrev stx
 
 showAbbrev (LambdaStx arg body) =
-  "\\" ++ arg ++ " -> " ++ showAbbrev body
+  "\\" ++ arg ++ ". " ++ showAbbrev body
 
 showAbbrev stx = show stx
