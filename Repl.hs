@@ -51,7 +51,6 @@ catchIOError = catch
 doPutLine = False
 doPutTokens = True
 doPutParsedStx = True
-doPutRenamedStx = False
 doPutExpr = True
 doPutExprT = True
 doPutEnvironment = False
@@ -76,16 +75,6 @@ putParsedStx :: Stx String -> IO ()
 putParsedStx stx
     | doPutParsedStx =
         do putStrLn "> Parsed stx"
-           prettyPrint stx
-           putStrLn ""
-           putStrLn ""
-    | otherwise = return ()
-
-
-putRenamedStx :: Stx String -> IO ()
-putRenamedStx stx
-    | doPutRenamedStx =
-        do putStrLn "> Renamed stx"
            prettyPrint stx
            putStrLn ""
            putStrLn ""
@@ -184,12 +173,18 @@ typecheckM fs srcfile =
 runSnippetM :: String -> ReplM ()
 runSnippetM ln =
     do state <- get
+       liftIO $ putLine ln
+
        let tokens = lex ln
-           stx = parseRepl tokens
+       liftIO $ putTokens tokens
+
+       let stx = parseRepl tokens
+       liftIO $ putParsedStx stx
+
        fs <- fs <$> get
        interactive <- putStxInInteractive stx . interactive <$> get
        interactive' <- renamerEither $ rename fs interactive
-       -- liftIO $ putRenamedStx stx'
+
        let fn | doTypecheck = typecheckM
               | otherwise = interpretM Nothing
        interactive'' <- fn fs interactive'
@@ -213,7 +208,7 @@ showModuleM showAll showBrief filename =
              case Map.lookup filename fs of
                Nothing -> do liftIO $ do
                                putStrLn $ "namespace " ++ show filename ++ " has not been staged"
-                               putStrLn $ "stages namespaces are " ++ intercalate ", " (map SrcFile.name (Map.elems fs))
+                               putStrLn $ "staged namespaces are " ++ intercalate ", " (map SrcFile.name (Map.elems fs))
                              return []
                Just srcfile -> return [srcfile]
     in
@@ -305,14 +300,17 @@ options = [Option "a" [] (NoArg ShowAll) "Show all",
 
 
 runCommandM :: String -> [Flag] -> [String] -> ReplM ()
-runCommandM "show" _ ["namespace"] =
-    liftIO $ putStrLn ":show namespace [-a] [-b] <namespace>"
-
 runCommandM "show" opts ("namespace":nonOpts) =
-    let showAll = ShowAll `elem` opts
+    let
+        showAll = ShowAll `elem` opts
         showBrief = ShowBrief `elem` opts
+        filename | null nonOpts = ""
+                 | otherwise = last nonOpts
     in
-      showModuleM showAll showBrief $ last nonOpts
+      if not showAll && null nonOpts then
+          liftIO $ putStrLn ":show namespace [-b] [-a | <namespace>]"
+      else
+          showModuleM showAll showBrief filename
 
 runCommandM "show" _ ["tokens"] =
     liftIO $ putStrLn ":show tokens <namespace>"
