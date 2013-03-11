@@ -57,8 +57,6 @@ import Macros
 
         '~'     { TokenTilde }
 
-        ':'     { TokenColon }
-
         '.'     { TokenDot }
 
         'o'     { TokenComposition $$ }
@@ -71,16 +69,14 @@ import Macros
 
         '='     { TokenEq $$ }
 
-        '=>'   { TokenPredAppendR $$ }
-        '<='   { TokenPredAppendL $$ }
+        '=>'    { TokenPredAppendR $$ }
+        '<='    { TokenPredAppendL $$ }
 
         '&&'    { TokenAnd $$ }
         '||'    { TokenOr $$ }
 
         '->'    { TokenRArrow }
-        ';'     { TokenSemicolon }
-
-        '|'     { TokenReverse $$ }
+        '|'     { TokenBar }
 
         ':='    { TokenEquiv }
 
@@ -92,23 +88,22 @@ import Macros
 
 
 -- Precedence (lower)
-                        -- definition
-%left lambda_prec       -- lambda
-%left where             -- where
-%left '|'               -- reverse composition
-%right '->' ';'         -- condition
-%left name              -- infix name op
-%left '&&' '||'         -- logical
-%left '=>' '<='         -- predicate appends
-%left '->' '<-'         -- arrows
-%left '='               -- equality
-%left '+' '-'           -- additives
-%left '*' '/'           -- multiplicatives
-%left 'o'               -- composition
--- %left '@' '@ '          -- pattern
-%left ':'               -- application
-%nonassoc '~'           -- constant
-%nonassoc '\''          -- lift
+                         -- definition
+%left lambda_prec        -- lambda
+%left where              -- where
+%right '->' '|'          -- condition
+%left name               -- infix name op
+%left '&&' '||'          -- logical
+%left '=>' '<='          -- predicate appends
+%left '->' '<-'          -- arrows
+%left '='                -- equality
+%left '+' '-'            -- additives
+%left '*' '/'            -- multiplicatives
+%left 'o'                -- composition
+%nonassoc below_app_prec -- application
+%nonassoc app_prec       -- application
+%nonassoc '~'            -- constant
+%nonassoc '\''           -- lift
 -- /Precedence (greater)
 
 -- This is the type of the data produced by a successful reduction of the 'start'
@@ -191,23 +186,22 @@ DefnKw:
     def      { Def }
   | nrdef    { NrDef }
 
+OpOrName:
+    Operator { $1 }
+  | name     { $1 }
+
 DefnPatList:
     DefnPatList Pat { $1 ++ [$2] }
   | Pat             { [$1] }
 
 Expr:
-    Atom                          { $1 }
+    SimpleExpr %prec below_app_prec  { $1 }
 
-  | OpOrName                      { IdStx $1 }
-
-  | Seq                           { $1 }
   | Cond                          { $1 }
 
   | Expr '\''                     { AppStx (IdStx "lift") $1 }
-  | '~' Expr                      { AppStx (IdStx "K") $2 }
-  | '~' PrimeList Expr            { AppStx (primesMacro $2 "K") $3 }
-  | Expr ':' PrimeList Expr       { AppStx (primesMacro $3 "apply") (SeqStx [$1, $4]) }
-  | Expr ':' Expr                 { AppStx $1 $3 }
+  -- | Expr ':' PrimeList Expr       { AppStx (primesMacro $3 "apply") (SeqStx [$1, $4]) }
+  | SimpleExpr SimpleExpr %prec app_prec         { AppStx $1 $2 }
   | Expr 'o' Expr                 { AppStx (IdStx $2) (SeqStx [$1, $3]) }
   | Expr '*' Expr                 { AppStx (IdStx $2) (SeqStx [$1, $3]) }
   | Expr '/' Expr                 { AppStx (IdStx $2) (SeqStx [$1, $3]) }
@@ -218,32 +212,30 @@ Expr:
   | Expr '<=' Expr                { AppStx (IdStx $2) (SeqStx [$1, $3]) }
   | Expr '&&' Expr                { AppStx (IdStx $2) (SeqStx [$1, $3]) }
   | Expr '||' Expr                { AppStx (IdStx $2) (SeqStx [$1, $3]) }
-  | Expr '|' Expr                 { AppStx (IdStx $2) (SeqStx [$1, $3]) }
   | Expr name Expr                { AppStx (IdStx $2) (SeqStx [$1, $3]) }
 
   | lambda Pat Expr %prec lambda_prec   { lambdaMacro $2 $3 }
 
   | Expr where '{' DefnList '}'   { WhereStx $1 $4 }
 
-  | ParenExpr { $1 }
+SimpleExpr:
+    Ident	             { IdStx $1 }
+  | Constant	             { $1 }
+  | ParenExpr                { $1 }
+  | Seq                      { $1 }
+  | '~' SimpleExpr           { AppStx (IdStx "K") $2 }
+  | '~' PrimeList SimpleExpr { AppStx (primesMacro $2 "K") $3 }
 
-ParenExpr:
-    '['                    ']'    { AppStx (IdStx "cons") (SeqStx []) }
-  | '[' PrimeList          ']'    { AppStx (primesMacro $2 "cons") (SeqStx []) }
-  | '['           ExprList ']'    { AppStx (IdStx "cons") (SeqStx $2) }
-  | '[' PrimeList ExprList ']'    { AppStx (primesMacro $2 "cons") (SeqStx $3) }
-  | '[|'                    '|]'  { AppStx (IdStx "pcons") (SeqStx []) }
-  | '[|' PrimeList          '|]'  { AppStx (primesMacro $2 "pcons") (SeqStx []) }
-  | '[|'           ExprList '|]'  { AppStx (IdStx "pcons") (SeqStx $2) }
-  | '[|' PrimeList ExprList '|]'  { AppStx (primesMacro $2 "pcons") (SeqStx $3) }
-  | '(' Expr ')'                  { $2 }
+Ident:     
+    '(' Operator ')' { $2 }
+  | NameDotList      { $1 }
 
-Atom:
+Constant:
     character   { CharStx $1 }
   | integer     { IntStx $1 }
   | double      { DoubleStx $1 }
 
-OpOrName:
+Operator:
     'o'         { $1 }
 
   | '*'         { $1 }
@@ -260,11 +252,16 @@ OpOrName:
   | '&&'        { $1 }
   | '||'        { $1 }
 
-  | '|'         { $1 }
-     
-  | name        { $1 }
-
-  | name '.' OpOrName { $1 ++ "." ++ $3 }
+ParenExpr:
+    '['                    ']'    { AppStx (IdStx "cons") (SeqStx []) }
+  | '[' PrimeList          ']'    { AppStx (primesMacro $2 "cons") (SeqStx []) }
+  | '['           ExprList ']'    { AppStx (IdStx "cons") (SeqStx $2) }
+  | '[' PrimeList ExprList ']'    { AppStx (primesMacro $2 "cons") (SeqStx $3) }
+  | '[|'                    '|]'  { AppStx (IdStx "pcons") (SeqStx []) }
+  | '[|' PrimeList          '|]'  { AppStx (primesMacro $2 "pcons") (SeqStx []) }
+  | '[|'           ExprList '|]'  { AppStx (IdStx "pcons") (SeqStx $2) }
+  | '[|' PrimeList ExprList '|]'  { AppStx (primesMacro $2 "pcons") (SeqStx $3) }
+  | '(' Expr ')'                  { $2 }
 
 Seq:
     '<' ExprList '>'    { SeqStx $2 }
@@ -272,11 +269,11 @@ Seq:
   | string              { stringStx $1 }
 
 Cond:
-    Expr '->' PrimeList Expr ';' Expr   { AppStx (primesMacro $3 "cond") (SeqStx [$1, $4, $6]) }
+    Expr '->' PrimeList Expr '|' Expr   { AppStx (primesMacro $3 "cond") (SeqStx [$1, $4, $6]) }
   | Expr '->' PrimeList Expr            { AppStx (primesMacro $3 "cond") (SeqStx [$1, $4]) }
-  | Expr '->'           Expr ';' Expr   { applyStx "cond" [$1, $3, $5] }
+  | Expr '->'           Expr '|' Expr   { applyStx "cond" [$1, $3, $5] }
   | Expr '->'           Expr            { applyStx "cond" [$1, $3] }
-  | Pat  '->'           Expr ';' Expr   { ifelseMacro $1 $3 $5 }
+  | Pat  '->'           Expr '|' Expr   { ifelseMacro $1 $3 $5 }
   | Pat  '->'           Expr            { ifthenMacro $1 $3 }
 
 Pat:
@@ -290,7 +287,7 @@ PatNoSpace:
 PatRest:
     OpPat                 { $1 }
   | ConsPat               { $1 }
-  | name '@' OpOrName     { namePat $1 (mkPat (IdStx $3) [] []) }
+  | name '@' Ident        { namePat $1 (mkPat (IdStx $3) [] []) }
   | name '@' ConsPat      { namePat $1 $3 }
   | name '@' ParenExpr    { namePat $1 (mkPat $3 [] []) }
 
@@ -372,8 +369,6 @@ data Token
 
      | TokenTilde
 
-     | TokenColon
-
      | TokenDot
 
      | TokenComposition String
@@ -401,9 +396,7 @@ data Token
      | TokenPatOr String
 
      | TokenRArrow
-     | TokenSemicolon
-
-     | TokenReverse String
+     | TokenBar
 
      | TokenEquiv
 

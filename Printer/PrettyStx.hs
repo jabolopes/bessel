@@ -50,17 +50,14 @@ printStxM (IdStx str) = putPrinter str
 
 printStxM (AppStx stx1 stx2) =
     do printApp stx1
-       putPrinter ":"
+       putPrinter " "
        printApp stx2
-    where printApp stx@(CharStx _) = printStxM stx
-          printApp stx@(IntStx _) = printStxM stx
-          printApp stx@(DoubleStx _) = printStxM stx
-          printApp stx@(SeqStx _) = printStxM stx
-          printApp stx@(IdStx _) = printStxM stx
-          printApp stx =
-              do putPrinter "("
-                 printStxM stx
-                 putPrinter ")"
+    where printApp stx
+              | isValueStx stx = printStxM stx
+              | otherwise =
+                  do putPrinter "("
+                     printStxM stx
+                     putPrinter ")"
 
 printStxM (DefnStx kw str body) =
     do putPrinter $ kw' kw ++ " " ++ str ++ " = "

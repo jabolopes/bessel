@@ -109,8 +109,6 @@ tokens :-
 
   "~"			{ \_ -> TokenTilde }
 
-  ":"			{ \_ -> TokenColon }
-
   "@ "			{ \_ -> TokenAtSpace }
   "@"			{ \_ -> TokenAt }
 
@@ -131,9 +129,7 @@ tokens :-
   "||"			{ \s -> TokenOr s }
 
   "->"			{ \_ -> TokenRArrow}
-  ";"			{ \_ -> TokenSemicolon }
-
-  "|"			{ \s -> TokenReverse s }
+  "|"			{ \s -> TokenBar }
 
   ":="			{ \_ -> TokenEquiv }
 
