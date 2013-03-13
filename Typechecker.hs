@@ -2,6 +2,8 @@
              TupleSections #-}
 module Typechecker where
 
+import Prelude hiding ((<=))
+
 import Control.Monad (liftM, when)
 import Data.Functor ((<$>))
 import Data.List (intercalate, isPrefixOf)
@@ -23,7 +25,6 @@ import Debug.Trace
 
 
 debug = True
-debugF desc = debug && trace desc False
 debugT desc = (debug && trace desc True) || True
 
 
@@ -36,8 +37,8 @@ logT desc t1 t2 =
     debugConsistentTT $ desc ++ ": " ++ show t1 ++ " <: " ++ show t2
 
 
-judgementM :: String -> String -> String -> ()
-judgementM name str1 str2 =
+judgement :: String -> String -> String -> ()
+judgement name str1 str2 =
   unsafePerformIO $ do
     let l1 = length str1
         l2 = length str2
@@ -51,19 +52,27 @@ judgementM name str1 str2 =
     return ()
 
 
-judgementN :: Monad m => String -> String -> String -> m ()
-judgementN name str1 str2 =
-    let !val = judgementM name str1 str2 in return val
+judgementM :: Monad m => String -> String -> String -> m ()
+judgementM name str1 str2 =
+    let !val = judgement name str1 str2 in return val
+
+
+-- edit: maybe make (String, a) into (a, a) or (a, b)
+-- and force uses of gamma to pass in types always instead of vars
+gamma :: Show a => String -> [(String, a)] -> String
+gamma name vars =
+    name ++ intercalate "" (map (\(var, t) -> "[" ++ var ++ "=" ++ show t ++ "]") vars)
 
 
 gamma' :: String -> [String] -> String
 gamma' name vars =
-    name ++ intercalate "" (map (\var -> "[" ++ var ++ "]") vars)
+    name ++ concat (map (\var -> "[" ++ var ++ "]") vars)
 
 
-gamma :: Show a => String -> [(String, a)] -> String
-gamma name vars =
-    name ++ intercalate "" (map (\(var, t) -> "[" ++ var ++ "=" ++ show t ++ "]") vars)
+gamma'' name ts =
+    name ++ concat (map assign ts)
+    where assign (t1, Nothing) = "[" ++ show t1 ++ "]"
+          assign (t1, Just t2) = "[" ++ show t1 ++ "=" ++ show t2 ++ "]"
 
 
 infixl 8 |-
@@ -152,6 +161,29 @@ occursContextT ctx t1 t2
 -- / types and contexts
 
 
+consJudgementM :: Monad m => String -> [Type] -> Type -> Type -> m ()
+consJudgementM name evars t1 t2 =
+    judgementM name
+               (gamma "ctx1" vars |- t1 <: t2 -| "ctx2")
+               (gamma "ctx1" vars |- t1 ~~ t2 -| "ctx2")
+    where vars = [ (var, t) | t@(ExistT var) <- evars ]
+
+
+consJudgementSymM name evars t1 t2 =
+    judgementM name
+               (gamma "ctx1" vars |- t1 >: t2 -| "ctx2")
+               (gamma "ctx1" vars |- t1 ~~ t2 -| "ctx2")
+    where vars = [ (var, t) | t@(ExistT var) <- evars ]
+
+
+consJudgementDynM name evars t1 t2 =
+    judgementM name
+               (gamma "ctx" vars |- t1 <: t2 ++ "  " ++ gamma "ctx" vars |/- t1 >: t2)
+               (gamma "ctx" vars |- t1 ~~ t2 -| gamma "ctx" dyns)
+    where vars = [ (var, t) | t@(ExistT var) <- evars ]
+          dyns = [ (var, DynT) | ExistT var <- evars ]
+
+
 consistentT :: Context -> Type -> Type -> Maybe Context
 consistentT ctx t1@(ExistT var1) t2@(ExistT var2)
   | not (isEmptyTypeContext ctx var1) && not (isEmptyTypeContext ctx var2) && logT "(~LR)" t1 t2 =
@@ -163,13 +195,41 @@ consistentT ctx t1@(ExistT var1) t2@(ExistT var2)
        Nothing -> let ctx''' = updateContext ctx' var2 (unifType t2 DynT) in
                   Just $ updateContext ctx''' var1 (unifType t1 DynT)
        x -> x
+    where consistentLR ctx t1 t2 =
+              do val <- subT ctx t1 t2
+                 consJudgementM "~LR" [t1, t2] t1 t2
+                 return val
+
+          consistentSymLR ctx t1 t2 =
+              do val <- subT ctx t2 t1
+                 consJudgementSymM "~SymLR" [t1, t2] t1 t2
+                 return val
+
+          consistentDynLR ctx t1 t2 =
+              do consJudgementDynM "~DynLR" [t1, t2] t1 t2
+                 Just $ updateContext (updateContext ctx var1 (unifType t1 DynT)) var2 (unifType t2 DynT)
 
 consistentT ctx t1@(ExistT var) t2
-  | not (isEmptyTypeContext ctx var) && logT "(~~L)" t1 t2 =
+  | not (isEmptyTypeContext ctx var) =
     let Right (ctx', t1') = typeContext ctx var in
-    case subT ctx' t1' t2 of
-      Nothing -> Just $ updateContext ctx' var (unifType t1 DynT)
-      x -> x
+    case consistentL ctx' t1' t2 of
+      val@(Just _) -> val
+      Nothing -> case consistentSymL ctx' t1' t2 of
+                   val@(Just _) -> val
+                   Nothing -> consistentDynL ctx' t1' t2
+    where consistentL ctx t1 t2 =
+              do val <- subT ctx t1 t2
+                 consJudgementM "~L" [t1] t1 t2
+                 return val
+
+          consistentSymL ctx t1 t2 =
+              do val <- subT ctx t2 t1
+                 consJudgementSymM "~SymL" [t1] t1 t2
+                 return val
+
+          consistentDynL ctx t1 t2 =
+            do consJudgementDynM "~DynL" [t1] t1 t2
+               Just $ updateContext ctx var (unifType t1 DynT)
 
 consistentT ctx t1 t2@(ExistT var)
   | not (isEmptyTypeContext ctx var) =
@@ -181,21 +241,17 @@ consistentT ctx t1 t2@(ExistT var)
                    Nothing -> consistentDynR ctx' t1 t2'
     where consistentR ctx t1 t2 =
               do val <- subT ctx t1 t2
-                 judgementN "~R"
-                            (gamma "ctx1" [(var, t2)] |- t1 <: t2 -| "ctx2")
-                            (gamma "ctx1" [(var, t2)] |- t1 ~~ var -| "ctx2")
+                 consJudgementM "~R" [t2] t1 t2
                  return val
 
           consistentSymR ctx t1 t2 =
               do val <- subT ctx t2 t1
-                 judgementN "~SymR"
-                            (gamma "ctx1" [(var, t2)] |- t1 >: t2 -| "ctx2")
-                            (gamma "ctx1" [(var, t2)] |- t1 ~~ var -| "ctx2")
+                 consJudgementSymM "~SymR" [t2] t1 t2
                  return val
 
           consistentDynR ctx t1 t2 =
-              do judgementN "~DynR"
-                            (gamma "ctx" [(var, t2)] |/- t1 <: t2 -| "ctx" ++ "  " ++ gamma "ctx" [(var, t2)] |/- t1 >: t2 -| "ctx")
+              do judgementM "~DynR"
+                            (gamma "ctx" [(var, t2)] |/- t1 <: t2 ++ "  " ++ gamma "ctx" [(var, t2)] |/- t1 >: t2)
                             (gamma "ctx" [(var, t2)] |- t1 ~~ var -| gamma "ctx" [(var, DynT)])
                  Just $ updateContext ctx var (unifType t2 DynT)
 
@@ -208,7 +264,7 @@ subT ctx t1 t2
 -- <Refl
 subT ctx t1 t2
     | isAtomicT t1 && t1 == t2 =
-      do judgementN "<Refl"
+      do judgementM "<Refl"
                     ""
                     ("ctx" |- t1 <: t2 -| "ctx")
          return ctx
@@ -226,7 +282,7 @@ subT ctx t1@(TupT ts1) t2@(TupT ts2)
 subT ctx t1@(TupT ts1) t2@(SeqT t) =
     do let t2' = TupT (replicate (length ts1) t)
 
-       judgementN "<TupSeq"
+       judgementM "<TupSeq"
                   ("ctx1" |- t1 <: t2' -| "ctx2")
                   ("ctx1" |- t1 <: t2  -| "ctx2")
 
@@ -234,7 +290,7 @@ subT ctx t1@(TupT ts1) t2@(SeqT t) =
 
 -- <SeqSeq
 subT ctx t1@(SeqT seqT1) t2@(SeqT seqT2) =
-     do judgementN "<SeqSeq"
+     do judgementM "<SeqSeq"
                    ("ctx1" |- seqT1 <: seqT2 -| "ctx2")
                    ("ctx1" |- t1 <: t2 -| "ctx2")
 
@@ -242,7 +298,7 @@ subT ctx t1@(SeqT seqT1) t2@(SeqT seqT2) =
 
 -- <Arrow
 subT ctx t1@(ArrowT argT1 rangeT1) t2@(ArrowT argT2 rangeT2) =
-    do judgementN "<Arrow"
+    do judgementM "<Arrow"
                   ("ctx1" |- argT2 <: argT1 -| "ctx2" ++ "  " ++ "ctx2" |- rangeT1 <: rangeT2 -| "ctx3")
                   ("ctx1" |- t1 <: t2 -| "ctx3")
 
@@ -252,7 +308,7 @@ subT ctx t1@(ArrowT argT1 rangeT1) t2@(ArrowT argT2 rangeT2) =
 -- <EvarArrow
 subT ctx t1@(ExistT var) t2@(ArrowT _ _)
   | isEmptyTypeContext ctx var =
-      do judgementN "<EvarArrow"
+      do judgementM "<EvarArrow"
                     ("ctx1," ++ var ++ "1," ++ var ++ "2," ++ var ++ "=" ++ var ++ "1->" ++ var ++ "2 " |- t1 <: t2 -| "ctx2")
                     (gamma' "ctx1" [var] |- var <: t2 -| "ctx2")
 
@@ -262,7 +318,7 @@ subT ctx t1@(ExistT var) t2@(ArrowT _ _)
 -- <ArrowEvar
 subT ctx t1@(ArrowT _ _) t2@(ExistT var)
   | isEmptyTypeContext ctx var =
-      do judgementN "<ArrowEvar"
+      do judgementM "<ArrowEvar"
                     ("ctx1," ++ var ++ "1," ++ var ++ "2," ++ var ++ "=" ++ var ++ "1->" ++ var ++ "2 " |- t1 <: t2 -| "ctx2")
                     (gamma' "ctx1" [var] |- t1 <: var -| "ctx2")
 
@@ -273,7 +329,7 @@ subT ctx t1@(ArrowT _ _) t2@(ExistT var)
 subT ctx t1@(ForallT var _) t2 =
       do let (ctx', t1') = eliminateForalls ctx t1
                 
-         judgementN "<ForallL"
+         judgementM "<ForallL"
                     ("ctx1,<|," ++ var |- subst ('^':var) var ++ t1' <: t2 -| "ctx2',<|,ctx2''")
                     ("ctx1" |- t1 <: t2 -| "ctx2'")
 
@@ -281,7 +337,7 @@ subT ctx t1@(ForallT var _) t2 =
 
 -- ForallR
 subT ctx t1 t2@(ForallT var forallT) =
-    do judgementN "<ForallR"
+    do judgementM "<ForallR"
                   ("ctx1," ++ var |- t1 <: forallT -| "ctx2'," ++ var ++ ",ctx2''")
                   ("ctx1" |- t1 <: t2 -| "ctx2'")
 
@@ -293,28 +349,30 @@ subT ctx t1 t2@(ForallT var forallT) =
 subT ctx t1 t2@(ExistT var)
   | not (isEmptyTypeContext ctx var) =
       do let Right (_, varT) = typeContext ctx var
+         val <- consistentT ctx t1 t2
 
-         judgementN "<ConsistentR"
+         judgementM "<ConsistentR"
                     (gamma "ctx1" [(var, varT)] |- t1 ~~ t2 -| "ctx2")
                     (gamma "ctx1" [(var, varT)] |- t1 <: t2 -| "ctx2")
-
-         consistentT ctx t1 t2
+                    
+         return val
 
 -- <ConsistentL
 subT ctx t1@(ExistT var) t2
   | not (isEmptyTypeContext ctx var) =
       do let Right (_, varT) = typeContext ctx var
+         val <- consistentT ctx t1 t2
 
-         judgementN "<ConsistentR"
+         judgementM "<ConsistentL"
                     (gamma "ctx1" [(var, varT)] |- t1 ~~ t2 -| "ctx2")
                     (gamma "ctx1" [(var, varT)] |- t1 <: t2 -| "ctx2")
 
-         consistentT ctx t1 t2
+         return val
 
 -- <InstR
 subT ctx t1 t2@(ExistT var)
     | isEmptyTypeContext ctx var && isAtomicT t1 && isWellformed ctx t2 t1 =
-      do judgementN "<InstR"
+      do judgementM "<InstR"
                     ("ctx'" |- show t1 ++ " wf")
                     ("ctx'," ++ var ++ ",ctx''" |- t1 <: var -| "ctx'," ++ var ++ "=" ++ show t1 ++ ",ctx''")
 
@@ -323,14 +381,14 @@ subT ctx t1 t2@(ExistT var)
 -- <InstL
 subT ctx t1@(ExistT var) t2
     | isEmptyTypeContext ctx var && isAtomicT t2 && isWellformed ctx t1 t2 =
-      do judgementN "<InstL"
+      do judgementM "<InstL"
                     ("ctx'" |- show t2 ++ " wf")
                     ("ctx'," ++ var ++ ",ctx''" |- t2 <: var -| "ctx'," ++ var ++ "=" ++ show t2 ++ ",ctx''")
 
          return $ updateContext ctx var (unifType t1 t2)
 
 subT ctx t1 t2@DynT =
-    do judgementN "<Dyn"
+    do judgementM "<Dyn"
                   ""
                   ("ctx" |- t1 <: t2 -| "ctx")
 
@@ -351,17 +409,7 @@ type SynthM = TypecheckerM (Type, Stx (String, Type, Type), Context)
 type CheckM = TypecheckerM (Stx (String, Type, Type), Context)
 
 
-checkSeqM :: [Type] -> Context -> [Stx String] -> CheckM
--- checkSeqM ts _ _ | debugF ("checkSeqM: " ++ show ts) = undefined
-checkSeqM ts ctx stxs = check [] ts ctx stxs
-  where check stxs ts ctx [] = return (SeqStx (reverse stxs), ctx) 
-        check stxs (t:ts) ctx (stx:stxs') =
-          do (stx', ctx') <- checkM t ctx stx
-             check (stx':stxs) ts ctx' stxs'
-
-
 typecheckWhereM :: (Context -> Stx String -> TypecheckerM a) -> Context -> Stx String -> TypecheckerM a
-typecheckWhereM _ _ _ | debugF "typecheckWhereM" = undefined
 typecheckWhereM m syms (WhereStx stx (stxs)) =
     check syms stxs
     where check syms [] = m syms stx
@@ -377,9 +425,9 @@ synthM ctx stx = synthSubst <$> synthAbstrM ctx stx
               | not (isEmptyTypeContext ctx' var) =
                   let
                       t' = substituteExistTs ctx' t
-                      !() = judgementM "=>Subst"
-                                       ("ctx1 |- " ++ showAbbrev stx ++ " => " ++ show t ++ " -| ctx2")
-                                       ("ctx1 |- " ++ showAbbrev stx ++ " => " ++ show t' ++ " -| ctx2")
+                      !() = judgement "=>Subst"
+                                     ("ctx1 |- " ++ showAbbrev stx ++ " => " ++ show t ++ " -| ctx2")
+                                     ("ctx1 |- " ++ showAbbrev stx ++ " => " ++ show t' ++ " -| ctx2")
                   in
                     (t', stx', ctx')
 
@@ -392,8 +440,8 @@ synthAbstrM :: Context -> Stx String -> SynthM
 synthAbstrM ctx stx@(CharStx c) =
     do let t = CharT
 
-       judgementN "=>Const"
-                  ("ctx" |- show stx ++ " : " ++ show t)
+       judgementM "=>Const"
+                  ("ctx" |- show stx ++ ":" ++ show t)
                   ("ctx" |- stx `synth` t -| "ctx")
 
        return (t, CharStx c, ctx)
@@ -402,8 +450,8 @@ synthAbstrM ctx stx@(CharStx c) =
 synthAbstrM ctx stx@(IntStx i) =
     do let t = IntT
 
-       judgementN "=>Const"
-                  ("ctx" |- show stx ++ " : " ++ show t)
+       judgementM "=>Const"
+                  ("ctx" |- show stx ++ ":" ++ show t)
                   ("ctx" |- stx `synth` t -| "ctx")
 
        return (t, IntStx i, ctx)
@@ -412,8 +460,8 @@ synthAbstrM ctx stx@(IntStx i) =
 synthAbstrM ctx stx@(DoubleStx d) =
     do let t = DoubleT
 
-       judgementN "=>Const"
-                  ("ctx" |- show stx ++ " : " ++ show t)
+       judgementM "=>Const"
+                  ("ctx" |- show stx ++ ":" ++ show t)
                   ("ctx" |- stx `synth` t -| "ctx")
 
        return (DoubleT, DoubleStx d, ctx)
@@ -422,7 +470,7 @@ synthAbstrM ctx stx@(DoubleStx d) =
 synthAbstrM ctx stx@(SeqStx stxs) =
     do (ts, stxs', ctx') <- synthSeq [] [] ctx stxs
 
-       judgementN "=>Seq"
+       judgementM "=>Seq"
                   "ctx1 |- ... -| ctxn+1"
                   ("ctx1" |- stx `synth` (TupT ts) -| "ctxn+1")
 
@@ -438,7 +486,7 @@ synthAbstrM ctx stx@(SeqStx stxs) =
 synthAbstrM ctx stx@(IdStx name) =
     do (ctx', t) <- typeContext ctx name
 
-       judgementN "=>Var"
+       judgementM "=>Var"
                   ("ctx(" ++ name ++ ") = " ++ show t)
                   ("ctx" |- stx `synth` t -| "ctx")
 
@@ -466,9 +514,9 @@ synthAbstrM ctx stx@(AppStx fn@(LambdaStx x body) arg@(LambdaStx _ _)) =
        (arg', ctx'') <- checkM evarT ctx' arg
        (rangeT, body', ctx''') <- synthM (insertContext ctx'' x (simpleType evarT)) body
 
-       let !() = judgementM "=>LetChk"
-                            ("ctx1," ++ evar ++ " |- " ++ showAbbrev arg ++ " <= " ++ show evarT ++ " -| ctx2  ctx2," ++ x ++ ":^a" ++ " |- " ++ showAbbrev body ++ " => " ++ show rangeT ++ " -| ctx3")
-                            ("ctx1 |- " ++ showAbbrev stx ++ " => " ++ show rangeT ++ " -| ctx3")
+       judgementM "=>LetChk"
+                  ("ctx1," ++ evar |- arg <= evarT -| "ctx2  ctx2," ++ x ++ ":^a" |- body `synth` rangeT -| "ctx3")
+                  ("ctx1" |- stx `synth` rangeT -| "ctx3")
 
        return (rangeT, AppStx (LambdaStx x body') arg', ctx''')
 
@@ -477,9 +525,9 @@ synthAbstrM ctx stx@(AppStx fn@(LambdaStx x body) arg) =
     do (argT, arg', ctx') <- synthM ctx arg
        (rangeT, body', ctx'') <- synthM (insertContext ctx' x (simpleType argT)) body
 
-       let !() = judgementM "=>LetSyn"
-                            ("ctx1 |- " ++ showAbbrev arg ++ " => " ++ show argT ++ " -| ctx2  ctx2," ++ x ++ ":" ++ show argT ++ " |- " ++ showAbbrev body ++ " => " ++ show rangeT ++ " -| ctx3")
-                            ("ctx1 |- " ++ showAbbrev stx ++ " => " ++ show rangeT ++ " -| ctx3")
+       judgementM "=>LetSyn"
+                  ("ctx1" |- arg `synth` argT -| "ctx2  ctx2," ++ x ++ ":" ++ show argT |- body `synth` rangeT -| "ctx3")
+                  ("ctx1" |- stx `synth` rangeT -| "ctx3")
 
        return (rangeT, AppStx (LambdaStx x body') arg', ctx'')
 
@@ -495,20 +543,19 @@ synthAbstrM ctx stx@(AppStx fn arg) =
             do (t', stx', ctx') <- synthM ctx stx
                let (ctx'', t'') = eliminateForalls ctx' t'
 
-               when (isForallT t') $ do
-                 let !() = judgementM "=>Forall"
-                                      ("ctx1 |- " ++ showAbbrev stx ++ " => " ++ show t' ++ " -| ctx2")
-                                      ("ctx1 |- " ++ showAbbrev stx ++ " => " ++ show t'' ++ " -| ctx2,...")
-                 return ()
+               when (isForallT t') $
+                 judgementM "=>Forall"
+                            ("ctx1" |- stx `synth` t' -| "ctx2")
+                            ("ctx1" |- stx `synth` t'' -| "ctx2,...")
 
                return (t'', stx', ctx'')
 
           synthApp t@(ArrowT argT rangeT) fn' ctx =
             do (arg', ctx') <- checkM argT ctx arg
 
-               let !() = judgementM "=>AppArrow"
-                                    ("ctx1 |- " ++ showAbbrev fn ++ " => " ++ show t ++ " -| ctx2 |- " ++ showAbbrev arg ++ " <= " ++ show argT ++ " -| ctx3")
-                                    ("ctx1 |- " ++ showAbbrev stx ++ " => " ++ show rangeT ++ " -| ctx3")
+               judgementM "=>AppArrow"
+                          ("ctx1" |- fn `synth` t -| "ctx2  ctx2" |- arg <= argT -| "ctx3")
+                          ("ctx1" |- stx `synth` rangeT -| "ctx3")
 
                return (rangeT, AppStx fn' arg', ctx')
 
@@ -517,18 +564,18 @@ synthAbstrM ctx stx@(AppStx fn arg) =
                    rangeT = DynT
                (arg', ctx') <- checkM argT ctx arg
 
-               let !() = judgementM "=>AppDyn"
-                                    ("ctx1 |- " ++ showAbbrev fn ++ " => " ++ show t ++ " -| ctx2 |- " ++ showAbbrev arg ++ " <= " ++ show argT ++ " -| ctx3")
-                                    ("ctx1 |- " ++ showAbbrev stx ++ " => " ++ show rangeT ++ " -| ctx3")
+               judgementM "=>AppDyn"
+                          ("ctx1" |- fn `synth` t -| "ctx2  ctx2" |- arg <= argT -| "ctx3")
+                          ("ctx1" |- stx `synth` rangeT -| "ctx3")
 
                return (rangeT, AppStx fn' arg', ctx')
 
           synthApp t@(ExistT var) fn' ctx =
             do let (t'@(ArrowT argT rangeT), ctx') = arrowifyVar ctx var
 
-               let !() = judgementM "=>AppEvar"
-                                    ("ctx1 |- " ++ showAbbrev fn ++ " => " ++ show t ++ " -| ctx2[" ++ show t ++ "]  ctx2[" ++ show argT ++ "," ++ show rangeT ++ "," ++ show t ++ "=" ++ show t' ++ "] |- " ++ showAbbrev arg ++ " <= " ++ show argT ++ " -| ctx3")
-                                    ("ctx1 |- " ++ showAbbrev stx ++ " => " ++ show rangeT ++ " -| ctx3")
+               judgementM "=>AppEvar"
+                          ("ctx1" |- fn `synth` t -| gamma' "ctx2" [var] ++ gamma'' "ctx2" [(argT, Nothing), (rangeT, Nothing), (t, Just t')] |- arg <= argT -| "ctx3")
+                          ("ctx1" |- stx `synth` rangeT -| "ctx3")
 
                (arg', ctx'') <- checkM argT ctx' arg
                return (rangeT, AppStx fn' arg', ctx'')
@@ -575,45 +622,94 @@ checkInstM :: Type -> Context -> Stx String -> CheckM
 
 -- ⇓Forall
 checkInstM t@(ForallT var forallT) ctx stx | isValueStx stx =
-    do let !() = judgementM "<=Forall"
-                            ("ctx1," ++ var ++ " |- " ++ showAbbrev stx ++ " <= " ++ show forallT ++ " -| ctx2'," ++ var ++ ",ctx2''")
-                            ("ctx1 |- " ++ showAbbrev stx ++ " <= " ++ show t ++ " -| ctx2'")
+    do judgementM "<=Forall"
+                  ("ctx1," ++ var |- stx <= forallT -| "ctx2'," ++ var ++ ",ctx2''")
+                  ("ctx1" |- stx <= t -| "ctx2'")
 
        let ctx' = insertContext ctx var (simpleType (TvarT var))
        (stx', ctx'') <- checkM forallT ctx' stx
        return (stx', dropContext ctx'' var)
 
 -- ⇓SeqTup
-checkInstM t@(TupT ts) ctx (SeqStx stxs)
-  | length ts == length stxs =
-    checkSeqM ts ctx stxs
-  | otherwise =
-    Left $ "\n\n\tcheckInstM: SeqStx: different length" ++
-           "\n\n\t ts = " ++ show ts ++
-           "\n\n\t t = " ++ show t ++
-           "\n\n\t stxs = " ++ show stxs ++ "\n"
+-- checkInstM t@(TupT ts) ctx (SeqStx stxs)
+--   | length ts == length stxs =
+--     checkSeqM ts ctx stxs
+--   | otherwise =
+--     Left $ "\n\n\tcheckInstM: SeqStx: different length" ++
+--            "\n\n\t ts = " ++ show ts ++
+--            "\n\n\t t = " ++ show t ++
+--            "\n\n\t stxs = " ++ show stxs ++ "\n"
+--     where checkSeqM ts ctx stxs = check [] ts ctx stxs
+--               where check stxs _ ctx [] = return (SeqStx (reverse stxs), ctx) 
+--                     check stxs (t:ts) ctx (stx:stxs') =
+--                       do (stx', ctx') <- checkM t ctx stx
+--                          check (stx':stxs) ts ctx' stxs'
+
+checkInstM t@(TupT ts) ctx stx@(SeqStx stxs) =
+    do val <- checkSeqM ts ctx stxs
+
+       judgementM "<=SeqTup"
+                  ("ctx1" |- "..." -| "ctx2  ...  ctxn" |- "..." -| "ctxn+1")
+                  ("ctx1" |- stx <= t -| "ctxn+1")
+
+       return val
+    where msg =
+            "\n\n\tcheckInstM: SeqStx: different length" ++
+            "\n\n\t ts = " ++ show ts ++
+            "\n\n\t t = " ++ show t ++
+            "\n\n\t stxs = " ++ show stxs ++ "\n"
+
+          checkSeqM ts ctx stxs = check [] ts ctx stxs
+              where check stxs [] ctx [] = return (SeqStx (reverse stxs), ctx) 
+                    check _ _ _ [] = Left msg
+                    check _ [] _ _ = Left msg
+                    check stxs (t:ts) ctx (stx:stxs') =
+                      do (stx', ctx') <- checkM t ctx stx
+                         check (stx':stxs) ts ctx' stxs'
 
 -- ⇓SeqList
-checkInstM (SeqT t) ctx stx@(SeqStx stxs) =
-    checkInstM (TupT (replicate (length stxs) t)) ctx stx
+checkInstM t@(SeqT seqT) ctx stx@(SeqStx stxs) =
+    do let t' = TupT (replicate (length stxs) seqT)
+
+       judgementM "<=SeqList"
+                  ("ctx1" |- stx <= t' -| "ctx2")
+                  ("ctx1" |- stx <= t -| "ctx2")
+
+       checkInstM t' ctx stx
 
 -- ⇓SeqDyn
 checkInstM t@DynT ctx stx@(SeqStx _) =
-    checkInstM (SeqT DynT) ctx stx
+    do let t' = SeqT DynT
+
+       judgementM "<=SeqDyn"
+                  ("ctx1" |- stx <= t' -| "ctx2")
+                  ("ctx1" |- stx <= t -| "ctx2")
+
+       checkInstM t' ctx stx
 
 -- C-Abs (annotated)
 -- checkInstM syms (Check _) stx@(LambdaStx arg body) =
 --     error "checkInstM: LambdaStx (annotated): Check: not implemented"
 
 -- ⇓LambdaArrow
-checkInstM (ArrowT argT rangeT) ctx (LambdaStx arg body) =
-    do (body', ctx') <- checkM rangeT (insertContext ctx arg (simpleType argT)) body
-       Right (LambdaStx arg body', dropContext ctx' arg)
+checkInstM t@(ArrowT argT rangeT) ctx stx@(LambdaStx arg body) =
+    do judgementM "<=LambdaArrow"
+                  ("ctx1," ++ arg ++ ":" ++ show argT |- body <= rangeT -| "ctx2'," ++ arg ++ ":" ++ show argT ++ "ctx2''")
+                  ("ctx1" |- stx <= t -| "ctx2'")
+
+       (body', ctx') <- checkM rangeT (insertContext ctx arg (simpleType argT)) body
+       return (LambdaStx arg body', dropContext ctx' arg)
 
 -- ⇓LambdaDyn
-checkInstM t@DynT syms (LambdaStx arg body) =
-    do (body', syms') <- checkM t (insertContext syms arg (simpleType DynT)) body
-       Right (LambdaStx arg body', syms')
+checkInstM t@DynT syms stx@(LambdaStx arg body) =
+    do let t' = ArrowT t t
+
+       judgementM "<=LambdaDyn"
+                  ("ctx1" |- stx <= t' -| "ctx2")
+                  ("ctx1" |- stx <= t -| "ctx2")
+
+       (body', syms') <- checkM t (insertContext syms arg (simpleType t)) body
+       return (LambdaStx arg body', syms')
 
 -- ⇓LambdaEvar
 checkInstM (ExistT var) ctx stx@(LambdaStx _ _) | isEmptyTypeContext ctx var =
@@ -624,13 +720,13 @@ checkInstM (ExistT var) ctx stx@(LambdaStx _ _) | isEmptyTypeContext ctx var =
 checkInstM t syms stx@(WhereStx _ _) =
     typecheckWhereM (checkM t) syms stx
 
--- C-Sub
+-- <=Sub
 checkInstM t syms stx =
     do (t', stx', syms') <- synthAbstrM syms stx
 
-       let !() = judgementM "=>Sub"
-                            ("ctx1 |- " ++ showAbbrev stx ++ " => " ++ show t' ++ " -| ctx2 |- " ++ show t' ++ " <: " ++ show t)
-                            ("ctx1 |- " ++ showAbbrev stx ++ " <= " ++ show t ++ " -| ctx2")
+       judgementM "<=Sub"
+                  ("ctx1" |- stx `synth` t'  -| "ctx2  ctx2" |- t' <: t |- "ctx3")
+                  ("ctx1" |- stx <= t -| "ctx3")
 
        (stx',) <$> subM syms' t' t
 
