@@ -1,1 +1,9 @@
 Namespace do not export module, only toplevel functions: bug or feature?
+
+Functions cannot be redefined in interactive.
+
+Add type annotations like so?
+
+  def f = x:Int (negInt x)
+
+  def f = x:a (negInt x) -- polymorphic type
