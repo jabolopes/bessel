@@ -19,9 +19,9 @@ patLambdaStxs val = map (patLambdaDefn `uncurry`)
 
 -- def
 
-defMacro :: DefnKw -> String -> [Pat String] -> Stx String -> Stx String
-defMacro kw name pats expr =
-    DefnStx kw name $ lambdaStx name [(pats, expr)]
+defMacro :: DefnKw -> String -> [([Pat String], Stx String)] -> Stx String
+defMacro kw name guards =
+    DefnStx kw name $ lambdaStx name guards
 
 
 -- lambda

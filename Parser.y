@@ -76,11 +76,8 @@ import Utils
 
 
 -- Precedence (lower)
-                         -- definition
-%nonassoc lambda_prec    -- lambda
-%nonassoc lambda         -- lambda
+%nonassoc guard_prec     -- guard
 %left where              -- where
-%right '->' '|'          -- condition
 %left '&&' '||'          -- logical
 %left '<-' '->'          -- arrow
 %left '==' '/=' '<' '>' '<=' '>='  -- comparison
@@ -128,18 +125,18 @@ DefnOrExpr:
   | Expr        { $1 }
 
 Defn:
-    DefnKw Name DefnPatList '=' Expr { defMacro $1 $2 $3 $5 }
-  | DefnKw Name             '=' Expr { DefnStx $1 $2 $4}
-  | type   Name             '=' Expr       { typeExprMacro $2 $4 }
-  | type   Name             '=' PatNoSpace { typePatMacro $2 $4 }
+    DefnKw Name DefnPatList    { defMacro $1 $2 $3 }
+  | DefnKw Name '=' Expr       { DefnStx $1 $2 $4}
+  | type   Name '=' Expr       { typeExprMacro $2 $4 }
+  | type   Name '=' PatNoSpace { typePatMacro $2 $4 }
+
+DefnPatList:
+    DefnPatList '|' LambdaPatList '=' Expr  { $1 ++ [($3, $5)] }
+  | LambdaPatList '=' Expr	      	    { [($1, $3)] }
 
 DefnKw:
     def      { Def }
   | nrdef    { NrDef }
-
-DefnPatList:
-    DefnPatList Pat { $1 ++ [$2] }
-  | Pat             { [$1] }
 
 Expr:
     SimpleExpr %prec below_app_prec { $1 }
