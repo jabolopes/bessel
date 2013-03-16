@@ -17,8 +17,13 @@ import Utils
 %error { parseError }
 
 %token
-        -- symbols
+        -- punctuation
+        '@'     { TokenAt }
+        '@ '    { TokenAtSpace }
+        '|'     { TokenBar }
+        '.'     { TokenDot }
         ','     { TokenComma }
+        '='     { TokenEquiv }
 
         -- grouping
         '('     { TokenLParen }
@@ -27,7 +32,6 @@ import Utils
         ']'     { TokenRConsParen }
         '{'     { TokenLEnvParen }
         '}'     { TokenREnvParen }
-
 
         -- keywords
 	as      { TokenAs }
@@ -46,15 +50,10 @@ import Utils
         string    { TokenString $$ }
 
         -- operators
-        '~'     { TokenTilde }
-
-        '.'     { TokenDot }
-
         'o'     { TokenComposition $$ }
 
         '*'     { TokenMult $$ }
         '/'     { TokenDiv $$ }
-
         '+'     { TokenAdd $$ }
         '-'     { TokenSub $$ }
 
@@ -65,17 +64,11 @@ import Utils
         '<='    { TokenLe $$ }
         '>='    { TokenGe $$ }
 
-        '&&'    { TokenAnd $$ }
-        '||'    { TokenOr $$ }
-
         '->'    { TokenRArrow $$ }
         '<-'    { TokenLArrow $$ }
-        '|'     { TokenBar }
 
-        '='     { TokenEquiv }
-
-        '@'     { TokenAt }
-        '@ '    { TokenAtSpace }
+        '&&'    { TokenAnd $$ }
+        '||'    { TokenOr $$ }
 
         -- identifier
         id       { TokenId $$ }
@@ -97,8 +90,6 @@ import Utils
 %left quotedId           -- functions as operators
 %nonassoc below_app_prec -- below application (e.g., single id)
 %left app_prec           -- application
-%nonassoc '~'            -- constant
-%nonassoc '\''           -- lift
 %nonassoc '(' '[' '[|' character integer double string id
 -- /Precedence (greater)
 
@@ -194,7 +185,6 @@ SimpleExpr:
     LongName	             { IdStx $1 }
   | Constant	             { $1 }
   | Seq			     { $1 }
-  | '~' SimpleExpr           { constStx $2 }
   | '(' Expr ')'             { $2 }
 
 Constant:
@@ -208,13 +198,13 @@ Seq:
   | string             { stringStx $1 }
 
 Pat:
-    id '@ '    { namePat $1 (mkPat constTrueStx [] []) }
+    id '@ '      { namePat $1 (mkPat constTrueStx [] []) }
   | '[' ']' '@ ' { Pat (applyStx "plist" []) [] }
   | '@ '         { mkPat constTrueStx [] [] }
   | PatRest      { $1 }
 
 PatNoSpace:
-    id '@'    { namePat $1 (mkPat constTrueStx [] []) }
+    id '@'      { namePat $1 (mkPat constTrueStx [] []) }
   | '[' ']' '@' { Pat (applyStx "plist" []) [] }
   | '@'         { mkPat constTrueStx [] [] }
   | PatRest     { $1 }
@@ -274,7 +264,6 @@ Operator:
 
   | '*'         { $1 }
   | '/'         { $1 }
-
   | '+'         { $1 }
   | '-'         { $1 }
 
@@ -297,8 +286,13 @@ parseError :: [Token] -> a
 parseError tks = throwParseException $ show tks
 
 data Token
-     -- symbols
-     = TokenComma
+     -- punctuation
+     = TokenAt
+     | TokenAtSpace
+     | TokenBar
+     | TokenComma
+     | TokenDot
+     | TokenEquiv
 
      -- grouping
      | TokenLParen
@@ -311,8 +305,6 @@ data Token
      -- keywords
      | TokenAs
      | TokenDef
-     | TokenExdef
-     | TokenLambda
      | TokenMe
      | TokenModule
      | TokenNrdef
@@ -321,23 +313,16 @@ data Token
      | TokenWhere
 
      -- literals
-     | TokenChar Char
-     | TokenInt  Int
+     | TokenChar   Char
+     | TokenInt    Int
      | TokenDouble Double
      | TokenString String
 
      -- operators
-     | TokenTilde
-
-     | TokenDot
-
      | TokenComposition String
-
-     | TokenPatComposition String
 
      | TokenMult String
      | TokenDiv String
-
      | TokenAdd String
      | TokenSub String
 
@@ -348,32 +333,16 @@ data Token
      | TokenLe String
      | TokenGe String
 
-     | TokenPredAppendR String
-     | TokenPredAppendL String
-
-     | TokenPatAppendR String
-     | TokenPatAppendL String
+     | TokenRArrow String
+     | TokenLArrow String
 
      | TokenAnd String
      | TokenOr String
 
-     | TokenPatAnd String
-     | TokenPatOr String
-
-     | TokenRArrow String
-     | TokenLArrow String
-
-     | TokenBar
-
-     | TokenEquiv
-
-     | TokenAt
-     | TokenAtSpace
-
      -- identifier
      | TokenId String
      | TokenQuotedId String
-       deriving Show
+       deriving (Show)
 
 
 parsePrelude = parseSrcFile

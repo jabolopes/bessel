@@ -11,20 +11,22 @@ import Parser
 $digit      = [0-9]
 $letter     = [a-zA-Z]
 
-@symbol = "|" | "\\" | "!" | "@" | "#" | "$"
-	| "%" | "&"  | "/" | "{" | "(" | "["
-	| ")" | "]"  | "=" | "}" | "'" | "?"
-	| "«" | "»"  | "+" | "*" | "`" | "´"
-	| "º" | "ª"  | "~" | "^" | "," | ";"
+@symbol = "|" | "\\" | "!" | "#" | "$" | "%"
+        | "&"  | "/" | "=" | "'" | "?" | "«"
+	| "»"  | "+" | "*" | "`" | "´" | "º"
+	| "ª"  | "~" | "^" | "," | ";"
+
+@id_char = $letter | $digit | @symbol
 
 @whitespace = [\ \t\n\r]
 @comment    = ("|-"([^\*]|[\r\n]|(\*+([^\|\/]|[\r\n])))*"-|")
 	    | ("-- ".*)
 
-@character = "'" ($letter | $digit) "'"
-@integer = ("-")?$digit+
-@real    = ("-")?$digit+("."$digit+)?([eE]("-"|"+")?$digit+)?
-@identifier = $letter ($letter | $digit | @symbol)*
+@character  = "'" ($letter | $digit) "'"
+@integer    = ("-")?$digit+
+@real       = ("-")?$digit+("."$digit+)?([eE]("-"|"+")?$digit+)?
+@string     = \"[^\"]*\"
+@identifier = $letter (@id_char)*
 
 
 tokens :-
@@ -32,8 +34,13 @@ tokens :-
   @whitespace         ;
   @comment            ;
 
-  -- symbols
+  -- punctuation
+  "@ "                { \_ -> TokenAtSpace }
+  "@"                 { \_ -> TokenAt }
+  "|"                 { \_ -> TokenBar }
   ","                 { \_ -> TokenComma }
+  "."                 { \_ -> TokenDot }
+  "="                 { \_ -> TokenEquiv }
 
   -- grouping
   "("                 { \_ -> TokenLParen }
@@ -57,40 +64,28 @@ tokens :-
   @character          { \s -> TokenChar (head (tail s)) }
   @integer            { \s -> TokenInt (read s) }
   @real               { \s -> TokenDouble (read s) }
-  \"[^\"]*\"          { \s -> TokenString (init (tail s)) }
+  @string             { \s -> TokenString (init (tail s)) }
 
   -- operators
-  "~"                 { \_ -> TokenTilde }
+  "o" (@id_char)*     { \s -> TokenComposition s }
 
-  "."                 { \_ -> TokenDot }
+  "*" (@id_char)*     { \s -> TokenMult s }
+  "/" (@id_char)*     { \s -> TokenDiv s }
+  "+" (@id_char)*     { \s -> TokenAdd s }
+  "-" (@id_char)*     { \s -> TokenSub s }
 
-  "o"                 { \s -> TokenComposition s }
+  "==" (@id_char)*    { \s -> TokenEq s }
+  "/=" (@id_char)*    { \s -> TokenNeq s }
+  "<" (@id_char)*     { \s -> TokenLt s }
+  ">" (@id_char)*     { \s -> TokenGt s }
+  "<=" (@id_char)*    { \s -> TokenLe s }
+  ">=" (@id_char)*    { \s -> TokenGe s }
 
-  "*"                 { \s -> TokenMult s }
-  "/"                 { \s -> TokenDiv s }
-
-  "+"                 { \s -> TokenAdd s }
-  "-"                 { \s -> TokenSub s }
-
-  "=="                { \s -> TokenEq s }
-  "/="                { \s -> TokenNeq s }
-  "<"                 { \s -> TokenLt s }
-  ">"                 { \s -> TokenGt s }
-  "<="                { \s -> TokenLe s }
-  ">="                { \s -> TokenGe s }
+  "->" (@id_char)*    { \s -> TokenRArrow s }
+  "<-" (@id_char)*    { \s -> TokenLArrow s }
 
   "&&"                { \s -> TokenAnd s }
   "||"                { \s -> TokenOr s }
-
-  "->"                { \s -> TokenRArrow s }
-  "<-"                { \s -> TokenLArrow s }
-
-  "|"                 { \_ -> TokenBar }
-
-  "="                 { \_ -> TokenEquiv }
-
-  "@ "                { \_ -> TokenAtSpace }
-  "@"                 { \_ -> TokenAt }
 
 -- identifier
   @identifier         { \s -> TokenId s }

@@ -3,16 +3,16 @@ me Prelude
 use Core
 
 
-def == = eq
+def (==) = eq
 
 def not = @((==) false) true
         | @ false
 
-def /= x@ y@ = not (x == y)
-def < = less
-def <= x@ y@ = x == y || x < y
-def > x@ y@ = x /= y && not (x < y)
-def >= x@ y@ = not (x < y)
+def (/=) x@ y@ = not (x == y)
+def (<) = less
+def (<=) x@ y@ = x == y || x < y
+def (>) x@ y@ = x /= y && not (x < y)
+def (>=) x@ y@ = not (x < y)
 
 def isnum x@ = isint x || isreal x
 def ispos x@ = isnum x && x > 0
@@ -47,10 +47,10 @@ def div = x@isint  y@isint  (divInt x y)
 	| x@isint  y@isreal (divReal (mkReal x) y)
 	| x@isreal y@isint  (divReal x (mkReal y))
 
-def + = add
-def - = sub
-def * = mul
-def / = div
+def (+) = add
+def (-) = sub
+def (*) = mul
+def (/) = div
 
 def abs = x@isint  (absInt x)
         | x@isreal (absReal x)
