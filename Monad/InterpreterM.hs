@@ -31,7 +31,7 @@ instance Show Expr where
     show (DoubleExpr d) = show d
     show (SeqExpr exprs)
         | not (null exprs) && all isCharExpr exprs = show $ map (\(CharExpr c) -> c) exprs
-        | otherwise = "<" ++ intercalate "," (map show exprs) ++ ">"
+        | otherwise = "[" ++ intercalate "," (map show exprs) ++ "]"
     show (FnExpr _) = "fn"
     show (TypeExpr name _ expr) = name ++ " " ++ show expr
     show (DynExpr _) = "#"
