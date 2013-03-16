@@ -112,13 +112,13 @@ printStxM (TypeStx name stxs) =
                  printStxs stxs
 
 printStxM (TypeMkStx name) =
-    putPrinter $ "mk:" ++ show name
+    putPrinter $ "mk' " ++ name
 
 printStxM (TypeUnStx) =
-    putPrinter $ "un:"
+    putPrinter $ "un"
 
 printStxM (TypeIsStx name) =
-    putPrinter $ "is:" ++ show name
+    putPrinter $ "is' " ++ name
 
 printStxM (WhereStx stx stxs) =
     do printStxM stx
