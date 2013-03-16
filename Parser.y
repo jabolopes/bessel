@@ -127,8 +127,7 @@ DefnOrExpr:
 Defn:
     DefnKw Name DefnPatList    { defMacro $1 $2 $3 }
   | DefnKw Name '=' Expr       { DefnStx $1 $2 $4}
-  | type   Name '=' Expr       { typeExprMacro $2 $4 }
-  | type   Name '=' PatNoSpace { typePatMacro $2 $4 }
+  | type   Name '=' PatNoSpace { typeMacro $2 $4 }
 
 DefnPatList:
     DefnPatList '|' LambdaPatList '=' Expr  { $1 ++ [($3, $5)] }
