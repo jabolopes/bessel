@@ -29,9 +29,9 @@ printNamespaceM (Namespace uses stxs) =
 
 
 printStxM :: Stx String -> PrinterM ()
-printStxM (CharStx c) = putPrinter ['`', c]
-printStxM (IntStx i) = putPrinter $ show i
-printStxM (DoubleStx d) = putPrinter $ show d
+printStxM (CharStx c) = putPrinter (show c)
+printStxM (IntStx i) = putPrinter (show i)
+printStxM (DoubleStx d) = putPrinter (show d)
 
 printStxM (SeqStx stxs) | not (null stxs) && all isCharStx stxs =
     putPrinter $ show $ map (\(CharStx c) -> c) stxs
