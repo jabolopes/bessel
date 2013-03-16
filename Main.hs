@@ -5,7 +5,6 @@ import qualified Data.Map as Map (fromList)
 import System.Environment
 
 import Config
-import qualified CoreTypechecker (srcfile)
 -- import qualified Core.Environment (link)
 -- import qualified Core.IO (link)
 -- import qualified Core.Shell (link)
@@ -43,4 +42,4 @@ main =
     do args <- getArgs
        case args of
          [] -> importFile fs preludeName >>= repl
-         filename:_ -> importFile fs filename >>= batch "main:<>"
+         _ -> putStrLn $ "Unknown args: " ++ show args
