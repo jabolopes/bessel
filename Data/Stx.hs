@@ -18,7 +18,6 @@ data Namespace a
 data Pat a
     = Pat { patPred :: Stx a
           , patDefns ::  [(String, Stx a)] }
-      deriving (Eq, Ord, Show)
 
 
 mkPat :: Stx String -> [Stx String] -> [Pat String] -> Pat String
