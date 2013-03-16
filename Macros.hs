@@ -14,7 +14,7 @@ patDefnStxs = map (DefnStx NrDef `uncurry`)
 
 patLambdaStxs :: Stx a -> [(String, Stx a)] -> [Stx a]
 patLambdaStxs val = map (patLambdaDefn `uncurry`)
-    where patLambdaDefn id mod = DefnStx NrDef id $ AppStx mod val
+    where patLambdaDefn id mod = DefnStx NrDef id (AppStx mod val)
 
 
 -- def
