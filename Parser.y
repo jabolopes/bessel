@@ -195,15 +195,15 @@ Seq:
   | string             { stringStx $1 }
 
 Pat:
-    id '@ '      { namePat $1 (mkPat constTrueStx [] []) }
+    '@ '         { mkPat constTrueStx [] [] }
+  | id '@ '      { namePat $1 (mkPat constTrueStx [] []) }
   | '[' ']' '@ ' { Pat (applyStx "plist" []) [] }
-  | '@ '         { mkPat constTrueStx [] [] }
   | PatRest      { $1 }
 
 PatNoSpace:
-    id '@'      { namePat $1 (mkPat constTrueStx [] []) }
+    '@'         { mkPat constTrueStx [] [] }
+  | id '@'      { namePat $1 (mkPat constTrueStx [] []) }
   | '[' ']' '@' { Pat (applyStx "plist" []) [] }
-  | '@'         { mkPat constTrueStx [] [] }
   | PatRest     { $1 }
 
 PatRest:
