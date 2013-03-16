@@ -15,6 +15,32 @@ data Namespace a
       deriving (Eq, Ord, Show)
 
 
+data Pat a
+    = Pat { patPred :: Stx a
+          , patDefns ::  [(String, Stx a)] }
+      deriving (Eq, Ord, Show)
+
+
+mkPat :: Stx String -> [Stx String] -> [Pat String] -> Pat String
+mkPat pred mods pats =
+    Pat (patPred pred pats) (modPats mods pats)
+    where patPred pred [] = pred
+          patPred pred pats = AppStx pred $ SeqStx $ map (\(Pat pred _) -> pred) pats
+
+          modDefns _ [] = []
+          modDefns mod ((str, mod'):defns) =
+              (str, binOpStx "o" mod' mod):modDefns mod defns
+
+          modPats [] [] = []    
+          modPats (mod:mods) (Pat _ defns:pats) =
+              modDefns mod defns ++ modPats mods pats
+
+
+namePat :: String -> Pat String -> Pat String
+namePat name (Pat pred defns) =
+    Pat pred $ (name, IdStx "id"):defns
+
+
 data Stx a
     = CharStx Char
     | IntStx Int
@@ -24,6 +50,7 @@ data Stx a
     | IdStx a
 
     | AppStx (Stx a) (Stx a)
+    | CondStx [(Stx a, Stx a)] String
     | DefnStx DefnKw String (Stx a)
     | LambdaStx String (Stx a)
     | ModuleStx [String] (Namespace a)
@@ -70,6 +97,15 @@ isValueStx (LambdaStx _ _) = True
 isValueStx _ = False
 
 
+andStx :: Stx String -> Stx String -> Stx String
+andStx stx1 stx2 =
+    let
+        m1 = (binOpStx "==" stx1 (IdStx "true"), stx2)
+        m2 = (IdStx "true", IdStx "false")
+    in
+      CondStx [m1, m2] "irrefutable 'and' pattern"
+
+
 appStx :: a -> Stx a -> Stx a
 appStx str stx = AppStx (IdStx str) stx
 
@@ -78,12 +114,31 @@ applyStx :: a -> [Stx a] -> Stx a
 applyStx str = appStx str . SeqStx
 
 
-signalStx :: String -> String -> Stx String
-signalStx id str =
-    appStx "o" (SeqStx [IdStx "signal",
-                        appStx "cons" (SeqStx [appStx "K" $ stringStx id,
-                                               appStx "K" $ stringStx str,
-                                               IdStx "id"])])
+binOpStx :: a -> Stx a -> Stx a -> Stx a
+binOpStx op stx1 stx2 =
+    AppStx (appStx op stx1) stx2
+
+
+constStx :: Stx a -> Stx a
+constStx stx1 = LambdaStx "_" stx1
+
+
+constTrueStx :: Stx String
+constTrueStx = constStx (IdStx "true")
+
+
+orStx :: Stx String -> Stx String -> Stx String
+orStx stx1 stx2 =
+    let
+        m1 = (binOpStx "==" stx1 (IdStx "false"), stx2)
+        m2 = (IdStx "true", IdStx "true")
+    in
+      CondStx [m1, m2] "irrefutable 'or' pattern"
+
+
+signalStx :: String -> String -> Stx String -> Stx String
+signalStx id str val =
+    appStx "signal" (SeqStx [stringStx id, stringStx str, val])
 
 
 stringStx :: String -> Stx a

@@ -1,13 +1,12 @@
 {
-{-# LANGUAGE DeriveDataTypeable #-}
 module Parser where
 
 import Config
 import Data.Exception
 import Data.Stx
-import Data.Pat
 import Data.SrcFile
 import Macros
+import Utils
 
 }
 
@@ -20,7 +19,6 @@ import Macros
 %token
         -- symbols
         ','     { TokenComma }
-        '<-'    { TokenLArrow }
 
         -- grouping
         '('     { TokenLParen }
@@ -29,16 +27,11 @@ import Macros
         ']'     { TokenRConsParen }
         '{'     { TokenLEnvParen }
         '}'     { TokenREnvParen }
-        '[|'    { TokenLPredParen }
-        '|]'    { TokenRPredParen }
-        '<'     { TokenLSeqParen }
-        '>'     { TokenRSeqParen }
+
 
         -- keywords
 	as      { TokenAs }
         def     { TokenDef }
-        exdef   { TokenExdef }
-        lambda  { TokenLambda }
         me      { TokenMe }
         module  { TokenModule }
         nrdef   { TokenNrdef }
@@ -53,8 +46,6 @@ import Macros
         string    { TokenString $$ }
 
         -- operators
-        '\''    { TokenPrime }
-
         '~'     { TokenTilde }
 
         '.'     { TokenDot }
@@ -67,18 +58,21 @@ import Macros
         '+'     { TokenAdd $$ }
         '-'     { TokenSub $$ }
 
-        '='     { TokenEq $$ }
-
-        '=>'    { TokenPredAppendR $$ }
-        '<='    { TokenPredAppendL $$ }
+        '=='    { TokenEq $$ }
+        '/='    { TokenNeq $$ }
+        '<'     { TokenLt $$ }
+        '>'     { TokenGt $$ }
+        '<='    { TokenLe $$ }
+        '>='    { TokenGe $$ }
 
         '&&'    { TokenAnd $$ }
         '||'    { TokenOr $$ }
 
-        '->'    { TokenRArrow }
+        '->'    { TokenRArrow $$ }
+        '<-'    { TokenLArrow $$ }
         '|'     { TokenBar }
 
-        ':='    { TokenEquiv }
+        '='     { TokenEquiv }
 
         '@'     { TokenAt }
         '@ '    { TokenAtSpace }
@@ -89,21 +83,21 @@ import Macros
 
 -- Precedence (lower)
                          -- definition
-%left lambda_prec        -- lambda
+%nonassoc lambda_prec    -- lambda
+%nonassoc lambda         -- lambda
 %left where              -- where
 %right '->' '|'          -- condition
-%left name               -- infix name op
 %left '&&' '||'          -- logical
-%left '=>' '<='          -- predicate appends
-%left '->' '<-'          -- arrows
-%left '='                -- equality
+%left '<-' '->'          -- arrow
+%left '==' '/=' '<' '>' '<=' '>='  -- comparison
 %left '+' '-'            -- additives
 %left '*' '/'            -- multiplicatives
 %left 'o'                -- composition
-%nonassoc below_app_prec -- application
-%nonassoc app_prec       -- application
+%nonassoc below_app_prec -- below application (e.g., single id)
+%left app_prec           -- application
 %nonassoc '~'            -- constant
 %nonassoc '\''           -- lift
+%nonassoc '(' '[' '[|' character integer double string name
 -- /Precedence (greater)
 
 -- This is the type of the data produced by a successful reduction of the 'start'
@@ -113,17 +107,11 @@ import Macros
 %%
 
 SrcFile:
-    me NameDotList Namespace { mkParsedSrcFile $2 $3 }
+    me LongId Namespace { mkParsedSrcFile (flattenId $2) $3 }
 
--- edit: eliminate NameDotList and NameDotList2
-
-NameDotList:
-    NameDotList '.' name { $1 ++ "." ++ $3 }
-  | name                 { $1 }
-
-NameDotList2:
-    NameDotList2 '.' name { $1 ++ [$3] }
-  | name                  { [$1] }
+LongId:
+    LongId '.' name { $1 ++ [$3] }
+  | name            { [$1] }
 
 Namespace:
     UseList DefnList { Namespace $1 $2 }
@@ -131,10 +119,10 @@ Namespace:
   | DefnList         { Namespace [] $1 }
 
 UseList:
-    UseList use NameDotList as NameDotList { $1 ++ [($3, $5)] }
-  | UseList use NameDotList    		   { $1 ++ [($3, "")] }
-  | use NameDotList as NameDotList	   { [($2, $4)] }
-  | use NameDotList         		   { [($2, "")] }
+    UseList use LongId as LongId { $1 ++ [(flattenId $3, flattenId $5)] }
+  | UseList use LongId           { $1 ++ [(flattenId $3, "")] }
+  | use LongId as LongId         { [(flattenId $2, flattenId $4)] }
+  | use LongId                   { [(flattenId $2, "")] }
 
 DefnList:
     DefnList Module          { $1 ++ [$2] }
@@ -143,43 +131,20 @@ DefnList:
   | Defn                     { [$1] }
 
 Module:
-    module              where '{' Namespace '}' { ModuleStx [] $4 }
-  | module NameDotList2 where '{' Namespace '}' { ModuleStx $2 $5 }
+    module        where '{' Namespace '}' { ModuleStx [] $4 }
+  | module LongId where '{' Namespace '}' { ModuleStx $2 $5 }
 
 DefnOrExpr:
     Defn        { $1 }
   | Expr        { $1 }
 
 Defn:
-    DefnKw OpOrName DefnPatList '<-' Expr ':=' Expr    { defExprMacro $1 $2 $3 $5 $7 }
-  | DefnKw OpOrName DefnPatList '<-' Pat  ':=' Expr    { defPatMacro $1 $2 $3 $5 $7 }
-  | DefnKw OpOrName DefnPatList           ':=' Expr    { defMacro $1 $2 $3 $5 }
-  | DefnKw OpOrName             '<-' Expr ':=' Expr    { defExprMacro $1 $2 [] $4 $6 }
-  | DefnKw OpOrName             '<-' Pat  ':=' Expr    { defPatMacro $1 $2 [] $4 $6 }
-  | DefnKw OpOrName                       ':=' Expr    { DefnStx $1 $2 $4 }
+    DefnKw OpOrName DefnPatList '=' Expr { defMacro $1 $2 $3 $5 }
+  | DefnKw OpOrName             '=' Expr { DefnStx $1 $2 $4}
 
-  | exdef  Pat      DefnPatList '<-' Expr ':=' Expr    { case exdefExprMacro $2 $3 $5 $7 of
-                                                           [] -> error "exdef: empty pattern"
-                                                           stxs -> SeqStx stxs }
-  | exdef  Pat      DefnPatList '<-' Pat  ':=' Expr    { case exdefPatMacro $2 $3 $5 $7 of
-                                                           [] -> error "exdef: empty pattern"
-                                                           stxs -> SeqStx stxs }
-  | exdef  Pat      DefnPatList           ':=' Expr    { case exdefMacro $2 $3 $5 of
-                                                           [] -> error "exdef: empty pattern"
-                                                           stxs -> SeqStx stxs }
-  | exdef  Pat                  '<-' Expr ':=' Expr    { case exdefExprMacro $2 [] $4 $6 of
-                                                           [] -> error "exdef: empty pattern"
-                                                           stxs -> SeqStx stxs }
-  | exdef  Pat                  '<-' Pat  ':=' Expr    { case exdefPatMacro $2 [] $4 $6 of
-                                                           [] -> error "exdef: empty pattern"
-                                                           stxs -> SeqStx stxs }
-  | exdef  Pat                            ':=' Expr    { case exdefMacro $2 [] $4 of
-                                                           [] -> error "exdef: empty pattern"
-                                                           stxs -> SeqStx stxs }
-
-  | type  OpOrName                        ':=' Expr       { typeExprMacro $2 $4 }
-  | type  OpOrName                        ':=' PatNoSpace { typePatMacro $2 $4 }
---| asn   Expr         ':=' Expr        { AsnStx  $2 $4 }
+  | type  OpOrName              '=' Expr       { typeExprMacro $2 $4 }
+  | type  OpOrName              '=' PatNoSpace { typePatMacro $2 $4 }
+--| asn   Expr         '=' Expr        { AsnStx  $2 $4 }
 --| sig   OpOrName     	    		  '::' MetaPred   { SigStx  $2 $4 }
 
 DefnKw:
@@ -195,45 +160,55 @@ DefnPatList:
   | Pat             { [$1] }
 
 Expr:
-    SimpleExpr %prec below_app_prec  { $1 }
+    SimpleExpr %prec below_app_prec { $1 }
 
-  | Cond                          { $1 }
+  | Expr SimpleExpr %prec app_prec  { AppStx $1 $2 }
 
-  | Expr '\''                     { AppStx (IdStx "lift") $1 }
-  -- | Expr ':' PrimeList Expr       { AppStx (primesMacro $3 "apply") (SeqStx [$1, $4]) }
-  | SimpleExpr SimpleExpr %prec app_prec         { AppStx $1 $2 }
-  | Expr 'o' Expr                 { AppStx (IdStx $2) (SeqStx [$1, $3]) }
-  | Expr '*' Expr                 { AppStx (IdStx $2) (SeqStx [$1, $3]) }
-  | Expr '/' Expr                 { AppStx (IdStx $2) (SeqStx [$1, $3]) }
-  | Expr '+' Expr                 { AppStx (IdStx $2) (SeqStx [$1, $3]) }
-  | Expr '-' Expr                 { AppStx (IdStx $2) (SeqStx [$1, $3]) }
-  | Expr '=' Expr                 { AppStx (IdStx $2) (SeqStx [$1, $3]) }
-  | Expr '=>' Expr                { AppStx (IdStx $2) (SeqStx [$1, $3]) }
-  | Expr '<=' Expr                { AppStx (IdStx $2) (SeqStx [$1, $3]) }
-  | Expr '&&' Expr                { AppStx (IdStx $2) (SeqStx [$1, $3]) }
-  | Expr '||' Expr                { AppStx (IdStx $2) (SeqStx [$1, $3]) }
-  | Expr name Expr                { AppStx (IdStx $2) (SeqStx [$1, $3]) }
+  | Expr 'o' Expr   { binOpStx $2 $1 $3 }
 
-  | lambda Pat Expr %prec lambda_prec   { lambdaMacro $2 $3 }
+  | Expr '*' Expr   { binOpStx $2 $1 $3 }
+  | Expr '/' Expr   { binOpStx $2 $1 $3 }
 
-  | Expr where '{' DefnList '}'   { WhereStx $1 $4 }
+  | Expr '+' Expr   { binOpStx $2 $1 $3 }
+  | Expr '-' Expr   { binOpStx $2 $1 $3 }
+
+  | Expr '==' Expr  { binOpStx $2 $1 $3 }
+  | Expr '/=' Expr  { binOpStx $2 $1 $3 }
+  | Expr '<'  Expr  { binOpStx $2 $1 $3 }
+  | Expr '>'  Expr  { binOpStx $2 $1 $3 }
+  | Expr '<=' Expr  { binOpStx $2 $1 $3 }
+  | Expr '>=' Expr  { binOpStx $2 $1 $3 }
+
+  | Expr '->' Expr  { binOpStx $2 $1 $3 }
+  | Expr '<-' Expr  { binOpStx $2 $1 $3 }
+
+  | Expr '&&' Expr  { andStx $1 $3 }
+  | Expr '||' Expr  { orStx $1 $3 }
+
+--| Expr name Expr  { binOpStx $2 $1 $3 }
+
+  | Lambda          { lambdaMacro $1 }
+
+  | Expr where '{' DefnList '}' { WhereStx $1 $4 }
+
+Lambda:
+    Lambda '|' LambdaPatList SimpleExpr { $1 ++ [($3, $4)] }
+  | LambdaPatList SimpleExpr            { [($1, $2)] }
+
+LambdaPatList:
+    LambdaPatList Pat { $1 ++ [$2] }
+  | Pat               { [$1] }
 
 SimpleExpr:
     Ident	             { IdStx $1 }
   | Constant	             { $1 }
-  | ParenExpr                { $1 }
-  | Seq                      { $1 }
-  | '~' SimpleExpr           { AppStx (IdStx "K") $2 }
-  | '~' PrimeList SimpleExpr { AppStx (primesMacro $2 "K") $3 }
+  | Seq			     { $1 }
+  | '~' SimpleExpr           { constStx $2 }
+  | '(' Expr ')'             { $2 }
 
 Ident:     
     '(' Operator ')' { $2 }
-  | NameDotList      { $1 }
-
-Constant:
-    character   { CharStx $1 }
-  | integer     { IntStx $1 }
-  | double      { DoubleStx $1 }
+  | LongId           { flattenId $1 }
 
 Operator:
     'o'         { $1 }
@@ -244,63 +219,60 @@ Operator:
   | '+'         { $1 }
   | '-'         { $1 }
 
-  | '='         { $1 }
-
-  | '=>'        { $1 }
+  | '=='        { $1 }
+  | '/='        { $1 }
+  | '<'         { $1 }
+  | '>'         { $1 }
   | '<='        { $1 }
+  | '>='        { $1 }
+
+  | '->'        { $1 }
+  | '<-'        { $1 }
 
   | '&&'        { $1 }
   | '||'        { $1 }
 
-ParenExpr:
-    '['                    ']'    { AppStx (IdStx "cons") (SeqStx []) }
-  | '[' PrimeList          ']'    { AppStx (primesMacro $2 "cons") (SeqStx []) }
-  | '['           ExprList ']'    { AppStx (IdStx "cons") (SeqStx $2) }
-  | '[' PrimeList ExprList ']'    { AppStx (primesMacro $2 "cons") (SeqStx $3) }
-  | '[|'                    '|]'  { AppStx (IdStx "pcons") (SeqStx []) }
-  | '[|' PrimeList          '|]'  { AppStx (primesMacro $2 "pcons") (SeqStx []) }
-  | '[|'           ExprList '|]'  { AppStx (IdStx "pcons") (SeqStx $2) }
-  | '[|' PrimeList ExprList '|]'  { AppStx (primesMacro $2 "pcons") (SeqStx $3) }
-  | '(' Expr ')'                  { $2 }
+Constant:
+    character   { CharStx $1 }
+  | integer     { if $1 >= 0 then IntStx $1 else appStx "negInt" (IntStx (- $1)) }
+  | double      { if $1 >= 0 then DoubleStx $1 else appStx "negReal" (DoubleStx (- $1)) }
 
 Seq:
-    '<' ExprList '>'    { SeqStx $2 }
-  | '<'          '>'    { SeqStx [] }
-  | string              { stringStx $1 }
-
-Cond:
-    Expr '->' PrimeList Expr '|' Expr   { AppStx (primesMacro $3 "cond") (SeqStx [$1, $4, $6]) }
-  | Expr '->' PrimeList Expr            { AppStx (primesMacro $3 "cond") (SeqStx [$1, $4]) }
-  | Expr '->'           Expr '|' Expr   { applyStx "cond" [$1, $3, $5] }
-  | Expr '->'           Expr            { applyStx "cond" [$1, $3] }
-  | Pat  '->'           Expr '|' Expr   { ifelseMacro $1 $3 $5 }
-  | Pat  '->'           Expr            { ifthenMacro $1 $3 }
+    '[' ExprList ']'   { SeqStx $2 }
+  | '['          ']'   { SeqStx [] }
+  | string             { stringStx $1 }
 
 Pat:
-    PatRest   { $1 }
-  | name '@ ' { namePat $1 (mkPat (IdStx "tt") [] []) }
+    name '@ ' { namePat $1 (mkPat constTrueStx [] []) }
+  | '@ '      { mkPat constTrueStx [] [] }
+  | PatRest   { $1 }
 
 PatNoSpace:
-    PatRest   { $1 }
-  | name '@'  { namePat $1 (mkPat (IdStx "tt") [] []) }
+    name '@'  { namePat $1 (mkPat constTrueStx [] []) }
+  | '@'       { mkPat constTrueStx [] [] }
+  | PatRest   { $1 }
 
 PatRest:
-    OpPat                 { $1 }
-  | ConsPat               { $1 }
+    '(' OpPat ')'         { $2 }
+  | ListPat               { $1 }
+  | '@' Ident             { mkPat (IdStx $2) [] [] }
+  | '@' ListPat           { $2 }
+  | '@' '(' Expr ')'      { mkPat $3 [] [] }
   | name '@' Ident        { namePat $1 (mkPat (IdStx $3) [] []) }
-  | name '@' ConsPat      { namePat $1 $3 }
-  | name '@' ParenExpr    { namePat $1 (mkPat $3 [] []) }
+  | name '@' ListPat      { namePat $1 $3 }
+  | name '@' '(' Expr ')' { namePat $1 (mkPat $4 [] []) }
 
 OpPat:
-    Pat 'o' Pat        { let Pat pred _ = $3 in
+    Pat 'o' PatNoSpace { let Pat pred _ = $3 in
                          mkPat (IdStx $2) [pred, IdStx "id"] [$1, $3] }
-  | Pat '=>' Pat       { mkPat (IdStx $2) [IdStx "hd", IdStx "tl"] [$1, $3] }
-  | Pat '<=' Pat       { mkPat (IdStx $2) [IdStx "tlr", IdStx "hdr"] [$1, $3] }
-  | Pat '&&' Pat       { mkPat (IdStx $2) [IdStx "id", IdStx "id"] [$1, $3] }
-  | Pat '||' Pat       { mkPat (IdStx $2) [IdStx "id", IdStx "id"] [$1, $3] }
+  | Pat '->' PatNoSpace { mkPat (IdStx $2) [IdStx "hd", IdStx "tl"] [$1, $3] }
+  | Pat '<-' PatNoSpace { mkPat (IdStx $2) [IdStx "tlr", IdStx "hdr"] [$1, $3] }
+  | Pat '&&' PatNoSpace { mkPat (IdStx $2) [IdStx "id", IdStx "id"] [$1, $3] }
+  | Pat '||' PatNoSpace { mkPat (IdStx $2) [IdStx "id", IdStx "id"] [$1, $3] }
 
-ConsPat:
-    '[|' PatList '|]'   { mkPat (IdStx "pcons") [ appStx "s" (IntStx i) | i <- [1..length $2] ] $2 }
+ListPat:
+    '[' PatList ']' { mkPat (IdStx "pcons") [ appStx "s" (IntStx i) | i <- [1..length $2] ] $2 }
+  | '[' ']'         { mkPat (IdStx "pcons") [] [] }
 
 PatList:
     ExprList ',' PatNoSpace ',' PatList2 { map (\expr -> mkPat expr [] []) $1 ++ [$3] ++ $5 }
@@ -318,11 +290,6 @@ ExprList:
     ExprList ',' Expr   { $1 ++ [$3] }
   | Expr                { [$1] }
 
-PrimeList :: { Int }
-PrimeList:
-    PrimeList '\''      { $1 + 1 }
-  | '\''                { 1 }
-
 
 {
 
@@ -332,7 +299,6 @@ parseError tks = throwParseException $ show tks
 data Token
      -- symbols
      = TokenComma
-     | TokenLArrow
 
      -- grouping
      | TokenLParen
@@ -341,10 +307,6 @@ data Token
      | TokenRConsParen
      | TokenLEnvParen
      | TokenREnvParen
-     | TokenLPredParen
-     | TokenRPredParen
-     | TokenLSeqParen
-     | TokenRSeqParen
 
      -- keywords
      | TokenAs
@@ -365,8 +327,6 @@ data Token
      | TokenString String
 
      -- operators
-     | TokenPrime
-
      | TokenTilde
 
      | TokenDot
@@ -382,6 +342,11 @@ data Token
      | TokenSub String
 
      | TokenEq String
+     | TokenNeq String
+     | TokenLt String
+     | TokenGt String
+     | TokenLe String
+     | TokenGe String
 
      | TokenPredAppendR String
      | TokenPredAppendL String
@@ -395,7 +360,9 @@ data Token
      | TokenPatAnd String
      | TokenPatOr String
 
-     | TokenRArrow
+     | TokenRArrow String
+     | TokenLArrow String
+
      | TokenBar
 
      | TokenEquiv

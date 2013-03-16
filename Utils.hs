@@ -1,10 +1,16 @@
 module Utils where
 
+import Data.List (intercalate)
+
 
 cross :: [[a]] -> [[a]]
 cross [] = []
 cross [lst] = [[x] | x <- lst]
 cross (lst:lsts) = [x:l | x <- lst, l <- cross lsts]
+
+
+flattenId :: [String] -> String
+flattenId xs = intercalate "." xs
 
 
 fromSingleton :: [a] -> a

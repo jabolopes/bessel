@@ -1,6 +1,6 @@
 module Core where
 
-import Prelude hiding ((&&), (||), (<=), not, and, or, id, compare, div, floor, ceiling, abs, reverse, read)
+import Prelude hiding ((&&), (||), id, compare, reverse, read)
 import qualified Prelude
 
 import Data.Functor ((<$>))
@@ -23,8 +23,6 @@ import Renamer
 
 -- predicates
 
---- predicates for numbers
-
 isint :: Expr -> Expr
 isint (IntExpr _) = true
 isint _ = false
@@ -33,32 +31,6 @@ isint _ = false
 isreal :: Expr -> Expr
 isreal (DoubleExpr _) = true
 isreal _ = false
-
-
-isnum :: Expr -> Expr
-isnum expr = or $ SeqExpr [isint expr, isreal expr]
-
-
-ispos :: Expr -> Expr
-ispos (IntExpr i) = BoolExpr $ i > 0
-ispos (DoubleExpr n) = BoolExpr $ n > 0
-
-
-isneg :: Expr -> Expr
-isneg (IntExpr i) = BoolExpr $ i < 0
-isneg (DoubleExpr n) = BoolExpr $ n < 0
-
-
-iszero :: Expr -> Expr
-iszero (IntExpr i) = BoolExpr $ i == 0
-iszero (DoubleExpr n) = BoolExpr $ n == 0.0
-
-
--- predicates for other atoms, functions, and user types
-
-isatom :: Expr -> Expr
-isatom expr = or $ SeqExpr [isnum expr, isbool expr, ischar expr]
-
 
 isbool :: Expr -> Expr
 isbool (BoolExpr _) = true
@@ -70,34 +42,14 @@ ischar (CharExpr _) = true
 ischar _ = false
 
 
-isutype :: Expr -> Expr
-isutype (TypeExpr _ _ _) = true
-isutype _ = false
+isfn :: Expr -> Expr
+isfn (FnExpr _) = true
+isfn _ = false
 
 
-isfunc' :: Expr -> Bool
-isfunc' (FnExpr _) = True
-isfunc' _ = False
-
-
-isfunc :: Expr -> Expr
-isfunc = BoolExpr . isfunc'
-
-
--- edit: implement this
--- isobj
-
-
---- predicates for sequences
-
-isnull :: Expr -> Expr
-isnull (SeqExpr []) = true
-isnull _ = false
-
-
-ispair :: Expr -> Expr
-ispair (SeqExpr [_, _]) = true
-ispair _ = false
+isobj :: Expr -> Expr
+isobj (TypeExpr _ _ _) = true
+isobj _ = false
 
 
 isseq :: Expr -> Expr
@@ -105,225 +57,121 @@ isseq (SeqExpr _) = true
 isseq _ = false
 
 
-isstring :: Expr -> Expr
-isstring (SeqExpr exprs) | all isCharExpr exprs = true
-isstring _ = false
+isseqof :: Expr -> Expr
+isseqof (FnExpr fn) = FnExpr hof
+    where hof (SeqExpr exprs) =
+              do b <- all isNotFalseExpr <$> mapM fn exprs
+                 return $ if b then true else false
+          hof _ = return false
 
 
---- identically true and false predicates
-
-ff :: Expr -> Expr
-ff _ = false
-
-
-isval :: Expr -> Expr
-isval _ = true
-
-
-tt :: Expr -> Expr
-tt _ = true
-
-
--- boolean and comparison functions
-
---- boolean functions
-
-and :: Expr -> Expr
-and (BoolExpr False) = false
-and expr@(BoolExpr _) = expr
-and (SeqExpr exprs) = andHof exprs
-    where andHof [] = true
-          andHof (expr:_) | isFalseExpr expr = false
-          andHof (_:exprs) = andHof exprs
-and expr = expr
-
-
-not :: Expr -> Expr
-not expr | isFalseExpr expr = true
-not _ = false
-
-
-or :: Expr -> Expr
-or expr@(BoolExpr False) = false
-or (SeqExpr exprs) = orHof exprs
-    where orHof [] = false
-          orHof (expr:exprs) | isFalseExpr expr = orHof exprs
-          orHof _ = true
-or expr = expr
-
-
---- comparison functions
+-- comparison functions
 
 eq :: Expr -> Expr
-eq expr@(SeqExpr []) = expr
-eq expr@(SeqExpr (val1:exprs)) = eq' exprs
-    where eq' [] = expr
-          eq' (val2:exprs) | isNotFalseExpr (val1 `exprEq` val2) = eq' exprs
-          eq' _ = false
-eq (BoolExpr False) = true
-eq expr = expr
-
-
--- neq (see Prelude)
-
-
-compare :: (Expr -> Expr -> Expr) -> Expr -> Expr
-compare _ expr@(SeqExpr []) = expr
-compare fn expr@(SeqExpr exprs) = compare' exprs
-    where compare' [_] = expr
-          compare' (val1:(exprs@(val2:_))) | isNotFalseExpr (val1 `fn` val2) = compare' exprs
-          compare' _ = false
-compare _ (BoolExpr False) = true
-compare _ expr = expr
+eq expr1 =
+    FnExpr $ \expr2 -> return (expr1 `exprEq` expr2)
 
 
 less :: Expr -> Expr
-less = compare exprLt
-
-
--- lesseq (see Prelude)
--- greater (see Prelude)
--- greatereq (see Prelude)
-
-
---- raised comparison functions (see Prelude)
+less expr1 =
+    FnExpr $ \expr2 -> return (expr1 `exprLt` expr2)
 
 
 -- arithmetic functions
 
-add :: Expr -> Expr
-add expr@(IntExpr _) = expr
-add expr@(DoubleExpr _) = expr
-add (SeqExpr exprs) = foldr add' (IntExpr 0) exprs
-    where add' (IntExpr i1) (IntExpr i2) = IntExpr $ i1 + i2
-          add' (DoubleExpr d1) (DoubleExpr d2) = DoubleExpr $ d1 + d2
-          add' (IntExpr i) (DoubleExpr d) = DoubleExpr $ (fromIntegral i) + d
-          add' (DoubleExpr d) (IntExpr i) = DoubleExpr $ d + (fromIntegral i)
-          add' expr1 _ = signal $ SeqExpr [boxString "add", boxString "arg", expr1]
-add expr = signal $ SeqExpr [boxString "add", boxString "arg", expr]
+mkInt :: Expr -> Expr
+mkInt expr@(IntExpr _) = expr
+mkInt (DoubleExpr d) = IntExpr (Prelude.floor d)
 
 
-sub :: Expr -> Expr
-sub (IntExpr i) = IntExpr $ - i
-sub (DoubleExpr d) = DoubleExpr $ - d
-sub (SeqExpr [IntExpr i]) = IntExpr $ - i
-sub (SeqExpr [DoubleExpr d]) = DoubleExpr $ - d
-sub (SeqExpr (expr:exprs)) = expr `sub'` add (SeqExpr exprs)
-    where sub' (IntExpr i1) (IntExpr i2) = IntExpr $ i1 - i2
-          sub' (DoubleExpr d1) (DoubleExpr d2) = DoubleExpr $ d1 - d2
-          sub' (IntExpr i) (DoubleExpr d) = DoubleExpr $ (fromIntegral i) - d
-          sub' (DoubleExpr d) (IntExpr i) = DoubleExpr $ d - (fromIntegral i)
+mkReal :: Expr -> Expr
+mkReal (IntExpr i) = DoubleExpr (fromIntegral i)
+mkReal expr@(DoubleExpr _) = expr
 
 
-mul :: Expr -> Expr
-mul expr@(IntExpr _) = expr
-mul expr@(DoubleExpr _) = expr
-mul (SeqExpr exprs) = foldr mul' (IntExpr 1) exprs
-    where mul' (IntExpr i1) (IntExpr i2) = IntExpr $ i1 * i2
-          mul' (DoubleExpr d1) (DoubleExpr d2) = DoubleExpr $ d1 * d2
-          mul' (IntExpr i) (DoubleExpr d) = DoubleExpr $ (fromIntegral i) * d
-          mul' (DoubleExpr d) (IntExpr i) = DoubleExpr $ d * (fromIntegral i)
+addInt :: Expr -> Expr
+addInt (IntExpr i1) =
+    FnExpr $ \(IntExpr i2) -> return $ IntExpr (i1 + i2)
 
 
-div :: Expr -> Expr
-div expr@(IntExpr _) = expr
-div expr@(DoubleExpr _) = expr
-div (SeqExpr [IntExpr i]) = DoubleExpr $ 1 / fromIntegral i
-div (SeqExpr [DoubleExpr d]) = DoubleExpr $ 1 / d
-div (SeqExpr (expr:exprs)) = expr `div'` mul (SeqExpr exprs)
-    where div' (IntExpr i1) (IntExpr i2) = DoubleExpr $ fromIntegral i1 / fromIntegral i2
-          div' (DoubleExpr d1) (DoubleExpr d2) = DoubleExpr $ d1 / d2
-          div' (IntExpr i) (DoubleExpr d) = DoubleExpr $ fromIntegral i / d
-          div' (DoubleExpr d) (IntExpr i) = DoubleExpr $ d / fromIntegral i
+addReal :: Expr -> Expr
+addReal (DoubleExpr i1) =
+    FnExpr $ \(DoubleExpr i2) -> return $ DoubleExpr (i1 + i2)
 
 
-floor :: Expr -> Expr
-floor expr@(IntExpr _) = expr
-floor (DoubleExpr d) = IntExpr $ Prelude.floor d
-floor (SeqExpr exprs) = SeqExpr $ map floor' exprs
-    where floor' expr@(IntExpr i) = expr
-          floor' (DoubleExpr d) = IntExpr $ Prelude.floor d
+subInt :: Expr -> Expr
+subInt (IntExpr i1) =
+    FnExpr $ \(IntExpr i2) -> return $ IntExpr (i1 - i2)
 
 
-ceiling :: Expr -> Expr
-ceiling expr@(IntExpr _) = expr
-ceiling (DoubleExpr d) = IntExpr $ Prelude.ceiling d
-ceiling (SeqExpr exprs) = SeqExpr $ map floor' exprs
-    where floor' expr@(IntExpr i) = expr
-          floor' (DoubleExpr d) = IntExpr $ Prelude.ceiling d
+subReal :: Expr -> Expr
+subReal (DoubleExpr d1) =
+    FnExpr $ \(DoubleExpr d2) -> return $ DoubleExpr (d1 - d2)
 
 
-abs :: Expr -> Expr
-abs (IntExpr i) = IntExpr $ Prelude.abs i
-abs (DoubleExpr d) = DoubleExpr $ Prelude.abs d
-abs (SeqExpr exprs) = SeqExpr $ map floor' exprs
-    where floor' (IntExpr i) = IntExpr $ Prelude.abs i
-          floor' (DoubleExpr d) = DoubleExpr $ Prelude.abs d
+mulInt :: Expr -> Expr
+mulInt (IntExpr i1) =
+    FnExpr $ \(IntExpr i2) -> return $ IntExpr (i1 * i2)
 
 
---- raised arithmetic functions (see Prelude)
+mulReal :: Expr -> Expr
+mulReal (DoubleExpr d1) =
+    FnExpr $ \(DoubleExpr d2) -> return $ DoubleExpr (d1 * d2)
+
+
+divInt :: Expr -> Expr
+divInt (IntExpr i1) =
+    FnExpr $ \(IntExpr i2) -> return $ IntExpr (i1 `div` i2)
+
+
+divReal :: Expr -> Expr
+divReal (DoubleExpr d1) =
+    FnExpr $ \(DoubleExpr d2) -> return $ DoubleExpr (d1 / d2)
+
+
+absInt :: Expr -> Expr
+absInt (IntExpr i) = IntExpr (Prelude.abs i)
+
+
+absReal :: Expr -> Expr
+absReal (DoubleExpr d) = DoubleExpr (abs d)
+
+
+ceilingReal :: Expr -> Expr
+ceilingReal (DoubleExpr d) = IntExpr (ceiling d)
+
+
+floorReal :: Expr -> Expr
+floorReal (DoubleExpr d) = IntExpr (floor d)
+
+
+negInt :: Expr -> Expr
+negInt (IntExpr i) = IntExpr (- i)
+
+
+negReal :: Expr -> Expr
+negReal (DoubleExpr d) = DoubleExpr (- d)
 
 
 -- combining forms
-
-o :: Expr -> Expr
-o (FnExpr fn) = FnExpr $ \expr -> fn expr
-o (SeqExpr fns) = FnExpr $ \expr -> foldr (\(FnExpr fn) arg -> arg >>= fn) (return expr) fns
-
-
-cons :: Expr -> Expr
-cons (FnExpr fn) =
-    FnExpr $ \expr -> fn expr >>= return . SeqExpr . (:[])
-cons expr@(SeqExpr fns) =
-    FnExpr $ \expr -> mapM (\(FnExpr fn) -> fn expr) fns >>= return . SeqExpr
-
-
-cond :: Expr -> Expr
-cond (SeqExpr [FnExpr fn1, FnExpr fn2]) =
-    FnExpr $ \expr -> do
-      expr' <- fn1 expr
-      if isNotFalseExpr expr'
-        then fn2 expr
-        else signal $ SeqExpr [boxString "cond", boxString "1arm", expr]
-
-cond (SeqExpr [FnExpr fn1, FnExpr fn2, FnExpr fn3]) =
-    FnExpr $ \expr -> do
-      expr' <- fn1 expr
-      if isNotFalseExpr expr'
-        then fn2 expr
-        else fn3 expr
-
-cond expr = signal $ SeqExpr [boxString "cond", boxString "arg", expr]
-
 
 apply :: Expr -> InterpreterM Expr
 apply (SeqExpr [FnExpr fn, expr]) = fn expr
 
 
+o :: Expr -> Expr
+o (FnExpr fn1) =
+    FnExpr $ \(FnExpr fn2) ->
+        return $ FnExpr $ \expr -> fn1 =<< fn2 expr
+
+
 -- K (see Prelude)
-
-
-lift' :: Expr -> (Expr -> InterpreterM Expr)
-lift' fn@(FnExpr _) =
-    \vals -> return $ o $ SeqExpr [fn, cons vals]
-
-
-lift :: Expr -> Expr
-lift = f lift'
 
 
 -- C (see Prelude)
 
 
 -- raise (see Prelude)
-
--- raise :: Expr -> Expr
--- raise fn@(FnExpr fn') =
---     FnExpr hof
---     where hof expr | isNotFalseExpr (isfunc expr) = (lift' fn) expr
---           hof expr =
---               do b <- seqof' (m isfunc) expr
---                  if isNotFalseExpr b then (lift' fn) expr else fn' expr
 
 
 -- edit: catch
@@ -354,17 +202,6 @@ pcons (SeqExpr fns) = FnExpr pconsHof
 
 
 -- '=' (see Prelude)
-
-
-seqof' :: Expr -> Expr -> InterpreterM Expr
-seqof' (FnExpr fn) (SeqExpr exprs) =
-    do b <- all isNotFalseExpr <$> mapM fn exprs
-       return $ if b then true else false
-seqof' (FnExpr fn) _ = return false
-
-
-seqof :: Expr -> Expr
-seqof = f seqof'
 
 
 -- eqto (see Prelude)
@@ -401,11 +238,6 @@ lenis (IntExpr i) =
                    else return true
 
 
-(¬) :: Expr -> Expr
-(¬) (FnExpr fn) = FnExpr $ \expr -> fn expr >>= return . not
-(¬) expr = signal $ SeqExpr [boxString "¬", boxString "arg", expr]
-
-
 rarrow :: Expr -> Expr
 rarrow (SeqExpr [FnExpr fn1, FnExpr fn2]) =
     FnExpr rarrow'
@@ -420,8 +252,8 @@ rarrow (SeqExpr [FnExpr fn1, FnExpr fn2]) =
           rarrow' _ = return false
 
 
-(<=) :: Expr -> Expr
-(<=) (SeqExpr [FnExpr fn1, FnExpr fn2]) =
+larrow :: Expr -> Expr
+larrow (SeqExpr [FnExpr fn1, FnExpr fn2]) =
     FnExpr larrow'
     where larrow' (SeqExpr xs) | Prelude.not (null xs) =
               do expr1 <- fn1 $ SeqExpr $ init xs
@@ -574,72 +406,49 @@ desc = [
   ("false", BoolT, false),
   ("true", BoolT, true),
   -- predicates
-  --- predicates for numbers
   ("isint", predT, m isint),
   ("isreal", predT, m isreal),
-  ("isnum", predT, m isnum),
-  ("ispos", predT, m ispos),
-  ("isneg", predT, m isneg),
-  ("iszero", predT, m iszero),
-  --- predicates for other atoms, functions, and user types
-  ("isatom", predT, m isatom),
   ("isbool", predT, m isbool),
   ("ischar", predT, m ischar),
-  ("isutype", predT, m isutype),
-  ("isfunc", predT, m isfunc),
-  --- predicates for sequences
-  ("isnull", predT, m isnull),
-  ("ispair", predT, m ispair),
+  ("isfn", predT, m isfn),
+  ("isobj", predT, m isobj),
   ("isseq", predT, m isseq),
-  ("isstring", predT, m isstring),
-  --- identically true and false predicates
-  ("ff", predT, m ff),
-  ("isval", predT, m isval),
-  ("tt", predT, m tt),
-  -- boolean and comparison functions
-  --- boolean functions
-  ("and", ArrowT (SeqT BoolT) BoolT, m and),
-  ("not", ArrowT BoolT BoolT, m not),
-  ("or", ArrowT (SeqT BoolT) BoolT, m or),
-  --- comparison functions
-  ("eq", predTs, m eq),
-  ("less", predTs, m less),
+  ("isseqof", ArrowT predT DynT, m isseqof),
+  -- comparison functions
+  ("eq", ArrowT DynT (ArrowT DynT BoolT), m eq),
+  ("less", ArrowT DynT (ArrowT DynT BoolT), m less),
   -- arithmetic functions
-  ("add", ArrowT (SeqT DynT) DynT, m add),
-  ("sub", ArrowT (SeqT DynT) DynT, m sub),
-  ("mult", ArrowT (SeqT DynT) DynT, m mul),
-  ("div", ArrowT (SeqT DynT) DynT, m div),
-  ("floor", ArrowT DynT DynT, m floor),
-  ("ceiling", ArrowT DynT DynT, m ceiling),
-  ("abs", ArrowT DynT DynT, m abs),
+  ("mkInt", ArrowT DynT IntT, m mkInt),
+  ("mkReal", ArrowT DynT DoubleT, m mkReal),
+  ("addInt", ArrowT IntT (ArrowT IntT IntT), m addInt),
+  ("addReal", ArrowT DoubleT (ArrowT DoubleT DoubleT), m addReal),
+  ("subInt", ArrowT IntT (ArrowT IntT IntT), m subInt),
+  ("subReal", ArrowT DoubleT (ArrowT DoubleT DoubleT), m subReal),
+  ("mulInt", ArrowT IntT (ArrowT IntT IntT), m mulInt),
+  ("mulReal", ArrowT DoubleT (ArrowT DoubleT DoubleT), m mulReal),
+  ("divInt", ArrowT IntT (ArrowT IntT IntT), m divInt),
+  ("divReal", ArrowT DoubleT (ArrowT DoubleT DoubleT), m divReal),
+  ("absInt", ArrowT IntT IntT, m absInt),
+  ("absReal", ArrowT DoubleT DoubleT, m absReal),
+  ("ceilingReal", ArrowT DoubleT IntT, m ceilingReal),
+  ("floorReal", ArrowT DoubleT IntT, m floorReal),
+  ("negInt", ArrowT IntT (ArrowT IntT IntT), m negInt),
+  ("negReal", ArrowT DoubleT (ArrowT DoubleT DoubleT), m negReal),
   -- combining forms
-  ("o", ArrowT (SeqT (ArrowT DynT DynT)) (ArrowT DynT DynT), m o),
-  ("cons", (ForallT "a" (ArrowT (SeqT (ArrowT (TvarT "a") DynT)) (ArrowT (TvarT "a") DynT))), m cons),
-  -- ("cons", (ForallT "a" (ForallT "b" (ArrowT (SeqT (ArrowT (TvarT "a") (TvarT "b"))) (ArrowT (TvarT "a") (TvarT "b"))))), m cons),
-  ("ifthen", (ForallT "a"
-              (ForallT "b"
-               (ArrowT (TupT [ArrowT (TvarT "a") BoolT, ArrowT (TvarT "a") (TvarT "b")])
-                (ArrowT (TvarT "a") (TvarT "b"))))), m cond),
-  ("ifelse", (ForallT "a"
-              (ForallT "b"
-               (ForallT "c"
-                (ArrowT (TupT [ArrowT (TvarT "a") BoolT,
-                               ArrowT (TvarT "a") (TvarT "b"),
-                               ArrowT (TvarT "a") (TvarT "c")])
-                 (ArrowT (TvarT "a") DynT))))), m cond),
-  ("cond", ArrowT (SeqT (ArrowT DynT DynT)) (ArrowT DynT DynT), m cond),
   ("apply", ArrowT (TupT [ArrowT DynT DynT, DynT]) DynT, FnExpr apply),
-  ("lift", ArrowT (ArrowT DynT DynT) (ArrowT DynT DynT), m lift),
-  -- ("raise", m raise),
+  ("o", ForallT "a"
+         (ForallT "b"
+          (ForallT "c"
+           (ArrowT (ArrowT (TvarT "b") (TvarT "c"))
+            (ArrowT (ArrowT (TvarT "a") (TvarT "b"))
+             (ArrowT (TvarT "a") (TvarT "c")))))), m o),
   -- predicate combining forms
   ("pcons", ArrowT (SeqT predT) predT, m pcons),
-  ("seqof", ArrowT predT predT, m seqof),
   ("lenis", ArrowT IntT listPredT, m lenis),
   ("&&", ArrowT (SeqT predT) predT, m (&&)),
   ("||", ArrowT (SeqT predT) predT, m (||)),
-  ("¬", ArrowT predT predT, m (¬)),
-  ("=>", ArrowT (TupT [predT, predT]) listPredT, m rarrow),
-  ("<=", ArrowT (TupT [predT, predT]) listPredT, m (<=)),
+  ("->", ArrowT (TupT [predT, predT]) listPredT, m rarrow),
+  ("<-", ArrowT (TupT [predT, predT]) listPredT, m larrow),
   ("map", ArrowT (ArrowT DynT DynT) (ArrowT (SeqT DynT) (SeqT DynT)), m alpha),
   ("al", ArrowT (SeqT DynT) (SeqT DynT), m al),
   ("ar", ArrowT (SeqT DynT) (SeqT DynT), m ar),

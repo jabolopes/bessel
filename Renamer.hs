@@ -271,6 +271,13 @@ renameM (IdStx name) =
 renameM (AppStx stx1 stx2) =
     (:[]) <$> ((AppStx <$> renameOneM stx1) `ap` renameOneM stx2)
 
+renameM (CondStx ms blame) =
+    (:[]) . (\ms -> CondStx ms blame) <$> mapM renameMatch ms
+    where renameMatch (stx1, stx2) =
+              do stx1' <- renameOneM stx1
+                 stx2' <- renameOneM stx2
+                 return (stx1', stx2')
+
 renameM (DefnStx Def name body) =
     do name' <- genNameM name
        addFnSymbolM name name'

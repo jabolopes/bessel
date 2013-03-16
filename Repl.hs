@@ -120,7 +120,8 @@ stageFiles srcfiles =
           putHeader i =
               putStr $ "[" ++ show i ++ "/" ++ show n ++ "] "
 
-          updateFs fs srcfile = Map.insert (SrcFile.name srcfile) srcfile fs
+          updateFs fs srcfile =
+              Map.insert (SrcFile.name srcfile) srcfile fs
 
           typecheckM fs srcs
             | doTypecheck = typecheckerEither (typecheck fs srcs)

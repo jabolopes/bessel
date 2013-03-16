@@ -45,7 +45,7 @@ $letter     = [a-zA-Z]
 	    | "^"
 	    | "¬"
 
-@identifier = @ident_char (@ident_char | $digit)*
+@identifier = @ident_char (@ident_char | $digit | "'")*
 
 @name = @identifier
       | "&&"
@@ -72,7 +72,6 @@ tokens :-
 
   -- symbols
   ","			{ \_ -> TokenComma }
-  "<-"			{ \_ -> TokenLArrow}
 
   -- grouping
   "("			{ \_ -> TokenLParen }
@@ -81,16 +80,10 @@ tokens :-
   "]"			{ \_ -> TokenRConsParen }
   "{"			{ \_ -> TokenLEnvParen }
   "}"			{ \_ -> TokenREnvParen }
-  "[|"			{ \_ -> TokenLPredParen }
-  "|]"			{ \_ -> TokenRPredParen }
-  "<"			{ \_ -> TokenLSeqParen }
-  ">"			{ \_ -> TokenRSeqParen }
 
   -- keywords
   "as"			{ \_ -> TokenAs }
   "def"			{ \_ -> TokenDef }
-  "exdef"		{ \_ -> TokenExdef }
-  \\		        { \_ -> TokenLambda }
   "me"			{ \_ -> TokenMe }
   "module"		{ \_ -> TokenModule }
   "nrdef"		{ \_ -> TokenNrdef }
@@ -105,8 +98,6 @@ tokens :-
   \"[^\"]*\"    	{ \s -> TokenString (init (tail s)) }
 
   -- operators
-  "'"			{ \_ -> TokenPrime }
-
   "~"			{ \_ -> TokenTilde }
 
   "@ "			{ \_ -> TokenAtSpace }
@@ -120,18 +111,22 @@ tokens :-
   "+"			{ \s -> TokenAdd s }
   "-"			{ \s -> TokenSub s }
 
-  "="			{ \s -> TokenEq s }
-
-  "=>"			{ \s -> TokenPredAppendR s }
-  "<="			{ \s -> TokenPredAppendL s }
+  "=="			{ \s -> TokenEq s }
+  "/="			{ \s -> TokenNeq s }
+  "<"			{ \s -> TokenLt s }
+  ">"			{ \s -> TokenGt s }
+  "<="			{ \s -> TokenLe s }
+  ">="			{ \s -> TokenGe s }
 
   "&&"			{ \s -> TokenAnd s }
   "||"			{ \s -> TokenOr s }
 
-  "->"			{ \_ -> TokenRArrow}
-  "|"			{ \s -> TokenBar }
+  "->"			{ \s -> TokenRArrow s }
+  "<-"			{ \s -> TokenLArrow s }
 
-  ":="			{ \_ -> TokenEquiv }
+  "|"			{ \_ -> TokenBar }
+
+  "="			{ \_ -> TokenEquiv }
 
   "."			{ \_ -> TokenDot }
     

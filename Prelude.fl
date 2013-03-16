@@ -1,66 +1,68 @@
 me Prelude
 
 use Core
--- use Core.Environment
--- use Core.IO
--- use Core.Shell
-
--- use Core.Happstack
 
 
--- first dependecies
+def == = eq
 
--- def K := \x@ \y@ x
+def not = @((==) false) true
+        | @ false
 
-nrdef raise := \f@isfunc isfunc || (seqof:isfunc && ¬:isnull) -> lift:f ; f
+def /= x@ y@ = not (x == y)
+def < = less
+def <= x@ y@ = x == y || x < y
+def > x@ y@ = x /= y && not (x < y)
+def >= x@ y@ = not (x < y)
 
+def isnum x@ = isint x || isreal x
+def ispos x@ = isnum x && x > 0
+def isneg x@ = isnum x && x < 0
+def iszero x@ = x == 0
 
--- comparison functions
+def isnull = (@ -> @) false
+           | @ true
 
-nrdef neq := ¬:eq
-nrdef lesseq := less || eq
-nrdef greater := ¬:less && neq
-nrdef greatereq := greater || eq
+def ispair = [@,@] true
+           | @ false
 
+def isstring x@ = isseqof ischar x
 
--- raised comparison functions
+def add = x@isint  y@isint  (addInt x y)
+        | x@isreal y@isreal (addReal x y)
+	| x@isint  y@isreal (addReal (mkReal x) y)
+	| x@isreal y@isint  (addReal x (mkReal y))
 
-nrdef = := raise:eq
-nrdef lt := raise:less
-nrdef gt := raise:greater
-nrdef le := raise:lesseq
-nrdef ge := raise:greatereq
+def sub = x@isint  y@isint  (subInt x y)
+        | x@isreal y@isreal (subReal x y)
+	| x@isint  y@isreal (subReal (mkReal x) y)
+	| x@isreal y@isint  (subReal x (mkReal y))
 
+def mul = x@isint  y@isint  (mulInt x y)
+        | x@isreal y@isreal (mulReal x y)
+	| x@isint  y@isreal (mulReal (mkReal x) y)
+	| x@isreal y@isint  (mulReal x (mkReal y))
 
--- raised arithmetic functions
+def div = x@isint  y@isint  (divInt x y)
+        | x@isreal y@isreal (divReal x y)
+	| x@isint  y@isreal (divReal (mkReal x) y)
+	| x@isreal y@isint  (divReal x (mkReal y))
 
-nrdef + := raise:add
-nrdef - := raise:sub
-nrdef * := raise:mult
-nrdef / := raise:div
+def + = add
+def - = sub
+def * = mul
+def / = div
 
+def abs = x@isint  (absInt x)
+        | x@isreal (absReal x)
 
--- combining forms
+def floor = x@isint  x
+          | x@isreal (floorReal x)
 
--- def | := o o reverse
+def ceiling = x@isint  x
+            | x@isreal (ceilingReal x)
 
--- 'K' moved above because of dependencies
+def neg = x@isint (negInt x)
+        | x@isreal (negReal x)
 
-nrdef C := \f@isfunc \x@ \y@ f:<x,y>
-
--- prelude moved above because of dependencies
-
-nrdef eqto := C:eq
-
-
--- sequence combining forms
-
-def sl f@isfunc :=
-  [|x@|] -> x ;
-  xs@ <= x@ -> f o [sl:f o xs,x]
-
-def sr f@isfunc :=
-  [|x@|] -> x ;
-  x@ => xs@ -> f o [x, sr:f o xs]
-
--- sequence functions
+def length = [] 0
+           | (@ -> xs@) (length xs + 1)

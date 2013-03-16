@@ -38,6 +38,16 @@ evalM (AppStx stx1 stx2) =
                       "\n\n\t stx2 = " ++ show stx2 ++
                       "\n\n\t -> expr2 = " ++ show expr2 ++ "\n"
 
+evalM (CondStx ms blame) = evalMatches ms
+    where evalMatches [] =
+              error $ "Interpreter.evalM(CondStx): non-exhaustive patterns in " ++ blame
+                    
+          evalMatches ((pred, expr):ms) =
+              do val <- evalM pred
+                 case val of
+                   BoolExpr False -> evalMatches ms
+                   _ -> evalM expr
+
 evalM (DefnStx Def str body) =
     do rec addBindM str expr
            expr <- evalM body

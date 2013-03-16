@@ -18,7 +18,6 @@ import Config
 import Data.SrcFile
 import qualified Data.SrcFile as SrcFile
 import Data.Stx
-import Data.Pat
 import Lexer (lex)
 import Parser (parsePrelude, parseFile)
 import Utils
@@ -39,6 +38,7 @@ dependenciesM (DoubleStx _) = return ()
 dependenciesM (SeqStx stxs) = mapM_ dependenciesM stxs
 dependenciesM (IdStx _) = return ()
 dependenciesM (AppStx stx1 stx2) = dependenciesM stx1 >> dependenciesM stx2
+dependenciesM (CondStx ms _) = mapM_ dependenciesM (snd (unzip ms))
 dependenciesM (DefnStx _ _ body) = dependenciesM body
 dependenciesM (LambdaStx _ body) = dependenciesM body
 dependenciesM (ModuleStx _ ns) = dependenciesNsM ns
@@ -110,7 +110,7 @@ buildGraph srcfiles =
         nodes = buildNodes srcfiles
         edges = buildEdges nodes srcfiles
         graph = buildG (1, length srcfiles) edges
-        srcfiles' = replaceIndexes srcfiles $ topSort graph
+        srcfiles' = replaceIndexes srcfiles (topSort graph)
     in
       case hasCycle $ map levels $ scc graph of
         Nothing -> Right $ reverse srcfiles'

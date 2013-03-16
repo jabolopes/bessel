@@ -2,6 +2,7 @@
 module Printer.PrettyStx where
 
 import Control.Monad.State
+import Data.Functor ((<$>))
 import Data.List (intercalate)
 
 import Data.SrcFile
@@ -36,9 +37,9 @@ printStxM (SeqStx stxs) | not (null stxs) && all isCharStx stxs =
     putPrinter $ show $ map (\(CharStx c) -> c) stxs
 
 printStxM (SeqStx stxs) =
-    do putPrinter "<"
+    do putPrinter "["
        printStxs stxs
-       putPrinter ">"
+       putPrinter "]"
     where printStxs [] = return ()
           printStxs [stx] = printStxM stx
           printStxs (stx:stxs) =
@@ -46,18 +47,38 @@ printStxM (SeqStx stxs) =
                  putPrinter ","
                  printStxs stxs
 
-printStxM (IdStx str) = putPrinter str
+printStxM (IdStx str) =
+    putPrinter str
 
 printStxM (AppStx stx1 stx2) =
     do printApp stx1
        putPrinter " "
        printApp stx2
     where printApp stx
-              | isValueStx stx = printStxM stx
+              | isValueStx stx && not (isLambdaStx stx) = printStxM stx
               | otherwise =
                   do putPrinter "("
                      printStxM stx
                      putPrinter ")"
+
+printStxM (CondStx ms blame) =
+    do putPrinter "cond "
+       withPrinterCol $ do
+         nlPrinter
+         putMatches (ms ++ [(IdStx "_", appStx "signal" (stringStx blame))])
+    where putMatches [] = return ()
+
+          putMatches [(pred, expr)] =
+              do printStxM pred
+                 putPrinter " -> "
+                 printStxM expr
+
+          putMatches ((pred, expr):ms) =
+              do printStxM pred
+                 putPrinter " -> "
+                 printStxM expr
+                 nlPrinter
+                 putMatches ms
 
 printStxM (DefnStx kw str body) =
     do putPrinter $ kw' kw ++ " " ++ str ++ " = "
