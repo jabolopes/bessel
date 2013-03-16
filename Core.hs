@@ -1,6 +1,6 @@
 module Core where
 
-import Prelude hiding ((&&), (||), id, compare, reverse, read)
+import Prelude hiding (concat, reverse)
 import qualified Prelude
 
 import Data.Functor ((<$>))
@@ -31,6 +31,7 @@ isint _ = false
 isreal :: Expr -> Expr
 isreal (DoubleExpr _) = true
 isreal _ = false
+
 
 isbool :: Expr -> Expr
 isbool (BoolExpr _) = true
@@ -153,6 +154,11 @@ negReal :: Expr -> Expr
 negReal (DoubleExpr d) = DoubleExpr (- d)
 
 
+remInt :: Expr -> Expr
+remInt (IntExpr i1) =
+    FnExpr $ \(IntExpr i2) -> return $ IntExpr (i1 `rem` i2)
+
+
 -- combining forms
 
 apply :: Expr -> InterpreterM Expr
@@ -183,8 +189,8 @@ o (FnExpr fn1) =
 
 -- predicate combining forms
 
-pcons :: Expr -> Expr
-pcons (SeqExpr fns) = FnExpr pconsHof
+plist :: Expr -> Expr
+plist (SeqExpr fns) = FnExpr plistHof
     where all' :: [Expr] -> [Expr] -> InterpreterM Bool
           all' [] [] = return True
           all' [] _ = return False
@@ -195,26 +201,15 @@ pcons (SeqExpr fns) = FnExpr pconsHof
                    then all' fns' vals'
                    else return False
 
-          pconsHof (SeqExpr vals)
+          plistHof (SeqExpr vals)
                    | length fns == length vals = BoolExpr <$> all' fns vals
                    | otherwise = return false
-          pconsHof _ = return false
+          plistHof _ = return false
 
 
--- '=' (see Prelude)
-
-
--- eqto (see Prelude)
-
-
-lenis :: Expr -> Expr
-lenis (IntExpr i) =
-    FnExpr $ \(SeqExpr exprs) -> return $ BoolExpr $ i == length exprs
-
-
-(&&) :: Expr -> Expr
-(&&) (FnExpr fn) = FnExpr $ \expr -> fn expr
-(&&) (SeqExpr exprs) =
+pand :: Expr -> Expr
+pand (FnExpr fn) = FnExpr $ \expr -> fn expr
+pand (SeqExpr exprs) =
     FnExpr $ \expr -> andHof expr exprs
     where andHof _ [] = return true
           andHof expr [FnExpr fn] = fn expr
@@ -225,9 +220,9 @@ lenis (IntExpr i) =
                    else andHof expr exprs
 
 
-(||) :: Expr -> Expr
-(||) (FnExpr fn) = FnExpr $ \expr -> fn expr
-(||) (SeqExpr exprs) =
+por :: Expr -> Expr
+por (FnExpr fn) = FnExpr $ \expr -> fn expr
+por (SeqExpr exprs) =
     FnExpr $ \expr -> orHof expr exprs
     where orHof _ [] = return false
           orHof expr [FnExpr fn] = fn expr
@@ -238,10 +233,10 @@ lenis (IntExpr i) =
                    else return true
 
 
-rarrow :: Expr -> Expr
-rarrow (SeqExpr [FnExpr fn1, FnExpr fn2]) =
-    FnExpr rarrow'
-    where rarrow' (SeqExpr (x:xs)) =
+pal :: Expr -> Expr
+pal (SeqExpr [FnExpr fn1, FnExpr fn2]) =
+    FnExpr pal'
+    where pal' (SeqExpr (x:xs)) =
               do expr1 <- fn1 x
                  if isNotFalseExpr expr1
                    then do expr2 <- fn2 (SeqExpr xs)
@@ -249,13 +244,13 @@ rarrow (SeqExpr [FnExpr fn1, FnExpr fn2]) =
                              then return true
                              else return false
                    else return false
-          rarrow' _ = return false
+          pal' _ = return false
 
 
-larrow :: Expr -> Expr
-larrow (SeqExpr [FnExpr fn1, FnExpr fn2]) =
-    FnExpr larrow'
-    where larrow' (SeqExpr xs) | Prelude.not (null xs) =
+par :: Expr -> Expr
+par (SeqExpr [FnExpr fn1, FnExpr fn2]) =
+    FnExpr par'
+    where par' (SeqExpr xs) | Prelude.not (null xs) =
               do expr1 <- fn1 $ SeqExpr $ init xs
                  if isNotFalseExpr expr1
                    then do expr2 <- fn2 $ last xs
@@ -263,74 +258,23 @@ larrow (SeqExpr [FnExpr fn1, FnExpr fn2]) =
                              then return true
                              else return false
                    else return false
-          larrow' _ = return false
+          par' _ = return false
 
-
--- pattern combining forms (see Lexer.x, Parser.y, ...)
-
-
--- sequence combining forms
-
--- sl (see Prelude)
-
--- sr (see Prelude)
-
--- edit: tree
-
-alpha :: Expr -> Expr
-alpha (FnExpr fn) =
-    FnExpr alphaHof
-    where alphaHof (SeqExpr exprs) = SeqExpr <$> mapM fn exprs
-          alphaHof expr = fn expr
-
--- edit: merge
-
-
--- sequence function
 
 al :: Expr -> Expr
-al (SeqExpr [expr, SeqExpr exprs]) =
-    SeqExpr $ expr:exprs
+al expr =
+    FnExpr $ \(SeqExpr exprs) -> return $ SeqExpr (expr:exprs)
 
 
 ar :: Expr -> Expr
-ar (SeqExpr [SeqExpr exprs, expr]) =
-    SeqExpr $ exprs ++ [expr]
+ar (SeqExpr exprs) =
+    FnExpr $ \expr -> return $ SeqExpr (exprs ++ [expr])
 
 
-cat :: Expr -> Expr
-cat (SeqExpr exprs) =
+concat :: Expr -> Expr
+concat (SeqExpr exprs) =
     SeqExpr $ concatMap (\(SeqExpr exprs) -> exprs) exprs
 
-
-distl :: Expr -> Expr
-distl (SeqExpr [expr, SeqExpr exprs]) =
-    SeqExpr $ map (\expr' -> SeqExpr [expr, expr']) exprs
-
-
-distr :: Expr -> Expr
-distr (SeqExpr [SeqExpr exprs, expr]) =
-    SeqExpr $ map (\expr' -> SeqExpr [expr, expr']) exprs
-
-
--- edit: intsto
-
-
-len :: Expr -> Expr
-len (SeqExpr exprs) =
-    IntExpr $ length exprs
-
-
-reverse :: Expr -> Expr
-reverse (SeqExpr exprs) =
-    SeqExpr $ Prelude.reverse exprs
-
-
-sel :: Expr -> Expr
-sel (SeqExpr [IntExpr i, SeqExpr vals]) = vals !! (i - 1)
-
-
--- edit: trans
 
 s :: Expr -> Expr
 s (IntExpr i) = FnExpr $ \(SeqExpr vals) -> return $ vals !! (i - 1)
@@ -362,27 +306,11 @@ out expr@(SeqExpr [SeqExpr [CharExpr 's', CharExpr 'c', CharExpr 'r'], SeqExpr s
 out expr = signal $ SeqExpr [boxString "out", boxString "arg1", expr]
 
 
--- edit: in, get, put
-
-
--- misc
-
-id :: Expr -> Expr
-id = Prelude.id
-
-
--- edit: delta
-
-
 signal :: Expr -> a
 signal expr = throwSignalException $ show expr
 
 
 -- environment
-
-f :: (Expr -> Expr -> InterpreterM Expr) -> Expr -> Expr
-f fn = FnExpr . fn
-
 
 m :: (Expr -> Expr) -> Expr
 m fn = FnExpr $ \expr -> return $ fn expr
@@ -390,10 +318,6 @@ m fn = FnExpr $ \expr -> return $ fn expr
 
 predT :: Type
 predT = ArrowT DynT BoolT
-
-
-predTs :: Type
-predTs = ArrowT (SeqT DynT) BoolT
 
 
 listPredT :: Type
@@ -434,6 +358,7 @@ desc = [
   ("floorReal", ArrowT DoubleT IntT, m floorReal),
   ("negInt", ArrowT IntT (ArrowT IntT IntT), m negInt),
   ("negReal", ArrowT DoubleT (ArrowT DoubleT DoubleT), m negReal),
+  ("remInt", ArrowT IntT (ArrowT IntT IntT), m remInt),
   -- combining forms
   ("apply", ArrowT (TupT [ArrowT DynT DynT, DynT]) DynT, FnExpr apply),
   ("o", ForallT "a"
@@ -443,21 +368,14 @@ desc = [
             (ArrowT (ArrowT (TvarT "a") (TvarT "b"))
              (ArrowT (TvarT "a") (TvarT "c")))))), m o),
   -- predicate combining forms
-  ("pcons", ArrowT (SeqT predT) predT, m pcons),
-  ("lenis", ArrowT IntT listPredT, m lenis),
-  ("&&", ArrowT (SeqT predT) predT, m (&&)),
-  ("||", ArrowT (SeqT predT) predT, m (||)),
-  ("->", ArrowT (TupT [predT, predT]) listPredT, m rarrow),
-  ("<-", ArrowT (TupT [predT, predT]) listPredT, m larrow),
-  ("map", ArrowT (ArrowT DynT DynT) (ArrowT (SeqT DynT) (SeqT DynT)), m alpha),
+  ("plist", ArrowT (SeqT predT) predT, m plist),
+  ("pand", ArrowT (SeqT predT) predT, m pand),
+  ("por", ArrowT (SeqT predT) predT, m por),
+  ("pal", ArrowT (TupT [predT, predT]) listPredT, m pal),
+  ("par", ArrowT (TupT [predT, predT]) listPredT, m par),
   ("al", ArrowT (SeqT DynT) (SeqT DynT), m al),
   ("ar", ArrowT (SeqT DynT) (SeqT DynT), m ar),
-  ("cat", ArrowT (SeqT (SeqT DynT)) (SeqT DynT), m cat),
-  ("distl", ArrowT (SeqT DynT) (SeqT DynT), m distl),
-  ("distr", ArrowT (SeqT DynT) (SeqT DynT), m distr),
-  ("len", ArrowT (SeqT DynT) IntT, m len),
-  ("reverse", ArrowT (SeqT DynT) (SeqT DynT), m reverse),
-  ("sel", ArrowT (SeqT DynT) DynT, m sel),
+  ("concat", ArrowT (SeqT (SeqT DynT)) (SeqT DynT), m concat),
   ("s", ArrowT IntT (ArrowT (SeqT DynT) DynT), m s),
   ("hd", ForallT "a" (ArrowT (SeqT (TvarT "a")) (TvarT "a")), m hd),
   ("tl", ForallT "a" (ArrowT (SeqT (TvarT "a")) (SeqT (TvarT "a"))), m tl),

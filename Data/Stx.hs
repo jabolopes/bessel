@@ -23,9 +23,10 @@ data Pat a
 
 mkPat :: Stx String -> [Stx String] -> [Pat String] -> Pat String
 mkPat pred mods pats =
-    Pat (patPred pred pats) (modPats mods pats)
-    where patPred pred [] = pred
-          patPred pred pats = AppStx pred $ SeqStx $ map (\(Pat pred _) -> pred) pats
+    Pat (mkPred pred pats) (modPats mods pats)
+    where mkPred pred [] = pred
+          mkPred pred pats =
+              AppStx pred $ SeqStx $ map patPred pats
 
           modDefns _ [] = []
           modDefns mod ((str, mod'):defns) =
@@ -100,8 +101,8 @@ isValueStx _ = False
 andStx :: Stx String -> Stx String -> Stx String
 andStx stx1 stx2 =
     let
-        m1 = (binOpStx "==" stx1 (IdStx "true"), stx2)
-        m2 = (IdStx "true", IdStx "false")
+        m1 = (binOpStx "==" stx1 (IdStx "false"), IdStx "false")
+        m2 = (IdStx "true", stx2)
     in
       CondStx [m1, m2] "irrefutable 'and' pattern"
 

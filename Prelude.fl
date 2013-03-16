@@ -19,8 +19,8 @@ def ispos x@ = isnum x && x > 0
 def isneg x@ = isnum x && x < 0
 def iszero x@ = x == 0
 
-def isnull = (@ -> @) false
-           | @ true
+def isnull = []@ true
+           | @ false
 
 def ispair = [@,@] true
            | @ false
@@ -64,5 +64,14 @@ def ceiling = x@isint  x
 def neg = x@isint (negInt x)
         | x@isreal (negReal x)
 
-def length = [] 0
+def rem x@ = remInt x
+
+def length = []@ 0
            | (@ -> xs@) (length xs + 1)
+
+def reverse = []@ []
+            | (x@ -> xs@) (ar (reverse xs) x)
+
+nrdef const x@ @ = x
+
+-- nrdef raise := \f@isfunc isfunc || (seqof isfunc && (¬ isnull)) -> lift f | f

@@ -78,7 +78,8 @@ import Utils
         '@ '    { TokenAtSpace }
 
         -- identifier
-        name      { TokenName $$ }
+        id       { TokenId $$ }
+        quotedId { TokenQuotedId $$ }
 
 
 -- Precedence (lower)
@@ -93,11 +94,12 @@ import Utils
 %left '+' '-'            -- additives
 %left '*' '/'            -- multiplicatives
 %left 'o'                -- composition
+%left quotedId           -- functions as operators
 %nonassoc below_app_prec -- below application (e.g., single id)
 %left app_prec           -- application
 %nonassoc '~'            -- constant
 %nonassoc '\''           -- lift
-%nonassoc '(' '[' '[|' character integer double string name
+%nonassoc '(' '[' '[|' character integer double string id
 -- /Precedence (greater)
 
 -- This is the type of the data produced by a successful reduction of the 'start'
@@ -108,10 +110,6 @@ import Utils
 
 SrcFile:
     me LongId Namespace { mkParsedSrcFile (flattenId $2) $3 }
-
-LongId:
-    LongId '.' name { $1 ++ [$3] }
-  | name            { [$1] }
 
 Namespace:
     UseList DefnList { Namespace $1 $2 }
@@ -139,21 +137,14 @@ DefnOrExpr:
   | Expr        { $1 }
 
 Defn:
-    DefnKw OpOrName DefnPatList '=' Expr { defMacro $1 $2 $3 $5 }
-  | DefnKw OpOrName             '=' Expr { DefnStx $1 $2 $4}
-
-  | type  OpOrName              '=' Expr       { typeExprMacro $2 $4 }
-  | type  OpOrName              '=' PatNoSpace { typePatMacro $2 $4 }
---| asn   Expr         '=' Expr        { AsnStx  $2 $4 }
---| sig   OpOrName     	    		  '::' MetaPred   { SigStx  $2 $4 }
+    DefnKw Name DefnPatList '=' Expr { defMacro $1 $2 $3 $5 }
+  | DefnKw Name             '=' Expr { DefnStx $1 $2 $4}
+  | type   Name             '=' Expr       { typeExprMacro $2 $4 }
+  | type   Name             '=' PatNoSpace { typePatMacro $2 $4 }
 
 DefnKw:
     def      { Def }
   | nrdef    { NrDef }
-
-OpOrName:
-    Operator { $1 }
-  | name     { $1 }
 
 DefnPatList:
     DefnPatList Pat { $1 ++ [$2] }
@@ -185,7 +176,7 @@ Expr:
   | Expr '&&' Expr  { andStx $1 $3 }
   | Expr '||' Expr  { orStx $1 $3 }
 
---| Expr name Expr  { binOpStx $2 $1 $3 }
+  | Expr quotedId Expr { binOpStx $2 $1 $3 }
 
   | Lambda          { lambdaMacro $1 }
 
@@ -200,15 +191,83 @@ LambdaPatList:
   | Pat               { [$1] }
 
 SimpleExpr:
-    Ident	             { IdStx $1 }
+    LongName	             { IdStx $1 }
   | Constant	             { $1 }
   | Seq			     { $1 }
   | '~' SimpleExpr           { constStx $2 }
   | '(' Expr ')'             { $2 }
 
-Ident:     
+Constant:
+    character   { CharStx $1 }
+  | integer     { if $1 >= 0 then IntStx $1 else appStx "negInt" (IntStx (- $1)) }
+  | double      { if $1 >= 0 then DoubleStx $1 else appStx "negReal" (DoubleStx (- $1)) }
+
+Seq:
+    '[' ExprList ']'   { SeqStx $2 }
+  | '['          ']'   { SeqStx [] }
+  | string             { stringStx $1 }
+
+Pat:
+    id '@ '    { namePat $1 (mkPat constTrueStx [] []) }
+  | '[' ']' '@ ' { Pat (applyStx "plist" []) [] }
+  | '@ '         { mkPat constTrueStx [] [] }
+  | PatRest      { $1 }
+
+PatNoSpace:
+    id '@'    { namePat $1 (mkPat constTrueStx [] []) }
+  | '[' ']' '@' { Pat (applyStx "plist" []) [] }
+  | '@'         { mkPat constTrueStx [] [] }
+  | PatRest     { $1 }
+
+PatRest:
+    '(' OpPat ')'       { $2 }
+  | ListPat             { $1 }
+  | '@' LongName        { mkPat (IdStx $2) [] [] }
+  | '@' ListPat         { $2 }
+  | '@' '(' Expr ')'    { mkPat $3 [] [] }
+  | id '@' LongName     { namePat $1 (mkPat (IdStx $3) [] []) }
+  | id '@' ListPat      { namePat $1 $3 }
+  | id '@' '(' Expr ')' { namePat $1 (mkPat $4 [] []) }
+
+OpPat:
+    Pat '->' PatNoSpace { mkPat (IdStx "pal") [IdStx "hd", IdStx "tl"] [$1, $3] }
+  | Pat '<-' PatNoSpace { mkPat (IdStx "par") [IdStx "tlr", IdStx "hdr"] [$1, $3] }
+  | Pat '&&' PatNoSpace { mkPat (IdStx "pand") [IdStx "id", IdStx "id"] [$1, $3] }
+  | Pat '||' PatNoSpace { mkPat (IdStx "por") [IdStx "id", IdStx "id"] [$1, $3] }
+
+ListPat:
+    '[' PatList ']' { mkPat (IdStx "plist") [ appStx "s" (IntStx i) | i <- [1..length $2] ] $2 }
+
+PatList:
+    ExprList ',' PatNoSpace ',' PatList2 { map (\expr -> mkPat expr [] []) $1 ++ [$3] ++ $5 }
+  | ExprList ',' PatNoSpace              { map (\expr -> mkPat expr [] []) $1 ++ [$3] }
+  | PatNoSpace ',' PatList2              { $1 : $3 }
+  | PatNoSpace                           { [$1] }
+
+PatList2:
+    Expr ',' PatList2        { mkPat $1 [] [] : $3 }
+  | PatNoSpace  ',' PatList2 { $1 : $3 }
+  | Expr                     { [mkPat $1 [] []] }
+  | PatNoSpace               { [$1] }
+
+ExprList:
+    ExprList ',' Expr   { $1 ++ [$3] }
+  | Expr                { [$1] }
+
+
+-- identifiers
+
+LongName:     
+    LongName '.' Name { $1 ++ "." ++ $3 }
+  | Name              { $1 }
+
+LongId:
+    LongId '.' id { $1 ++ [$3] }
+  | id            { [$1] }
+
+Name:
     '(' Operator ')' { $2 }
-  | LongId           { flattenId $1 }
+  | id               { $1 }
 
 Operator:
     'o'         { $1 }
@@ -231,65 +290,6 @@ Operator:
 
   | '&&'        { $1 }
   | '||'        { $1 }
-
-Constant:
-    character   { CharStx $1 }
-  | integer     { if $1 >= 0 then IntStx $1 else appStx "negInt" (IntStx (- $1)) }
-  | double      { if $1 >= 0 then DoubleStx $1 else appStx "negReal" (DoubleStx (- $1)) }
-
-Seq:
-    '[' ExprList ']'   { SeqStx $2 }
-  | '['          ']'   { SeqStx [] }
-  | string             { stringStx $1 }
-
-Pat:
-    name '@ ' { namePat $1 (mkPat constTrueStx [] []) }
-  | '@ '      { mkPat constTrueStx [] [] }
-  | PatRest   { $1 }
-
-PatNoSpace:
-    name '@'  { namePat $1 (mkPat constTrueStx [] []) }
-  | '@'       { mkPat constTrueStx [] [] }
-  | PatRest   { $1 }
-
-PatRest:
-    '(' OpPat ')'         { $2 }
-  | ListPat               { $1 }
-  | '@' Ident             { mkPat (IdStx $2) [] [] }
-  | '@' ListPat           { $2 }
-  | '@' '(' Expr ')'      { mkPat $3 [] [] }
-  | name '@' Ident        { namePat $1 (mkPat (IdStx $3) [] []) }
-  | name '@' ListPat      { namePat $1 $3 }
-  | name '@' '(' Expr ')' { namePat $1 (mkPat $4 [] []) }
-
-OpPat:
-    Pat 'o' PatNoSpace { let Pat pred _ = $3 in
-                         mkPat (IdStx $2) [pred, IdStx "id"] [$1, $3] }
-  | Pat '->' PatNoSpace { mkPat (IdStx $2) [IdStx "hd", IdStx "tl"] [$1, $3] }
-  | Pat '<-' PatNoSpace { mkPat (IdStx $2) [IdStx "tlr", IdStx "hdr"] [$1, $3] }
-  | Pat '&&' PatNoSpace { mkPat (IdStx $2) [IdStx "id", IdStx "id"] [$1, $3] }
-  | Pat '||' PatNoSpace { mkPat (IdStx $2) [IdStx "id", IdStx "id"] [$1, $3] }
-
-ListPat:
-    '[' PatList ']' { mkPat (IdStx "pcons") [ appStx "s" (IntStx i) | i <- [1..length $2] ] $2 }
-  | '[' ']'         { mkPat (IdStx "pcons") [] [] }
-
-PatList:
-    ExprList ',' PatNoSpace ',' PatList2 { map (\expr -> mkPat expr [] []) $1 ++ [$3] ++ $5 }
-  | ExprList ',' PatNoSpace              { map (\expr -> mkPat expr [] []) $1 ++ [$3] }
-  | PatNoSpace ',' PatList2              { $1 : $3 }
-  | PatNoSpace                           { [$1] }
-
-PatList2:
-    Expr ',' PatList2        { mkPat $1 [] [] : $3 }
-  | PatNoSpace  ',' PatList2 { $1 : $3 }
-  | Expr                     { [mkPat $1 [] []] }
-  | PatNoSpace               { [$1] }
-
-ExprList:
-    ExprList ',' Expr   { $1 ++ [$3] }
-  | Expr                { [$1] }
-
 
 {
 
@@ -371,7 +371,8 @@ data Token
      | TokenAtSpace
 
      -- identifier
-     | TokenName String
+     | TokenId String
+     | TokenQuotedId String
        deriving Show
 
 

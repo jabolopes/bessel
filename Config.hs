@@ -23,7 +23,8 @@ preludeName | doTypecheck = head $ tail preludeNames
 
 
 corefiles :: [SrcFile]
-corefiles = [Core.srcfile, CoreTypechecker.srcfile]
+-- corefiles = [Core.srcfile, CoreTypechecker.srcfile]
+corefiles = [Core.srcfile, Core.srcfile]
 
 
 corefile :: SrcFile

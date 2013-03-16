@@ -1,7 +1,5 @@
 module CoreTypechecker where
 
-import Prelude hiding (id)
-
 import qualified Data.Map as Map (fromList)
 
 import Core hiding (desc, srcfile)
