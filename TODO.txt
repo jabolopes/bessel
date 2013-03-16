@@ -1,6 +1,8 @@
 Namespace do not export module, only toplevel functions: bug or feature?
 
+
 Functions cannot be redefined in interactive.
+
 
 Add type annotations like so?
 
@@ -13,3 +15,12 @@ Remove '@' in empty list pattern.
 
 
 Comments are broken.
+
+
+Typecheck 'CondStx'.
+
+
+Typecheck fixpoints
+
+
+Toplevel type annotations? And checking in typechecker?
