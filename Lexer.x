@@ -76,8 +76,8 @@ tokens :-
 
   "==" (@id_char)*    { \s -> TokenEq s }
   "/=" (@id_char)*    { \s -> TokenNeq s }
-  "<" (@id_char)*     { \s -> TokenLt s }
-  ">" (@id_char)*     { \s -> TokenGt s }
+  "<"  (@id_char)*    { \s -> TokenLt s }
+  ">"  (@id_char)*    { \s -> TokenGt s }
   "<=" (@id_char)*    { \s -> TokenLe s }
   ">=" (@id_char)*    { \s -> TokenGe s }
 
