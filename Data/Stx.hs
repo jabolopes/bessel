@@ -17,7 +17,7 @@ data Namespace a
 
 data Pat a
     = Pat { patPred :: Stx a
-          , patDefns ::  [(String, Stx a)] }
+          , patDefns :: [(String, [Stx a])] }
 
 
 mkPat :: Stx String -> [Stx String] -> [Pat String] -> Pat String
