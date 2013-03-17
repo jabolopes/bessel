@@ -336,10 +336,6 @@ renameSrcFile fs ns =
 
 
 rename :: Map String SrcFile -> SrcFile -> Either String SrcFile
--- rename _ SrcFile { t, name, deps, srcNs }
---     | trace ("rename: " ++ name ++ " :: " ++ show t ++ "\n" ++ show deps ++ "\n\n\t" ++ show srcNs ++ "\n") False = undefined
-
-
 rename _ srcfile@SrcFile { t = CoreT } =
     return srcfile
 
