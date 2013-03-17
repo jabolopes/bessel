@@ -276,10 +276,6 @@ concat (SeqExpr exprs) =
     SeqExpr $ concatMap (\(SeqExpr exprs) -> exprs) exprs
 
 
-s :: Expr -> Expr
-s (IntExpr i) = FnExpr $ \(SeqExpr vals) -> return $ vals !! (i - 1)
-
-
 hd :: Expr -> Expr
 hd (SeqExpr (expr:_)) = expr
 
@@ -376,7 +372,6 @@ desc = [
   ("al", ArrowT (SeqT DynT) (SeqT DynT), m al),
   ("ar", ArrowT (SeqT DynT) (SeqT DynT), m ar),
   ("concat", ArrowT (SeqT (SeqT DynT)) (SeqT DynT), m concat),
-  ("s", ArrowT IntT (ArrowT (SeqT DynT) DynT), m s),
   ("hd", ForallT "a" (ArrowT (SeqT (TvarT "a")) (TvarT "a")), m hd),
   ("tl", ForallT "a" (ArrowT (SeqT (TvarT "a")) (SeqT (TvarT "a"))), m tl),
   ("hdr", ForallT "a" (ArrowT (SeqT (TvarT "a")) (TvarT "a")), m hdr),

@@ -194,26 +194,26 @@ Seq:
   | string             { stringStx $1 }
 
 Pat:
-    '@ '         { mkPat constTrueStx [] [] }
-  | id '@ '      { namePat $1 (mkPat constTrueStx [] []) }
+    '@ '         { mkPredPat constTrueStx }
+  | id '@ '      { namePat $1 (mkPredPat constTrueStx) }
   | '[' ']' '@ ' { Pat (applyStx "plist" []) [] }
   | PatRest      { $1 }
 
 PatNoSpace:
-    '@'         { mkPat constTrueStx [] [] }
-  | id '@'      { namePat $1 (mkPat constTrueStx [] []) }
+    '@'         { mkPredPat constTrueStx }
+  | id '@'      { namePat $1 (mkPredPat constTrueStx) }
   | '[' ']' '@' { Pat (applyStx "plist" []) [] }
   | PatRest     { $1 }
 
 PatRest:
     '(' OpPat ')'       { $2 }
   | ListPat             { $1 }
-  | '@' LongName        { mkPat (IdStx $2) [] [] }
+  | '@' LongName        { mkPredPat (IdStx $2) }
   | '@' ListPat         { $2 }
-  | '@' '(' Expr ')'    { mkPat $3 [] [] }
-  | id '@' LongName     { namePat $1 (mkPat (IdStx $3) [] []) }
+  | '@' '(' Expr ')'    { mkPredPat $3 }
+  | id '@' LongName     { namePat $1 (mkPredPat (IdStx $3)) }
   | id '@' ListPat      { namePat $1 $3 }
-  | id '@' '(' Expr ')' { namePat $1 (mkPat $4 [] []) }
+  | id '@' '(' Expr ')' { namePat $1 (mkPredPat $4) }
 
 OpPat:
     Pat '->' PatNoSpace { mkPat (IdStx "pal") [IdStx "hd", IdStx "tl"] [$1, $3] }
@@ -222,18 +222,18 @@ OpPat:
   | Pat '||' PatNoSpace { mkPat (IdStx "por") [IdStx "id", IdStx "id"] [$1, $3] }
 
 ListPat:
-    '[' PatList ']' { mkPat (IdStx "plist") [ appStx "s" (IntStx i) | i <- [1..length $2] ] $2 }
+    '[' PatList ']' { mkListPat $2 }
 
 PatList:
-    ExprList ',' PatNoSpace ',' PatList2 { map (\expr -> mkPat expr [] []) $1 ++ [$3] ++ $5 }
-  | ExprList ',' PatNoSpace              { map (\expr -> mkPat expr [] []) $1 ++ [$3] }
-  | PatNoSpace ',' PatList2              { $1 : $3 }
+    ExprList ',' PatNoSpace ',' PatList2 { map mkPredPat $1 ++ [$3] ++ $5 }
+  | ExprList ',' PatNoSpace              { map mkPredPat $1 ++ [$3] }
+  | PatNoSpace ',' PatList2              { $1:$3 }
   | PatNoSpace                           { [$1] }
 
 PatList2:
-    Expr ',' PatList2        { mkPat $1 [] [] : $3 }
-  | PatNoSpace  ',' PatList2 { $1 : $3 }
-  | Expr                     { [mkPat $1 [] []] }
+    Expr ',' PatList2        { mkPredPat $1:$3 }
+  | PatNoSpace  ',' PatList2 { $1:$3 }
+  | Expr                     { [mkPredPat $1] }
   | PatNoSpace               { [$1] }
 
 ExprList:
