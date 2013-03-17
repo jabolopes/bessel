@@ -116,7 +116,7 @@ stageFiles srcfiles =
     do liftIO $ putStrLn $ "Staging " ++ show n ++ " namespaces"
        loop Map.empty srcfiles [1..]
     where n = length srcfiles
-          
+
           putHeader i =
               putStr $ "[" ++ show i ++ "/" ++ show n ++ "] "
 
@@ -132,7 +132,7 @@ stageFiles srcfiles =
               do putHeader i
                  putStr $ SrcFile.name srcs ++ ": "
 
-                 !rens <- renamerEither $ rename fs srcs
+                 !rens <- renamerEither (rename fs srcs)
                  let renfs = updateFs fs rens
                  putStr "renamed, "
 
