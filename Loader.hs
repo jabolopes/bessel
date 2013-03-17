@@ -50,7 +50,7 @@ dependenciesM (WhereStx _ stxs) = mapM_ dependenciesM stxs
 
 
 readFileM :: String -> IO String
-readFileM filename = readFile $ (toFilename filename) ++ ".fl"
+readFileM filename = readFile $ (toFilename filename) ++ ".bsl"
     where toFilename = map f
               where f '.' = '/'
                     f c = c

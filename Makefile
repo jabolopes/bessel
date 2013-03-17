@@ -1,5 +1,5 @@
 all: dist/bin dist/obj Parser.hs Lexer.hs
-	ghc --make Main.hs -o dist/bin/fl -outputdir dist/obj
+	ghc --make Main.hs -o dist/bin/bsl -outputdir dist/obj
 
 dist/bin:
 	mkdir -p dist/bin
