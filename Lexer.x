@@ -1,6 +1,7 @@
 {
 module Lexer where
 
+import Data.Exception
 import Parser
 }
 
@@ -94,5 +95,13 @@ tokens :-
 
 {
 lex :: String -> [Token]
-lex = alexScanTokens
+--lex = alexScanTokens
+
+lex str = go ('\n',[],str)
+  where go inp@(_,_bs,str) =
+          case alexScan inp 0 of
+                AlexEOF -> []
+                AlexError _ -> throwLexException str
+                AlexSkip  inp' len     -> go inp'
+                AlexToken inp' len act -> act (take len str) : go inp'
 }

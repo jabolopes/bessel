@@ -9,6 +9,7 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (catMaybes)
 
+import Config
 import Data.Context
 import qualified Data.Context as Context
 import Data.SrcFile
@@ -18,8 +19,8 @@ import Data.Type
 import Data.Stx
 import Data.Type
 
-import System.IO.Unsafe
 import Debug.Trace
+import System.IO.Unsafe
 
 
 debug = True
@@ -662,13 +663,17 @@ typecheckNamespace fs deps (Namespace _ stxs) =
        
 
 typecheckSrcFile :: Map String SrcFile -> SrcFile -> Either String (Map String Type, Type)
-typecheckSrcFile fs srcfile@SrcFile { deps, renNs = Just ns } =
-    do (t, ts) <- typecheckNamespace fs deps ns
-       let names = Map.keys (SrcFile.symbols srcfile)
-           ts' = Map.fromList $ catMaybes [ case Map.lookup name ts of
-                                               Nothing -> Nothing
-                                               Just t -> Just (name, t) | name <- names ]
-       return (ts', t)
+typecheckSrcFile fs srcfile@SrcFile { deps, renNs = Just ns }
+    | doTypecheck =
+        do (t, ts) <- typecheckNamespace fs deps ns
+           let names = Map.keys (SrcFile.symbols srcfile)
+               ts' = Map.fromList $ catMaybes [ case Map.lookup name ts of
+                                                  Nothing -> Nothing
+                                                  Just t -> Just (name, t) | name <- names ]
+           return (ts', t)
+    | otherwise =
+        do let ts = Map.map (const DynT) (SrcFile.symbols srcfile)
+           return (ts, DynT)
 
 
 typecheck :: Map String SrcFile -> SrcFile -> Either String SrcFile
@@ -680,7 +685,7 @@ typecheck _ srcfile@SrcFile { t = SrcT, renNs = Just (Namespace _ []) } =
 
 typecheck fs srcfile@SrcFile { t = SrcT } =
     do (ts, t) <- typecheckSrcFile fs srcfile
-       return $ srcfile { ts = ts }
+       return srcfile { ts = ts }
 
 typecheck fs srcfile@SrcFile { t = InteractiveT } =
     Left "Typechecker.typecheck: for interactive srcfiles use 'typecheckInteractive' instead of 'typecheck'"
@@ -689,12 +694,12 @@ typecheck fs srcfile@SrcFile { t = InteractiveT } =
 typecheckInteractive :: Map String SrcFile -> SrcFile -> Either String (SrcFile, Type)
 typecheckInteractive fs srcfile =
      do (ts, t) <- typecheckSrcFile interactiveFs interactiveSrcfile
-        return (srcfile { ts = Map.union (SrcFile.ts srcfile) ts }, t)
+        return (srcfile { ts = Map.union ts (SrcFile.ts srcfile) }, t)
     where interactiveDeps =
-            SrcFile.deps srcfile ++ ["Interactive"]
+              SrcFile.deps srcfile ++ ["Interactive"]
             
           interactiveSrcfile =
-            srcfile { deps = interactiveDeps }
+              srcfile { deps = interactiveDeps }
 
           interactiveFs =
-            Map.insert "Interactive" srcfile fs
+              Map.insert "Interactive" srcfile fs

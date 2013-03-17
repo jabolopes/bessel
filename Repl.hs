@@ -123,10 +123,6 @@ stageFiles srcfiles =
           updateFs fs srcfile =
               Map.insert (SrcFile.name srcfile) srcfile fs
 
-          typecheckM fs srcs
-            | doTypecheck = typecheckerEither (typecheck fs srcs)
-            | otherwise = return srcs
-
           loop fs [] _ = return fs
           loop fs (srcs:srcss) (i:is) =
               do putHeader i
@@ -136,9 +132,9 @@ stageFiles srcfiles =
                  let renfs = updateFs fs rens
                  putStr "renamed, "
 
-                 !typs <- typecheckM renfs rens
+                 !typs <- typecheckerEither (typecheck renfs rens)
                  let typfs = updateFs renfs typs
-                 when doTypecheck (putStr "typechecked, ")
+                 putStr "typechecked, "
 
                  let evals = interpret typfs typs
                      evalfs = updateFs typfs evals
@@ -185,11 +181,8 @@ runSnippetM ln =
        fs <- fs <$> get
        interactive <- putStxInInteractive stx . interactive <$> get
        interactive' <- renamerEither $ rename fs interactive
-
-       let fn | doTypecheck = typecheckM
-              | otherwise = interpretM Nothing
-       interactive'' <- fn fs interactive'
-       put $ state { interactive = interactive'' }
+       interactive'' <- typecheckM fs interactive'
+       put state { interactive = interactive'' }
     where putStxInInteractive stx srcfile =
             let Just (Namespace uses _) = SrcFile.srcNs srcfile in
             srcfile { srcNs = Just (Namespace uses [stx]) }
@@ -371,15 +364,19 @@ replM =
                  | otherwise -> promptM ln >> return False
 
 
+ioException :: Show a => a -> IO ()
+ioException e = putStrLn (show e)
+
+
+finallyIOException :: Show a => ReplState -> a -> IO (Bool, ReplState)
 finallyIOException state e =
     ioException e >> return (False, state)
 
 finallyFlException state e =
     flException e >> return (False, state)
 
-ioException e =
-    putStrLn $ show e
 
+flException :: FlException -> IO ()
 flException (RenamerException str) =
     putStrLn $ "renamer error: " ++ str
 
@@ -388,6 +385,9 @@ flException (TypecheckerException str) =
 
 flException (InterpreterException str) =
     putStrLn $ "interpreter error: " ++ str
+
+flException (LexException str) =
+    putStrLn $ "lexical error: " ++ str
 
 flException (ParseException str) =
     putStrLn $ "parse error: " ++ str
