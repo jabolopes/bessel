@@ -27,6 +27,3 @@ Toplevel type annotations? And checking in typechecker?
 
 
 Remove the benign shift/reduce conflict.
-
-
-Fix patterns: they are still in composition form, i.e., "o".
