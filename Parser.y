@@ -193,6 +193,9 @@ Seq:
   | '['          ']'   { SeqStx [] }
   | string             { stringStx $1 }
 
+
+-- patterns
+
 Pat:
     '@ '         { mkPredPat constTrueStx }
   | id '@ '      { namePat $1 (mkPredPat constTrueStx) }
