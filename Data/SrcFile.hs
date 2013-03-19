@@ -46,13 +46,13 @@ mkCoreSrcFile name deps desc =
                               , ts = ts
                               , exprs = exprs }
     where symbols =
-            Map.fromList [ (x, FnSymbol x) | (x, _, _) <- desc ]
+              Map.fromList [ (x, FnSymbol x) | (x, _, _) <- desc ]
             
           ts =
-            Map.fromList [ (x, y) | (x, y, _) <- desc ]
+              Map.fromList [ (x, y) | (x, y, _) <- desc ]
             
           exprs =
-            Map.fromList [ (x, y) | (x, _, y) <- desc ]
+              Map.fromList [ (x, y) | (x, _, y) <- desc ]
 
 
 mkInteractiveSrcFile :: [String] -> SrcFile
