@@ -1,6 +1,7 @@
 {-# LANGUAGE ParallelListComp #-}
 module Macros where
 
+import Data.Pat
 import Data.Stx
 
 

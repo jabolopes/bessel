@@ -3,8 +3,9 @@ module Parser where
 
 import Config
 import Data.Exception
-import Data.Stx
+import Data.Pat
 import Data.SrcFile
+import Data.Stx
 import Macros
 import Utils
 
