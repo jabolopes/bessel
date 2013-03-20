@@ -12,10 +12,10 @@ import Parser
 $digit      = [0-9]
 $letter     = [a-zA-Z]
 
-@symbol = "|" | "\\" | "!" | "#" | "$" | "%"
-        | "&"  | "/" | "=" | "'" | "?" | "«"
-	| "»"  | "+" | "*" | "`" | "´" | "º"
-	| "ª"  | "~" | "^" | ";"
+@symbol = "\\" | "!" | "#" | "$" | "%"
+        | "&"  | "/" | "'" | "?" | "«"
+	| "»"  | "+" | "*" | "´" | "º"
+	| "ª"  | "~" | "^" | ";" | "-"
 
 @id_char = $letter | $digit | @symbol
 
@@ -68,7 +68,7 @@ tokens :-
   @string             { \s -> TokenString (init (tail s)) }
 
   -- operators
-  "o" (@id_char)*     { \s -> TokenComposition s }
+  "o"                 { \s -> TokenComposition s }
 
   "*" (@id_char)*     { \s -> TokenMult s }
   "/" (@id_char)*     { \s -> TokenDiv s }
