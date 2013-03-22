@@ -1,7 +1,6 @@
 {-# LANGUAGE ParallelListComp #-}
 module Macros where
 
-import Data.Pat
 import Data.Stx
 
 
@@ -16,13 +15,6 @@ mkPatDefns :: Stx a -> [(String, [Stx a])] -> [Stx a]
 mkPatDefns val = map (mkDefn `uncurry`)
     where mkDefn id mods =
               DefnStx NrDef id (applyMods val mods)
-
-
--- def
-
-defMacro :: DefnKw -> String -> [([Pat String], Stx String)] -> Stx String
-defMacro kw name guards =
-    DefnStx kw name (lambdaStx name guards)
 
 
 -- lambda
@@ -50,14 +42,17 @@ lambdaStx sigdesc ms =
       lambdas args (CondStx (zip preds exprs') sigdesc)
     where lambdas [] body = body
           lambdas (arg:args) body =
-              LambdaStx arg (lambdas args body)
+              LambdaStx arg Nothing (lambdas args body)
 
           andStxs stxs =
               foldl1 andStx stxs
 
 
-lambdaMacro :: [([Pat String], Stx String)] -> Stx String
-lambdaMacro = lambdaStx "lambda"
+-- def
+
+defMacro :: DefnKw -> String -> [([Pat String], Stx String)] -> Stx String
+defMacro kw name guards =
+    DefnStx kw name (lambdaStx name guards)
 
 
 -- type

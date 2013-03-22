@@ -5,6 +5,7 @@ import Data.SrcFile
 
 
 doTypecheck :: Bool
+-- doTypecheck = True
 doTypecheck = False
 
 

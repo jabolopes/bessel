@@ -40,19 +40,26 @@ initial t name deps =
             , renNs = Nothing }
 
 
-mkCoreSrcFile :: String -> [String] -> [(String, Type, Expr)] -> SrcFile
-mkCoreSrcFile name deps desc =
+type TypeDesc = [(String, Type)]
+type FnDesc = [(String, Type, Expr)]
+
+
+mkCoreSrcFile :: String -> [String] -> TypeDesc -> FnDesc -> SrcFile
+mkCoreSrcFile name deps typeDesc fnDesc =
     (initial CoreT name deps) { symbols = symbols
                               , ts = ts
                               , exprs = exprs }
     where symbols =
-              Map.fromList [ (x, FnSymbol x) | (x, _, _) <- desc ]
-            
+              Map.fromList (typeSymbols ++ fnSymbols)
+              where typeSymbols = [ (x, TypeSymbol x) | (x, _) <- typeDesc ]
+                    fnSymbols = [ (x, FnSymbol x) | (x, _, _) <- fnDesc ]
+
           ts =
-              Map.fromList [ (x, y) | (x, y, _) <- desc ]
-            
+              Map.fromList (typeDesc ++ fnTs)
+              where fnTs = [ (x, y) | (x, y, _) <- fnDesc ]
+
           exprs =
-              Map.fromList [ (x, y) | (x, _, y) <- desc ]
+              Map.fromList [ (x, y) | (x, _, y) <- fnDesc ]
 
 
 mkInteractiveSrcFile :: [String] -> SrcFile

@@ -1,10 +1,10 @@
-{-# LANGUAGE BangPatterns, DoRec, NamedFieldPuns #-}
+{-# LANGUAGE BangPatterns, NamedFieldPuns, ParallelListComp #-}
 module Renamer where
 
 import Control.Monad.Error
 import Control.Monad.State
 import Data.Functor ((<$>))
-import Data.List (intercalate, nub, partition, sort)
+import Data.List (intercalate, maximumBy, nub, partition, sort)
 import Data.Map (Map)
 import qualified Data.Map as Map ((!), elems, empty, fromList, insert, keys, lookup, union)
 import Data.Maybe (catMaybes, fromJust)
@@ -20,6 +20,9 @@ import Data.Symbol (Symbol (..))
 import qualified Data.Symbol as Symbol
 import Data.Tuple (swap)
 import Utils (fromSingleton, split)
+
+import Macros
+import Debug.Trace
 
 
 data RenamerState =
@@ -71,7 +74,6 @@ genNameM name =
          let qual | null ns = name
                   | otherwise = ns ++ "." ++ name
          return qual
-         -- return name
        else
          (name ++) . show <$> genNumM
 
@@ -158,12 +160,20 @@ getFnSymbolM names =
          _ -> throwError $ "name " ++ show (intercalate "." names) ++ " is not a function"
 
 
-getTypeSymbolM :: [String] -> RenamerM String
-getTypeSymbolM names =
-    do sym <- getSymbolM names
+getTypeSymbolM :: String -> RenamerM String
+getTypeSymbolM name =
+    do sym <- getSymbolM (split '.' name)
        case sym of
          TypeSymbol name -> return name
-         _ -> throwError $ "name " ++ show (intercalate "." names) ++ " is not a type"
+         _ -> throwError $ "name " ++ show name ++ " is not a type"
+
+
+isTypeSymbolM :: String -> RenamerM (Maybe String)
+isTypeSymbolM name =
+    do sym <- getSymbolM (split '.' name)
+       case sym of
+         TypeSymbol name -> return (Just name)
+         _ -> return Nothing
 
 
 addSymbolM :: String -> Symbol -> RenamerM ()
@@ -211,6 +221,49 @@ withPrefixedScopeM prefix m =
        let frameEnv' = FrameEnv.addModuleFrame frameEnv prefix frame
        modify $ \state -> state { frameEnv = frameEnv' }
        return val
+
+
+expandLambda :: [([Pat String], Stx String)] -> String -> RenamerM (Stx String)
+expandLambda ms blame =
+    do let nargs = length $ fst $ maximumBy (\x y -> compare (length (fst x)) (length (fst y))) ms
+       args <- sequence $ replicate nargs (genNameM "arg")
+       let (patss, exprs) = unzip ms
+           preds = map (combinePreds args) patss
+           exprs' = zipWith (lambdaBody args) patss exprs
+           ms' = zip preds exprs'
+       return $ lambdas args (CondStx ms' blame)
+    where lambdas [] body = body
+          lambdas (arg:args) body =
+              LambdaStx arg Nothing (lambdas args body)
+
+          applyPred arg pat =
+              AppStx (patPred pat) (IdStx arg)
+
+          alignArgs args pats =
+              drop (length args - length pats) args
+
+          combinePreds args pats =
+              foldl1 andStx (zipWith applyPred (alignArgs args pats) pats)
+
+
+renameLambdaM :: String -> Maybe String -> Stx String -> RenamerM (Stx String)
+renameLambdaM arg ann body =
+    do arg' <- genNameM arg
+       LambdaStx arg' ann <$>
+         withScopeM
+           (do addFnSymbolM arg arg'
+               withScopeM (renameOneM body))
+
+
+renameUnannotatedLambdaM :: String -> Stx String -> RenamerM (Stx String)
+renameUnannotatedLambdaM arg body =
+    renameLambdaM arg Nothing body
+
+
+renameAnnotatedLambdaM :: String -> String -> Stx String -> RenamerM (Stx String)
+renameAnnotatedLambdaM arg ann body =
+    do argT <- getTypeSymbolM ann
+       renameLambdaM arg (Just argT) body
 
 
 renameNamespaceM :: Namespace String -> RenamerM (Namespace String)
@@ -271,6 +324,9 @@ renameM (IdStx name) =
 renameM (AppStx stx1 stx2) =
     (:[]) <$> ((AppStx <$> renameOneM stx1) `ap` renameOneM stx2)
 
+renameM (CondMacro ms blame) =
+    (:[]) <$> expandLambda ms blame
+
 renameM (CondStx ms blame) =
     (:[]) . (\ms -> CondStx ms blame) <$> mapM renameMatch ms
     where renameMatch (stx1, stx2) =
@@ -290,12 +346,22 @@ renameM (DefnStx NrDef name body) =
        addFnSymbolM name name'
        return [DefnStx NrDef name' body']
 
-renameM (LambdaStx arg body) =
-    do arg' <- genNameM arg
-       (:[]) . LambdaStx arg' <$>
-         withScopeM
-           (do addFnSymbolM arg arg'
-               withScopeM $ renameOneM body)
+renameM (LambdaMacro typePats body) =
+    renameM (lambdas typePats body)
+    where lambdas :: [Pat String] -> Stx String -> (Stx String)
+          lambdas [] body = body
+          lambdas (pat:pats) body =
+              let
+                  arg = fst (head (patDefns pat))
+                  IdStx ann = patPred pat
+              in
+                LambdaStx arg (Just ann) (lambdas pats body)
+
+renameM (LambdaStx arg Nothing body) =
+    (:[]) <$> renameUnannotatedLambdaM arg body
+
+renameM (LambdaStx arg (Just ann) body) =
+    (:[]) <$> renameAnnotatedLambdaM arg ann body
 
 renameM stx@(ModuleStx [] ns) =
     do Namespace _ stxs <- renameModuleM ns
@@ -311,13 +377,13 @@ renameM (TypeStx name stxs) =
        (:[]) . TypeStx name' <$> mapM renameOneM stxs
 
 renameM (TypeMkStx name) =
-    (:[]) . TypeMkStx <$> getTypeSymbolM [name]
+    (:[]) . TypeMkStx <$> getTypeSymbolM name
 
 renameM TypeUnStx =
     return [TypeUnStx]
 
 renameM (TypeIsStx name) =
-    (:[]) . TypeIsStx <$> getTypeSymbolM [name]
+    (:[]) . TypeIsStx <$> getTypeSymbolM name
 
 renameM (WhereStx stx stxs) =
     withScopeM $ do

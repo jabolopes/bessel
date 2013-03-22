@@ -86,9 +86,11 @@ printStxM (DefnStx kw str body) =
     where kw' Def = "def"
           kw' NrDef = "nrdef"
 
-printStxM (LambdaStx str body) =
-    do putPrinter $ "\\" ++ str ++ " -> "
+printStxM (LambdaStx str t body) =
+    do putPrinter $ "\\" ++ str ++ putT t ++ " -> "
        withPrinterCol $ printStxM body
+    where putT Nothing = ""
+          putT (Just t) = ":" ++ t
 
 printStxM (ModuleStx prefix ns) =
     do let prefix' | null prefix = ""

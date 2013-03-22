@@ -1,9 +1,10 @@
 {
 module Parser where
 
+import Data.List (intercalate)
+
 import Config
 import Data.Exception
-import Data.Pat
 import Data.SrcFile
 import Data.Stx
 import Macros
@@ -35,7 +36,7 @@ import Utils
         '}'     { TokenREnvParen }
 
         -- keywords
-	as      { TokenAs }
+        as      { TokenAs }
         def     { TokenDef }
         me      { TokenMe }
         module  { TokenModule }
@@ -74,6 +75,7 @@ import Utils
         -- identifier
         id       { TokenId $$ }
         quotedId { TokenQuotedId $$ }
+        typeId   { TokenTypeId $$ }
 
 
 -- Precedence (lower)
@@ -88,7 +90,7 @@ import Utils
 %left quotedId           -- functions as operators
 %nonassoc below_app_prec -- below application (e.g., single id)
 %left app_prec           -- application
-%nonassoc '(' '[' '[|' character integer double string id
+%nonassoc '(' '[' '[|' character integer double string id typeId
 -- /Precedence (greater)
 
 -- This is the type of the data produced by a successful reduction of the 'start'
@@ -98,7 +100,7 @@ import Utils
 %%
 
 SrcFile:
-    me LongId Namespace { mkParsedSrcFile (flattenId $2) $3 }
+    me LongTypeId Namespace { mkParsedSrcFile (flattenId $2) $3 }
 
 Namespace:
     UseList DefnList { Namespace $1 $2 }
@@ -106,37 +108,39 @@ Namespace:
   | DefnList         { Namespace [] $1 }
 
 UseList:
-    UseList use LongId as LongId { $1 ++ [(flattenId $3, flattenId $5)] }
-  | UseList use LongId           { $1 ++ [(flattenId $3, "")] }
-  | use LongId as LongId         { [(flattenId $2, flattenId $4)] }
-  | use LongId                   { [(flattenId $2, "")] }
+    UseList use LongTypeId as LongTypeId { $1 ++ [(flattenId $3, flattenId $5)] }
+  | UseList use LongTypeId               { $1 ++ [(flattenId $3, "")] }
+  | use LongTypeId as LongTypeId         { [(flattenId $2, flattenId $4)] }
+  | use LongTypeId                       { [(flattenId $2, "")] }
 
 DefnList:
-    DefnList Module          { $1 ++ [$2] }
-  | DefnList Defn            { $1 ++ [$2] }
-  | Module                   { [$1] }
-  | Defn                     { [$1] }
+    DefnList Module { $1 ++ [$2] }
+  | DefnList Defn   { $1 ++ [$2] }
+  | Module          { [$1] }
+  | Defn            { [$1] }
 
 Module:
-    module        where '{' Namespace '}' { ModuleStx [] $4 }
-  | module LongId where '{' Namespace '}' { ModuleStx $2 $5 }
+    module            where '{' Namespace '}' { ModuleStx [] $4 }
+  | module LongTypeId where '{' Namespace '}' { ModuleStx $2 $5 }
 
 DefnOrExpr:
-    Defn        { $1 }
-  | Expr        { $1 }
+    Defn { $1 }
+  | Expr { $1 }
 
 Defn:
-    DefnKw Name DefnPatList    { defMacro $1 $2 $3 }
-  | DefnKw Name '=' Expr       { DefnStx $1 $2 $4}
-  | type   Name '=' PatNoSpace { typeMacro $2 $4 }
+    DefnKw Name TypePatList DefnMatches { DefnStx $1 $2 (LambdaMacro $3 (CondMacro $4 $2)) }
+  | DefnKw Name TypePatList '=' Expr    { DefnStx $1 $2 (LambdaMacro $3 $5) }
+  | DefnKw Name DefnMatches             { DefnStx $1 $2 (CondMacro $3 $2) }
+  | DefnKw Name '=' Expr                { DefnStx $1 $2 $4 }
+  | type   Name '=' PatNoSpace          { typeMacro $2 $4 }
 
-DefnPatList:
-    DefnPatList '|' LambdaPatList '=' Expr  { $1 ++ [($3, $5)] }
-  | LambdaPatList '=' Expr	      	    { [($1, $3)] }
+DefnMatches:
+    DefnMatches '|' PredPatList '=' Expr  { $1 ++ [($3, $5)] }
+  | PredPatList '=' Expr                  { [($1, $3)] }
 
 DefnKw:
-    def      { Def }
-  | nrdef    { NrDef }
+    def   { Def }
+  | nrdef { NrDef }
 
 Expr:
     SimpleExpr %prec below_app_prec { $1 }
@@ -166,22 +170,31 @@ Expr:
 
   | Expr quotedId Expr { binOpStx $2 $1 $3 }
 
-  | Lambda          { lambdaMacro $1 }
+  | Lambda          { $1 }
 
   | Expr where '{' DefnList '}' { WhereStx $1 $4 }
 
 Lambda:
-    Lambda '|' LambdaPatList SimpleExpr { $1 ++ [($3, $4)] }
-  | LambdaPatList SimpleExpr            { [($1, $2)] }
+    TypePatList LambdaMatches { LambdaMacro $1 (CondMacro $2 "lambda") }
+  | TypePatList SimpleExpr    { LambdaMacro $1 $2 }
+  | LambdaMatches             { CondMacro $1 "lambda" }
 
-LambdaPatList:
-    LambdaPatList Pat { $1 ++ [$2] }
-  | Pat               { [$1] }
+LambdaMatches:
+    LambdaMatches '|' PredPatList SimpleExpr { $1 ++ [($3, $4)] }
+  | PredPatList SimpleExpr                   { [($1, $2)] }
+
+TypePatList:
+    TypePatList TypePat { $1 ++ [$2] }
+  | TypePat             { [$1] }
+
+PredPatList:
+    PredPatList Pat { $1 ++ [$2] }
+  | Pat             { [$1] }
 
 SimpleExpr:
-    LongName	             { IdStx $1 }
-  | Constant	             { $1 }
-  | Seq			     { $1 }
+    LongName                 { IdStx $1 }
+  | Constant                 { $1 }
+  | Seq                      { $1 }
   | '(' Expr ')'             { $2 }
 
 Constant:
@@ -196,6 +209,9 @@ Seq:
 
 
 -- patterns
+
+TypePat:
+    id '@' typeId  { namePat $1 (mkPredPat (IdStx $3)) }
 
 Pat:
     '@ '         { mkPredPat constTrueStx }
@@ -248,12 +264,12 @@ ExprList:
 -- identifiers
 
 LongName:     
-    LongName '.' Name { $1 ++ "." ++ $3 }
-  | Name              { $1 }
+    LongTypeId '.' Name { intercalate "." ($1 ++ [$3]) }
+  | Name                { $1 }
 
-LongId:
-    LongId '.' id { $1 ++ [$3] }
-  | id            { [$1] }
+LongTypeId:
+    LongTypeId '.' typeId { $1 ++ [$3] }
+  | typeId                { [$1] }
 
 Name:
     '(' Operator ')' { $2 }
@@ -342,6 +358,7 @@ data Token
      -- identifier
      | TokenId String
      | TokenQuotedId String
+     | TokenTypeId String
        deriving (Show)
 
 

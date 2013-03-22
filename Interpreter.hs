@@ -58,7 +58,7 @@ evalM (DefnStx NrDef str body) =
        addBindM str expr
        return expr
 
-evalM (LambdaStx str body) =
+evalM (LambdaStx str _ body) =
     FnExpr . closure <$> get
     where closure env expr =
               withLexicalEnvM env $ do

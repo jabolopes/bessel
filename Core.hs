@@ -68,9 +68,96 @@ isseqof (FnExpr fn) = FnExpr hof
 
 -- comparison functions
 
-eq :: Expr -> Expr
-eq expr1 =
-    FnExpr $ \expr2 -> return (expr1 `exprEq` expr2)
+eqBool :: Expr -> Expr
+eqBool (BoolExpr b1) = FnExpr eqBoolHof
+    where eqBoolHof (BoolExpr b2)
+              | b1 == b2 = return true
+              | otherwise = return false
+
+
+eqInt :: Expr -> Expr
+eqInt (IntExpr i1) = FnExpr eqIntHof
+    where eqIntHof (IntExpr i2)
+              | i1 == i2 = return true
+              | otherwise = return false
+
+
+eqReal :: Expr -> Expr
+eqReal (DoubleExpr d1) = FnExpr eqRealHof
+    where eqRealHof (DoubleExpr d2)
+              | d1 == d2 = return true
+              | otherwise = return false
+
+
+eqChar :: Expr -> Expr
+eqChar (CharExpr c1) = FnExpr eqCharHof
+    where eqCharHof (CharExpr c2)
+              | c1 == c2 = return true
+              | otherwise = return false
+
+
+all2 :: (a -> b -> Expr) -> [a] -> [b] -> Expr
+all2 _ [] [] = true
+all2 _ [] _ = false
+all2 _ _ [] = false
+all2 fn (x1:xs1) (x2:xs2)
+    | isNotFalseExpr (fn x1 x2) = all2 fn xs1 xs2
+    | otherwise = false
+
+
+exprEq :: Expr -> Expr -> Expr
+exprEq (BoolExpr b1) (BoolExpr b2) | b1 == b2 = true
+exprEq (IntExpr i1) (IntExpr i2) | i1 == i2 = true
+exprEq (DoubleExpr d1) (DoubleExpr d2) | d1 == d2 = true
+exprEq (CharExpr c1) (CharExpr c2) | c1 == c2 = true
+exprEq (SeqExpr exprs1) (SeqExpr exprs2) = all2 exprEq exprs1 exprs2
+exprEq (TypeExpr _ tid1 expr1) (TypeExpr _ tid2 expr2) | tid1 == tid2 = expr1 `exprEq` expr2
+exprEq _ _ = false
+
+
+eqSeq :: Expr -> Expr
+eqSeq (SeqExpr exprs1) = FnExpr eqSeqHof
+    where eqSeqHof (SeqExpr exprs2) =
+              return (all2 exprEq exprs1 exprs2)
+
+
+eqObj :: Expr -> Expr
+eqObj (TypeExpr _ tid1 expr1) = FnExpr eqObjHof
+    where eqObjHof (TypeExpr _ tid2 expr2)
+              | tid1 == tid2 = return (expr1 `exprEq` expr2)
+              | otherwise = return false
+
+
+exprLt :: Expr -> Expr -> Expr
+exprLt (BoolExpr b1) (BoolExpr b2) | b1 < b2 = true
+exprLt expr@(IntExpr i1) (IntExpr i2) = if i1 < i2 then expr else false
+exprLt expr@(DoubleExpr d1) (DoubleExpr d2) = if d1 < d2 then expr else false
+exprLt expr@(CharExpr c1) (CharExpr c2) = BoolExpr $ c1 < c2
+exprLt expr@(SeqExpr exprs1) (SeqExpr exprs2)
+      | length exprs1 < length exprs2 = expr
+      | length exprs1 == length exprs2 && isNotFalseExpr (all2 exprLt exprs1 exprs2) = expr
+      | otherwise = false
+exprLt (FnExpr _) (FnExpr _) = false
+exprLt (TypeExpr _ _ _) (TypeExpr _ _ _) = false
+exprLt (BoolExpr _) _ = true
+exprLt (IntExpr _) (BoolExpr _) = false
+exprLt expr@(IntExpr i) (DoubleExpr d) = if (fromIntegral i) < d then expr else false
+exprLt expr@(IntExpr _) _ = expr
+exprLt (DoubleExpr _) (BoolExpr _) = false
+exprLt expr@(DoubleExpr d) (IntExpr i) = BoolExpr $ d < (fromIntegral i)
+exprLt expr@(DoubleExpr _) _ = expr
+exprLt (CharExpr _) (BoolExpr _) = false
+exprLt (CharExpr _) (IntExpr _) = false
+exprLt (CharExpr _) (DoubleExpr _) = false
+exprLt expr@(CharExpr _) _ = expr
+exprLt (SeqExpr _) (BoolExpr _) = false
+exprLt (SeqExpr _) (IntExpr _) = false
+exprLt (SeqExpr _) (DoubleExpr _) = false
+exprLt (SeqExpr _) (CharExpr _) = false
+exprLt expr@(SeqExpr _) _ = expr
+exprLt expr@(FnExpr _) (TypeExpr _ _ _) = expr
+exprLt (FnExpr _) _ = false
+exprLt (TypeExpr _ _ _) _ = false
 
 
 less :: Expr -> Expr
@@ -320,22 +407,36 @@ listPredT :: Type
 listPredT = ArrowT (SeqT DynT) BoolT
 
 
-desc :: [(String, Type, Expr)]
-desc = [
+typeDesc :: TypeDesc
+typeDesc =
+    [("Bool", BoolT),
+     ("Int", IntT),
+     ("Double", DoubleT),
+     ("Char", CharT),
+     ("Dyn", DynT)]
+
+
+fnDesc :: FnDesc
+fnDesc = [
   -- constants
   ("false", BoolT, false),
   ("true", BoolT, true),
   -- predicates
+  ("isbool", predT, m isbool),
   ("isint", predT, m isint),
   ("isreal", predT, m isreal),
-  ("isbool", predT, m isbool),
   ("ischar", predT, m ischar),
   ("isfn", predT, m isfn),
   ("isobj", predT, m isobj),
   ("isseq", predT, m isseq),
   ("isseqof", ArrowT predT DynT, m isseqof),
   -- comparison functions
-  ("eq", ArrowT DynT (ArrowT DynT BoolT), m eq),
+  ("eqBool", ArrowT BoolT (ArrowT BoolT BoolT), m eqBool),
+  ("eqInt", ArrowT IntT (ArrowT IntT BoolT), m eqInt),
+  ("eqReal", ArrowT DoubleT (ArrowT DoubleT BoolT), m eqReal),
+  ("eqChar", ArrowT CharT (ArrowT CharT BoolT), m eqChar),
+  ("eqSeq", ArrowT DynT (ArrowT DynT BoolT), m eqSeq),
+  ("eqObj", ArrowT DynT (ArrowT DynT BoolT), m eqObj),
   ("less", ArrowT DynT (ArrowT DynT BoolT), m less),
   -- arithmetic functions
   ("mkInt", ArrowT DynT IntT, m mkInt),
@@ -385,4 +486,4 @@ desc = [
 
 -- edit: fixed undefined
 srcfile :: SrcFile
-srcfile = mkCoreSrcFile "Core" [] desc
+srcfile = mkCoreSrcFile "Core" [] typeDesc fnDesc

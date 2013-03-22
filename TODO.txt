@@ -26,4 +26,8 @@ Typecheck fixpoints
 Toplevel type annotations? And checking in typechecker?
 
 
-Remove the benign shift/reduce conflict.
+Remove the benign shift/reduce conflicts.
+
+
+Added a 'notype' annotation for definitions in order to eliminate the
+two Preludes.

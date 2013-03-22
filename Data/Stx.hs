@@ -1,18 +1,63 @@
 {-# LANGUAGE ParallelListComp #-}
 module Data.Stx where
 
+import Data.Char (isSymbol)
 import Data.List (intercalate)
 
 
 data DefnKw
     = Def
     | NrDef
-      deriving (Eq, Ord, Show)
+      deriving (Show)
 
 
 data Namespace a
     = Namespace [(String, String)] [Stx a]
-      deriving (Eq, Ord, Show)
+      deriving (Show)
+
+
+data Pat a
+    = Pat { patPred :: Stx a
+          , patDefns :: [(String, [Stx a])] }
+      deriving (Show)
+
+
+mkGeneralPat :: Stx a -> [[Stx a]] -> [Pat a] -> Pat a
+mkGeneralPat pred mods pats =
+    Pat (mkPred pred pats) (modPats mods pats)
+    where mkPred pred [] = pred
+          mkPred pred pats =
+              AppStx pred $ SeqStx $ map patPred pats
+
+          modDefns _ [] = []
+          modDefns mod ((str, mod'):defns) =
+              (str, mod' ++ mod):modDefns mod defns
+
+          modPats [] [] = []    
+          modPats (mod:mods) (Pat _ defns:pats) =
+              modDefns mod defns ++ modPats mods pats
+
+
+mkPat :: Stx String -> [Stx String] -> [Pat String] -> Pat String
+mkPat pred mods pats =
+    mkGeneralPat pred (map (:[]) mods) pats
+
+
+mkPredPat :: Stx String -> Pat String
+mkPredPat pred =
+    mkGeneralPat pred [] []
+
+
+mkListPat :: [Pat String] -> Pat String
+mkListPat pats =
+    mkGeneralPat (IdStx "plist") (map (reverse . listRef) [1..length pats]) pats
+    where listRef 1 = [IdStx "hd"]
+          listRef i = IdStx "tl":listRef (i - 1)
+
+
+namePat :: String -> Pat String -> Pat String
+namePat name (Pat pred defns) =
+    Pat pred $ (name, []):defns
 
 
 data Stx a
@@ -24,16 +69,22 @@ data Stx a
     | IdStx a
 
     | AppStx (Stx a) (Stx a)
+
+    | CondMacro [([Pat a], Stx a)] String
     | CondStx [(Stx a, Stx a)] String
+
     | DefnStx DefnKw String (Stx a)
-    | LambdaStx String (Stx a)
+
+    | LambdaMacro [Pat a] (Stx a)
+    | LambdaStx String (Maybe String) (Stx a)
+
     | ModuleStx [String] (Namespace a)
     | TypeStx String [Stx a]
     | TypeMkStx String
     | TypeUnStx
     | TypeIsStx String
     | WhereStx (Stx a) [Stx a]
-      deriving (Eq, Ord, Show)
+      deriving (Show)
 
 
 isCharStx :: Stx a -> Bool
@@ -47,7 +98,7 @@ isAppStx _ = False
 
 
 isLambdaStx :: Stx a -> Bool
-isLambdaStx (LambdaStx _ _) = True
+isLambdaStx (LambdaStx _ _ _) = True
 isLambdaStx _ = False
 
 
@@ -67,17 +118,18 @@ isValueStx (IntStx _) = True
 isValueStx (DoubleStx _) = True
 isValueStx (SeqStx _) = True
 isValueStx (IdStx _) = True
-isValueStx (LambdaStx _ _) = True
+isValueStx (LambdaStx _ _ _) = True
 isValueStx _ = False
 
 
 andStx :: Stx String -> Stx String -> Stx String
 andStx stx1 stx2 =
     let
-        m1 = (binOpStx "==" stx1 (IdStx "false"), IdStx "false")
-        m2 = (IdStx "true", stx2)
+        m2 = (stx2, IdStx "true")
+        m3 = (IdStx "true", IdStx "false")
+        m1 = (stx1, CondStx [m2, m3] "irrefutable 'and' pattern")
     in
-      CondStx [m1, m2] "irrefutable 'and' pattern"
+      CondStx [m1, m3] "irrefutable 'and' pattern"
 
 
 appStx :: a -> Stx a -> Stx a
@@ -94,7 +146,8 @@ binOpStx op stx1 stx2 =
 
 
 constStx :: Stx a -> Stx a
-constStx stx1 = LambdaStx "_" stx1
+constStx stx1 = LambdaStx "_" Nothing stx1
+-- edit: maybe it should be TvarT or Evar instead of Nothing?
 
 
 constTrueStx :: Stx String
@@ -103,9 +156,11 @@ constTrueStx = constStx (IdStx "true")
 
 orStx :: Stx String -> Stx String -> Stx String
 orStx stx1 stx2 =
+    -- note: force 'stx1' and 'stx2' to be of type 'Bool'
     let
-        m1 = (binOpStx "==" stx1 (IdStx "false"), stx2)
-        m2 = (IdStx "true", IdStx "true")
+        m1 = (stx1, IdStx "true")
+        m2 = (stx2, IdStx "true")
+        m3 = (IdStx "true", IdStx "false")
     in
       CondStx [m1, m2] "irrefutable 'or' pattern"
 
@@ -132,14 +187,19 @@ showAbbrev (IntStx i) = show i
 showAbbrev (DoubleStx d) = show d
 showAbbrev (SeqStx stxs) = "[" ++ intercalate ", " (map showAbbrev stxs) ++ "]"
 
-showAbbrev (IdStx name) = name
+showAbbrev (IdStx name)
+    | isSymbol (head name) = "(" ++ name ++ ")"
+    | otherwise = name
 
 showAbbrev (AppStx stx1 stx2) =
   paren stx1 ++ " " ++ paren stx2
   where paren stx | needsParen stx = "(" ++ showAbbrev stx ++ ")"
                   | otherwise = showAbbrev stx
 
-showAbbrev (LambdaStx arg body) =
+showAbbrev (LambdaStx arg Nothing body) =
   "\\" ++ arg ++ ". " ++ showAbbrev body
+
+showAbbrev (LambdaStx arg (Just t) body) =
+  "\\" ++ arg ++ ":" ++ t ++ ". " ++ showAbbrev body
 
 showAbbrev stx = show stx
