@@ -50,7 +50,7 @@ catchIOError = catch
 
 doPutLine = False
 doPutTokens = True
-doPutParsedStx = False
+doPutParsedStx = True
 doPutExpr = True
 doPutExprT = True
 doPutEnvironment = False
