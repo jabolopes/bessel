@@ -155,6 +155,11 @@ constTrueStx :: Stx String
 constTrueStx = constStx (IdStx "true")
 
 
+foldAppStx :: Stx a -> [Stx a] -> Stx a
+foldAppStx x [] = x
+foldAppStx x (y:ys) = AppStx y (foldAppStx x ys)
+
+
 orStx :: Stx String -> Stx String -> Stx String
 orStx stx1 stx2 =
     -- note: force 'stx1' and 'stx2' to be of type 'Bool'

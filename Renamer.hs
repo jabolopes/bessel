@@ -21,7 +21,6 @@ import qualified Data.Symbol as Symbol
 import Data.Tuple (swap)
 import Utils (fromSingleton, split)
 
-import Macros
 import Debug.Trace
 
 
@@ -223,6 +222,24 @@ withPrefixedScopeM prefix m =
        return val
 
 
+mkPatDefns :: Stx a -> [(String, [Stx a])] -> [Stx a]
+mkPatDefns val = map (mkDefn `uncurry`)
+    where mkDefn id mods =
+              DefnStx Nothing NrDef id (foldAppStx val mods)
+
+
+lambdaBody :: [a] -> [Pat a] -> Stx a -> Stx a
+lambdaBody args pats body =
+    let
+        defns = [ (arg, patDefns pat) | arg <- args | pat <- pats ]
+        defns' = concat [ mkPatDefns (IdStx arg) defns | (arg, defns) <- defns ]
+    in
+      if null defns' then
+          body
+      else
+          WhereStx body defns'
+
+
 expandLambda :: [([Pat String], Stx String)] -> String -> RenamerM (Stx String)
 expandLambda ms blame =
     do let nargs = length $ fst $ maximumBy (\x y -> compare (length (fst x)) (length (fst y))) ms
@@ -231,7 +248,7 @@ expandLambda ms blame =
            preds = map (combinePreds args) patss
            exprs' = zipWith (lambdaBody args) patss exprs
            ms' = zip preds exprs'
-       return $ lambdas args (CondStx ms' blame)
+       renameOneM (lambdas args (CondStx ms' blame))
     where lambdas [] body = body
           lambdas (arg:args) body =
               LambdaStx arg Nothing (lambdas args body)

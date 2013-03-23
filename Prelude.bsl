@@ -87,11 +87,11 @@ nrdef neg x@isint  = negInt x
 sig rem:Int -> Int -> Int
 def rem x@ y@ = remInt x y
 
-nrdef length []@ = 0
-           | (@ +> xs@) = length xs + 1
+def length []@ = 0
+         | (@ +> xs@) = length xs + 1
 
-nrdef reverse []@ = []
-            | (x@ +> xs@) = ar (reverse xs) x
+def reverse []@ = []
+          | (x@ +> xs@) = ar (reverse xs) x
 
 nrdef const x@ @ = x
 
