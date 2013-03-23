@@ -35,3 +35,6 @@ two Preludes.
 
 Maybe in renamer, detect whether a 'Def' definition is not in fact a
 'NrDef'.
+
+
+Moved code in 'Macros' to 'Renamer' in order to use 'genNameM'.
