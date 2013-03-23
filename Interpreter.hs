@@ -48,12 +48,12 @@ evalM (CondStx ms blame) = evalMatches ms
                    BoolExpr False -> evalMatches ms
                    _ -> evalM expr
 
-evalM (DefnStx Def str body) =
+evalM (DefnStx _ Def str body) =
     do rec addBindM str expr
            expr <- evalM body
        return expr
 
-evalM (DefnStx NrDef str body) =
+evalM (DefnStx _ NrDef str body) =
     do expr <- evalM body
        addBindM str expr
        return expr

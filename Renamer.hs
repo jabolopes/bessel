@@ -334,17 +334,17 @@ renameM (CondStx ms blame) =
                  stx2' <- renameOneM stx2
                  return (stx1', stx2')
 
-renameM (DefnStx Def name body) =
+renameM (DefnStx ann Def name body) =
     do name' <- genNameM name
        addFnSymbolM name name'
-       (:[]) . DefnStx Def name' <$>
+       (:[]) . DefnStx ann Def name' <$>
          withNslevel False (renameOneM body)
 
-renameM (DefnStx NrDef name body) =
+renameM (DefnStx ann NrDef name body) =
     do name' <- genNameM name
        body' <- withNslevel False (renameOneM body)
        addFnSymbolM name name'
-       return [DefnStx NrDef name' body']
+       return [DefnStx ann NrDef name' body']
 
 renameM (LambdaMacro typePats body) =
     renameM (lambdas typePats body)

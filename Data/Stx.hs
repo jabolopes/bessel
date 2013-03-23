@@ -3,6 +3,7 @@ module Data.Stx where
 
 import Data.Char (isSymbol)
 import Data.List (intercalate)
+import Data.Type
 
 
 data DefnKw
@@ -73,7 +74,7 @@ data Stx a
     | CondMacro [([Pat a], Stx a)] String
     | CondStx [(Stx a, Stx a)] String
 
-    | DefnStx DefnKw String (Stx a)
+    | DefnStx (Maybe Type) DefnKw String (Stx a)
 
     | LambdaMacro [Pat a] (Stx a)
     | LambdaStx String (Maybe String) (Stx a)

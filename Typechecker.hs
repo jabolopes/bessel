@@ -609,14 +609,14 @@ synthAbstrM ctx (CondStx ms blame) =
                  (stx2', ctx'') <- checkM evarT ctx' stx2
                  synthMs evarT ctx'' ((stx1', stx2'):stxs) ms
 
-synthAbstrM ctx (DefnStx Def name body) =
+synthAbstrM ctx (DefnStx ann@Nothing Def name body) =
     do (bodyT, body', ctx') <- synthM (insertContext ctx name (simpleType DynT)) body
-       return (bodyT, DefnStx Def name body', insertContext ctx' name (simpleType bodyT))
+       return (bodyT, DefnStx ann Def name body', insertContext ctx' name (simpleType bodyT))
 
-synthAbstrM ctx (DefnStx NrDef name body) =
+synthAbstrM ctx (DefnStx ann@Nothing NrDef name body) =
     do (bodyT, body', ctx') <- synthM ctx body
        let bodyT' = substituteExistTs ctx' bodyT
-       return (bodyT', DefnStx NrDef name body', insertContext ctx' name (simpleType bodyT'))
+       return (bodyT', DefnStx ann NrDef name body', insertContext ctx' name (simpleType bodyT'))
 
 synthAbstrM ctx stx@(WhereStx _ _) =
     typecheckWhereM synthM ctx stx
@@ -746,8 +746,28 @@ checkInstM (ExistT var) ctx stx@(LambdaStx _ _ _) | isEmptyTypeContext ctx var =
     checkInstM existT ctx' stx
 
 -- C-Where
-checkInstM t syms stx@(WhereStx _ _) =
-    typecheckWhereM (checkM t) syms stx
+checkInstM t ctx (DefnStx ann@(Just _) Def name body) =
+    do (body', ctx') <- checkM t (insertContext ctx name (simpleType t)) body
+
+       judgementM "<=Defn"
+                  ("<=" ++ show t)
+                  ""
+
+       return (DefnStx ann Def name body', ctx')
+
+
+checkInstM t ctx (DefnStx ann@(Just _) NrDef name body) =
+    do (body', ctx') <- checkM t ctx body
+       let bodyT = substituteExistTs ctx' t
+
+       judgementM "<=Defn"
+                  ("<=" ++ show bodyT)
+                  ""
+
+       return (DefnStx ann NrDef name body', insertContext ctx' name (simpleType bodyT))
+
+checkInstM t ctx stx@(WhereStx _ _) =
+    typecheckWhereM (checkM t) ctx stx
 
 -- <=Sub
 checkInstM t syms stx =
@@ -761,6 +781,11 @@ checkInstM t syms stx =
 
 
 typecheckSubstitute :: Context -> Stx String -> TypecheckerM (Type, Context)
+typecheckSubstitute ctx stx@(DefnStx (Just t) _ _ _) =
+    do (_, ctx') <- checkM t ctx stx
+       let !_ | debugT ("type before the final substitution: " ++ show t) = True
+       return (substituteExistTs ctx' t, ctx')
+
 typecheckSubstitute ctx stx =
     do (t, _, ctx') <- synthM ctx stx
        let !_ | debugT ("type before the final substitution: " ++ show t) = True

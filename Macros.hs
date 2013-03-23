@@ -14,7 +14,7 @@ applyMods val (mod:mods) =
 mkPatDefns :: Stx a -> [(String, [Stx a])] -> [Stx a]
 mkPatDefns val = map (mkDefn `uncurry`)
     where mkDefn id mods =
-              DefnStx NrDef id (applyMods val mods)
+              DefnStx Nothing NrDef id (applyMods val mods)
 
 
 -- lambda
@@ -52,7 +52,7 @@ lambdaStx sigdesc ms =
 
 defMacro :: DefnKw -> String -> [([Pat String], Stx String)] -> Stx String
 defMacro kw name guards =
-    DefnStx kw name (lambdaStx name guards)
+    DefnStx Nothing kw name (lambdaStx name guards)
 
 
 -- type
@@ -71,7 +71,7 @@ mkDefn name pat =
 isDefn :: String -> Stx String
 isDefn name =
     let isname = "is" ++ name in
-    DefnStx NrDef isname (TypeIsStx name)
+    DefnStx Nothing NrDef isname (TypeIsStx name)
 
 
 unDefn :: String -> Pat String -> Stx String

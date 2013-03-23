@@ -7,6 +7,7 @@ import Config
 import Data.Exception
 import Data.SrcFile
 import Data.Stx
+import Data.Type
 import Macros
 import Utils
 
@@ -20,10 +21,12 @@ import Utils
 
 %token
         -- punctuation
+        '->'    { TokenArrow }
         '@'     { TokenAt }
         '@ '    { TokenAtSpace }
         '|'     { TokenBar }
         '.'     { TokenDot }
+        ':'     { TokenColon }
         ','     { TokenComma }
         '='     { TokenEquiv }
 
@@ -41,6 +44,7 @@ import Utils
         me      { TokenMe }
         module  { TokenModule }
         nrdef   { TokenNrdef }
+        sig     { TokenSig }
         type    { TokenType }
         use     { TokenUse }
         where   { TokenWhere }
@@ -66,8 +70,8 @@ import Utils
         '<='    { TokenLe $$ }
         '>='    { TokenGe $$ }
 
-        '->'    { TokenRArrow $$ }
-        '<-'    { TokenLArrow $$ }
+        '+>'    { TokenCons $$ }
+        '<+'    { TokenSnoc $$ }
 
         '&&'    { TokenAnd $$ }
         '||'    { TokenOr $$ }
@@ -79,10 +83,11 @@ import Utils
 
 
 -- Precedence (lower)
+%right '->'
 %nonassoc guard_prec     -- guard
 %left where              -- where
 %left '&&' '||'          -- logical
-%left '<-' '->'          -- arrow
+%left '+>' '<+'          -- arrow
 %left '==' '/=' '<' '>' '<=' '>='  -- comparison
 %left '+' '-'            -- additives
 %left '*' '/'            -- multiplicatives
@@ -128,11 +133,20 @@ DefnOrExpr:
   | Expr { $1 }
 
 Defn:
-    DefnKw Name TypePatList DefnMatches { DefnStx $1 $2 (LambdaMacro $3 (CondMacro $4 $2)) }
-  | DefnKw Name TypePatList '=' Expr    { DefnStx $1 $2 (LambdaMacro $3 $5) }
-  | DefnKw Name DefnMatches             { DefnStx $1 $2 (CondMacro $3 $2) }
-  | DefnKw Name '=' Expr                { DefnStx $1 $2 $4 }
+    -- edit: ensure the name in the type ann is the same
+    TypeAnn DefnKw Name '=' Expr                { DefnStx (Just (snd $1)) $2 $3 $5 }
+  | TypeAnn DefnKw Name TypePatList DefnMatches { DefnStx (Just (snd $1)) $2 $3 (LambdaMacro $4 (CondMacro $5 $3)) }
+  | TypeAnn DefnKw Name TypePatList '=' Expr    { DefnStx (Just (snd $1)) $2 $3 (LambdaMacro $4 $6) }
+  | TypeAnn DefnKw Name DefnMatches             { DefnStx (Just (snd $1)) $2 $3 (CondMacro $4 $3) }
+
+  | DefnKw Name TypePatList DefnMatches { DefnStx Nothing $1 $2 (LambdaMacro $3 (CondMacro $4 $2)) }
+  | DefnKw Name TypePatList '=' Expr    { DefnStx Nothing $1 $2 (LambdaMacro $3 $5) }
+  | DefnKw Name DefnMatches             { DefnStx Nothing $1 $2 (CondMacro $3 $2) }
+  | DefnKw Name '=' Expr                { DefnStx Nothing $1 $2 $4 }
   | type   Name '=' PatNoSpace          { typeMacro $2 $4 }
+
+TypeAnn:
+    sig Name ':' Type { ($2, $4) }
 
 DefnMatches:
     DefnMatches '|' PredPatList '=' Expr  { $1 ++ [($3, $5)] }
@@ -162,8 +176,8 @@ Expr:
   | Expr '<=' Expr  { binOpStx $2 $1 $3 }
   | Expr '>=' Expr  { binOpStx $2 $1 $3 }
 
-  | Expr '->' Expr  { binOpStx $2 $1 $3 }
-  | Expr '<-' Expr  { binOpStx $2 $1 $3 }
+  | Expr '+>' Expr  { binOpStx $2 $1 $3 }
+  | Expr '<+' Expr  { binOpStx $2 $1 $3 }
 
   | Expr '&&' Expr  { andStx $1 $3 }
   | Expr '||' Expr  { orStx $1 $3 }
@@ -236,8 +250,8 @@ PatRest:
   | id '@' '(' Expr ')' { namePat $1 (mkPredPat $4) }
 
 OpPat:
-    Pat '->' PatNoSpace { mkPat (IdStx "pal") [IdStx "hd", IdStx "tl"] [$1, $3] }
-  | Pat '<-' PatNoSpace { mkPat (IdStx "par") [IdStx "tlr", IdStx "hdr"] [$1, $3] }
+    Pat '+>' PatNoSpace { mkPat (IdStx "pal") [IdStx "hd", IdStx "tl"] [$1, $3] }
+  | Pat '<+' PatNoSpace { mkPat (IdStx "par") [IdStx "tlr", IdStx "hdr"] [$1, $3] }
   | Pat '&&' PatNoSpace { mkPat (IdStx "pand") [IdStx "id", IdStx "id"] [$1, $3] }
   | Pat '||' PatNoSpace { mkPat (IdStx "por") [IdStx "id", IdStx "id"] [$1, $3] }
 
@@ -259,6 +273,18 @@ PatList2:
 ExprList:
     ExprList ',' Expr   { $1 ++ [$3] }
   | Expr                { [$1] }
+
+
+-- types
+
+Type:
+    Type '->' Type { ArrowT $1 $3 }
+  | typeId         { case $1 of
+                       "Bool" -> BoolT
+                       "Int" -> IntT
+                       "Real" -> DoubleT
+                       "Char" -> CharT
+                       "Dyn" -> DynT }
 
 
 -- identifiers
@@ -290,8 +316,8 @@ Operator:
   | '<='        { $1 }
   | '>='        { $1 }
 
-  | '->'        { $1 }
-  | '<-'        { $1 }
+  | '+>'        { $1 }
+  | '<+'        { $1 }
 
   | '&&'        { $1 }
   | '||'        { $1 }
@@ -303,9 +329,11 @@ parseError tks = throwParseException $ show tks
 
 data Token
      -- punctuation
-     = TokenAt
+     = TokenArrow
+     | TokenAt
      | TokenAtSpace
      | TokenBar
+     | TokenColon
      | TokenComma
      | TokenDot
      | TokenEquiv
@@ -324,6 +352,7 @@ data Token
      | TokenMe
      | TokenModule
      | TokenNrdef
+     | TokenSig
      | TokenType
      | TokenUse
      | TokenWhere
@@ -349,8 +378,8 @@ data Token
      | TokenLe String
      | TokenGe String
 
-     | TokenRArrow String
-     | TokenLArrow String
+     | TokenCons String
+     | TokenSnoc String
 
      | TokenAnd String
      | TokenOr String

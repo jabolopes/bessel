@@ -38,9 +38,11 @@ tokens :-
   @comment            ;
 
   -- punctuation
+  "->"                { \_ -> TokenArrow }
   "@ "                { \_ -> TokenAtSpace }
   "@"                 { \_ -> TokenAt }
   "|"                 { \_ -> TokenBar }
+  ":"                 { \_ -> TokenColon }
   ","                 { \_ -> TokenComma }
   "."                 { \_ -> TokenDot }
   "="                 { \_ -> TokenEquiv }
@@ -59,6 +61,7 @@ tokens :-
   "me"                { \_ -> TokenMe }
   "module"            { \_ -> TokenModule }
   "nrdef"             { \_ -> TokenNrdef }
+  "sig"               { \_ -> TokenSig }
   "type"              { \_ -> TokenType }
   "use"               { \_ -> TokenUse }
   "where"             { \_ -> TokenWhere }
@@ -84,8 +87,8 @@ tokens :-
   "<=" (@id_char)*    { \s -> TokenLe s }
   ">=" (@id_char)*    { \s -> TokenGe s }
 
-  "->" (@id_char)*    { \s -> TokenRArrow s }
-  "<-" (@id_char)*    { \s -> TokenLArrow s }
+  "+>" (@id_char)*    { \s -> TokenCons s }
+  "<+" (@id_char)*    { \s -> TokenSnoc s }
 
   "&&"                { \s -> TokenAnd s }
   "||"                { \s -> TokenOr s }

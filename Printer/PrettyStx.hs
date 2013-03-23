@@ -80,11 +80,17 @@ printStxM (CondStx ms blame) =
                  nlPrinter
                  putMatches ms
 
-printStxM (DefnStx kw str body) =
-    do putPrinter $ kw' kw ++ " " ++ str ++ " = "
+printStxM (DefnStx ann kw name body) =
+    do putAnn ann
+       putPrinter $ kw' kw ++ " " ++ name ++ " = "
        printStxM body
     where kw' Def = "def"
           kw' NrDef = "nrdef"
+
+          putAnn Nothing = return ()
+          putAnn (Just t) =
+              do putPrinter $ "sig " ++ name ++ ":" ++ show t
+                 nlPrinter
 
 printStxM (LambdaStx str t body) =
     do putPrinter $ "\\" ++ str ++ putT t ++ " -> "
