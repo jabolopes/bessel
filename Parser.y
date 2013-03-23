@@ -134,16 +134,22 @@ DefnOrExpr:
 
 Defn:
     -- edit: ensure the name in the type ann is the same
-    TypeAnn DefnKw Name '=' Expr                { DefnStx (Just (snd $1)) $2 $3 $5 }
-  | TypeAnn DefnKw Name TypePatList DefnMatches { DefnStx (Just (snd $1)) $2 $3 (LambdaMacro $4 (CondMacro $5 $3)) }
-  | TypeAnn DefnKw Name TypePatList '=' Expr    { DefnStx (Just (snd $1)) $2 $3 (LambdaMacro $4 $6) }
-  | TypeAnn DefnKw Name DefnMatches             { DefnStx (Just (snd $1)) $2 $3 (CondMacro $4 $3) }
+    TypeAnn FnDefn  { let
+			  (_, ann) = $1
+    	    	          (kw, name, body) = $2
+                      in
+		        DefnStx (Just ann) kw name body }
 
-  | DefnKw Name TypePatList DefnMatches { DefnStx Nothing $1 $2 (LambdaMacro $3 (CondMacro $4 $2)) }
-  | DefnKw Name TypePatList '=' Expr    { DefnStx Nothing $1 $2 (LambdaMacro $3 $5) }
-  | DefnKw Name DefnMatches             { DefnStx Nothing $1 $2 (CondMacro $3 $2) }
-  | DefnKw Name '=' Expr                { DefnStx Nothing $1 $2 $4 }
-  | type   Name '=' PatNoSpace          { typeMacro $2 $4 }
+  | FnDefn          { let (kw, name, body) = $1 in
+		      DefnStx Nothing kw name body }
+
+  | type   typeId '=' PatNoSpace          { typeMacro $2 $4 }
+
+FnDefn:
+    DefnKw Name TypePatList DefnMatches { ($1, $2, LambdaMacro $3 (CondMacro $4 $2)) }
+  | DefnKw Name TypePatList '=' Expr    { ($1, $2, LambdaMacro $3 $5) }
+  | DefnKw Name DefnMatches             { ($1, $2, CondMacro $3 $2) }
+  | DefnKw Name '=' Expr                { ($1, $2, $4) }
 
 TypeAnn:
     sig Name ':' Type { ($2, $4) }
