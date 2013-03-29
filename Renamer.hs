@@ -352,10 +352,16 @@ renameM (CondStx ms blame) =
                  return (stx1', stx2')
 
 renameM (DefnStx ann Def name body) =
-    do name' <- genNameM name
-       addFnSymbolM name name'
-       (:[]) . DefnStx ann Def name' <$>
-         withNslevel False (renameOneM body)
+    do let fvars = freeVars body
+       if name `elem` fvars
+       then do
+         name' <- genNameM name
+         addFnSymbolM name name'
+         (:[]) . DefnStx ann Def name' <$>
+           withNslevel False (renameOneM body)
+       else
+           do let !_ | trace ("renameM: " ++ show name ++ " is nrdef") True = True
+              renameM (DefnStx ann NrDef name body)
 
 renameM (DefnStx ann NrDef name body) =
     do name' <- genNameM name

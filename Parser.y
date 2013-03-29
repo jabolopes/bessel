@@ -43,7 +43,6 @@ import Utils
         def     { TokenDef }
         me      { TokenMe }
         module  { TokenModule }
-        nrdef   { TokenNrdef }
         sig     { TokenSig }
         type    { TokenType }
         use     { TokenUse }
@@ -146,10 +145,10 @@ Defn:
   | type   typeId '=' PatNoSpace          { typeMacro $2 $4 }
 
 FnDefn:
-    DefnKw Name TypePatList DefnMatches { ($1, $2, LambdaMacro $3 (CondMacro $4 $2)) }
-  | DefnKw Name TypePatList '=' Expr    { ($1, $2, LambdaMacro $3 $5) }
-  | DefnKw Name DefnMatches             { ($1, $2, CondMacro $3 $2) }
-  | DefnKw Name '=' Expr                { ($1, $2, $4) }
+    def Name TypePatList DefnMatches { (Def, $2, LambdaMacro $3 (CondMacro $4 $2)) }
+  | def Name TypePatList '=' Expr    { (Def, $2, LambdaMacro $3 $5) }
+  | def Name DefnMatches             { (Def, $2, CondMacro $3 $2) }
+  | def Name '=' Expr                { (Def, $2, $4) }
 
 TypeAnn:
     sig Name ':' Type { ($2, $4) }
@@ -157,10 +156,6 @@ TypeAnn:
 DefnMatches:
     DefnMatches '|' PredPatList '=' Expr  { $1 ++ [($3, $5)] }
   | PredPatList '=' Expr                  { [($1, $3)] }
-
-DefnKw:
-    def   { Def }
-  | nrdef { NrDef }
 
 Expr:
     SimpleExpr %prec below_app_prec { $1 }
@@ -357,7 +352,6 @@ data Token
      | TokenDef
      | TokenMe
      | TokenModule
-     | TokenNrdef
      | TokenSig
      | TokenType
      | TokenUse

@@ -209,3 +209,94 @@ showAbbrev (LambdaStx arg (Just t) body) =
   "\\" ++ arg ++ ":" ++ t ++ ". " ++ showAbbrev body
 
 showAbbrev stx = show stx
+
+
+
+freeVarsList :: [String] -> [String] -> [Stx String] -> ([String], [String])
+freeVarsList env fvars [] = (env, fvars)
+freeVarsList env fvars (x:xs) =
+    let (env', fvars') = freeVars' env fvars x in
+    freeVarsList env' fvars' xs
+
+
+freeVarsPat :: [String] -> [String] -> Pat String -> ([String], [String])
+freeVarsPat env fvars pat =
+    let (env', fvars') = freeVars' env fvars (patPred pat) in
+    freeVarsList env' fvars' (concatMap snd (patDefns pat))
+
+
+freeVarsPats :: [String] -> [String] -> [Pat String] -> ([String], [String])
+freeVarsPats env fvars [] = (env, fvars)
+freeVarsPats env fvars (pat:pats) =
+    let (env', fvars') = freeVarsPat env fvars pat in
+    freeVarsPats env' fvars' pats
+
+
+freeVars' :: [String] -> [String] -> Stx String -> ([String], [String])
+freeVars' env fvars (CharStx _) = (env, fvars)
+freeVars' env fvars (IntStx _) = (env, fvars)
+freeVars' env fvars (DoubleStx _) = (env, fvars)
+
+freeVars' env fvars (SeqStx stxs) =
+    loop env fvars stxs
+    where loop env fvars [] = (env, fvars)
+          loop env fvars (stx:stxs) =
+              let (env', fvars') = freeVars' env fvars stx in
+              loop env' fvars' stxs
+
+freeVars' env fvars (IdStx name)
+    | name `elem` env = (env, fvars)
+    | otherwise = (env, name:fvars)
+
+freeVars' env fvars (AppStx stx1 stx2) =
+    let (env', fvars') = freeVars' env fvars stx1 in
+    freeVars' env' fvars' stx2
+
+freeVars' env fvars (CondMacro ms _) =
+    loop env fvars ms
+    where loop env fvars [] = (env, fvars)
+          loop env fvars ((pats, stx):ms) =
+              let
+                  (env', fvars') = freeVarsPats env fvars pats
+                  (env'', fvars'') = freeVars' env' fvars' stx
+              in
+                loop env'' fvars'' ms
+              
+
+freeVars' env fvars (CondStx ms _) =
+    loop env fvars ms
+    where loop env fvars [] = (env, fvars)
+          loop env fvars ((stx1, stx2):stxs) =
+              let
+                  (env', fvars') = freeVars' env fvars stx1
+                  (env'', fvars'') = freeVars' env' fvars' stx2
+              in
+                loop env'' fvars'' stxs
+
+freeVars' env fvars (DefnStx _ Def name stx) =
+    freeVars' (name:env) fvars stx
+
+freeVars' env fvars (DefnStx _ NrDef name stx) =
+    let (env', fvars') = freeVars' env fvars stx in
+    (name:env', fvars')
+
+freeVars' _ _ (LambdaMacro _ _) =
+    error "freeVars'(LambdaMacro): not implemented"
+
+freeVars' env fvars (LambdaStx arg _ body) =
+    freeVars' (arg:env) fvars body
+
+freeVars' env fvars (WhereStx stx stxs) =
+    let (env', fvars') = loop env fvars stxs in
+    freeVars' env' fvars' stx
+    where loop env fvars [] = (env, fvars)
+          loop env fvars (stx:stxs) =
+              let (env', fvars') = freeVars' env fvars stx in
+              loop env' fvars' stxs
+
+freeVars' _ _ _ =
+    error "freeVars': unhandled case"
+
+
+freeVars :: Stx String -> [String]
+freeVars = snd . freeVars' [] []
