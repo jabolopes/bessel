@@ -23,9 +23,6 @@ Typecheck 'CondStx'.
 Typecheck fixpoints
 
 
-Toplevel type annotations? And checking in typechecker?
-
-
 Remove the benign shift/reduce conflicts.
 
 
