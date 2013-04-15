@@ -7,7 +7,6 @@ import Data.Functor ((<$>))
 import Data.Map (Map)
 import qualified Data.Map as Map (fromList)
 import System.IO hiding (hGetContents)
-import System.IO.Strict
 import System.IO.Unsafe
 
 import Data.Env (Env)
