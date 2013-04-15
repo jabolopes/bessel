@@ -26,12 +26,4 @@ Typecheck fixpoints
 Remove the benign shift/reduce conflicts.
 
 
-Added a 'notype' annotation for definitions in order to eliminate the
-two Preludes.
-
-
-Maybe in renamer, detect whether a 'Def' definition is not in fact a
-'NrDef'.
-
-
 Moved code in 'Macros' to 'Renamer' in order to use 'genNameM'.
