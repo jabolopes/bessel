@@ -1,4 +1,4 @@
-{-# LANGUAGE DoRec, NamedFieldPuns #-}
+{-# LANGUAGE RecursiveDo, NamedFieldPuns #-}
 module Interpreter where
 
 import Control.Monad.State

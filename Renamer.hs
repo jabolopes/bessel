@@ -1,4 +1,4 @@
-{-# LANGUAGE BangPatterns, DoRec, NamedFieldPuns #-}
+{-# LANGUAGE NamedFieldPuns #-}
 module Renamer where
 
 import Control.Monad.Error

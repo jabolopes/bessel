@@ -11,9 +11,7 @@ import Data.Map (Map)
 import qualified Data.Map as Map ((!), insert, elems, empty, keys, lookup, toList)
 import System.Console.GetOpt
 import System.Console.Readline
-
---import System.IO.Error (catchIOError)
-import System.IO.Error (catch)
+import System.IO.Error (catchIOError)
 
 import Config
 import qualified Data.Env as Env (getBinds)
@@ -42,10 +40,6 @@ data ReplState =
 
 
 type ReplM a = StateT ReplState IO a
-
-
-catchIOError :: IO a -> (IOError -> IO a) -> IO a
-catchIOError = catch
 
 
 doPutLine = False
