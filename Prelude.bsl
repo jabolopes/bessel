@@ -3,7 +3,7 @@ me Prelude
 use Core
 
 
-sig eq:Dyn -> Dyn -> Bool
+sig eq : Dyn -> Dyn -> Bool
 def eq x@isbool y@isbool = eqBool x y
      | x@isint  y@isint  = eqInt x y
      | x@isreal y@isreal = eqReal x y
@@ -14,27 +14,27 @@ def eq x@isbool y@isbool = eqBool x y
 
 def (==) = eq
 
-sig not:Bool -> Bool
+sig not : Bool -> Bool
 def not @id = false
       | @ = true
 
 def (/=) x@ y@ = not (x == y)
 
-sig (<):Dyn -> Dyn -> Bool
+sig (<) : Dyn -> Dyn -> Bool
 def (<) = less
 
 def (<=) x@ y@ = x == y || x < y
 def (>) x@ y@ = x /= y && not (x < y)
 
-sig (>=):Dyn -> Dyn -> Bool
+sig (>=) : Dyn -> Dyn -> Bool
 def (>=) x@ y@ = not (x < y)
 
-sig isnum:Dyn -> Bool
+sig isnum : Dyn -> Bool
 def isnum x@ = isint x || isreal x
 
 def ispos x@ = isnum x && x > 0
 
-sig isneg:Dyn -> Bool
+sig isneg : Dyn -> Bool
 def isneg x@ = isnum x && x < 0
 
 def iszero x@ = x == 0
@@ -84,7 +84,7 @@ def ceiling x@isint  = x
 def neg x@isint  = negInt x
       | x@isreal = negReal x
 
-sig rem:Int -> Int -> Int
+sig rem : Int -> Int -> Int
 def rem x@ y@ = remInt x y
 
 def length []@ = 0

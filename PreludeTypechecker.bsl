@@ -3,7 +3,7 @@ me PreludeTypechecker
 use Core
 
 
--- sig eq:Dyn -> Dyn -> Bool
+-- sig eq : Dyn -> Dyn -> Bool
 -- nrdef eq x@isbool y@isbool = eqBool x y
 --        | x@isint  y@isint  = eqInt x y
 --        | x@isreal y@isreal = eqReal x y
@@ -14,27 +14,27 @@ use Core
 
 -- nrdef (==) = eq
 
-sig not:Bool -> Bool
+sig not : Bool -> Bool
 def not @id = false
       | @ = true
 
 -- nrdef (/=) x@ y@ = not (x == y)
 
-sig (<):Dyn -> Dyn -> Bool
+sig (<) : Dyn -> Dyn -> Bool
 def (<) = less
 
 -- nrdef (<=) x@ y@ = x == y || x < y
 -- nrdef (>) x@ y@ = x /= y && not (x < y)
 
-sig (>=):Dyn -> Dyn -> Bool
+sig (>=) : Dyn -> Dyn -> Bool
 def (>=) x@ y@ = not (x < y)
 
-sig isnum:Dyn -> Bool
+sig isnum : Dyn -> Bool
 def isnum x@ = isint x || isreal x
 
 -- nrdef ispos x@ = isnum x && x > 0
 
-sig isneg:Dyn -> Bool
+sig isneg : Dyn -> Bool
 def isneg x@ = isnum x && x < 0
 
 -- nrdef iszero x@ = x == 0
@@ -84,7 +84,7 @@ def isneg x@ = isnum x && x < 0
 -- nrdef neg x@isint  = negInt x
 --         | x@isreal = negReal x
 
-sig rem:Int -> Int -> Int
+sig rem : Int -> Int -> Int
 def rem x@ y@ = remInt x y
 
 -- def length []@ = 0
@@ -94,5 +94,3 @@ def rem x@ y@ = remInt x y
 --           | (x@ +> xs@) = ar (reverse xs) x
 
 -- nrdef const x@ @ = x
-
--- nrdef raise := \f@isfunc isfunc || (seqof isfunc && (¬ isnull)) -> lift f | f
