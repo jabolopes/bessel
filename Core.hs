@@ -217,7 +217,7 @@ divReal (DoubleExpr d1) =
 
 
 absInt :: Expr -> Expr
-absInt (IntExpr i) = IntExpr (Prelude.abs i)
+absInt (IntExpr i) = IntExpr (abs i)
 
 
 absReal :: Expr -> Expr
