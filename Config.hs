@@ -5,8 +5,8 @@ import Data.SrcFile
 
 
 doTypecheck :: Bool
--- doTypecheck = True
-doTypecheck = False
+doTypecheck = True
+-- doTypecheck = False
 
 
 preludeNames :: [String]
