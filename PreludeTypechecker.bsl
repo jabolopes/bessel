@@ -15,12 +15,15 @@ def toReal x@isreal = x
 sig toChar : Dyn -> Char
 def toChar x@ischar = x
 
+sig toSeq : Dyn -> [Dyn]
+def toSeq x@isseq = x
+
 sig eq : Dyn -> Dyn -> Bool
 def eq x@isbool y@isbool = eqBool (toBool x) (toBool y)
      | x@isint  y@isint  = eqInt (toInt x) (toInt y)
      | x@isreal y@isreal = eqReal (toReal x) (toReal y)
      | x@ischar y@ischar = eqChar (toChar x) (toChar y)
-     -- | x@isseq  y@isseq  = eqSeq x y
+     | x@isseq  y@isseq  = eqSeq (toSeq x) (toSeq y)
      -- | x@isobj  y@isobj  = eqObj x y
      | @ @ = false
 

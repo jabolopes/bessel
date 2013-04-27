@@ -286,6 +286,7 @@ Type:
                        "Real" -> DoubleT
                        "Char" -> CharT
                        "Dyn" -> DynT }
+  | '[' Type ']'   { SeqT $2 }
 
 
 -- identifiers

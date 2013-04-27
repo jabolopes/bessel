@@ -160,7 +160,7 @@ arrowifyVar ctx var =
 
 occursContextT :: Context -> Type -> Type -> Bool
 occursContextT ctx t1 t2
-    | t1 /= t2 && not (isForallT t1) && not (isForallT t2) && (isExistT t1 || isExistT t2) =
+    | t1 /= t2 && not (isForallT t1) && not (isForallT t2) && (isExistT t1 || isExistT t2) && (t1 == DynT || t2 == DynT) =
         let
             t1' = substituteExistTs ctx t1
             t2' = substituteExistTs ctx t2
