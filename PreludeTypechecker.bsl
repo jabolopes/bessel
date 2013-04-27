@@ -58,13 +58,13 @@ def isneg x@ = isnum x && x < 0
 sig iszero : Int -> Bool
 def iszero x@ = x == 0
 
--- nrdef isnull []@ = true
---            | @ = false
+-- def isnull []@ = true
+--          | @ = false
 
--- nrdef ispair [@,@] = true
---            | @ = false
+-- def ispair [@,@] = true
+--          | @ = false
 
--- nrdef isstring x@ = isseqof ischar x
+-- def isstring x@ = isseqof ischar x
 
 sig add : Dyn -> Dyn -> Dyn
 def add x@isint  y@isint  = addInt (toInt x) (toInt y)
