@@ -452,8 +452,8 @@ fnDesc = [
   ("absReal", ArrowT DoubleT DoubleT, m absReal),
   ("ceilingReal", ArrowT DoubleT IntT, m ceilingReal),
   ("floorReal", ArrowT DoubleT IntT, m floorReal),
-  ("negInt", ArrowT IntT (ArrowT IntT IntT), m negInt),
-  ("negReal", ArrowT DoubleT (ArrowT DoubleT DoubleT), m negReal),
+  ("negInt", ArrowT IntT IntT, m negInt),
+  ("negReal", ArrowT DoubleT DoubleT, m negReal),
   ("remInt", ArrowT IntT (ArrowT IntT IntT), m remInt),
   -- combining forms
   ("apply", ArrowT (TupT [ArrowT DynT DynT, DynT]) DynT, FnExpr apply),

@@ -114,9 +114,9 @@ sig ceiling : Dyn -> Int
 def ceiling x@isint  = toInt x
           | x@isreal = ceilingReal (toReal x)
 
--- sig neg : Dyn -> Dyn
--- def neg x@isint  = negInt (toInt x)
---       | x@isreal = negReal (toReal x)
+sig neg : Dyn -> Dyn
+def neg x@isint  = negInt (toInt x)
+      | x@isreal = negReal (toReal x)
 
 sig rem : Int -> Int -> Int
 def rem x@ y@ = remInt x y
