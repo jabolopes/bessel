@@ -10,6 +10,25 @@ import Data.Stx
 import Printer.Printer
 
 
+printPatM pat =
+    do case patDefns pat of
+         [] -> return ()
+         (arg, _):_ -> putPrinter arg
+       putPrinter "@("
+       printStxM (patPred pat)
+       putPrinter ")"
+
+
+printPatsM :: [Pat String] -> PrinterM ()
+printPatsM [] = return ()
+printPatsM [pat] = printPatM pat
+
+printPatsM (pat:pats) =
+    do printPatM pat
+       putPrinter " "
+       printPatsM pats
+
+
 printNamespaceM :: Namespace String -> PrinterM ()
 printNamespaceM (Namespace uses stxs) =
     do forM_ uses $ \use -> do
@@ -61,6 +80,28 @@ printStxM (AppStx stx1 stx2) =
                      printStxM stx
                      putPrinter ")"
 
+printStxM (CondMacro ms blame) =
+    do withPrinterCol $ do
+         nlPrinter
+         putMatches ms
+         nlPrinter
+         putPrinter ("_ -> blame " ++ show blame)
+    where putMatches [] = return ()
+
+          putMatches [(pats, stx)] =
+              do printPatsM pats
+                 putPrinter " ("
+                 printStxM stx
+                 putPrinter ")"
+
+          putMatches ((pats, stx):ms) =
+              do printPatsM pats
+                 putPrinter " "
+                 printStxM stx
+                 putPrinter ")"
+                 nlPrinter
+                 putMatches ms
+
 printStxM (CondStx ms blame) =
     do putPrinter "cond "
        withPrinterCol $ do
@@ -80,15 +121,28 @@ printStxM (CondStx ms blame) =
                  nlPrinter
                  putMatches ms
 
-printStxM (DefnStx kw str body) =
-    do putPrinter $ kw' kw ++ " " ++ str ++ " = "
+printStxM (DefnStx ann kw name body) =
+    do putAnn ann
+       putPrinter $ kw' kw ++ " " ++ name ++ " = "
        printStxM body
     where kw' Def = "def"
           kw' NrDef = "nrdef"
 
-printStxM (LambdaStx str body) =
-    do putPrinter $ "\\" ++ str ++ " -> "
+          putAnn Nothing = return ()
+          putAnn (Just t) =
+              do putPrinter $ "sig " ++ name ++ ":" ++ show t
+                 nlPrinter
+
+printStxM (LambdaMacro pats body) =
+    do printPatsM pats
+       putPrinter " = "
+       printStxM body
+
+printStxM (LambdaStx str t body) =
+    do putPrinter $ "\\" ++ str ++ putT t ++ " -> "
        withPrinterCol $ printStxM body
+    where putT Nothing = ""
+          putT (Just t) = ":" ++ t
 
 printStxM (ModuleStx prefix ns) =
     do let prefix' | null prefix = ""

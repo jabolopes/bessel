@@ -207,9 +207,10 @@ showModuleM showAll showBrief filename =
           showDefs srcfile =
               "\n\n\t defs = " ++ intercalate spacer [ showTuple (x, e x, t x) | x <- Map.keys (SrcFile.symbols srcfile) ]
               where spacer = '\n':replicate 16 ' '
-                    e name = SrcFile.exprs srcfile Map.! name
+                    e name = Map.lookup name (SrcFile.exprs srcfile)
                     t name = SrcFile.ts srcfile Map.! name
-                    showTuple (x, y, z) = x ++ " = " ++ show y ++ " :: " ++ show z
+                    showTuple (x, Nothing, y) = x ++ " :: " ++ show y
+                    showTuple (x, Just y, z) = x ++ " = " ++ show y ++ " :: " ++ show z
 
           showSrcNs SrcFile { t = CoreT } = ""
 
@@ -350,7 +351,7 @@ promptM ln =
 
 replM :: ReplM Bool
 replM =
-    do mprompt <- liftIO $ readline "fl$ "
+    do mprompt <- liftIO $ readline "bsl$ "
        case mprompt of 
          Nothing -> return True
          Just ln | ln == ":quit" -> return True
@@ -366,6 +367,8 @@ finallyIOException :: Show a => ReplState -> a -> IO (Bool, ReplState)
 finallyIOException state e =
     ioException e >> return (False, state)
 
+
+finallyFlException :: a -> FlException -> IO (Bool, a)
 finallyFlException state e =
     flException e >> return (False, state)
 

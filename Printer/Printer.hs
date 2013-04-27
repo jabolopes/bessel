@@ -14,23 +14,23 @@ getPrinterCol =
 
 
 putPrinterCol :: Int -> PrinterM ()
-putPrinterCol col = put $ PrinterState col
+putPrinterCol = put . PrinterState
 
 
 putPrinter :: String -> PrinterM ()
-putPrinter str = lift $ putStr str
+putPrinter = lift . putStr
 
 
 nlPrinter :: PrinterM ()
 nlPrinter =
     do col <- getPrinterCol
        putPrinter "\n"
-       putPrinter $ replicate col ' '
+       putPrinter (replicate col ' ')
 
 
 withPrinterCol :: PrinterM a -> PrinterM ()
 withPrinterCol m =
     do col <- getPrinterCol
-       putPrinterCol $ col + 2
+       putPrinterCol (col + 2)
        m
        putPrinterCol col

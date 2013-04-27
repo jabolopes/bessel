@@ -5,7 +5,8 @@ import Data.SrcFile
 
 
 doTypecheck :: Bool
-doTypecheck = False
+doTypecheck = True
+-- doTypecheck = False
 
 
 preludeNames :: [String]
@@ -17,8 +18,9 @@ isPrelude = (`elem` preludeNames)
 
 
 preludeName :: String
-preludeName | doTypecheck = head $ tail preludeNames
-            | otherwise = head preludeNames
+preludeName
+    | doTypecheck = head (tail preludeNames)
+    | otherwise = head preludeNames
 
 
 corefile :: SrcFile

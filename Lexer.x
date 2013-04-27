@@ -9,26 +9,28 @@ import Parser
 %wrapper "basic"
 
 
-$digit      = [0-9]
-$letter     = [a-zA-Z]
+$digit        = [0-9]
+$lower_letter = [a-z]
+$upper_letter = [A-Z]
+$letter       = [a-zA-Z]
 
 @symbol = "\\" | "!" | "#" | "$" | "%"
         | "&"  | "/" | "'" | "?" | "«"
-	| "»"  | "+" | "*" | "´" | "º"
-	| "ª"  | "~" | "^" | ";" | "-"
+        | "»"  | "+" | "*" | "´" | "º"
+        | "ª"  | "~" | "^" | ";" | "-"
 
 @id_char = $letter | $digit | @symbol
 
 @whitespace = [\ \t\n\r]
 @comment    = ("|-"([^\*]|[\r\n]|(\*+([^\|\/]|[\r\n])))*"-|")
-	    | ("-- ".*)
+            | ("-- ".*)
 
 @character  = "'" ($letter | $digit) "'"
 @integer    = ("-")?$digit+
 @real       = ("-")?$digit+("."$digit+)?([eE]("-"|"+")?$digit+)?
 @string     = \"[^\"]*\"
-@identifier = $letter (@id_char)*
-
+@identifier = $lower_letter (@id_char)*
+@type_id    = $upper_letter (@id_char)*
 
 tokens :-
   -- ignore
@@ -36,9 +38,11 @@ tokens :-
   @comment            ;
 
   -- punctuation
+  "->"                { \_ -> TokenArrow }
   "@ "                { \_ -> TokenAtSpace }
   "@"                 { \_ -> TokenAt }
   "|"                 { \_ -> TokenBar }
+  ":"                 { \_ -> TokenColon }
   ","                 { \_ -> TokenComma }
   "."                 { \_ -> TokenDot }
   "="                 { \_ -> TokenEquiv }
@@ -56,7 +60,7 @@ tokens :-
   "def"               { \_ -> TokenDef }
   "me"                { \_ -> TokenMe }
   "module"            { \_ -> TokenModule }
-  "nrdef"             { \_ -> TokenNrdef }
+  "sig"               { \_ -> TokenSig }
   "type"              { \_ -> TokenType }
   "use"               { \_ -> TokenUse }
   "where"             { \_ -> TokenWhere }
@@ -82,8 +86,8 @@ tokens :-
   "<=" (@id_char)*    { \s -> TokenLe s }
   ">=" (@id_char)*    { \s -> TokenGe s }
 
-  "->" (@id_char)*    { \s -> TokenRArrow s }
-  "<-" (@id_char)*    { \s -> TokenLArrow s }
+  "+>" (@id_char)*    { \s -> TokenCons s }
+  "<+" (@id_char)*    { \s -> TokenSnoc s }
 
   "&&"                { \s -> TokenAnd s }
   "||"                { \s -> TokenOr s }
@@ -91,6 +95,7 @@ tokens :-
 -- identifier
   @identifier         { \s -> TokenId s }
   "`" @identifier "`" { \s -> TokenQuotedId (init (tail s)) }
+  @type_id            { \s -> TokenTypeId s }
 
 
 {

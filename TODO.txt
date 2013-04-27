@@ -23,7 +23,7 @@ Typecheck 'CondStx'.
 Typecheck fixpoints
 
 
-Toplevel type annotations? And checking in typechecker?
+Remove the benign shift/reduce conflicts.
 
 
-Remove the benign shift/reduce conflict.
+Moved code in 'Macros' to 'Renamer' in order to use 'genNameM'.
