@@ -18,8 +18,9 @@ isPrelude = (`elem` preludeNames)
 
 
 preludeName :: String
-preludeName | doTypecheck = head $ tail preludeNames
-            | otherwise = head preludeNames
+preludeName
+    | doTypecheck = head (tail preludeNames)
+    | otherwise = head preludeNames
 
 
 corefile :: SrcFile

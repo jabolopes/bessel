@@ -160,13 +160,13 @@ arrowifyVar ctx var =
 
 occursContextT :: Context -> Type -> Type -> Bool
 occursContextT ctx t1 t2
-  | t1 /= t2 && not (isForallT t1) && not (isForallT t2) && (isExistT t1 || isExistT t2) =
-    let
-      t1' = substituteExistTs ctx t1
-      t2' = substituteExistTs ctx t2
-    in
-     t1' /= t2' && (occursT t1' t2' || occursT t2' t1')
-  | otherwise = False
+    | t1 /= t2 && not (isForallT t1) && not (isForallT t2) && (isExistT t1 || isExistT t2) =
+        let
+            t1' = substituteExistTs ctx t1
+            t2' = substituteExistTs ctx t2
+        in
+          t1' /= t2' && (occursT t1' t2' || occursT t2' t1')
+    | otherwise = False
 
 -- / types and contexts
 
@@ -268,8 +268,8 @@ consistentT ctx t1 t2@(ExistT var)
 
 subT :: Context -> Type -> Type -> Maybe Context
 subT ctx t1 t2
-  | occursContextT ctx t1 t2 =
-    throwTypecheckerException $ "occurs " ++ show t1 ++  " <: " ++ show t2
+    | occursContextT ctx t1 t2 =
+        throwTypecheckerException $ "occurs " ++ show t1 ++  " <: " ++ show t2
 
 -- <Refl
 subT ctx t1 t2
