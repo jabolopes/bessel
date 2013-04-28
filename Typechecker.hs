@@ -176,12 +176,12 @@ arrowifyVar ctx var =
 
 occursContextT :: Context -> Type -> Type -> Bool
 occursContextT ctx t1 t2
-    | t1 /= t2 && not (isForallT t1) && not (isForallT t2) && (isEvarT t1 || isEvarT t2) && (t1 == DynT || t2 == DynT) =
+    | t1 /= t2 && not (isForallT t1) && not (isForallT t2) && (isEvarT t1 || isEvarT t2) =
         let
             t1' = substituteEvarTs ctx t1
             t2' = substituteEvarTs ctx t2
         in
-          t1' /= t2' && (occursT t1' t2' || occursT t2' t1')
+          t1' /= DynT && t2' /= DynT && t1' /= t2' && (occursT t1' t2' || occursT t2' t1')
     | otherwise = False
 
 -- / types and contexts
