@@ -117,15 +117,19 @@ genEvar ctx =
       (evarT, ctx')
 
 
+-- 'eliminateForalls' @ctx t@ instantiates all outer forall types
+-- ('ForallT') by replacing the type variables in @t@ by existential
+-- variables ('EvarT').  The updated 'Context' and resulting 'Type'
+-- are returned.
 eliminateForalls :: Context -> Type -> (Context, Type)
 eliminateForalls ctx (ForallT var forallT) =
   let
-    var' = '^':var
-    existT = EvarT var'
-    ctx' = insertContext ctx var' (simpleType existT)
-    forallT' = substituteTvarT existT var forallT
+      var' = '^':var
+      existT = EvarT var'
+      ctx' = insertContext ctx var' (simpleType existT)
+      forallT' = substituteTvarT existT var forallT
   in
-   eliminateForalls ctx' forallT'
+    eliminateForalls ctx' forallT'
 
 eliminateForalls ctx t = (ctx, t)
 
