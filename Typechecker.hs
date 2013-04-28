@@ -25,15 +25,23 @@ import Debug.Trace
 import System.IO.Unsafe
 
 
+debug :: Bool
 debug = True
+
+
+debugT :: String -> Bool
 debugT desc = (debug && trace desc True) || True
 
 
+debugConsistentT :: Bool
 debugConsistentT = True
-debugConsistentTF desc = debugConsistentT && trace desc False
+
+
+debugConsistentTT :: String -> Bool
 debugConsistentTT desc = (debugConsistentT && trace desc True) || True
 
 
+logT :: (Show a, Show a1) => [Char] -> a -> a1 -> Bool
 logT desc t1 t2 =
     debugConsistentTT $ desc ++ ": " ++ show t1 ++ " <: " ++ show t2
 
@@ -70,6 +78,7 @@ gamma' name vars =
     name ++ concat (map (\var -> "[" ++ var ++ "]") vars)
 
 
+gamma'' :: (Show a, Show b) => String -> [(a, Maybe b)] -> String
 gamma'' name ts =
     name ++ concat (map assign ts)
     where assign (t1, Nothing) = "[" ++ show t1 ++ "]"
