@@ -1,5 +1,5 @@
-all: dist/bin dist/obj Parser.hs Lexer.hs
-	ghc --make Main.hs -o dist/bin/bsl -outputdir dist/obj
+all: dist/bin dist/obj dist/hs dist/hs/Parser.hs dist/hs/Lexer.hs
+	ghc --make Main.hs -idist/hs -o dist/bin/bsl -outputdir dist/obj
 
 dist/bin:
 	mkdir -p dist/bin
@@ -7,11 +7,14 @@ dist/bin:
 dist/obj:
 	mkdir -p dist/obj
 
-Parser.hs: Parser.y
-	happy Parser.y
+dist/hs:
+	mkdir -p dist/hs
 
-Lexer.hs: Lexer.x Parser.y
-	alex Lexer.x
+dist/hs/Parser.hs: Parser.y
+	happy Parser.y -o dist/hs/Parser.hs
+
+dist/hs/Lexer.hs: Lexer.x dist/hs/Parser.hs
+	alex Lexer.x -o dist/hs/Lexer.hs
 
 clean:
 	rm -rf dist
