@@ -19,7 +19,7 @@ data Type
     | DynT
     | ArrowT Type Type
       
-    | ExistT String
+    | EvarT String
     | ForallT String Type
     | TvarT String
       deriving (Eq)
@@ -35,7 +35,7 @@ instance Show Type where
     show (ArrowT t1@(ArrowT _ _) t2) = "(" ++ show t1 ++ ") -> " ++ show t2
     show (ArrowT t1 t2) = show t1 ++ " -> " ++ show t2
 
-    show (ExistT str) = str
+    show (EvarT str) = str
     
     show (ForallT var t@(ForallT _ _)) = "forall " ++ var ++ showForall t
       where showForall (ForallT var t) = "," ++ var ++ showForall t
@@ -45,9 +45,9 @@ instance Show Type where
     show (TvarT str) = str
 
 
-isExistT :: Type -> Bool
-isExistT (ExistT _) = True
-isExistT _ = False
+isEvarT :: Type -> Bool
+isEvarT (EvarT _) = True
+isEvarT _ = False
 
 
 isForallT :: Type -> Bool
@@ -95,7 +95,7 @@ freshForallT count t =
               in
                 (state'', ArrowT t1' t2')
 
-          freshForallT' state t@(ExistT _) = (state, t)
+          freshForallT' state t@(EvarT _) = (state, t)
 
           freshForallT' (vars, n) (ForallT var forallT) =
               let
@@ -141,7 +141,7 @@ kickForalls t =
               in
                 (vars'', ArrowT argT' rangeT')
 
-          kick vars t@(ExistT _) = (vars, t)
+          kick vars t@(EvarT _) = (vars, t)
 
           kick vars (ForallT var forallT) =
               kick (var:vars) forallT
@@ -167,7 +167,7 @@ freeTvarsT t = nub $ sort $ freeTvars [] t
           freeTvars vars (ArrowT argT rangeT) =
               freeTvars vars argT ++ freeTvars vars rangeT
 
-          freeTvars vars (ExistT var) = [var]
+          freeTvars vars (EvarT var) = [var]
 
           freeTvars vars (ForallT var forallT) =
               freeTvars (var:vars) forallT
@@ -223,7 +223,7 @@ substituteTvarT t var DynT = DynT
 substituteTvarT t var (ArrowT fnT argT) =
   ArrowT (substituteTvarT t var fnT) (substituteTvarT t var argT)
 
-substituteTvarT _ _ t@(ExistT _) = t
+substituteTvarT _ _ t@(EvarT _) = t
 
 substituteTvarT t var (ForallT vars forallT) =
   ForallT vars $ substituteTvarT t var forallT

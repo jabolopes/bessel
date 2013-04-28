@@ -111,7 +111,7 @@ subst var1 var2 = "[" ++ var1 ++ "/" ++ var2 ++ "]"
 genEvar ctx =
     let
         evar = ['^', toEnum (count ctx)]
-        evarT = ExistT evar
+        evarT = EvarT evar
         ctx' = insertContext ctx { count = count ctx + 1 } evar (simpleType evarT)
     in
       (evarT, ctx')
@@ -121,7 +121,7 @@ eliminateForalls :: Context -> Type -> (Context, Type)
 eliminateForalls ctx (ForallT var forallT) =
   let
     var' = '^':var
-    existT = ExistT var'
+    existT = EvarT var'
     ctx' = insertContext ctx var' (simpleType existT)
     forallT' = substituteTvarT existT var forallT
   in
@@ -130,27 +130,27 @@ eliminateForalls ctx (ForallT var forallT) =
 eliminateForalls ctx t = (ctx, t)
 
 
-substituteExistTs :: Context -> Type -> Type
-substituteExistTs _ t@BoolT = t
-substituteExistTs _ t@IntT  = t
-substituteExistTs _ t@DoubleT = t
-substituteExistTs _ t@CharT = t
-substituteExistTs ctx (TupT ts) = TupT $ map (substituteExistTs ctx) ts
-substituteExistTs ctx (SeqT t) = SeqT $ substituteExistTs ctx t
-substituteExistTs ctx t@DynT = t
+substituteEvarTs :: Context -> Type -> Type
+substituteEvarTs _ t@BoolT = t
+substituteEvarTs _ t@IntT  = t
+substituteEvarTs _ t@DoubleT = t
+substituteEvarTs _ t@CharT = t
+substituteEvarTs ctx (TupT ts) = TupT $ map (substituteEvarTs ctx) ts
+substituteEvarTs ctx (SeqT t) = SeqT $ substituteEvarTs ctx t
+substituteEvarTs ctx t@DynT = t
 
-substituteExistTs ctx (ArrowT t1 t2) =
-  ArrowT (substituteExistTs ctx t1) (substituteExistTs ctx t2)
+substituteEvarTs ctx (ArrowT t1 t2) =
+  ArrowT (substituteEvarTs ctx t1) (substituteEvarTs ctx t2)
 
-substituteExistTs ctx t@(ExistT var) =
+substituteEvarTs ctx t@(EvarT var) =
   case lookupContext ctx var of
-    Nothing -> error $ "Typechecker.substituteExistTs: " ++ show var
-    Just (ExistT var', Nothing) | var == var' -> t
-    Just (t', Nothing) -> substituteExistTs ctx t'
-    Just (_, Just t') -> substituteExistTs ctx t'
+    Nothing -> error $ "Typechecker.substituteEvarTs: " ++ show var
+    Just (EvarT var', Nothing) | var == var' -> t
+    Just (t', Nothing) -> substituteEvarTs ctx t'
+    Just (_, Just t') -> substituteEvarTs ctx t'
 
-substituteExistTs ctx (ForallT vars t) = ForallT vars $ substituteExistTs ctx t
-substituteExistTs ctx t@(TvarT _) = t
+substituteEvarTs ctx (ForallT vars t) = ForallT vars $ substituteEvarTs ctx t
+substituteEvarTs ctx t@(TvarT _) = t
 
 
 arrowifyVar :: Context -> String -> (Type, Context)
@@ -159,20 +159,20 @@ arrowifyVar ctx var =
     (Context { syms = syms1 }, Context { syms = syms2 }) = splitContext ctx var
     name1 = var ++ "1"
     name2 = var ++ "2"
-    a1 = (name1, (ExistT name1, Nothing))
-    a2 = (name2, (ExistT name2, Nothing))
-    at = ArrowT (ExistT name1) (ExistT name2)
-    a  = (var, (ExistT var, Just at))
+    a1 = (name1, (EvarT name1, Nothing))
+    a2 = (name2, (EvarT name2, Nothing))
+    at = ArrowT (EvarT name1) (EvarT name2)
+    a  = (var, (EvarT var, Just at))
   in
    (at, ctx { syms = syms1 ++ [a, a2, a1] ++ syms2 })
 
 
 occursContextT :: Context -> Type -> Type -> Bool
 occursContextT ctx t1 t2
-    | t1 /= t2 && not (isForallT t1) && not (isForallT t2) && (isExistT t1 || isExistT t2) && (t1 == DynT || t2 == DynT) =
+    | t1 /= t2 && not (isForallT t1) && not (isForallT t2) && (isEvarT t1 || isEvarT t2) && (t1 == DynT || t2 == DynT) =
         let
-            t1' = substituteExistTs ctx t1
-            t2' = substituteExistTs ctx t2
+            t1' = substituteEvarTs ctx t1
+            t2' = substituteEvarTs ctx t2
         in
           t1' /= t2' && (occursT t1' t2' || occursT t2' t1')
     | otherwise = False
@@ -185,26 +185,26 @@ consJudgementM name evars t1 t2 =
     judgementM name
                (gamma "ctx1" vars |- t1 <: t2 -| "ctx2")
                (gamma "ctx1" vars |- t1 ~~ t2 -| "ctx2")
-    where vars = [ (var, t) | t@(ExistT var) <- evars ]
+    where vars = [ (var, t) | t@(EvarT var) <- evars ]
 
 
 consJudgementSymM name evars t1 t2 =
     judgementM name
                (gamma "ctx1" vars |- t1 >: t2 -| "ctx2")
                (gamma "ctx1" vars |- t1 ~~ t2 -| "ctx2")
-    where vars = [ (var, t) | t@(ExistT var) <- evars ]
+    where vars = [ (var, t) | t@(EvarT var) <- evars ]
 
 
 consJudgementDynM name evars t1 t2 =
     judgementM name
                (gamma "ctx" vars |- t1 <: t2 ++ "  " ++ gamma "ctx" vars |/- t1 >: t2)
                (gamma "ctx" vars |- t1 ~~ t2 -| gamma "ctx" dyns)
-    where vars = [ (var, t) | t@(ExistT var) <- evars ]
-          dyns = [ (var, DynT) | ExistT var <- evars ]
+    where vars = [ (var, t) | t@(EvarT var) <- evars ]
+          dyns = [ (var, DynT) | EvarT var <- evars ]
 
 
 consistentT :: Context -> Type -> Type -> Maybe Context
-consistentT ctx t1@(ExistT var1) t2@(ExistT var2)
+consistentT ctx t1@(EvarT var1) t2@(EvarT var2)
   | not (isEmptyTypeContext ctx var1) && not (isEmptyTypeContext ctx var2) && logT "(~LR)" t1 t2 =
       let
           Right (ctx', t1') = typeContext ctx var1
@@ -228,7 +228,7 @@ consistentT ctx t1@(ExistT var1) t2@(ExistT var2)
               do consJudgementDynM "~DynLR" [t1, t2] t1 t2
                  Just $ updateContext (updateContext ctx var1 (unifType t1 DynT)) var2 (unifType t2 DynT)
 
-consistentT ctx t1@(ExistT var) t2
+consistentT ctx t1@(EvarT var) t2
   | not (isEmptyTypeContext ctx var) =
     let Right (ctx', t1') = typeContext ctx var in
     case consistentL ctx' t1' t2 of
@@ -250,7 +250,7 @@ consistentT ctx t1@(ExistT var) t2
             do consJudgementDynM "~DynL" [t1] t1 t2
                Just $ updateContext ctx var (unifType t1 DynT)
 
-consistentT ctx t1 t2@(ExistT var)
+consistentT ctx t1 t2@(EvarT var)
   | not (isEmptyTypeContext ctx var) =
     let Right (ctx', t2') = typeContext ctx var in
     case consistentR ctx' t1 t2' of
@@ -326,7 +326,7 @@ subT ctx t1@(ArrowT argT1 rangeT1) t2@(ArrowT argT2 rangeT2) =
        subT ctx' rangeT1 rangeT2
 
 -- <EvarArrow
-subT ctx t1@(ExistT var) t2@(ArrowT _ _)
+subT ctx t1@(EvarT var) t2@(ArrowT _ _)
   | isEmptyTypeContext ctx var =
       do judgementM "<EvarArrow"
                     ("ctx1," ++ var ++ "1," ++ var ++ "2," ++ var ++ "=" ++ var ++ "1->" ++ var ++ "2 " |- t1 <: t2 -| "ctx2")
@@ -336,7 +336,7 @@ subT ctx t1@(ExistT var) t2@(ArrowT _ _)
          subT ctx' t1 t2
 
 -- <ArrowEvar
-subT ctx t1@(ArrowT _ _) t2@(ExistT var)
+subT ctx t1@(ArrowT _ _) t2@(EvarT var)
   | isEmptyTypeContext ctx var =
       do judgementM "<ArrowEvar"
                     ("ctx1," ++ var ++ "1," ++ var ++ "2," ++ var ++ "=" ++ var ++ "1->" ++ var ++ "2 " |- t1 <: t2 -| "ctx2")
@@ -366,7 +366,7 @@ subT ctx t1 t2@(ForallT var forallT) =
        return $ dropContext ctx'' var
 
 -- <ConsistentR
-subT ctx t1 t2@(ExistT var)
+subT ctx t1 t2@(EvarT var)
   | not (isEmptyTypeContext ctx var) =
       do let Right (_, varT) = typeContext ctx var
          val <- consistentT ctx t1 t2
@@ -378,7 +378,7 @@ subT ctx t1 t2@(ExistT var)
          return val
 
 -- <ConsistentL
-subT ctx t1@(ExistT var) t2
+subT ctx t1@(EvarT var) t2
   | not (isEmptyTypeContext ctx var) =
       do let Right (_, varT) = typeContext ctx var
          val <- consistentT ctx t1 t2
@@ -390,7 +390,7 @@ subT ctx t1@(ExistT var) t2
          return val
 
 -- <InstR
-subT ctx t1 t2@(ExistT var)
+subT ctx t1 t2@(EvarT var)
     | isEmptyTypeContext ctx var && isAtomicT t1 && isWellformed ctx t2 t1 =
       do judgementM "<InstR"
                     ("ctx'" |- show t1 ++ " wf")
@@ -399,7 +399,7 @@ subT ctx t1 t2@(ExistT var)
          return $ updateContext ctx var (unifType t2 t1)
 
 -- <InstL
-subT ctx t1@(ExistT var) t2
+subT ctx t1@(EvarT var) t2
     | isEmptyTypeContext ctx var && isAtomicT t2 && isWellformed ctx t1 t2 =
       do judgementM "<InstL"
                     ("ctx'" |- show t2 ++ " wf")
@@ -441,10 +441,10 @@ typecheckWhereM m syms (WhereStx stx (stxs)) =
 synthM :: Context -> Stx String -> SynthM
 synthM ctx stx = synthSubst <$> synthAbstrM ctx stx
     where -- ⇑Subst
-          synthSubst (t@(ExistT var), stx', ctx')
+          synthSubst (t@(EvarT var), stx', ctx')
               | not (isEmptyTypeContext ctx' var) =
                   let
-                      t' = substituteExistTs ctx' t
+                      t' = substituteEvarTs ctx' t
                       !() = judgement "=>Subst"
                                       ("ctx1 |- " ++ showAbbrev stx ++ " => " ++ show t ++ " -| ctx2")
                                       ("ctx1 |- " ++ showAbbrev stx ++ " => " ++ show t' ++ " -| ctx2")
@@ -527,7 +527,7 @@ synthAbstrM ctx stx@(LambdaStx arg (Just ann) body) =
 -- ⇑Lambda (unannotated) no rule in Pierce's paper, use Siek instead
 -- synthAbstrM ctx (LambdaStx arg body) =
 --     do let arg' = '^':arg
---            argT = ExistT arg'
+--            argT = EvarT arg'
 --            ctx' = insertContext ctx arg' (simpleType argT)
 --            ctx'' = insertContext ctx' arg (simpleType argT)
 --        (bodyT, body', ctx''') <- synthM ctx'' body
@@ -536,7 +536,7 @@ synthAbstrM ctx stx@(LambdaStx arg (Just ann) body) =
 -- ⇑LetChk
 synthAbstrM ctx stx@(AppStx fn@(LambdaStx x Nothing body) arg@(LambdaStx _ _ _)) =
     do let evar = ['^', toEnum (count ctx)]
-           evarT = ExistT evar
+           evarT = EvarT evar
            ctx' = insertContext ctx { count = count ctx + 1 } evar (simpleType evarT)
 
        (arg', ctx'') <- checkM evarT ctx' arg
@@ -598,7 +598,7 @@ synthAbstrM ctx stx@(AppStx fn arg) =
 
                return (rangeT, AppStx fn' arg', ctx')
 
-          synthApp t@(ExistT var) fn' ctx =
+          synthApp t@(EvarT var) fn' ctx =
             do let (t'@(ArrowT argT rangeT), ctx') = arrowifyVar ctx var
 
                judgementM "=>AppEvar"
@@ -625,7 +625,7 @@ synthAbstrM ctx (DefnStx ann@Nothing Def name body) =
 
 synthAbstrM ctx (DefnStx ann@Nothing NrDef name body) =
     do (bodyT, body', ctx') <- synthM ctx body
-       let bodyT' = substituteExistTs ctx' bodyT
+       let bodyT' = substituteEvarTs ctx' bodyT
        return (bodyT', DefnStx ann NrDef name body', insertContext ctx' name (simpleType bodyT'))
 
 synthAbstrM ctx stx@(WhereStx _ _) =
@@ -636,7 +636,7 @@ synthAbstrM _ stx =
            "\n\n\t stx = " ++ show stx ++ "\n"
 
 
--- edit: check (ExistT var) is necessary for lambda terms (Joshua said)
+-- edit: check (EvarT var) is necessary for lambda terms (Joshua said)
 -- but it conflicts with the following examples
 --
 --  ap:1:2.0
@@ -645,7 +645,7 @@ synthAbstrM _ stx =
 -- and this substitution makes it impossible.  Perhaps this rule
 -- needs only to be applied around lambda terms...
 checkM :: Type -> Context -> Stx String -> CheckM
--- checkM t@(ExistT var) ctx stx | not (isEmptyTypeContext ctx var) =
+-- checkM t@(EvarT var) ctx stx | not (isEmptyTypeContext ctx var) =
 --   do let Right (ctx', t') = typeContext ctx var
 
 --      let !() = judgementM "<=Subst"
@@ -751,7 +751,7 @@ checkInstM t@DynT syms stx@(LambdaStx arg Nothing body) =
        return (LambdaStx arg Nothing body', syms')
 
 -- ⇓LambdaEvar
-checkInstM (ExistT var) ctx stx@(LambdaStx _ _ _) | isEmptyTypeContext ctx var =
+checkInstM (EvarT var) ctx stx@(LambdaStx _ _ _) | isEmptyTypeContext ctx var =
     let (existT, ctx') = arrowifyVar ctx var in
     checkInstM existT ctx' stx
 
@@ -768,7 +768,7 @@ checkInstM t ctx (DefnStx ann@(Just _) Def name body) =
 
 checkInstM t ctx (DefnStx ann@(Just _) NrDef name body) =
     do (body', ctx') <- checkM t ctx body
-       let bodyT = substituteExistTs ctx' t
+       let bodyT = substituteEvarTs ctx' t
 
        judgementM "<=Defn"
                   ("<=" ++ show bodyT)
@@ -794,12 +794,12 @@ typecheckSubstitute :: Context -> Stx String -> TypecheckerM (Type, Context)
 typecheckSubstitute ctx stx@(DefnStx (Just t) _ _ _) =
     do (_, ctx') <- checkM t ctx stx
        let !_ | debugT ("type before the final substitution: " ++ show t) = True
-       return (substituteExistTs ctx' t, ctx')
+       return (substituteEvarTs ctx' t, ctx')
 
 typecheckSubstitute ctx stx =
     do (t, _, ctx') <- synthM ctx stx
        let !_ | debugT ("type before the final substitution: " ++ show t) = True
-       return (substituteExistTs ctx' t, ctx')
+       return (substituteEvarTs ctx' t, ctx')
 
 
 typecheckStxs :: Context -> [Stx String] -> TypecheckerM (Type, Context)

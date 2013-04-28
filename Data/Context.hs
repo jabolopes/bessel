@@ -90,7 +90,7 @@ simpleSyms Context { syms } = map simple syms
 
 
 isWellformed :: Context -> Type -> Type -> Bool
-isWellformed Context { syms } (ExistT var1) (ExistT var2) =
+isWellformed Context { syms } (EvarT var1) (EvarT var2) =
   let
     i1 = var1 `findT` syms
     i2 = var2 `findT` syms
