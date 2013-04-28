@@ -1,4 +1,3 @@
-{-# LANGUAGE ParallelListComp #-}
 module Data.Type where
 
 import Data.Functor ((<$>))
@@ -232,3 +231,8 @@ substituteTvarT t var (ForallT vars forallT) =
 substituteTvarT t var1 tvarT@(TvarT var2)
   | var1 == var2 = t
   | otherwise = tvarT
+
+
+rebuildForallT :: Type -> Type
+rebuildForallT t = foldr ForallT t (freeTvarsT t)
+    
