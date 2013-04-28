@@ -61,13 +61,16 @@ def isneg x@ = isnum x && x < 0
 sig iszero : Int -> Bool
 def iszero x@ = x == 0
 
--- def isnull []@ = true
---          | @ = false
+sig isnull : [Dyn] -> Bool
+def isnull []@ = true
+         | @ = false
 
--- def ispair [@,@] = true
---          | @ = false
+sig ispair : [Dyn] -> Bool
+def ispair [@,@] = true
+         | @ = false
 
--- def isstring x@ = isseqof ischar x
+sig isstring : [Dyn] -> Bool
+def isstring x@ = isseqof ischar x
 
 sig add : Dyn -> Dyn -> Dyn
 def add x@isint  y@isint  = addInt (toInt x) (toInt y)
@@ -124,10 +127,15 @@ def neg x@isint  = negInt (toInt x)
 sig rem : Int -> Int -> Int
 def rem x@ y@ = remInt x y
 
--- def length []@ = 0
---          | (@ +> xs@) = length xs + 1
+sig length : [Dyn] -> Int
+def length []@ = 0
+         | (@ +> xs@) = length xs + 1
 
--- def reverse []@ = []
---           | (x@ +> xs@) = ar (reverse xs) x
+sig reverse : [Dyn] -> [Dyn]
+def reverse []@ = []
+          | (x@ +> xs@) = ar (reverse xs) x
 
--- nrdef const x@ @ = x
+sig const : Dyn -> Dyn -> Dyn
+def const x@ @ = x
+
+-- nrdef raise := \f@isfunc isfunc || (seqof isfunc && (¬ isnull)) -> lift f | f
