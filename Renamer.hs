@@ -21,8 +21,6 @@ import qualified Data.Symbol as Symbol
 import Data.Tuple (swap)
 import Utils (fromSingleton, split)
 
-import Debug.Trace
-
 
 data RenamerState =
     RenamerState { fs :: Map String SrcFile
@@ -360,8 +358,8 @@ renameM (DefnStx ann Def name body) =
          (:[]) . DefnStx ann Def name' <$>
            withNslevel False (renameOneM body)
        else
-           do let !_ | trace ("renameM: " ++ show name ++ " is nrdef") True = True
-              renameM (DefnStx ann NrDef name body)
+           -- edit: do let !_ | trace ("renameM: " ++ show name ++ " is nrdef") True = True
+           renameM (DefnStx ann NrDef name body)
 
 renameM (DefnStx ann NrDef name body) =
     do name' <- genNameM name
