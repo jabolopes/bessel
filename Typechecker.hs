@@ -259,6 +259,7 @@ consistentT ctx t1 t2@(ExistT var)
                  consJudgementSymM "~SymR" [t2] t1 t2
                  return val
 
+          -- edit: replace DynT with the least upper bound (do the same for rule "~DynL")
           consistentDynR ctx t1 t2 =
               do judgementM "~DynR"
                             (gamma "ctx" [(var, t2)] |/- t1 <: t2 ++ "  " ++ gamma "ctx" [(var, t2)] |/- t1 >: t2)

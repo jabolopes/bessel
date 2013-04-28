@@ -61,11 +61,11 @@ def isneg x@ = isnum x && x < 0
 sig iszero : Int -> Bool
 def iszero x@ = x == 0
 
-sig isnull : [Dyn] -> Bool
+sig isnull : [a] -> Bool
 def isnull []@ = true
          | @ = false
 
-sig ispair : [Dyn] -> Bool
+sig ispair : [a] -> Bool
 def ispair [@,@] = true
          | @ = false
 
@@ -127,15 +127,15 @@ def neg x@isint  = negInt (toInt x)
 sig rem : Int -> Int -> Int
 def rem x@ y@ = remInt x y
 
-sig length : [Dyn] -> Int
+sig length : [a] -> Int
 def length []@ = 0
          | (@ +> xs@) = length xs + 1
 
-sig reverse : [Dyn] -> [Dyn]
+sig reverse : [a] -> [a]
 def reverse []@ = []
           | (x@ +> xs@) = ar (reverse xs) x
 
-sig const : Dyn -> Dyn -> Dyn
+sig const : a -> b -> a
 def const x@ @ = x
 
 -- nrdef raise := \f@isfunc isfunc || (seqof isfunc && (¬ isnull)) -> lift f | f

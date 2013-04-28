@@ -134,13 +134,13 @@ DefnOrExpr:
 Defn:
     -- edit: ensure the name in the type ann is the same
     TypeAnn FnDefn  { let
-			  (_, ann) = $1
-    	    	          (kw, name, body) = $2
+                          (_, ann) = $1
+                          (kw, name, body) = $2
                       in
-		        DefnStx (Just ann) kw name body }
+                        DefnStx (Just ann) kw name body }
 
   | FnDefn          { let (kw, name, body) = $1 in
-		      DefnStx Nothing kw name body }
+                      DefnStx Nothing kw name body }
 
   | type   typeId '=' PatNoSpace          { typeMacro $2 $4 }
 
@@ -279,14 +279,23 @@ ExprList:
 -- types
 
 Type:
-    Type '->' Type { ArrowT $1 $3 }
-  | typeId         { case $1 of
-                       "Bool" -> BoolT
-                       "Int" -> IntT
-                       "Real" -> DoubleT
-                       "Char" -> CharT
-                       "Dyn" -> DynT }
-  | '[' Type ']'   { SeqT $2 }
+    TypeAux { rebuildForallT $1 }
+
+TypeAux:
+    TypeAux '->' TypeAux { ArrowT $1 $3 }
+  | '(' TypeList ')'     { TupT $2 }
+  | '[' TypeAux ']'      { SeqT $2 }
+  | typeId               { case $1 of
+                             "Bool" -> BoolT
+                             "Int" -> IntT
+                             "Real" -> DoubleT
+                             "Char" -> CharT
+                             "Dyn" -> DynT }
+  | id                   { TvarT $1 }
+
+TypeList:
+    TypeList ',' TypeAux { $1 ++ [$3] }
+  | TypeAux              { [$1] }
 
 
 -- identifiers
