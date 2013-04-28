@@ -134,6 +134,9 @@ eliminateForalls ctx (ForallT var forallT) =
 eliminateForalls ctx t = (ctx, t)
 
 
+-- 'substituteEvarTs' @ctx t@ replaces existential variables that
+-- occur in @t@ by the types that have been to them in 'Context'
+-- @ctx@.
 substituteEvarTs :: Context -> Type -> Type
 substituteEvarTs _ t@BoolT = t
 substituteEvarTs _ t@IntT  = t
@@ -160,15 +163,15 @@ substituteEvarTs ctx t@(TvarT _) = t
 arrowifyVar :: Context -> String -> (Type, Context)
 arrowifyVar ctx var =
   let
-    (Context { syms = syms1 }, Context { syms = syms2 }) = splitContext ctx var
-    name1 = var ++ "1"
-    name2 = var ++ "2"
-    a1 = (name1, (EvarT name1, Nothing))
-    a2 = (name2, (EvarT name2, Nothing))
-    at = ArrowT (EvarT name1) (EvarT name2)
-    a  = (var, (EvarT var, Just at))
+      (Context { syms = syms1 }, Context { syms = syms2 }) = splitContext ctx var
+      name1 = var ++ "1"
+      name2 = var ++ "2"
+      a1 = (name1, (EvarT name1, Nothing))
+      a2 = (name2, (EvarT name2, Nothing))
+      at = ArrowT (EvarT name1) (EvarT name2)
+      a  = (var, (EvarT var, Just at))
   in
-   (at, ctx { syms = syms1 ++ [a, a2, a1] ++ syms2 })
+    (at, ctx { syms = syms1 ++ [a, a2, a1] ++ syms2 })
 
 
 occursContextT :: Context -> Type -> Type -> Bool
