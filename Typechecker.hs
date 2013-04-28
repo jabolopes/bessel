@@ -804,21 +804,21 @@ typecheckSubstitute ctx stx =
 
 typecheckStxs :: Context -> [Stx String] -> TypecheckerM (Type, Context)
 typecheckStxs ctx stxs = typecheck ctx stxs
-    where typecheck ctx [stx] = typecheckSubstitute ctx stx
+    where typecheck ctx [stx] = typecheckSubstitute (resetCount ctx) stx
           typecheck ctx (stx:stxs) =
-            do (_, ctx') <- typecheckSubstitute ctx stx
+            do (_, ctx') <- typecheckSubstitute (resetCount ctx) stx
                typecheck ctx' stxs
 
 
 typecheckNamespace :: Map String SrcFile -> [String] -> Namespace String -> Either String (Type, Map String Type)
 typecheckNamespace fs deps (Namespace _ stxs) =
     do let tss = map (SrcFile.ts . (fs Map.!)) deps
-           ts = nothingSyms $ foldr1 Map.union tss
-       (t, ctx) <- typecheckStxs ts stxs
+           ctx = nothingSyms (foldr1 Map.union tss)
+       (t, ctx') <- typecheckStxs ctx stxs
        
-       let !_ | trace ((("    " ++) . show) $ filter (\x -> "^" `isPrefixOf` (fst x)) $ reverse $ Context.syms ctx) True = True
+       let !_ | trace ((("    " ++) . show) $ filter (\x -> "^" `isPrefixOf` (fst x)) $ reverse $ Context.syms ctx') True = True
 
-       return (t, Map.fromList (simpleSyms ctx))
+       return (t, Map.fromList (simpleSyms ctx'))
        
 
 typecheckSrcFile :: Map String SrcFile -> SrcFile -> Either String (Map String Type, Type)

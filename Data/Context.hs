@@ -75,8 +75,12 @@ dropContext ctx@Context { syms } name =
 
 nothingSyms :: Map String Type -> Context
 -- nothingSyms syms = Context { syms = syms', count = 0 }
-nothingSyms syms = Context { syms = syms', count = 97 }
+nothingSyms syms = resetCount (Context { syms = syms', count = 97 })
   where syms' = map (\(name, t) -> (name, (t, Nothing))) $ Map.toList syms
+
+
+resetCount :: Context -> Context
+resetCount ctx = ctx { count = 97 }
 
 
 simpleSyms :: Context -> [(String, Type)]
