@@ -40,3 +40,11 @@ because it is not elegant.  Should do the same for 'less'.
 Fix the pretty printer to print to 'String'.  And fix 'showAbbrev'.
 Perhaps the pretty printer and show abbrev can be combined in a monad
 with a Boolean value.
+
+
+Add inductive and coinductive types :)
+
+
+Infer types from predicates, i.e., eliminate the following casts
+
+  def f x@isInt y@isInt = addInt (toInt x) (toInt y)
