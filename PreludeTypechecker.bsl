@@ -4,26 +4,26 @@ use Core
 
 
 sig toBool : Dyn -> Bool
-def toBool x@isbool = x
+def toBool x@isBool = x
 
 sig toInt : Dyn -> Int
-def toInt x@isint = x
+def toInt x@isInt = x
 
 sig toReal : Dyn -> Real
-def toReal x@isreal = x
+def toReal x@isReal = x
 
 sig toChar : Dyn -> Char
-def toChar x@ischar = x
+def toChar x@isChar = x
 
 sig toSeq : Dyn -> [Dyn]
-def toSeq x@isseq = x
+def toSeq x@isSeq = x
 
 sig eq : Dyn -> Dyn -> Bool
-def eq x@isbool y@isbool = eqBool (toBool x) (toBool y)
-     | x@isint  y@isint  = eqInt (toInt x) (toInt y)
-     | x@isreal y@isreal = eqReal (toReal x) (toReal y)
-     | x@ischar y@ischar = eqChar (toChar x) (toChar y)
-     | x@isseq  y@isseq  = eqSeq (toSeq x) (toSeq y)
+def eq x@isBool y@isBool = eqBool (toBool x) (toBool y)
+     | x@isInt  y@isInt  = eqInt (toInt x) (toInt y)
+     | x@isReal y@isReal = eqReal (toReal x) (toReal y)
+     | x@isChar y@isChar = eqChar (toChar x) (toChar y)
+     | x@isSeq  y@isSeq  = eqSeq (toSeq x) (toSeq y)
      -- | x@isobj  y@isobj  = eqObj x y
      | @ @ = false
 
@@ -49,52 +49,52 @@ def (>) x@ y@ = x /= y && not (x < y)
 sig (>=) : Dyn -> Dyn -> Bool
 def (>=) x@ y@ = not (x < y)
 
-sig isnum : Dyn -> Bool
-def isnum x@ = isint x || isreal x
+sig isNum : Dyn -> Bool
+def isNum x@ = isInt x || isReal x
 
-sig ispos : Dyn -> Bool
-def ispos x@ = isnum x && x > 0
+sig isPos : Dyn -> Bool
+def isPos x@ = isNum x && x > 0
 
-sig isneg : Dyn -> Bool
-def isneg x@ = isnum x && x < 0
+sig isNeg : Dyn -> Bool
+def isNeg x@ = isNum x && x < 0
 
-sig iszero : Int -> Bool
-def iszero x@ = x == 0
+sig isZero : Int -> Bool
+def isZero x@ = x == 0
 
-sig isnull : [a] -> Bool
-def isnull []@ = true
+sig isNull : [a] -> Bool
+def isNull []@ = true
          | @ = false
 
-sig ispair : [a] -> Bool
-def ispair [@,@] = true
+sig isPair : [a] -> Bool
+def isPair [@,@] = true
          | @ = false
 
-sig isstring : [Dyn] -> Bool
-def isstring x@ = isseqof ischar x
+sig isString : [Dyn] -> Bool
+def isString x@ = isSeqOf isChar x
 
 sig add : Dyn -> Dyn -> Dyn
-def add x@isint  y@isint  = addInt (toInt x) (toInt y)
-      | x@isreal y@isreal = addReal (toReal x) (toReal y)
-      | x@isint  y@isreal = addReal (mkReal x) (toReal y)
-      | x@isreal y@isint  = addReal (toReal x) (mkReal y)
+def add x@isInt  y@isInt  = addInt (toInt x) (toInt y)
+      | x@isReal y@isReal = addReal (toReal x) (toReal y)
+      | x@isInt  y@isReal = addReal (mkReal x) (toReal y)
+      | x@isReal y@isInt  = addReal (toReal x) (mkReal y)
 
 sig sub : Dyn -> Dyn -> Dyn
-def sub x@isint  y@isint  = subInt (toInt x) (toInt y)
-      | x@isreal y@isreal = subReal (toReal x) (toReal y)
-      | x@isint  y@isreal = subReal (mkReal x) (toReal y)
-      | x@isreal y@isint  = subReal (toReal x) (mkReal y)
+def sub x@isInt  y@isInt  = subInt (toInt x) (toInt y)
+      | x@isReal y@isReal = subReal (toReal x) (toReal y)
+      | x@isInt  y@isReal = subReal (mkReal x) (toReal y)
+      | x@isReal y@isInt  = subReal (toReal x) (mkReal y)
 
 sig mul : Dyn -> Dyn -> Dyn
-def mul x@isint  y@isint  = mulInt (toInt x) (toInt y)
-      | x@isreal y@isreal = mulReal (toReal x) (toReal y)
-      | x@isint  y@isreal = mulReal (mkReal x) (toReal y)
-      | x@isreal y@isint  = mulReal (toReal x) (mkReal y)
+def mul x@isInt  y@isInt  = mulInt (toInt x) (toInt y)
+      | x@isReal y@isReal = mulReal (toReal x) (toReal y)
+      | x@isInt  y@isReal = mulReal (mkReal x) (toReal y)
+      | x@isReal y@isInt  = mulReal (toReal x) (mkReal y)
 
 sig div : Dyn -> Dyn -> Dyn
-def div x@isint  y@isint  = divInt (toInt x) (toInt y)
-      | x@isreal y@isreal = divReal (toReal x) (toReal y)
-      | x@isint  y@isreal = divReal (mkReal x) (toReal y)
-      | x@isreal y@isint  = divReal (toReal x) (mkReal y)
+def div x@isInt  y@isInt  = divInt (toInt x) (toInt y)
+      | x@isReal y@isReal = divReal (toReal x) (toReal y)
+      | x@isInt  y@isReal = divReal (mkReal x) (toReal y)
+      | x@isReal y@isInt  = divReal (toReal x) (mkReal y)
 
 sig (+) : Dyn -> Dyn -> Dyn
 def (+) = add
@@ -109,20 +109,20 @@ sig (/) : Dyn -> Dyn -> Dyn
 def (/) = div
 
 sig abs : Dyn -> Dyn
-def abs x@isint  = absInt (toInt x)
-      | x@isreal = absReal (toReal x)
+def abs x@isInt  = absInt (toInt x)
+      | x@isReal = absReal (toReal x)
 
 sig floor : Dyn -> Int
-def floor x@isint  = toInt x
-        | x@isreal = floorReal (toReal x)
+def floor x@isInt  = toInt x
+        | x@isReal = floorReal (toReal x)
 
 sig ceiling : Dyn -> Int
-def ceiling x@isint  = toInt x
-          | x@isreal = ceilingReal (toReal x)
+def ceiling x@isInt  = toInt x
+          | x@isReal = ceilingReal (toReal x)
 
 sig neg : Dyn -> Dyn
-def neg x@isint  = negInt (toInt x)
-      | x@isreal = negReal (toReal x)
+def neg x@isInt  = negInt (toInt x)
+      | x@isReal = negReal (toReal x)
 
 sig rem : Int -> Int -> Int
 def rem x@ y@ = remInt x y

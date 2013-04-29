@@ -22,43 +22,43 @@ import Renamer
 
 -- predicates
 
-isint :: Expr -> Expr
-isint (IntExpr _) = true
-isint _ = false
+isBool :: Expr -> Expr
+isBool (BoolExpr _) = true
+isBool _ = false
 
 
-isreal :: Expr -> Expr
-isreal (DoubleExpr _) = true
-isreal _ = false
+isInt :: Expr -> Expr
+isInt (IntExpr _) = true
+isInt _ = false
 
 
-isbool :: Expr -> Expr
-isbool (BoolExpr _) = true
-isbool _ = false
+isReal :: Expr -> Expr
+isReal (DoubleExpr _) = true
+isReal _ = false
 
 
-ischar :: Expr -> Expr
-ischar (CharExpr _) = true
-ischar _ = false
+isChar :: Expr -> Expr
+isChar (CharExpr _) = true
+isChar _ = false
 
 
-isfn :: Expr -> Expr
-isfn (FnExpr _) = true
-isfn _ = false
+isFn :: Expr -> Expr
+isFn (FnExpr _) = true
+isFn _ = false
 
 
-isobj :: Expr -> Expr
-isobj (TypeExpr _ _ _) = true
-isobj _ = false
+isObj :: Expr -> Expr
+isObj (TypeExpr _ _ _) = true
+isObj _ = false
 
 
-isseq :: Expr -> Expr
-isseq (SeqExpr _) = true
-isseq _ = false
+isSeq :: Expr -> Expr
+isSeq (SeqExpr _) = true
+isSeq _ = false
 
 
-isseqof :: Expr -> Expr
-isseqof (FnExpr fn) = FnExpr hof
+isSeqOf :: Expr -> Expr
+isSeqOf (FnExpr fn) = FnExpr hof
     where hof (SeqExpr exprs) =
               do b <- all isNotFalseExpr <$> mapM fn exprs
                  return $ if b then true else false
@@ -421,14 +421,14 @@ fnDesc = [
   ("false", BoolT, false),
   ("true", BoolT, true),
   -- predicates
-  ("isbool", predT, m isbool),
-  ("isint", predT, m isint),
-  ("isreal", predT, m isreal),
-  ("ischar", predT, m ischar),
-  ("isfn", predT, m isfn),
-  ("isobj", predT, m isobj),
-  ("isseq", predT, m isseq),
-  ("isseqof", ArrowT predT DynT, m isseqof),
+  ("isBool", predT, m isBool),
+  ("isInt", predT, m isInt),
+  ("isReal", predT, m isReal),
+  ("isChar", predT, m isChar),
+  ("isFn", predT, m isFn),
+  ("isObj", predT, m isObj),
+  ("isSeq", predT, m isSeq),
+  ("isSeqOf", ArrowT predT predT, m isSeqOf),
   -- comparison functions
   ("eqBool", ArrowT BoolT (ArrowT BoolT BoolT), m eqBool),
   ("eqInt", ArrowT IntT (ArrowT IntT BoolT), m eqInt),
