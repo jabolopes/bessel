@@ -125,6 +125,8 @@ isValueStx _ = False
 
 andStx :: Stx String -> Stx String -> Stx String
 andStx stx1 stx2 =
+    -- note: not using 'stx1' and 'stx2' directly in the Boolean
+    -- expression in order to force them to have type 'Bool'.
     let
         m2 = (stx2, IdStx "true")
         m3 = (IdStx "true", IdStx "false")
@@ -162,7 +164,8 @@ foldAppStx x (y:ys) = AppStx y (foldAppStx x ys)
 
 orStx :: Stx String -> Stx String -> Stx String
 orStx stx1 stx2 =
-    -- note: force 'stx1' and 'stx2' to be of type 'Bool'
+    -- note: not using 'stx1' and 'stx2' directly in the Boolean
+    -- expression in order to force them to have type 'Bool'.
     let
         m1 = (stx1, IdStx "true")
         m2 = (stx2, IdStx "true")
