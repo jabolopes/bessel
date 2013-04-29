@@ -51,50 +51,45 @@ doPutEnvironment = False
 
 
 putLine :: String -> IO ()
-putLine str
-    | doPutLine = putStrLn $ "> " ++ str
-    | otherwise = return ()
+putLine str =
+    when doPutLine (putStrLn $ "> " ++ str)
 
 
 putTokens :: [Token] -> IO ()
-putTokens tokens
-    | doPutTokens =
-        do putStrLn "> Tokens"
-           mapM_ (putStrLn . show) tokens
-           putStrLn ""
-    | otherwise = return ()
+putTokens tokens =
+    when doPutTokens $ do
+      putStrLn "> Tokens"
+      mapM_ print tokens
+      putStrLn ""
 
 
 putParsedStx :: Stx String -> IO ()
-putParsedStx stx
-    | doPutParsedStx =
-        do putStrLn "> Parsed stx"
-           prettyPrint stx
-           putStrLn ""
-           putStrLn ""
-    | otherwise = return ()
+putParsedStx stx =
+    when doPutParsedStx $ do
+      putStrLn "> Parsed stx"
+      prettyPrint stx
+      putStrLn ""
+      putStrLn ""
 
 
 putExpr :: Show a => a -> IO ()
-putExpr expr
-    | doPutExpr = putStrLn $ show expr
-    | otherwise = return ()
+putExpr expr =
+    when doPutExpr (print expr)
 
 
 putExprT :: (Show a, Show b) => a -> b -> IO ()
-putExprT expr t
-    | doPutExprT = putStrLn $ show expr ++ " :: " ++ show t
-    | otherwise = return ()
+putExprT expr t =
+    when doPutExprT $
+         putStrLn $ show expr ++ " :: " ++ show t
 
 
 putEnvironment :: Show a => a -> IO ()
-putEnvironment env
-    | doPutEnvironment =
-        do putStrLn ""
-           putStrLn "Environment"
-           putStrLn $ show env
-           putStrLn ""
-    | otherwise = return ()
+putEnvironment env =
+    when doPutEnvironment $ do
+      putStrLn ""
+      putStrLn "Environment"
+      print env
+      putStrLn ""
 
 
 renamerEither :: Monad m => Either String a -> m a
@@ -142,7 +137,7 @@ importFile fs filename =
     do srcfiles <- preload fs filename
        fs' <- stageFiles srcfiles
        let interactive = mkInteractiveSrcFile $ map SrcFile.name srcfiles
-       return $ ReplState { initialFs = fs, fs = fs', interactive = interactive }
+       return ReplState { initialFs = fs, fs = fs', interactive = interactive }
 
 
 interpretM :: Maybe Type -> Map String SrcFile -> SrcFile -> ReplM SrcFile
@@ -156,9 +151,9 @@ interpretM mt fs srcfile =
 
 typecheckM :: Map String SrcFile -> SrcFile -> ReplM SrcFile
 typecheckM fs srcfile =
-    do case typecheckInteractive fs srcfile of
-         Left str -> throwTypecheckerException str
-         Right (srcfile', t) -> interpretM (Just t) fs srcfile'
+    case typecheckInteractive fs srcfile of
+      Left str -> throwTypecheckerException str
+      Right (srcfile', t) -> interpretM (Just t) fs srcfile'
 
 
 runSnippetM :: String -> ReplM ()
@@ -249,7 +244,7 @@ showTokensM :: String -> ReplM ()
 showTokensM filename =
     liftIO $ do
       str <- readFileM filename
-      putStrLn $ show $ lex str
+      print (lex str)
 
 
 showRenamedM :: Bool -> String -> ReplM ()
@@ -273,7 +268,7 @@ showRenamedM showAll filename =
           -- edit: check if file has been changed on disk
           ensureLoadedM filename =
             do fs <- fs <$> get
-               when (isNothing (Map.lookup filename fs)) $ do
+               when (isNothing (Map.lookup filename fs)) $
                  liftIO (importFile fs filename) >>= put
 
 
@@ -315,10 +310,10 @@ runCommandM "show" opts ("renamed":nonOpts) =
     showRenamedM showAll $ last nonOpts
 
 runCommandM "show" _ _ =
-    liftIO $ putStrLn $ ":show [ namespace | tokens | renamed ]"
+    liftIO $ putStrLn ":show [ namespace | tokens | renamed ]"
 
 runCommandM "load" _ [] =
-    liftIO $ putStrLn $ ":load [ <namespace> | <file/namespace> ]"
+    liftIO $ putStrLn ":load [ <namespace> | <file/namespace> ]"
 
 runCommandM "load" _ nonOpts =
     do fs <- initialFs <$> get
@@ -328,7 +323,7 @@ runCommandM "l" opts nonOpts =
     runCommandM "load" opts nonOpts
 
 runCommandM _ _ _ =
-    liftIO $ putStrLn $ ":show | :load"
+    liftIO $ putStrLn ":show | :load"
 
 
 dispatchCommandM :: String -> ReplM ()
@@ -359,13 +354,9 @@ replM =
                  | otherwise -> promptM ln >> return False
 
 
-ioException :: Show a => a -> IO ()
-ioException e = putStrLn (show e)
-
-
 finallyIOException :: Show a => ReplState -> a -> IO (Bool, ReplState)
 finallyIOException state e =
-    ioException e >> return (False, state)
+    print e >> return (False, state)
 
 
 finallyFlException :: a -> FlException -> IO (Bool, a)
@@ -398,7 +389,7 @@ repl state =
     do (b, state') <- (runStateT replM state
                        `catchIOError` finallyIOException state)
                       `catchFlException` finallyFlException state
-       if b then return () else repl state'
+       unless b (repl state')
 
 
 batch :: String -> ReplState -> IO ()
