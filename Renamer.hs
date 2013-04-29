@@ -1,4 +1,4 @@
-{-# LANGUAGE BangPatterns, NamedFieldPuns, ParallelListComp #-}
+{-# LANGUAGE NamedFieldPuns, ParallelListComp #-}
 module Renamer where
 
 import Control.Monad.Error
@@ -95,65 +95,73 @@ withNamespace ns m =
        return val
 
 
-getUnprefixedSymbol :: String -> RenamerM (Either String Symbol)
-getUnprefixedSymbol name =
-    do msym <- getLocalSymbol
-       case msym of
-         Nothing -> getNamespaceSymbol
-         Just sym -> return (Right sym)
-    where getLocalSymbol =
-              do frameEnv <- frameEnv <$> get
-                 currentFrame <- getCurrentFrameM
-                 return $ FrameEnv.getLexicalSymbol frameEnv currentFrame name
+getUnprefixedSymbol
+    :: Map String SrcFile
+    -> FrameEnv
+    -> [String]
+    -> Frame
+    -> String
+    -> Either String Symbol
+getUnprefixedSymbol fs frameEnv unprefixedUses currentFrame name =
+    case getLocalSymbol frameEnv currentFrame of
+      Just sym -> Right sym
+      Nothing -> getNamespaceSymbol fs unprefixedUses
+    where getLocalSymbol frameEnv currentFrame =
+              FrameEnv.getLexicalSymbol frameEnv currentFrame name
 
-          getNamespaceSymbol =
-              do fs <- fs <$> get
-                 unprefixedUses <- unprefixedUses <$> get
-                 let srcfiles = map (fs Map.!) unprefixedUses
-                     symss = map SrcFile.symbols srcfiles
-                     syms = catMaybes [ Map.lookup name syms | syms <- symss ]
-                 case syms of
-                   [] -> return $ Left $ "name " ++ show name ++ " is not defined"
-                   [sym] -> return (Right sym)
-                   _ -> return $ Left $ "name " ++ show name ++ " is multiply defined"
+          getNamespaceSymbol fs unprefixedUses =
+              let
+                  srcfiles = map (fs Map.!) unprefixedUses
+                  symss = map SrcFile.symbols srcfiles
+                  syms = catMaybes [ Map.lookup name syms | syms <- symss ]
+              in
+                case syms of
+                  [] -> Left $ "name " ++ show name ++ " is not defined"
+                  [sym] -> Right sym
+                  _ -> Left $ "name " ++ show name ++ " is multiply defined"
 
 
-getPrefixedSymbol :: [String] -> String -> RenamerM (Either String Symbol)
-getPrefixedSymbol prefix name =
-    do frameEnv <- frameEnv <$> get
-       case getModuleSymbol frameEnv of
-         Just sym -> return (Right sym)
-         Nothing -> do mprefix <- getPrefixModule
-                       case mprefix of
-                         Left str -> return (Left str)
-                         Right prefix' -> getNamespaceSymbol prefix'
+getPrefixedSymbol
+    :: Map String SrcFile
+    -> FrameEnv
+    -> Map String String
+    -> [String]
+    -> String
+    -> Either String Symbol
+getPrefixedSymbol fs frameEnv prefixedUses prefix name =
+    case getModuleSymbol frameEnv of
+      Just sym -> Right sym
+      Nothing -> case getPrefixModule prefixedUses of
+                   Left str -> Left str
+                   Right prefix' -> getNamespaceSymbol fs prefix'
     where getModuleSymbol env =
               do fr <- FrameEnv.getModuleFrame env prefix
                  FrameEnv.getFrameSymbol env fr name
 
-          getPrefixModule :: RenamerM (Either String String)
-          getPrefixModule =
-              do prefixedUses <- prefixedUses <$> get
-                 case Map.lookup (intercalate "." prefix) prefixedUses of
-                   Nothing -> return $ Left $ "namespace or module " ++ show (intercalate "." prefix) ++ " is not defined"
-                   Just x -> return (Right x)
+          getPrefixModule prefixedUses =
+              case Map.lookup (intercalate "." prefix) prefixedUses of
+                Nothing -> Left $ "namespace or module " ++ show (intercalate "." prefix) ++ " is not defined"
+                Just x -> Right x
 
-          getNamespaceSymbol :: String -> RenamerM (Either String Symbol)
-          getNamespaceSymbol prefix' =
-              do fs <- fs <$> get
-                 let syms = SrcFile.symbols (fs Map.! prefix')
+          getNamespaceSymbol fs prefix' =
+              do let syms = SrcFile.symbols (fs Map.! prefix')
                  case Map.lookup name syms of
-                   Nothing -> return $ Left $ "name " ++ show (intercalate "." prefix ++ "." ++ name) ++ " is not defined"
-                   Just sym -> return (Right sym)
+                   Nothing -> Left $ "name " ++ show (intercalate "." prefix ++ "." ++ name) ++ " is not defined"
+                   Just x -> Right x
 
 
 lookupSymbolM :: [String] -> RenamerM (Either String Symbol)
 lookupSymbolM names =
-    do frameEnv <- frameEnv <$> get
+    do fs <- fs <$> get
+       frameEnv <- frameEnv <$> get
        currentFrame <- getCurrentFrameM
        if null (tail names)
-       then getUnprefixedSymbol (head names)
-       else getPrefixedSymbol (init names) (last names)
+       then do
+         unprefixedUses <- unprefixedUses <$> get
+         return $ getUnprefixedSymbol fs frameEnv unprefixedUses currentFrame (head names)
+       else do
+         prefixedUses <- prefixedUses <$> get
+         return $ getPrefixedSymbol fs frameEnv prefixedUses (init names) (last names)
 
 
 getSymbolM :: [String] -> RenamerM Symbol
@@ -256,7 +264,7 @@ lambdaBody args pats body =
 expandLambda :: [([Pat String], Stx String)] -> String -> RenamerM (Stx String)
 expandLambda ms blame =
     do let nargs = length $ fst $ maximumBy (\x y -> compare (length (fst x)) (length (fst y))) ms
-       args <- sequence $ replicate nargs (genNameM "arg")
+       args <- replicateM nargs (genNameM "arg")
        let (patss, exprs) = unzip ms
            preds = map (combinePreds args) patss
            exprs' = zipWith (lambdaBody args) patss exprs
@@ -286,8 +294,7 @@ renameLambdaM arg ann body =
 
 
 renameUnannotatedLambdaM :: String -> Stx String -> RenamerM (Stx String)
-renameUnannotatedLambdaM arg body =
-    renameLambdaM arg Nothing body
+renameUnannotatedLambdaM arg = renameLambdaM arg Nothing
 
 
 renameAnnotatedLambdaM :: String -> String -> Stx String -> RenamerM (Stx String)
@@ -310,7 +317,7 @@ renameNamespaceM (Namespace uses stxs) =
          Namespace uses . concat <$> mapM renameM stxs
 
     where checkUniqueImports unprefixed prefixed
-              | length (nub $ sort $ unprefixed) /= length unprefixed =
+              | length (nub $ sort unprefixed) /= length unprefixed =
                   throwError "renameNamespaceM: duplicated 'use' forms"
               | length (nub $ sort $ map fst prefixed) /= length (map fst prefixed) =
                   throwError "renameNamespaceM: duplicated 'use' forms"
@@ -333,7 +340,7 @@ renameModuleM (Namespace uses stxs) =
        -- checkUniqueQualifiers prefixed
 
        modify $ \state -> state { unprefixedUses = unprefixedUses state ++ map fst unprefixed
-                                , prefixedUses = Map.union (prefixedUses state) (Map.fromList (map swap prefixed)) }
+                                , prefixedUses = prefixedUses state `Map.union` Map.fromList (map swap prefixed) }
 
        withNslevel True $
          Namespace uses . concat <$> mapM renameM stxs
@@ -358,7 +365,7 @@ renameM (CondMacro ms blame) =
     (:[]) <$> expandLambda ms blame
 
 renameM (CondStx ms blame) =
-    (:[]) . (\ms -> CondStx ms blame) <$> mapM renameMatch ms
+    (:[]) . (`CondStx` blame) <$> mapM renameMatch ms
     where renameMatch (stx1, stx2) =
               do stx1' <- renameOneM stx1
                  stx2' <- renameOneM stx2
@@ -384,8 +391,7 @@ renameM (DefnStx ann NrDef name body) =
 
 renameM (LambdaMacro typePats body) =
     renameM (lambdas typePats body)
-    where lambdas :: [Pat String] -> Stx String -> (Stx String)
-          lambdas [] body = body
+    where lambdas [] body = body
           lambdas (pat:pats) body =
               let
                   arg = fst (head (patDefns pat))
@@ -447,7 +453,7 @@ rename fs srcfile@SrcFile { t = SrcT, srcNs = Just ns } =
 
 rename fs srcfile@SrcFile { t = InteractiveT, symbols, srcNs = Just ns } =
     do (ns', renSymbols) <- renameSrcFile interactiveFs interactiveNs
-       return $ srcfile { symbols = Map.union renSymbols symbols, renNs = Just ns' }
+       return $ srcfile { symbols = renSymbols `Map.union` symbols, renNs = Just ns' }
     where interactiveNs =
               let SrcFile { srcNs = Just (Namespace uses stxs) } = srcfile in
               Namespace (uses ++ [(SrcFile.name srcfile, "")]) stxs
