@@ -3,6 +3,12 @@ me Prelude
 use Core
 
 
+sig id : a -> a
+def id x@ = x
+
+sig const : a -> b -> a
+def const x@ @ = x
+
 sig not : Bool -> Bool
 def not @id = false
       | @ = true
@@ -144,8 +150,5 @@ def length []@ = 0
 sig reverse : [a] -> [a]
 def reverse []@ = []
           | (x@ +> xs@) = ar (reverse xs) x
-
-sig const : a -> b -> a
-def const x@ @ = x
 
 -- nrdef raise := \f@isfunc isfunc || (seqof isfunc && (¬ isnull)) -> lift f | f

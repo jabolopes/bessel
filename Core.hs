@@ -3,6 +3,7 @@ module Core where
 import Prelude hiding (concat, reverse)
 import qualified Prelude
 
+import Control.Monad ((<=<))
 import Data.Functor ((<$>))
 import Data.Map (Map)
 import qualified Data.Map as Map (fromList)
@@ -48,7 +49,7 @@ isFn _ = false
 
 
 isObj :: Expr -> Expr
-isObj (TypeExpr _ _ _) = true
+isObj TypeExpr {} = true
 isObj _ = false
 
 
@@ -185,7 +186,7 @@ ltSeq (SeqExpr exprs1) = FnExpr ltSeqHof
 
 mkInt :: Expr -> Expr
 mkInt expr@(IntExpr _) = expr
-mkInt (DoubleExpr d) = IntExpr (Prelude.floor d)
+mkInt (DoubleExpr d) = IntExpr (floor d)
 
 
 mkReal :: Expr -> Expr
@@ -270,8 +271,7 @@ apply (SeqExpr [FnExpr fn, expr]) = fn expr
 
 o :: Expr -> Expr
 o (FnExpr fn1) =
-    FnExpr $ \(FnExpr fn2) ->
-        return $ FnExpr $ \expr -> fn1 =<< fn2 expr
+    FnExpr $ \(FnExpr fn2) -> return $ FnExpr (fn1 <=< fn2)
 
 
 -- K (see Prelude)
@@ -343,9 +343,9 @@ pal (SeqExpr [FnExpr fn1, FnExpr fn2]) =
               do expr1 <- fn1 x
                  if isNotFalseExpr expr1
                    then do expr2 <- fn2 (SeqExpr xs)
-                           if isNotFalseExpr expr2
-                             then return true
-                             else return false
+                           return (if isNotFalseExpr expr2
+                                   then true
+                                   else false)
                    else return false
           pal' _ = return false
 
@@ -353,13 +353,13 @@ pal (SeqExpr [FnExpr fn1, FnExpr fn2]) =
 par :: Expr -> Expr
 par (SeqExpr [FnExpr fn1, FnExpr fn2]) =
     FnExpr par'
-    where par' (SeqExpr xs) | Prelude.not (null xs) =
+    where par' (SeqExpr xs) | not (null xs) =
               do expr1 <- fn1 $ SeqExpr $ init xs
                  if isNotFalseExpr expr1
                    then do expr2 <- fn2 $ last xs
-                           if isNotFalseExpr expr2
-                             then return true
-                             else return false
+                           return (if isNotFalseExpr expr2
+                                   then true
+                                   else false)
                    else return false
           par' _ = return false
 
@@ -500,7 +500,6 @@ fnDesc = [
   -- io
   ("out", ArrowT (SeqT (SeqT CharT)) (SeqT (SeqT CharT)), m out),
   -- misc
-  ("id", ForallT "a" (ArrowT (TvarT "a") (TvarT "a")), m id),
   ("signal", ForallT "a" (ArrowT (TvarT "a") (ForallT "b" (TvarT "b"))), m signal)]
 
 
