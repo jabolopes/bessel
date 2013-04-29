@@ -143,6 +143,12 @@ def neg x@isInt  = negInt (toInt x)
 sig rem : Int -> Int -> Int
 def rem x@ y@ = remInt x y
 
+sig (+>) : a -> [a] -> [a]
+def (+>) = al
+
+sig (<+) : [a] -> a -> [a]
+def (<+) = ar
+
 sig length : [a] -> Int
 def length []@ = 0
          | (@ +> xs@) = length xs + 1
