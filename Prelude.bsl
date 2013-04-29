@@ -3,6 +3,10 @@ me Prelude
 use Core
 
 
+sig not : Bool -> Bool
+def not @id = false
+      | @ = true
+
 sig toBool : Dyn -> Bool
 def toBool x@isBool = x
 
@@ -27,18 +31,24 @@ def eq x@isBool y@isBool = eqBool (toBool x) (toBool y)
      -- | x@isobj  y@isobj  = eqObj x y
      | @ @ = false
 
+sig lt : Dyn -> Dyn -> Bool
+def lt x@isBool y@isBool = eqBool (toBool x) (toBool y)
+     | x@isInt  y@isInt  = ltInt (toInt x) (toInt y)
+     | x@isInt  y@isReal = ltReal (mkReal x) (toReal y)
+     | x@isReal y@isInt  = ltReal (toReal x) (mkReal y)
+     | x@isReal y@isReal = ltReal (toReal x) (toReal y)
+     | x@isChar y@isChar = ltChar (toChar x) (toChar y)
+     | x@isSeq  y@isSeq  = ltSeq (toSeq x) (toSeq y)
+     | @ @ = false
+
 sig (==) : Dyn -> Dyn -> Bool
 def (==) = eq
-
-sig not : Bool -> Bool
-def not @id = false
-      | @ = true
 
 sig (/=) : Dyn -> Dyn -> Bool
 def (/=) x@ y@ = not (x == y)
 
 sig (<) : Dyn -> Dyn -> Bool
-def (<) = less
+def (<) = lt
 
 sig (<=) : Dyn -> Dyn -> Bool
 def (<=) x@ y@ = x == y || x < y

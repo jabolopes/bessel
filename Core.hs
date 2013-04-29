@@ -104,6 +104,7 @@ all2 fn (x1:xs1) (x2:xs2)
     | otherwise = false
 
 
+-- edit: to eliminate
 exprEq :: Expr -> Expr -> Expr
 exprEq (BoolExpr b1) (BoolExpr b2) | b1 == b2 = true
 exprEq (IntExpr i1) (IntExpr i2) | i1 == i2 = true
@@ -127,41 +128,57 @@ eqObj (TypeExpr _ tid1 expr1) = FnExpr eqObjHof
               | otherwise = return false
 
 
+
+ltBool :: Expr -> Expr
+ltBool (BoolExpr b1) = FnExpr ltBoolHof
+    where ltBoolHof (BoolExpr b2)
+              | b1 < b2 = return true
+              | otherwise = return false
+
+
+ltInt :: Expr -> Expr
+ltInt (IntExpr i1) = FnExpr ltIntHof
+    where ltIntHof (IntExpr i2)
+              | i1 < i2 = return true
+              | otherwise = return false
+
+
+ltReal :: Expr -> Expr
+ltReal (DoubleExpr d1) = FnExpr ltRealHof
+    where ltRealHof (DoubleExpr d2)
+              | d1 < d2 = return true
+              | otherwise = return false
+
+
+ltChar :: Expr -> Expr
+ltChar (CharExpr c1) = FnExpr ltCharHof
+    where ltCharHof (CharExpr c2)
+              | c1 < c2 = return true
+              | otherwise = return false
+
+
+-- edit: to eliminate
 exprLt :: Expr -> Expr -> Expr
-exprLt (BoolExpr b1) (BoolExpr b2) | b1 < b2 = true
-exprLt expr@(IntExpr i1) (IntExpr i2) = if i1 < i2 then expr else false
-exprLt expr@(DoubleExpr d1) (DoubleExpr d2) = if d1 < d2 then expr else false
-exprLt expr@(CharExpr c1) (CharExpr c2) = BoolExpr $ c1 < c2
-exprLt expr@(SeqExpr exprs1) (SeqExpr exprs2)
-      | length exprs1 < length exprs2 = expr
-      | length exprs1 == length exprs2 && isNotFalseExpr (all2 exprLt exprs1 exprs2) = expr
-      | otherwise = false
-exprLt (FnExpr _) (FnExpr _) = false
-exprLt (TypeExpr _ _ _) (TypeExpr _ _ _) = false
-exprLt (BoolExpr _) _ = true
-exprLt (IntExpr _) (BoolExpr _) = false
-exprLt expr@(IntExpr i) (DoubleExpr d) = if (fromIntegral i) < d then expr else false
-exprLt expr@(IntExpr _) _ = expr
-exprLt (DoubleExpr _) (BoolExpr _) = false
-exprLt expr@(DoubleExpr d) (IntExpr i) = BoolExpr $ d < (fromIntegral i)
-exprLt expr@(DoubleExpr _) _ = expr
-exprLt (CharExpr _) (BoolExpr _) = false
-exprLt (CharExpr _) (IntExpr _) = false
-exprLt (CharExpr _) (DoubleExpr _) = false
-exprLt expr@(CharExpr _) _ = expr
-exprLt (SeqExpr _) (BoolExpr _) = false
-exprLt (SeqExpr _) (IntExpr _) = false
-exprLt (SeqExpr _) (DoubleExpr _) = false
-exprLt (SeqExpr _) (CharExpr _) = false
-exprLt expr@(SeqExpr _) _ = expr
-exprLt expr@(FnExpr _) (TypeExpr _ _ _) = expr
-exprLt (FnExpr _) _ = false
-exprLt (TypeExpr _ _ _) _ = false
+exprLt (IntExpr b1) (IntExpr b2) | b1 < b2 = true
+exprLt (IntExpr i1) (IntExpr i2) | i1 < i2 = true
+exprLt (DoubleExpr d1) (DoubleExpr d2) | d1 < d2 = true
+exprLt (CharExpr c1) (CharExpr c2) | c1 < c2 = true
+exprLt (SeqExpr exprs1) (SeqExpr exprs2)
+    | null exprs1 && null exprs2 = false
+    | length exprs1 < length exprs2 = true
+    | length exprs1 == length exprs2 = all2 exprLt exprs1 exprs2
+exprLt _ _ = false
 
 
-less :: Expr -> Expr
-less expr1 =
-    FnExpr $ \expr2 -> return (expr1 `exprLt` expr2)
+-- edit: improve efficiency
+ltSeq :: Expr -> Expr
+ltSeq (SeqExpr exprs1) = FnExpr ltSeqHof
+    where ltSeqHof (SeqExpr exprs2)
+              | null exprs1 && null exprs2 = return false
+              | length exprs1 < length exprs2 = return true
+              | length exprs1 == length exprs2 =
+                  return (all2 exprLt exprs1 exprs2)
+              | otherwise = return false
 
 
 -- arithmetic functions
@@ -436,7 +453,11 @@ fnDesc = [
   ("eqChar", ArrowT CharT (ArrowT CharT BoolT), m eqChar),
   ("eqSeq", ArrowT DynT (ArrowT DynT BoolT), m eqSeq),
   ("eqObj", ArrowT DynT (ArrowT DynT BoolT), m eqObj),
-  ("less", ArrowT DynT (ArrowT DynT BoolT), m less),
+  ("ltBool", ArrowT BoolT (ArrowT BoolT BoolT), m ltBool),
+  ("ltInt", ArrowT IntT (ArrowT IntT BoolT), m ltInt),
+  ("ltReal", ArrowT DoubleT (ArrowT DoubleT BoolT), m ltReal),
+  ("ltChar", ArrowT CharT (ArrowT CharT BoolT), m ltChar),
+  ("ltSeq", ArrowT DynT (ArrowT DynT BoolT), m ltSeq),
   -- arithmetic functions
   ("mkInt", ArrowT DynT IntT, m mkInt),
   ("mkReal", ArrowT DynT DoubleT, m mkReal),
