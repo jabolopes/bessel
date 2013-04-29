@@ -60,14 +60,6 @@ isAtomicT (ArrowT _ _) = False
 isAtomicT _ = True
 
 
-simpleType :: Type -> (Type, Maybe Type)
-simpleType t = (t, Nothing)
-
-
-unifType :: a -> b -> (a, Maybe b)
-unifType t1 t2 = (t1, Just t2)
-
-
 freshForallT :: Int -> Type -> (Int, Type)
 freshForallT count t =
     let ((_, count'), t') = freshForallT' (Map.empty, count) t in (count', t')
@@ -172,11 +164,9 @@ freeTvarsT t = nub $ sort $ freeTvars [] t
           freeTvars vars (ForallT var forallT) =
               freeTvars (var:vars) forallT
 
-          freeTvars vars (TvarT var) =
-              if var `elem` vars then
-                  []
-              else
-                  [var]
+          freeTvars vars (TvarT var)
+              | var `elem` vars = []
+              | otherwise = [var]
 
 
 -- 'occursT' @t1 t2@: does @t1@ occur in @t2@?
@@ -186,27 +176,6 @@ occursT t (SeqT seqT) = occursT t seqT
 occursT t (ArrowT argT rangeT) = occursT t argT || occursT t rangeT
 occursT t (ForallT _ forallT) = occursT t forallT
 occursT _ _ = False
-
-
--- unifyT :: Type -> Type -> Type
--- unifyT t1 t2
---     | t1 == t2 = t1
-
--- unifyT (TupT ts1) (TupT ts2) =
---     let ts = zipWith unifyT ts1 ts2 in
---     if all (== (head ts)) ts then
---         SeqT $ head ts
---     else
---         TupT ts
-
--- unifyT (SeqT t1) (SeqT t2) =
---     SeqT $ unifyT t1 t2
-
--- unifyT (ArrowT arg1 res1) (ArrowT arg2 res2) =
---     let t1 = unifyT arg1 arg2 in
---     ArrowT t1 $ unifyT res1 res2
-
--- unifyT t1 t2 = DynT
 
 
 -- 'substituteTvarT' @t1 var t2@ replaces type variables
@@ -233,6 +202,15 @@ substituteTvarT t var1 tvarT@(TvarT var2)
   | otherwise = tvarT
 
 
+-- 'rebuildForallT' @t@ produces a new 'Type' by introducing forall
+-- quantifiers ('ForallT') to quantify the free type variables in @t@.
+--
+-- Example
+--
+-- > a -> b
+--
+-- results in
+--
+-- > forall a, b. a -> b
 rebuildForallT :: Type -> Type
 rebuildForallT t = foldr ForallT t (freeTvarsT t)
-    

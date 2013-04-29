@@ -10,7 +10,7 @@ import Data.Type
 
 
 data Context =
-  Context { syms :: [(String, (Type, Maybe Type))]
+  Context { syms :: [(String, Type)]
           , count :: Int }
   deriving (Show)
 
@@ -20,7 +20,7 @@ empty =
     Context { syms = [] , count = 0 }
 
 
-initial :: [(String, (Type, Maybe Type))] -> Context
+initial :: [(String, Type)] -> Context
 initial syms =
     Context { syms = syms
             , count = length syms }
@@ -34,36 +34,36 @@ splitContext ctx@Context { syms } name =
     where neqName (name', _) = name /= name'
 
 
-insertContext :: Context -> String -> (Type, Maybe Type) -> Context
+insertContext :: Context -> String -> Type -> Context
 insertContext ctx@Context { syms } name t =
     ctx { syms = (name, t):syms }
 
 
-updateContext :: Context -> String -> (Type, Maybe Type) -> Context
+updateContext :: Context -> String -> Type -> Context
 updateContext ctx name t =
     let (Context { syms = syms1 }, Context { syms = syms2 }) = splitContext ctx name in
     ctx { syms = syms1 ++ [(name, t)] ++ syms2 }
 
 
-lookupContext :: Context -> String -> Maybe (Type, Maybe Type)
+lookupContext :: Context -> String -> Maybe Type
 lookupContext Context { syms } name = lookup name syms
 
 
+-- edit: needed a 'freshForallT' in all calls to 'typeContext'?
 typeContext :: Context -> String -> Either String (Context, Type)
 typeContext ctx@Context { count } name =
     do (count', t') <- freshForallT count <$> t
        return (ctx { count = count' }, t')
     where t = case lookupContext ctx name of
                 Nothing -> Left $ "\n\n\ttypeContext: name " ++ show name ++ " not bound\n"
-                Just (t, Nothing) -> Right t
-                Just (_, Just t) -> Right t
+                Just t -> Right t
 
 
 isEmptyTypeContext :: Context -> String -> Bool
 isEmptyTypeContext ctx name =
     case lookupContext ctx name of
       Nothing -> error $ "\n\n\tisEmptyTypeContext: name " ++ show name ++ " not bound\n"
-      Just (_, Nothing) -> True
+      Just (EvarT name') | name == name' -> True
       Just _ -> False
 
 
@@ -74,19 +74,17 @@ dropContext ctx@Context { syms } name =
 
 
 nothingSyms :: Map String Type -> Context
--- nothingSyms syms = Context { syms = syms', count = 0 }
-nothingSyms syms = resetCount (Context { syms = syms', count = 97 })
-  where syms' = map (\(name, t) -> (name, (t, Nothing))) $ Map.toList syms
+nothingSyms syms =
+    resetCount (Context { syms = Map.toList syms, count = 97 })
 
 
 resetCount :: Context -> Context
 resetCount ctx = ctx { count = 97 }
 
 
+-- edit: this should do a full substitution of existential variables
 simpleSyms :: Context -> [(String, Type)]
-simpleSyms Context { syms } = map simple syms
-  where simple (name, (t, Nothing)) = (name, t)
-        simple (name, (_, Just t')) = (name, t')
+simpleSyms Context { syms } = syms
 
 
 isWellformed :: Context -> Type -> Type -> Bool
