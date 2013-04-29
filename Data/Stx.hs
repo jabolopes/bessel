@@ -128,11 +128,12 @@ andStx stx1 stx2 =
     -- note: not using 'stx1' and 'stx2' directly in the Boolean
     -- expression in order to force them to have type 'Bool'.
     let
+        err = "irrefutable 'and' pattern"
         m2 = (stx2, IdStx "true")
         m3 = (IdStx "true", IdStx "false")
-        m1 = (stx1, CondStx [m2, m3] "irrefutable 'and' pattern")
+        m1 = (stx1, CondStx [m2, m3] err)
     in
-      CondStx [m1, m3] "irrefutable 'and' pattern"
+      CondStx [m1, m3] err
 
 
 appStx :: a -> Stx a -> Stx a
@@ -167,10 +168,10 @@ orStx stx1 stx2 =
     -- note: not using 'stx1' and 'stx2' directly in the Boolean
     -- expression in order to force them to have type 'Bool'.
     let
+        err = "irrefutable 'or' pattern"
         m1 = (stx1, IdStx "true")
         m2 = (stx2, IdStx "true")
         m3 = (IdStx "true", IdStx "false")
-        err = "irrefutable 'or' pattern"
     in
       CondStx [m1, m2, m3] err
 
