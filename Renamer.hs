@@ -131,8 +131,8 @@ getPrefixedSymbol prefix name =
           getNamespaceSymbol =
               do prefixedUses <- prefixedUses <$> get
                  prefix' <- case Map.lookup (intercalate "." prefix) prefixedUses of
-                               Nothing -> throwError $ "namespace or module " ++ show (intercalate "." prefix) ++ " is not defined"
-                               Just x -> return x
+                              Nothing -> throwError $ "namespace or module " ++ show (intercalate "." prefix) ++ " is not defined"
+                              Just x -> return x
                  fs <- fs <$> get
                  let syms = SrcFile.symbols (fs Map.! prefix')
                  case Map.lookup name syms of
@@ -177,7 +177,7 @@ addSymbolM :: String -> Symbol -> RenamerM ()
 addSymbolM name sym = checkShadowing name >> addSymbol name sym
     where checkShadowing name =
               -- edit: fix this
-              -- do getSymbolM [name] `catchError` const (return undefined)
+              -- do getSymbolM (split '.' name) `catchError` const (return undefined)
               --    throwError $ "name " ++ show name ++ " has already been defined"
               return ()
 
@@ -189,11 +189,11 @@ addSymbolM name sym = checkShadowing name >> addSymbol name sym
 
 
 addFnSymbolM :: String -> String -> RenamerM ()
-addFnSymbolM name rename = addSymbolM name $ FnSymbol rename
+addFnSymbolM name rename = addSymbolM name (FnSymbol rename)
 
 
 addTypeSymbolM :: String -> String -> RenamerM ()
-addTypeSymbolM name rename = addSymbolM name $ TypeSymbol rename
+addTypeSymbolM name rename = addSymbolM name (TypeSymbol rename)
 
 
 withScopeM :: RenamerM a -> RenamerM a
