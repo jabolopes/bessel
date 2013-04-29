@@ -95,12 +95,12 @@ withNamespace ns m =
        return val
 
 
-getUnprefixedSymbol :: String -> RenamerM Symbol
+getUnprefixedSymbol :: String -> RenamerM (Either String Symbol)
 getUnprefixedSymbol name =
     do msym <- getLocalSymbol
        case msym of
          Nothing -> getNamespaceSymbol
-         Just sym -> return sym
+         Just sym -> return (Right sym)
     where getLocalSymbol =
               do frameEnv <- frameEnv <$> get
                  currentFrame <- getCurrentFrameM
@@ -113,40 +113,55 @@ getUnprefixedSymbol name =
                      symss = map SrcFile.symbols srcfiles
                      syms = catMaybes [ Map.lookup name syms | syms <- symss ]
                  case syms of
-                   [] -> throwError $ "name " ++ show name ++ " is not defined"
-                   [sym] -> return sym
-                   _ -> throwError $ "name " ++ show name ++ " is multiply defined"
+                   [] -> return $ Left $ "name " ++ show name ++ " is not defined"
+                   [sym] -> return (Right sym)
+                   _ -> return $ Left $ "name " ++ show name ++ " is multiply defined"
 
 
-getPrefixedSymbol :: [String] -> String -> RenamerM Symbol
+getPrefixedSymbol :: [String] -> String -> RenamerM (Either String Symbol)
 getPrefixedSymbol prefix name =
     do frameEnv <- frameEnv <$> get
        case getModuleSymbol frameEnv of
-         Nothing -> getNamespaceSymbol
-         Just sym -> return sym
+         Just sym -> return (Right sym)
+         Nothing -> do mprefix <- getPrefixModule
+                       case mprefix of
+                         Left str -> return (Left str)
+                         Right prefix' -> getNamespaceSymbol prefix'
     where getModuleSymbol env =
               do fr <- FrameEnv.getModuleFrame env prefix
                  FrameEnv.getFrameSymbol env fr name
 
-          getNamespaceSymbol =
+          getPrefixModule :: RenamerM (Either String String)
+          getPrefixModule =
               do prefixedUses <- prefixedUses <$> get
-                 prefix' <- case Map.lookup (intercalate "." prefix) prefixedUses of
-                              Nothing -> throwError $ "namespace or module " ++ show (intercalate "." prefix) ++ " is not defined"
-                              Just x -> return x
-                 fs <- fs <$> get
+                 case Map.lookup (intercalate "." prefix) prefixedUses of
+                   Nothing -> return $ Left $ "namespace or module " ++ show (intercalate "." prefix) ++ " is not defined"
+                   Just x -> return (Right x)
+
+          getNamespaceSymbol :: String -> RenamerM (Either String Symbol)
+          getNamespaceSymbol prefix' =
+              do fs <- fs <$> get
                  let syms = SrcFile.symbols (fs Map.! prefix')
                  case Map.lookup name syms of
-                   Nothing -> throwError $ "name " ++ show (intercalate "." prefix ++ "." ++ name) ++ " is not defined"
-                   Just sym -> return sym
+                   Nothing -> return $ Left $ "name " ++ show (intercalate "." prefix ++ "." ++ name) ++ " is not defined"
+                   Just sym -> return (Right sym)
 
 
-getSymbolM :: [String] -> RenamerM Symbol
-getSymbolM names =
+lookupSymbolM :: [String] -> RenamerM (Either String Symbol)
+lookupSymbolM names =
     do frameEnv <- frameEnv <$> get
        currentFrame <- getCurrentFrameM
        if null (tail names)
        then getUnprefixedSymbol (head names)
        else getPrefixedSymbol (init names) (last names)
+
+
+getSymbolM :: [String] -> RenamerM Symbol
+getSymbolM names =
+    do msym <- lookupSymbolM names
+       case msym of
+         Left str -> throwError str
+         Right t -> return t
 
 
 getFnSymbolM :: [String] -> RenamerM String
@@ -176,10 +191,10 @@ isTypeSymbolM name =
 addSymbolM :: String -> Symbol -> RenamerM ()
 addSymbolM name sym = checkShadowing name >> addSymbol name sym
     where checkShadowing name =
-              -- edit: fix this
-              -- do getSymbolM (split '.' name) `catchError` const (return undefined)
-              --    throwError $ "name " ++ show name ++ " has already been defined"
-              return ()
+              do msym <- lookupSymbolM (split '.' name)
+                 case msym of
+                   Left _ -> return ()
+                   Right _ -> throwError $ "name " ++ show name ++ " has already been defined"
 
           addSymbol name sym =
               do frameEnv <- frameEnv <$> get
