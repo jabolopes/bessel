@@ -10,7 +10,7 @@ doTypecheck = True
 
 
 preludeNames :: [String]
-preludeNames = ["Prelude", "PreludeTypechecker"]
+preludeNames = ["Prelude"]
 
 
 isPrelude :: String -> Bool
@@ -18,9 +18,7 @@ isPrelude = (`elem` preludeNames)
 
 
 preludeName :: String
-preludeName
-    | doTypecheck = head (tail preludeNames)
-    | otherwise = head preludeNames
+preludeName = head preludeNames
 
 
 corefile :: SrcFile
