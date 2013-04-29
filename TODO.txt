@@ -33,5 +33,10 @@ Replace the parser with a monadic parser that handles errors and
 warnings conveniently.
 
 
-Eliminate 'exprEq' in 'Core' because it is not elegant.  Should do the
-same for 'less'.
+Finish the work on 'eq' and 'lt'.  Eliminate 'exprEq' in 'Core'
+because it is not elegant.  Should do the same for 'less'.
+
+
+Fix the pretty printer to print to 'String'.  And fix 'showAbbrev'.
+Perhaps the pretty printer and show abbrev can be combined in a monad
+with a Boolean value.
