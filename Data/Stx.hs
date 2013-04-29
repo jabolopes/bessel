@@ -167,8 +167,9 @@ orStx stx1 stx2 =
         m1 = (stx1, IdStx "true")
         m2 = (stx2, IdStx "true")
         m3 = (IdStx "true", IdStx "false")
+        err = "irrefutable 'or' pattern"
     in
-      CondStx [m1, m2] "irrefutable 'or' pattern"
+      CondStx [m1, m2, m3] err
 
 
 signalStx :: String -> String -> Stx String -> Stx String
