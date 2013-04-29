@@ -31,3 +31,7 @@ Moved code in 'Macros' to 'Renamer' in order to use 'genNameM'.
 
 Replace the parser with a monadic parser that handles errors and
 warnings conveniently.
+
+
+Eliminate 'exprEq' in 'Core' because it is not elegant.  Should do the
+same for 'less'.
