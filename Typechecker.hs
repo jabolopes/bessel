@@ -19,7 +19,6 @@ import qualified Data.SrcFile as SrcFile
 import Data.Exception
 import Data.Type
 import Data.Stx
-import Data.Type
 
 import Debug.Trace
 import System.IO.Unsafe
@@ -41,7 +40,7 @@ debugConsistentTT :: String -> Bool
 debugConsistentTT desc = (debugConsistentT && trace desc True) || True
 
 
-logT :: (Show a, Show a1) => [Char] -> a -> a1 -> Bool
+logT :: (Show a, Show a1) => String -> a -> a1 -> Bool
 logT desc t1 t2 =
     debugConsistentTT $ desc ++ ": " ++ show t1 ++ " <: " ++ show t2
 
@@ -75,12 +74,12 @@ gamma name vars =
 
 gamma' :: String -> [String] -> String
 gamma' name vars =
-    name ++ concat (map (\var -> "[" ++ var ++ "]") vars)
+    name ++ concatMap (\var -> "[" ++ var ++ "]") vars
 
 
 gamma'' :: (Show a, Show b) => String -> [(a, Maybe b)] -> String
 gamma'' name ts =
-    name ++ concat (map assign ts)
+    name ++ concatMap assign ts
     where assign (t1, Nothing) = "[" ++ show t1 ++ "]"
           assign (t1, Just t2) = "[" ++ show t1 ++ "=" ++ show t2 ++ "]"
 
@@ -108,6 +107,7 @@ subst var1 var2 = "[" ++ var1 ++ "/" ++ var2 ++ "]"
 
 -- types and contexts
 
+genEvar :: Context -> (Type, Context)
 genEvar ctx =
     let
         evar = ['^', toEnum (count ctx)]
@@ -438,7 +438,7 @@ type CheckM = TypecheckerM (Stx (String, Type, Type), Context)
 
 
 typecheckWhereM :: (Context -> Stx String -> TypecheckerM a) -> Context -> Stx String -> TypecheckerM a
-typecheckWhereM m syms (WhereStx stx (stxs)) =
+typecheckWhereM m syms (WhereStx stx stxs) =
     check syms stxs
     where check syms [] = m syms stx
           check syms (stx:stxs) =
@@ -500,7 +500,7 @@ synthAbstrM ctx stx@(SeqStx stxs) =
 
        judgementM "=>Seq"
                   "ctx1 |- ... -| ctxn+1"
-                  ("ctx1" |- stx `synth` (TupT ts) -| "ctxn+1")
+                  ("ctx1" |- stx `synth` TupT ts -| "ctxn+1")
 
        return (kickForalls (TupT ts), SeqStx stxs', ctx')
     where synthSeq ts stxs ctx [] =
@@ -542,7 +542,7 @@ synthAbstrM ctx stx@(LambdaStx arg (Just ann) body) =
 --        return (ArrowT argT bodyT, LambdaStx arg body', ctx''')
 
 -- ⇑LetChk
-synthAbstrM ctx stx@(AppStx fn@(LambdaStx x Nothing body) arg@(LambdaStx _ _ _)) =
+synthAbstrM ctx stx@(AppStx fn@(LambdaStx x Nothing body) arg@(LambdaStx {})) =
     do let evar = ['^', toEnum (count ctx)]
            evarT = EvarT evar
            ctx' = insertContext ctx { count = count ctx + 1 } evar evarT
@@ -759,9 +759,10 @@ checkInstM t@DynT syms stx@(LambdaStx arg Nothing body) =
        return (LambdaStx arg Nothing body', syms')
 
 -- ⇓LambdaEvar
-checkInstM (EvarT var) ctx stx@(LambdaStx _ _ _) | isEmptyTypeContext ctx var =
-    let (existT, ctx') = arrowifyVar ctx var in
-    checkInstM existT ctx' stx
+checkInstM (EvarT var) ctx stx@(LambdaStx {})
+    | isEmptyTypeContext ctx var =
+        let (existT, ctx') = arrowifyVar ctx var in
+        checkInstM existT ctx' stx
 
 -- C-Where
 checkInstM t ctx (DefnStx ann@(Just _) Def name body) =
@@ -824,7 +825,7 @@ typecheckNamespace fs deps (Namespace _ stxs) =
            ctx = nothingSyms (foldr1 Map.union tss)
        (t, ctx') <- typecheckStxs ctx stxs
        
-       let !_ | trace ((("    " ++) . show) $ filter (\x -> "^" `isPrefixOf` (fst x)) $ reverse $ Context.syms ctx') True = True
+       let !_ | trace ((("    " ++) . show) $ filter (\x -> "^" `isPrefixOf` fst x) $ reverse $ Context.syms ctx') True = True
 
        return (t, Map.fromList (simpleSyms ctx'))
        
@@ -861,7 +862,7 @@ typecheck fs srcfile@SrcFile { t = InteractiveT } =
 typecheckInteractive :: Map String SrcFile -> SrcFile -> Either String (SrcFile, Type)
 typecheckInteractive fs srcfile =
      do (ts, t) <- typecheckSrcFile interactiveFs interactiveSrcfile
-        return (srcfile { ts = Map.union ts (SrcFile.ts srcfile) }, t)
+        return (srcfile { ts = ts `Map.union` SrcFile.ts srcfile }, t)
     where interactiveDeps =
               SrcFile.deps srcfile ++ ["Interactive"]
             
