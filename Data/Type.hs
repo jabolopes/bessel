@@ -159,7 +159,7 @@ freeTvarsT t = nub $ sort $ freeTvars [] t
           freeTvars vars (ArrowT argT rangeT) =
               freeTvars vars argT ++ freeTvars vars rangeT
 
-          freeTvars vars (EvarT var) = [var]
+          freeTvars vars (EvarT var) = []
 
           freeTvars vars (ForallT var forallT) =
               freeTvars (var:vars) forallT
@@ -167,6 +167,24 @@ freeTvarsT t = nub $ sort $ freeTvars [] t
           freeTvars vars (TvarT var)
               | var `elem` vars = []
               | otherwise = [var]
+
+
+-- freeEvarsT :: Type -> [String]
+-- freeEvarsT t = nub $ sort $ freeEvars t
+--     where freeEvars BoolT = []
+--           freeEvars IntT = []
+--           freeEvars DoubleT = []
+--           freeEvars CharT = []
+--           freeEvars (TupT tupTs) = concatMap freeEvars tupTs
+--           freeEvars (SeqT seqT) = freeEvars seqT
+--           freeEvars DynT = []
+
+--           freeEvars (ArrowT argT rangeT) =
+--               freeEvars argT ++ freeEvars rangeT
+
+--           freeEvars (EvarT var) = [var]
+--           freeEvars (ForallT _ forallT) = freeEvars forallT
+--           freeEvars (TvarT var) = []
 
 
 -- 'occursT' @t1 t2@: does @t1@ occur in @t2@?
@@ -202,6 +220,26 @@ substituteTvarT t var1 tvarT@(TvarT var2)
   | otherwise = tvarT
 
 
+-- 'generalizeEvarsT' @t1 var t2@ replaces existential variables ('EvarT')
+-- named @var@ that occur in @t2@ with @t1@.
+generalizeEvarsT :: Type -> Type
+generalizeEvarsT t@BoolT = t
+generalizeEvarsT t@IntT = t
+generalizeEvarsT t@DoubleT = t
+generalizeEvarsT t@CharT = t
+generalizeEvarsT (TupT ts) = TupT (map generalizeEvarsT ts)
+generalizeEvarsT (SeqT seqT) = SeqT (generalizeEvarsT seqT)
+generalizeEvarsT t@DynT = t
+
+generalizeEvarsT (ArrowT fnT argT) =
+    ArrowT (generalizeEvarsT fnT) (generalizeEvarsT argT)
+
+generalizeEvarsT (EvarT ('^':var2)) = TvarT (var2 ++ "1")
+
+generalizeEvarsT (ForallT vars forallT) = ForallT vars (generalizeEvarsT forallT)
+generalizeEvarsT t@(TvarT _) = t
+
+
 -- 'rebuildForallT' @t@ produces a new 'Type' by introducing forall
 -- quantifiers ('ForallT') to quantify the free type variables in @t@.
 --
@@ -213,4 +251,6 @@ substituteTvarT t var1 tvarT@(TvarT var2)
 --
 -- > forall a, b. a -> b
 rebuildForallT :: Type -> Type
-rebuildForallT t = foldr ForallT t (freeTvarsT t)
+rebuildForallT t =
+    let t' = generalizeEvarsT t in
+    foldr ForallT t' (freeTvarsT t')

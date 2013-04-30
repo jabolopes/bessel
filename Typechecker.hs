@@ -629,11 +629,12 @@ synthAbstrM ctx (CondStx ms blame) =
 
 synthAbstrM ctx (DefnStx ann@Nothing Def name body) =
     do (bodyT, body', ctx') <- synthM (insertContext ctx name DynT) body
-       return (bodyT, DefnStx ann Def name body', insertContext ctx' name bodyT)
+       let bodyT' = rebuildForallT bodyT
+       return (bodyT', DefnStx ann Def name body', insertContext ctx' name bodyT')
 
 synthAbstrM ctx (DefnStx ann@Nothing NrDef name body) =
     do (bodyT, body', ctx') <- synthM ctx body
-       let bodyT' = substituteEvarTs ctx' bodyT
+       let bodyT' = rebuildForallT (substituteEvarTs ctx' bodyT)
        return (bodyT', DefnStx ann NrDef name body', insertContext ctx' name bodyT')
 
 synthAbstrM ctx stx@(WhereStx _ _) =
@@ -764,7 +765,7 @@ checkInstM (EvarT var) ctx stx@(LambdaStx {})
         let (existT, ctx') = arrowifyVar ctx var in
         checkInstM existT ctx' stx
 
--- C-Where
+-- ⇓Others
 checkInstM t ctx (DefnStx ann@(Just _) Def name body) =
     do (body', ctx') <- checkM t (insertContext ctx name t) body
 
