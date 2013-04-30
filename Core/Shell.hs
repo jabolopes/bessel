@@ -7,7 +7,7 @@ import System.IO.Strict (hGetContents)
 import System.IO.Unsafe
 import System.Process hiding (shell)
 
-import Core hiding (srcfile)
+import Core hiding (fnDesc, srcfile)
 import Data.SrcFile
 import Data.Type
 import Monad.InterpreterM
@@ -25,10 +25,15 @@ shell expr =
                        return $ boxString str
 
 
--- edit: fixed undefined
+fnDesc :: FnDesc
+fnDesc = [("shell", ForallT "a"
+                      (ArrowT (SeqT CharT)
+                       (ArrowT (SeqT CharT)
+                        (ArrowT (TvarT "a") (SeqT CharT)))), m shell)]
+
+
 srcfile :: SrcFile
-srcfile = SrcFile "Core.Shell" ["Core"] Nothing undefined undefined $ Right $
-          ([], Map.fromList [("shell", (ArrowT (SeqT CharT) (SeqT CharT), m shell))])
+srcfile = mkCoreSrcFile "Core.Shell" ["Core"] [] fnDesc
 
 
 link :: a -> (SrcFile, a)
