@@ -1,0 +1,6 @@
+me List
+
+def intercalate :=
+  [|tt,xs@[||]|] -> xs ;
+  [|tt,xs@[|tt|]|] -> xs ;
+  [|y@,x@ => xs@ |] -> cat o [[x,~y],intercalate:y o xs]
