@@ -20,7 +20,7 @@ Comments are broken.
 Typecheck 'CondStx'.
 
 
-Typecheck fixpoints
+Introduce and typecheck fixpoints
 
 
 Remove the benign shift/reduce conflicts.
@@ -48,3 +48,7 @@ Add inductive and coinductive types :)
 Infer types from predicates, i.e., eliminate the following casts
 
   def f x@isInt y@isInt = addInt (toInt x) (toInt y)
+
+
+Typechecker crashes when functions are applied with the wrong number
+of arguments.
