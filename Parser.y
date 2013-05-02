@@ -239,13 +239,14 @@ PatNoSpace:
   | PatRest     { $1 }
 
 PatRest:
-    '(' OpPat ')'       { $2 }
-  | ListPat             { $1 }
-  | '@' LongName        { mkPredPat (IdStx $2) }
-  | '@' '(' Expr ')'    { mkPredPat $3 }
-  | id '@' LongName     { namePat $1 (mkPredPat (IdStx $3)) }
-  | id '@' ListPat      { namePat $1 $3 }
-  | id '@' '(' Expr ')' { namePat $1 (mkPredPat $4) }
+    ListPat              { $1 }
+  | '(' OpPat ')'        { $2 }
+  | '@' LongName         { mkPredPat (IdStx $2) }
+  | '@' '(' Expr ')'     { mkPredPat $3 }
+  | id '@' LongName      { namePat $1 (mkPredPat (IdStx $3)) }
+  | id '@' ListPat       { namePat $1 $3 }
+  | id '@' '(' OpPat ')' { namePat $1 $4 }
+  | id '@' '(' Expr ')'  { namePat $1 (mkPredPat $4) }
 
 OpPat:
     Pat '+>' PatNoSpace { mkPat (IdStx "pal") [IdStx "hd", IdStx "tl"] [$1, $3] }
