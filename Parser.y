@@ -11,8 +11,6 @@ import Data.Type
 import Macros
 import Utils
 
-import Debug.Trace
-
 }
 
 %name parseSrcFile SrcFile
