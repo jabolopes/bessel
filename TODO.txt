@@ -26,7 +26,7 @@ Introduce and typecheck fixpoints
 Remove the benign shift/reduce conflicts.
 
 
-Moved code in 'Macros' to 'Renamer' in order to use 'genNameM'.
+Move code in 'Macros' to 'Renamer' in order to use 'genNameM'.
 
 
 Replace the parser with a monadic parser that handles errors and
