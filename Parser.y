@@ -11,6 +11,8 @@ import Data.Type
 import Macros
 import Utils
 
+import Debug.Trace
+
 }
 
 %name parseSrcFile SrcFile
@@ -231,20 +233,17 @@ TypePat:
 Pat:
     '@ '         { mkPredPat constTrueStx }
   | id '@ '      { namePat $1 (mkPredPat constTrueStx) }
-  | '[' ']' '@ ' { Pat (applyStx "plist" []) [] }
   | PatRest      { $1 }
 
 PatNoSpace:
     '@'         { mkPredPat constTrueStx }
   | id '@'      { namePat $1 (mkPredPat constTrueStx) }
-  | '[' ']' '@' { Pat (applyStx "plist" []) [] }
   | PatRest     { $1 }
 
 PatRest:
     '(' OpPat ')'       { $2 }
   | ListPat             { $1 }
   | '@' LongName        { mkPredPat (IdStx $2) }
-  | '@' ListPat         { $2 }
   | '@' '(' Expr ')'    { mkPredPat $3 }
   | id '@' LongName     { namePat $1 (mkPredPat (IdStx $3)) }
   | id '@' ListPat      { namePat $1 $3 }
@@ -258,6 +257,7 @@ OpPat:
 
 ListPat:
     '[' PatList ']' { mkListPat $2 }
+  | '@' '[' ']'     { Pat (applyStx "plist" []) [] }
 
 PatList:
     ExprList ',' PatNoSpace ',' PatList2 { map mkPredPat $1 ++ [$3] ++ $5 }

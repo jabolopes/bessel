@@ -78,7 +78,7 @@ sig isZero : Int -> Bool
 def isZero x@ = x == 0
 
 sig isNull : [a] -> Bool
-def isNull []@ = true
+def isNull @[] = true
          | @ = false
 
 sig isPair : [a] -> Bool
@@ -150,11 +150,11 @@ sig (<+) : [a] -> a -> [a]
 def (<+) = ar
 
 sig length : [a] -> Int
-def length []@ = 0
+def length @[] = 0
          | (@ +> xs@) = length xs + 1
 
 sig reverse : [a] -> [a]
-def reverse []@ = []
+def reverse @[] = []
           | (x@ +> xs@) = ar (reverse xs) x
 
 -- nrdef raise := \f@isfunc isfunc || (seqof isfunc && (¬ isnull)) -> lift f | f
