@@ -13,8 +13,11 @@ import Utils
 
 }
 
+%monad { ParserM }
+-- %monad { ParserM } { thenParserM } { returnParserM }
+
 %name parseSrcFile SrcFile
-%name parseRepl DefnOrExpr
+%name parseDefnOrExpr DefnOrExpr
 
 %tokentype { Token }
 %error { parseError }
@@ -334,8 +337,8 @@ Operator:
 
 {
 
-parseError :: [Token] -> a
-parseError tks = throwParseException $ show tks
+parseError :: [Token] -> ParserM a
+parseError tks = Left (show tks)
 
 data Token
      -- punctuation
@@ -400,9 +403,27 @@ data Token
        deriving (Show)
 
 
-parsePrelude = parseSrcFile
+type ParserM a = Either String a
 
+
+parsePrelude :: [Token] -> SrcFile
+parsePrelude tks =
+  case parseSrcFile tks of
+    Right srcfile -> srcfile
+    Left str -> throwParseException str
+
+
+parseRepl :: [Token] -> Stx String
+parseRepl tks =
+  case parseDefnOrExpr tks of
+    Right stx -> stx
+    Left str -> throwParseException str
+
+
+parseFile :: [Token] -> SrcFile
 parseFile tks =
   let uses = [("Core", ""), (preludeName, "")] in
-  addImplicitDeps uses (parseSrcFile tks)
+  case parseSrcFile tks of
+     Right srcfile -> addImplicitDeps uses srcfile
+     Left str -> throwParseException str
 }
