@@ -1,8 +1,6 @@
 {-# LANGUAGE ParallelListComp #-}
 module Data.Stx where
 
-import Data.Char (isSymbol)
-import Data.List (intercalate)
 import Data.Type
 
 
@@ -183,38 +181,6 @@ signalStx id str val =
 
 stringStx :: String -> Stx a
 stringStx str = SeqStx $ map CharStx str
-
-
-needsParen :: Stx a -> Bool
-needsParen stx =
-  isAppStx stx ||
-  isLambdaStx stx ||
-  isWhereStx stx
-
-
-showAbbrev :: Stx String -> String
-showAbbrev (CharStx c) = show c
-showAbbrev (IntStx i) = show i
-showAbbrev (DoubleStx d) = show d
-showAbbrev (SeqStx stxs) = "[" ++ intercalate ", " (map showAbbrev stxs) ++ "]"
-
-showAbbrev (IdStx name)
-    | isSymbol (head name) = "(" ++ name ++ ")"
-    | otherwise = name
-
-showAbbrev (AppStx stx1 stx2) =
-  paren stx1 ++ " " ++ paren stx2
-  where paren stx | needsParen stx = "(" ++ showAbbrev stx ++ ")"
-                  | otherwise = showAbbrev stx
-
-showAbbrev (LambdaStx arg Nothing body) =
-  "\\" ++ arg ++ ". " ++ showAbbrev body
-
-showAbbrev (LambdaStx arg (Just t) body) =
-  "\\" ++ arg ++ ":" ++ t ++ ". " ++ showAbbrev body
-
-showAbbrev stx = show stx
-
 
 
 freeVarsList :: [String] -> [String] -> [Stx String] -> ([String], [String])

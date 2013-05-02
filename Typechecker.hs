@@ -19,6 +19,7 @@ import qualified Data.SrcFile as SrcFile
 import Data.Exception
 import Data.Type
 import Data.Stx
+import Printer.AbbrevStx
 
 import Debug.Trace
 import System.IO.Unsafe
