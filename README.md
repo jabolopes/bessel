@@ -1,7 +1,8 @@
 bsl
 ===
 
-The Bessel Programming Language
+The Bessel programming language
+-------------------------------
 
 A FL and Haskell inspired, gradually typed programming language with
 automatic type inference.
