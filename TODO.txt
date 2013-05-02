@@ -37,9 +37,8 @@ Finish the work on 'eq' and 'lt'.  Eliminate 'exprEq' in 'Core'
 because it is not elegant.  Should do the same for 'less'.
 
 
-Fix the pretty printer to print to 'String'.  And fix 'showAbbrev'.
-Perhaps the pretty printer and show abbrev can be combined in a monad
-with a Boolean value.
+Fix the pretty printer to print to 'String'.  Perhaps the pretty
+printer and 'showAbbrev' can be combined in a single monad.
 
 
 Add inductive and coinductive types :)
