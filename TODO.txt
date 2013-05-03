@@ -29,9 +29,7 @@ Remove the benign shift/reduce conflicts.
 Move code in 'Macros' to 'Renamer' in order to use 'genNameM'.
 
 
-Replace the parser with a monadic parser that handles errors and
-warnings conveniently.  And that also keeps track of lines, again for
-improving error messages.
+Added lines in semantic errors.
 
 
 Finish the work on 'eq' and 'lt'.  Eliminate 'exprEq' in 'Core'
