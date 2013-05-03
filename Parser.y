@@ -142,11 +142,17 @@ DefnOrExpr:
 
 Defn:
     -- edit: ensure the name in the type ann is the same
-    TypeAnn FnDefn  { let
-                          (_, ann) = $1
-                          (kw, name, body) = $2
-                      in
-                        DefnStx (Just ann) kw name body }
+    TypeAnn FnDefn  {% let
+                           (name, ann) = $1
+                           (kw, name', body) = $2
+                       in
+                         if name == name'
+                         then returnP $ DefnStx (Just ann) kw name body
+                         else failP $ "Function names are not equal in" ++
+                                      "\n  sig " ++ name ++ " ..." ++
+				      "\nand" ++
+                                      "\n  def " ++ name' ++ " ..."
+                    }
 
   | FnDefn          { let (kw, name, body) = $1 in
                       DefnStx Nothing kw name body }
