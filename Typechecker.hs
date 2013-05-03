@@ -776,6 +776,8 @@ checkInstM t ctx (DefnStx ann@(Just _) Def name body) =
        return (DefnStx ann Def name body', ctx')
 
 
+-- edit: the type inserted in the context and the type checked against
+-- are not the same.  This needs testing.
 checkInstM t ctx (DefnStx ann@(Just _) NrDef name body) =
     do (body', ctx') <- checkM t ctx body
        let bodyT = substituteEvarTs ctx' t
