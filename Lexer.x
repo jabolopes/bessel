@@ -101,21 +101,28 @@ tokens :-
 
 
 {
-lexState :: String -> AlexInput
-lexState str = ('\n',[],str)
+data LexState = LexState Int AlexInput
 
 
-lex :: AlexInput -> (Token, AlexInput)
-lex input@(_,_,str) =
-  case alexScan input 0 of
-    AlexEOF -> (TokenEOF, input)
-    AlexError _ -> throwLexException str
-    AlexSkip  input' len     -> lex input'
-    AlexToken input' len act -> (act (take len str), input')
+lexState :: String -> LexState
+lexState str = LexState 1 ('\n',[],str)
+
+
+lex :: LexState -> (Token, Int, LexState)
+lex (LexState n input) = lex' n input
+  where lex' n input@(_, _, str) =
+          case alexScan input 0 of
+            AlexEOF -> (TokenEOF, n, LexState n input)
+            AlexError _ -> throwLexException str
+            AlexSkip  input' len -> lex' (line n (take len str)) input'
+            AlexToken input' len action -> (action (take len str), n, LexState (line n (take len str)) input')
+
+        line n str | '\n' `elem` str = n + 1
+                   | otherwise = n
 
 
 lexTokens :: String -> [Token]
 lexTokens str = yield (lex (lexState str))
-  where yield (TokenEOF, _) = []
-  	yield (tk, input) = tk:yield (lex input)
+  where yield (TokenEOF, _, _) = []
+        yield (tk, _, state) = tk:yield (lex state)
 }

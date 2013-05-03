@@ -354,7 +354,7 @@ parseError tk = failP (show tk)
 
 
 type ParserM a = Either String a
-type P a = AlexInput -> ParserM a
+type P a = LexState -> ParserM a
 
 
 thenP :: P a -> (a -> P b) -> P b
@@ -402,7 +402,7 @@ parseFile s =
 
 
 nextToken :: (Token -> P a) -> P a
-nextToken cont s =
-  case lex s of
-    (tk, s') -> cont tk s'
+nextToken cont state =
+  case lex state of
+    (tk, _, state') -> cont tk state'
 }
