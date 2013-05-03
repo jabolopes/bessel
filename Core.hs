@@ -105,31 +105,6 @@ all2 fn (x1:xs1) (x2:xs2)
     | otherwise = false
 
 
--- edit: to eliminate
-exprEq :: Expr -> Expr -> Expr
-exprEq (BoolExpr b1) (BoolExpr b2) | b1 == b2 = true
-exprEq (IntExpr i1) (IntExpr i2) | i1 == i2 = true
-exprEq (DoubleExpr d1) (DoubleExpr d2) | d1 == d2 = true
-exprEq (CharExpr c1) (CharExpr c2) | c1 == c2 = true
-exprEq (SeqExpr exprs1) (SeqExpr exprs2) = all2 exprEq exprs1 exprs2
-exprEq (TypeExpr _ tid1 expr1) (TypeExpr _ tid2 expr2) | tid1 == tid2 = expr1 `exprEq` expr2
-exprEq _ _ = false
-
-
-eqSeq :: Expr -> Expr
-eqSeq (SeqExpr exprs1) = FnExpr eqSeqHof
-    where eqSeqHof (SeqExpr exprs2) =
-              return (all2 exprEq exprs1 exprs2)
-
-
-eqObj :: Expr -> Expr
-eqObj (TypeExpr _ tid1 expr1) = FnExpr eqObjHof
-    where eqObjHof (TypeExpr _ tid2 expr2)
-              | tid1 == tid2 = return (expr1 `exprEq` expr2)
-              | otherwise = return false
-
-
-
 ltBool :: Expr -> Expr
 ltBool (BoolExpr b1) = FnExpr ltBoolHof
     where ltBoolHof (BoolExpr b2)
@@ -451,8 +426,6 @@ fnDesc = [
   ("eqInt", ArrowT IntT (ArrowT IntT BoolT), m eqInt),
   ("eqReal", ArrowT DoubleT (ArrowT DoubleT BoolT), m eqReal),
   ("eqChar", ArrowT CharT (ArrowT CharT BoolT), m eqChar),
-  ("eqSeq", ArrowT DynT (ArrowT DynT BoolT), m eqSeq),
-  ("eqObj", ArrowT DynT (ArrowT DynT BoolT), m eqObj),
   ("ltBool", ArrowT BoolT (ArrowT BoolT BoolT), m ltBool),
   ("ltInt", ArrowT IntT (ArrowT IntT BoolT), m ltInt),
   ("ltReal", ArrowT DoubleT (ArrowT DoubleT BoolT), m ltReal),

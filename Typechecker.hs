@@ -438,13 +438,11 @@ type SynthM = TypecheckerM (Type, Stx (String, Type, Type), Context)
 type CheckM = TypecheckerM (Stx (String, Type, Type), Context)
 
 
-typecheckWhereM :: (Context -> Stx String -> TypecheckerM a) -> Context -> Stx String -> TypecheckerM a
-typecheckWhereM m syms (WhereStx stx stxs) =
-    check syms stxs
-    where check syms [] = m syms stx
-          check syms (stx:stxs) =
-              do (_, _, syms') <- synthM syms stx
-                 check syms' stxs
+typecheckWhereM :: Context -> [Stx String] -> TypecheckerM Context
+typecheckWhereM ctx [] = return ctx
+typecheckWhereM ctx (stx:stxs) =
+    do (_, ctx') <- typecheckSubstitute ctx stx
+       typecheckWhereM ctx' stxs
 
 
 synthM :: Context -> Stx String -> SynthM
@@ -638,8 +636,9 @@ synthAbstrM ctx (DefnStx ann@Nothing NrDef name body) =
        let bodyT' = rebuildForallT (substituteEvarTs ctx' bodyT)
        return (bodyT', DefnStx ann NrDef name body', insertContext ctx' name bodyT')
 
-synthAbstrM ctx stx@(WhereStx _ _) =
-    typecheckWhereM synthM ctx stx
+synthAbstrM ctx (WhereStx stx stxs) =
+    do ctx' <- typecheckWhereM ctx stxs
+       synthM ctx' stx
 
 synthAbstrM _ stx =
     Left $ "\n\n\tsynthAbstrM: unhandled case" ++
@@ -787,8 +786,9 @@ checkInstM t ctx (DefnStx ann@(Just _) NrDef name body) =
 
        return (DefnStx ann NrDef name body', insertContext ctx' name bodyT)
 
-checkInstM t ctx stx@(WhereStx _ _) =
-    typecheckWhereM (checkM t) ctx stx
+checkInstM t ctx (WhereStx stx stxs) =
+    do ctx' <- typecheckWhereM ctx stxs
+       checkM t ctx' stx
 
 -- <=Sub
 checkInstM t syms stx =

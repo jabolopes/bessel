@@ -33,7 +33,13 @@ def eq x@isBool y@isBool = eqBool (toBool x) (toBool y)
      | x@isInt  y@isInt  = eqInt (toInt x) (toInt y)
      | x@isReal y@isReal = eqReal (toReal x) (toReal y)
      | x@isChar y@isChar = eqChar (toChar x) (toChar y)
-     | x@isSeq  y@isSeq  = eqSeq (toSeq x) (toSeq y)
+     | seq1@isSeq seq2@isSeq = eqSeq (toSeq seq1) (toSeq seq2)
+                           where {
+                             sig eqSeq : [Dyn] -> [Dyn] -> Bool
+                             def eqSeq @[] @[] = true
+                                     | (x@ +> xs@) (y@ +> ys@) = eq x y && eqSeq xs ys
+                                     | @ @ = false
+                           }
      -- | x@isobj  y@isobj  = eqObj x y
      | @ @ = false
 
