@@ -1,4 +1,5 @@
 {
+{-# LANGUAGE NamedFieldPuns #-}
 module Lexer where
 
 import Prelude hiding (lex)
@@ -101,28 +102,38 @@ tokens :-
 
 
 {
-data LexState = LexState Int AlexInput
+data LexState =
+     LexState { filename :: String
+     	      , beginLine :: Int
+     	      , endLine :: Int
+	      , input :: AlexInput }
 
 
-lexState :: String -> LexState
-lexState str = LexState 1 ('\n',[],str)
+lexState :: String -> String -> LexState
+lexState filename str =
+  LexState { filename = filename
+  	   , beginLine = 1 
+	   , endLine = 1
+	   , input = ('\n',[],str) }
 
 
-lex :: LexState -> (Token, Int, LexState)
-lex (LexState n input) = lex' n input
+lex :: LexState -> (Token, LexState)
+lex state@LexState { endLine = n, input } = lex' n input
   where lex' n input@(_, _, str) =
           case alexScan input 0 of
-            AlexEOF -> (TokenEOF, n, LexState n input)
+            AlexEOF -> (TokenEOF, state { beginLine = n, endLine = n, input = input })
             AlexError _ -> throwLexException str
             AlexSkip  input' len -> lex' (line n (take len str)) input'
-            AlexToken input' len action -> (action (take len str), n, LexState (line n (take len str)) input')
+            AlexToken input' len action ->
+	      (action (take len str), state { beginLine = n,
+	      	      	    	      	      endLine = line n (take len str),
+					      input = input' })
 
-        line n str | '\n' `elem` str = n + 1
-                   | otherwise = n
+        line n = (n +) . length . filter (== '\n')
 
 
-lexTokens :: String -> [Token]
-lexTokens str = yield (lex (lexState str))
-  where yield (TokenEOF, _, _) = []
-        yield (tk, _, state) = tk:yield (lex state)
+lexTokens :: String -> String -> [Token]
+lexTokens filename str = yield (lex (lexState filename str))
+  where yield (TokenEOF, _) = []
+        yield (tk, state) = tk:yield (lex state)
 }

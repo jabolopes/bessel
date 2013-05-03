@@ -1,4 +1,5 @@
 {
+{-# LANGUAGE NamedFieldPuns #-}
 module Parser where
 
 import Prelude hiding (lex)
@@ -348,13 +349,12 @@ Operator:
   | '||'        { $1 }
 
 {
+type P a = LexState -> Either String a
+
 
 parseError :: Token -> P a
-parseError tk = failP (show tk)
-
-
-type ParserM a = Either String a
-type P a = LexState -> ParserM a
+parseError tk LexState { filename, beginLine = n } =
+  Left $ "in line " ++ show n ++ ": " ++ show tk
 
 
 thenP :: P a -> (a -> P b) -> P b
@@ -379,24 +379,24 @@ catchP m k = \s ->
       Left e -> k e s
 
 
-parsePrelude :: String -> SrcFile
-parsePrelude s =
-  case parseSrcFile (lexState s) of
+parsePrelude :: String -> String -> SrcFile
+parsePrelude filename str =
+  case parseSrcFile (lexState filename str) of
     Right srcfile -> srcfile
     Left str -> throwParseException str
 
 
-parseRepl :: String -> Stx String
-parseRepl s =
-  case parseDefnOrExpr (lexState s) of
+parseRepl :: String -> String -> Stx String
+parseRepl filename str =
+  case parseDefnOrExpr (lexState filename str) of
     Right stx -> stx
     Left str -> throwParseException str
 
 
-parseFile :: String -> SrcFile
-parseFile s =
+parseFile :: String -> String -> SrcFile
+parseFile filename str =
   let uses = [("Core", ""), (preludeName, "")] in
-  case parseSrcFile (lexState s) of
+  case parseSrcFile (lexState filename str) of
      Right srcfile -> addImplicitDeps uses srcfile
      Left str -> throwParseException str
 
@@ -404,5 +404,5 @@ parseFile s =
 nextToken :: (Token -> P a) -> P a
 nextToken cont state =
   case lex state of
-    (tk, _, state') -> cont tk state'
+    (tk, state') -> cont tk state'
 }

@@ -153,7 +153,7 @@ runSnippetM ln =
     do state <- get
        liftIO (putLine ln)
 
-       let stx = parseRepl ln
+       let stx = parseRepl "interactive" ln
        liftIO (putParsedStx stx)
 
        fs <- fs <$> get
@@ -231,7 +231,7 @@ showModuleM showAll showBrief filename =
 
 showTokensM :: String -> ReplM ()
 showTokensM filename =
-    liftIO (print . lexTokens =<< readFileM filename)
+    liftIO (print . lexTokens filename =<< readFileM filename)
 
 
 showRenamedM :: Bool -> String -> ReplM ()

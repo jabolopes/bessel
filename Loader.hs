@@ -62,7 +62,7 @@ dependenciesFileM filename =
     do str <- readFileM filename
        let parseFn | isPrelude filename = parsePrelude
                    | otherwise = parseFile
-           srcfile@SrcFile { name, srcNs = Just ns } = parseFn str
+           srcfile@SrcFile { name, srcNs = Just ns } = parseFn filename str
        (_, deps) <- runStateT (dependenciesNsM ns) []
        if name /= filename
        then error $ "Loader.dependenciesFileM: me " ++ show name ++ " and filename " ++ show filename ++ " mismatch"
