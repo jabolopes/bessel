@@ -10,10 +10,10 @@ dist/obj:
 dist/hs:
 	mkdir -p dist/hs
 
-dist/hs/Parser.hs: Parser.y
+dist/hs/Parser.hs: Parser.y dist/hs/Lexer.hs
 	happy Parser.y -o dist/hs/Parser.hs
 
-dist/hs/Lexer.hs: Lexer.x dist/hs/Parser.hs
+dist/hs/Lexer.hs: Lexer.x
 	alex Lexer.x -o dist/hs/Lexer.hs
 
 clean:

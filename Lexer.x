@@ -1,8 +1,10 @@
 {
 module Lexer where
 
+import Prelude hiding (lex)
+
 import Data.Exception
-import Parser
+import Data.Token
 }
 
 
@@ -99,14 +101,21 @@ tokens :-
 
 
 {
-lex :: String -> [Token]
---lex = alexScanTokens
+lexState :: String -> AlexInput
+lexState str = ('\n',[],str)
 
-lex str = go ('\n',[],str)
-  where go inp@(_,_bs,str) =
-          case alexScan inp 0 of
-                AlexEOF -> []
-                AlexError _ -> throwLexException str
-                AlexSkip  inp' len     -> go inp'
-                AlexToken inp' len act -> act (take len str) : go inp'
+
+lex :: AlexInput -> (Token, AlexInput)
+lex input@(_,_,str) =
+  case alexScan input 0 of
+    AlexEOF -> (TokenEOF, input)
+    AlexError _ -> throwLexException str
+    AlexSkip  input' len     -> lex input'
+    AlexToken input' len act -> (act (take len str), input')
+
+
+lexTokens :: String -> [Token]
+lexTokens str = yield (lex (lexState str))
+  where yield (TokenEOF, _) = []
+  	yield (tk, input) = tk:yield (lex input)
 }

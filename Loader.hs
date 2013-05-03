@@ -18,7 +18,6 @@ import Config
 import Data.SrcFile
 import qualified Data.SrcFile as SrcFile
 import Data.Stx
-import Lexer (lex)
 import Parser (parsePrelude, parseFile)
 import Utils
 
@@ -52,7 +51,7 @@ dependenciesM (WhereStx _ stxs) = mapM_ dependenciesM stxs
 
 
 readFileM :: String -> IO String
-readFileM filename = readFile $ (toFilename filename) ++ ".bsl"
+readFileM filename = readFile $ toFilename filename ++ ".bsl"
     where toFilename = map f
               where f '.' = '/'
                     f c = c
@@ -61,14 +60,13 @@ readFileM filename = readFile $ (toFilename filename) ++ ".bsl"
 dependenciesFileM :: String -> IO SrcFile
 dependenciesFileM filename =
     do str <- readFileM filename
-       let tks = lex str
-           parseFn | isPrelude filename = parsePrelude
+       let parseFn | isPrelude filename = parsePrelude
                    | otherwise = parseFile
-           srcfile@SrcFile { name, srcNs = Just ns } = parseFn tks
+           srcfile@SrcFile { name, srcNs = Just ns } = parseFn str
        (_, deps) <- runStateT (dependenciesNsM ns) []
        if name /= filename
        then error $ "Loader.dependenciesFileM: me " ++ show name ++ " and filename " ++ show filename ++ " mismatch"
-       else return $ srcfile { deps = nub (sort deps) }
+       else return srcfile { deps = nub (sort deps) }
 
 
 preloadSrcFile :: Map String SrcFile -> String -> IO [SrcFile]
@@ -91,8 +89,8 @@ buildNodes srcfiles =
 
 
 buildEdges :: Map String Int -> [SrcFile] -> [(Int, Int)]
-buildEdges nodes srcfiles =
-    concatMap (\srcfile -> zip (repeat (nodes Map.! SrcFile.name srcfile)) (map (nodes Map.!) (SrcFile.deps srcfile))) srcfiles
+buildEdges nodes =
+    concatMap (\srcfile -> zip (repeat (nodes Map.! SrcFile.name srcfile)) (map (nodes Map.!) (SrcFile.deps srcfile)))
 
 
 replaceIndexes :: [SrcFile] -> [Int] -> [SrcFile]

@@ -1,20 +1,24 @@
 {
 module Parser where
 
+import Prelude hiding (lex)
+
 import Data.List (intercalate)
 
 import Config
 import Data.Exception
 import Data.SrcFile
 import Data.Stx
+import Data.Token
 import Data.Type
+import Lexer
 import Macros
 import Utils
 
 }
 
-%monad { ParserM }
--- %monad { ParserM } { thenParserM } { returnParserM }
+%monad { P } { thenP } { returnP }
+%lexer { nextToken } { TokenEOF }
 
 %name parseSrcFile SrcFile
 %name parseDefnOrExpr DefnOrExpr
@@ -82,6 +86,8 @@ import Utils
         id       { TokenId $$ }
         quotedId { TokenQuotedId $$ }
         typeId   { TokenTypeId $$ }
+
+        -- eof   { TokenEOF }
 
 
 -- Precedence (lower)
@@ -337,93 +343,60 @@ Operator:
 
 {
 
-parseError :: [Token] -> ParserM a
-parseError tks = Left (show tks)
-
-data Token
-     -- punctuation
-     = TokenArrow
-     | TokenAt
-     | TokenAtSpace
-     | TokenBar
-     | TokenColon
-     | TokenComma
-     | TokenDot
-     | TokenEquiv
-
-     -- grouping
-     | TokenLParen
-     | TokenRParen
-     | TokenLConsParen
-     | TokenRConsParen
-     | TokenLEnvParen
-     | TokenREnvParen
-
-     -- keywords
-     | TokenAs
-     | TokenDef
-     | TokenMe
-     | TokenModule
-     | TokenSig
-     | TokenType
-     | TokenUse
-     | TokenWhere
-
-     -- literals
-     | TokenChar   Char
-     | TokenInt    Int
-     | TokenDouble Double
-     | TokenString String
-
-     -- operators
-     | TokenComposition String
-
-     | TokenMult String
-     | TokenDiv String
-     | TokenAdd String
-     | TokenSub String
-
-     | TokenEq String
-     | TokenNeq String
-     | TokenLt String
-     | TokenGt String
-     | TokenLe String
-     | TokenGe String
-
-     | TokenCons String
-     | TokenSnoc String
-
-     | TokenAnd String
-     | TokenOr String
-
-     -- identifier
-     | TokenId String
-     | TokenQuotedId String
-     | TokenTypeId String
-       deriving (Show)
+parseError :: Token -> P a
+parseError tk = failP (show tk)
 
 
 type ParserM a = Either String a
+type P a = AlexInput -> ParserM a
 
 
-parsePrelude :: [Token] -> SrcFile
-parsePrelude tks =
-  case parseSrcFile tks of
+thenP :: P a -> (a -> P b) -> P b
+m `thenP` k = \s ->
+   case m s of 
+       Right a -> k a s
+       Left e -> Left e
+
+
+returnP :: a -> P a
+returnP a = \s -> Right a
+
+
+failP :: String -> P a
+failP err = \s -> Left err
+
+
+catchP :: P a -> (String -> P a) -> P a
+catchP m k = \s ->
+   case m s of
+      Right a -> Right a
+      Left e -> k e s
+
+
+parsePrelude :: String -> SrcFile
+parsePrelude s =
+  case parseSrcFile (lexState s) of
     Right srcfile -> srcfile
     Left str -> throwParseException str
 
 
-parseRepl :: [Token] -> Stx String
-parseRepl tks =
-  case parseDefnOrExpr tks of
+parseRepl :: String -> Stx String
+parseRepl s =
+  case parseDefnOrExpr (lexState s) of
     Right stx -> stx
     Left str -> throwParseException str
 
 
-parseFile :: [Token] -> SrcFile
-parseFile tks =
+parseFile :: String -> SrcFile
+parseFile s =
   let uses = [("Core", ""), (preludeName, "")] in
-  case parseSrcFile tks of
+  case parseSrcFile (lexState s) of
      Right srcfile -> addImplicitDeps uses srcfile
      Left str -> throwParseException str
+
+
+nextToken :: (Token -> P a) -> P a
+nextToken cont s =
+  case lex s of
+    (tk, s') -> cont tk s'
 }

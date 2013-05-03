@@ -55,14 +55,6 @@ putLine str =
     when doPutLine (putStrLn $ "> " ++ str)
 
 
-putTokens :: [Token] -> IO ()
-putTokens tokens =
-    when doPutTokens $ do
-      putStrLn "> Tokens"
-      mapM_ print tokens
-      putStrLn ""
-
-
 putParsedStx :: Stx String -> IO ()
 putParsedStx stx =
     when doPutParsedStx $ do
@@ -159,17 +151,14 @@ typecheckM fs srcfile =
 runSnippetM :: String -> ReplM ()
 runSnippetM ln =
     do state <- get
-       liftIO $ putLine ln
+       liftIO (putLine ln)
 
-       let tokens = lex ln
-       liftIO $ putTokens tokens
-
-       let stx = parseRepl tokens
-       liftIO $ putParsedStx stx
+       let stx = parseRepl ln
+       liftIO (putParsedStx stx)
 
        fs <- fs <$> get
        interactive <- putStxInInteractive stx . interactive <$> get
-       interactive' <- renamerEither $ rename fs interactive
+       interactive' <- renamerEither (rename fs interactive)
        interactive'' <- typecheckM fs interactive'
        put state { interactive = interactive'' }
     where putStxInInteractive stx srcfile =
@@ -180,22 +169,22 @@ runSnippetM ln =
 showModuleM :: Bool -> Bool -> String -> ReplM ()
 showModuleM showAll showBrief filename =
     let
-      filesM
-        | filename == "Interactive" =
-          do interactive <- interactive <$> get
-             return [interactive]
-        | showAll =
-            Map.elems . fs <$> get
-        | otherwise =
-          do fs <- fs <$> get
-             case Map.lookup filename fs of
-               Nothing -> do liftIO $ do
-                               putStrLn $ "namespace " ++ show filename ++ " has not been staged"
-                               putStrLn $ "staged namespaces are " ++ intercalate ", " (map SrcFile.name (Map.elems fs))
-                             return []
-               Just srcfile -> return [srcfile]
+        filesM
+            | filename == "Interactive" =
+                do interactive <- interactive <$> get
+                   return [interactive]
+            | showAll =
+                Map.elems . fs <$> get
+            | otherwise =
+                do fs <- fs <$> get
+                   case Map.lookup filename fs of
+                     Nothing -> do liftIO $ do
+                                     putStrLn $ "namespace " ++ show filename ++ " has not been staged"
+                                     putStrLn $ "staged namespaces are " ++ intercalate ", " (map SrcFile.name (Map.elems fs))
+                                   return []
+                     Just srcfile -> return [srcfile]
     in
-     filesM >>= (liftIO . mapM_ (putStrLn . showSrcFile))
+      filesM >>= (liftIO . mapM_ (putStrLn . showSrcFile))
     where showDeps srcfile = 
               "\n\n\t deps = " ++ intercalate ('\n':replicate 16 ' ') (SrcFile.deps srcfile)
 
@@ -242,9 +231,7 @@ showModuleM showAll showBrief filename =
 
 showTokensM :: String -> ReplM ()
 showTokensM filename =
-    liftIO $ do
-      str <- readFileM filename
-      print (lex str)
+    liftIO (print . lexTokens =<< readFileM filename)
 
 
 showRenamedM :: Bool -> String -> ReplM ()
@@ -265,7 +252,7 @@ showRenamedM showAll filename =
               do liftIO $ prettyPrintSrcFile srcfile
                  showFiles srcfiles
 
-          -- edit: check if file has been changed on disk
+          -- edit: check if file has changed on disk
           ensureLoadedM filename =
             do fs <- fs <$> get
                when (isNothing (Map.lookup filename fs)) $
