@@ -1,4 +1,9 @@
-Namespaces do not export modules, only toplevel functions: bug or feature?
+Base types should be looked up in the environment instead of being
+hardcoded in the parser.
+
+
+Namespaces do not export modules, only toplevel functions: bug or
+feature?
 
 
 Functions cannot be redefined in interactive.
