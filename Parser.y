@@ -225,16 +225,13 @@ PredPatList:
 SimpleExpr:
     LongName                 { IdStx $1 }
   | Constant                 { $1 }
-  | Seq                      { $1 }
   | '(' Expr ')'             { $2 }
 
 Constant:
     character   { CharStx $1 }
   | integer     { if $1 >= 0 then IntStx $1 else appStx "negInt" (IntStx (- $1)) }
   | double      { if $1 >= 0 then DoubleStx $1 else appStx "negReal" (DoubleStx (- $1)) }
-
-Seq:
-    '[' ExprList ']'   { SeqStx $2 }
+  | '[' ExprList ']'   { SeqStx $2 }
   | '['          ']'   { SeqStx [] }
   | string             { stringStx $1 }
 
