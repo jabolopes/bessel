@@ -2,6 +2,9 @@ Base types should be looked up in the environment instead of being
 hardcoded in the parser.
 
 
+Unroll lambdas (anonymous functions) in 'Renamer'.
+
+
 Namespaces do not export modules, only toplevel functions: bug or
 feature?
 
