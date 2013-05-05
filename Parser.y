@@ -353,8 +353,7 @@ type P a = LexState -> Either String a
 
 
 parseError :: Token -> P a
-parseError tk LexState { filename, beginLine = n } =
-  Left $ "in line " ++ show n ++ ": " ++ show tk
+parseError tk = failP (show tk)
 
 
 thenP :: P a -> (a -> P b) -> P b
@@ -369,7 +368,8 @@ returnP a = \s -> Right a
 
 
 failP :: String -> P a
-failP err = \s -> Left err
+failP err LexState { filename, beginLine = n } =
+  Left $ filename ++ ": line " ++ show n ++ ": " ++ err
 
 
 catchP :: P a -> (String -> P a) -> P a
