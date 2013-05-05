@@ -1,4 +1,4 @@
-Namespace do not export module, only toplevel functions: bug or feature?
+Namespaces do not export modules, only toplevel functions: bug or feature?
 
 
 Functions cannot be redefined in interactive.
@@ -26,14 +26,15 @@ Introduce and typecheck fixpoints
 Remove the benign shift/reduce conflicts.
 
 
-Move code in 'Macros' to 'Renamer' in order to use 'genNameM'.
+Move code in 'Macros' to 'Renamer' in order to take advantage of
+'genNameM'.
 
 
-Added lines in semantic errors.
+Add lines in semantic errors.
 
 
-Fix 'lt' the same way 'eq' was fixed. Find a solution for user defined
-datatypes.
+Fix 'lt' the same way 'eq' was fixed. Find a solution for 'eq' for
+user defined datatypes.
 
 
 Fix mutually recursive functions.
