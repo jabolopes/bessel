@@ -1,5 +1,5 @@
-bsl
-===
+bessel
+======
 #### The Bessel programming language
 
 A FL and Haskell inspired, gradually typed programming language with
