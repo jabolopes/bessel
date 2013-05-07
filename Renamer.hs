@@ -416,7 +416,7 @@ renameM stx@(ModuleStx prefix ns) =
 renameM (TypeStx name stxs) =
     do name' <- show <$> genNumM
        addTypeSymbolM name name'
-       (:[]) . TypeStx name' <$> mapM renameOneM stxs
+       mapM renameOneM stxs
 
 renameM (TypeMkStx name) =
     (:[]) . TypeMkStx <$> getTypeSymbolM name

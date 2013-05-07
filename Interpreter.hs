@@ -71,8 +71,9 @@ evalM (ModuleStx prefix ns) =
             "\n\n\t namespace = " ++ show ns ++ "\n"
 
 evalM (TypeStx name stxs) =
-    do mapM_ evalM stxs
-       return $ SeqExpr $ map CharExpr name
+    error $ "Interpreter.evalM(TypeStx): datatypes must be flattened by the renamer" ++
+            "\n\n\t name = " ++ show name ++
+            "\n\n\t stxs = " ++ show stxs ++ "\n"
 
 evalM (TypeMkStx name) =
     return $ FnExpr $ \expr ->
