@@ -1,3 +1,3 @@
 me Examples.Types
 
-type Complex := [|x@isreal,y@isreal|]
+type Complex = [x@isReal,y@isReal]
