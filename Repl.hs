@@ -1,7 +1,7 @@
 {-# LANGUAGE BangPatterns #-}
 module Repl where
 
-import Prelude hiding (lex, catch)
+import Prelude hiding (lex)
 
 import Control.Monad.State
 import Data.Char (isSpace)
@@ -11,7 +11,6 @@ import Data.Map (Map)
 import qualified Data.Map as Map ((!), insert, elems, empty, keys, lookup, toList)
 import System.Console.GetOpt
 import System.Console.Readline
-import System.IO.Error (catchIOError)
 
 import Config
 import qualified Data.Env as Env (getBinds)
@@ -374,7 +373,7 @@ flException (SignalException str) =
 repl :: ReplState -> IO ()
 repl state =
     do (b, state') <- (runStateT replM state
-                       `catchIOError` finallyIOException state)
+                       `catch` finallyIOException state)
                       `catchFlException` finallyFlException state
        unless b (repl state')
 
@@ -382,6 +381,6 @@ repl state =
 batch :: String -> ReplState -> IO ()
 batch ln state =
     do _ <- (runStateT (promptM ln >> return True) state
-             `catchIOError` finallyIOException state)
+             `catch` finallyIOException state)
             `catchFlException` finallyFlException state
        return ()
