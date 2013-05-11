@@ -80,14 +80,13 @@ evalM (TypeMkStx name) =
         return $ TypeExpr name (read name) expr
 
 evalM (TypeUnStx) =
-    return $ FnExpr $ \(TypeExpr _ _ expr) -> return $ expr
+    return $ FnExpr $ \(TypeExpr _ _ expr) -> return expr
 
 evalM (TypeIsStx name) =
     return $ FnExpr $ \(TypeExpr _ tid _) ->
-        if (read name) == tid then
-            return true
-        else
-            return false
+        return $ if (read name) == tid
+                 then true
+                 else false
 
 evalM (WhereStx stx stxs) =
     withEnvM $ do

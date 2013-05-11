@@ -82,8 +82,9 @@ boxString = SeqExpr . map CharExpr
 
 unboxString :: Expr -> String
 unboxString (SeqExpr cs) | all isCharExpr cs = map (\(CharExpr c) -> c) cs
-unboxString expr  = error $ "Monad.InterpreterM.unboxString: expecting character sequence" ++
-                            "\n\n\t expr = " ++ show expr ++ "\n\n"
+unboxString expr =
+    error $ "Monad.InterpreterM.unboxString: expecting character sequence" ++
+            "\n\n\t expr = " ++ show expr ++ "\n\n"
 
 
 type InterpreterM a = State ExprEnv a
@@ -92,10 +93,7 @@ type InterpreterM a = State ExprEnv a
 withEnvM :: InterpreterM a -> InterpreterM a
 withEnvM m =
     do env <- get
-       put $ Env.push env
-       val <- m
-       put env
-       return val
+       withLexicalEnvM env m
 
 
 withLexicalEnvM :: Env Expr -> InterpreterM a -> InterpreterM a

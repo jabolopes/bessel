@@ -150,9 +150,10 @@ getPrefixedSymbol fs frameEnv prefixedUses prefix name =
                    Just x -> Right x
 
 
-lookupSymbolM :: [String] -> RenamerM (Either String Symbol)
-lookupSymbolM names =
-    do fs <- fs <$> get
+lookupSymbolM :: String -> RenamerM (Either String Symbol)
+lookupSymbolM name =
+    do let names = split '.' name
+       fs <- fs <$> get
        frameEnv <- frameEnv <$> get
        currentFrame <- getCurrentFrameM
        if null (tail names)
@@ -164,42 +165,34 @@ lookupSymbolM names =
          return $ getPrefixedSymbol fs frameEnv prefixedUses (init names) (last names)
 
 
-getSymbolM :: [String] -> RenamerM Symbol
-getSymbolM names =
-    do msym <- lookupSymbolM names
+getSymbolM :: String -> RenamerM Symbol
+getSymbolM name =
+    do msym <- lookupSymbolM name
        case msym of
          Left str -> throwError str
          Right t -> return t
 
 
-getFnSymbolM :: [String] -> RenamerM String
-getFnSymbolM names =
-    do sym <- getSymbolM names
+getFnSymbolM :: String -> RenamerM String
+getFnSymbolM name =
+    do sym <- getSymbolM name
        case sym of
          FnSymbol name -> return name
-         _ -> throwError $ "name " ++ show (intercalate "." names) ++ " is not a function"
+         _ -> throwError $ "name " ++ show name ++ " is not a function"
 
 
 getTypeSymbolM :: String -> RenamerM String
 getTypeSymbolM name =
-    do sym <- getSymbolM (split '.' name)
+    do sym <- getSymbolM name
        case sym of
          TypeSymbol name -> return name
          _ -> throwError $ "name " ++ show name ++ " is not a type"
 
 
-isTypeSymbolM :: String -> RenamerM (Maybe String)
-isTypeSymbolM name =
-    do sym <- getSymbolM (split '.' name)
-       case sym of
-         TypeSymbol name -> return (Just name)
-         _ -> return Nothing
-
-
 addSymbolM :: String -> Symbol -> RenamerM ()
 addSymbolM name sym = checkShadowing name >> addSymbol name sym
     where checkShadowing name =
-              do msym <- lookupSymbolM (split '.' name)
+              do msym <- lookupSymbolM name
                  case msym of
                    Left _ -> return ()
                    Right _ -> throwError $ "name " ++ show name ++ " has already been defined"
@@ -356,7 +349,7 @@ renameM stx@(DoubleStx _) = return [stx]
 renameM (SeqStx stxs) = (:[]) . SeqStx <$> mapM renameOneM stxs
 
 renameM (IdStx name) =
-    (:[]) . IdStx <$> getFnSymbolM (split '.' name)
+    (:[]) . IdStx <$> getFnSymbolM name
 
 renameM (AppStx stx1 stx2) =
     (:[]) <$> ((AppStx <$> renameOneM stx1) `ap` renameOneM stx2)
@@ -436,11 +429,9 @@ renameM (WhereStx stx stxs) =
 
 renameSrcFile :: Map String SrcFile -> Namespace String -> Either String (Namespace String, Map String Symbol)
 renameSrcFile fs ns =
-  do let state = initialRenamerState fs
-     (ns', state') <- runStateT (renameNamespaceM ns) state
+  do (ns', state') <- runStateT (renameNamespaceM ns) (initialRenamerState fs)
      let symbols = Frame.symbols $ FrameEnv.getRootFrame $ frameEnv state'
-         renSymbols = Map.fromList [ (Symbol.name sym, sym) | sym <- Map.elems symbols ]
-     return (ns', renSymbols)
+     return (ns', symbols)
 
 
 rename :: Map String SrcFile -> SrcFile -> Either String SrcFile
