@@ -436,11 +436,9 @@ renameM (WhereStx stx stxs) =
 
 renameSrcFile :: Map String SrcFile -> Namespace String -> Either String (Namespace String, Map String Symbol)
 renameSrcFile fs ns =
-  do let state = initialRenamerState fs
-     (ns', state') <- runStateT (renameNamespaceM ns) state
+  do (ns', state') <- runStateT (renameNamespaceM ns) (initialRenamerState fs)
      let symbols = Frame.symbols $ FrameEnv.getRootFrame $ frameEnv state'
-         renSymbols = Map.fromList [ (Symbol.name sym, sym) | sym <- Map.elems symbols ]
-     return (ns', renSymbols)
+     return (ns', symbols)
 
 
 rename :: Map String SrcFile -> SrcFile -> Either String SrcFile
