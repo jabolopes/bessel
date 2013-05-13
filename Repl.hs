@@ -173,7 +173,9 @@ showModuleM showAll showBrief filename =
                 do interactive <- interactive <$> get
                    return [interactive]
             | showAll =
-                Map.elems . fs <$> get
+                do srcfiles <- Map.elems . fs <$> get
+                   interactive <- interactive <$> get
+                   return (srcfiles ++ [interactive])
             | otherwise =
                 do fs <- fs <$> get
                    case Map.lookup filename fs of
