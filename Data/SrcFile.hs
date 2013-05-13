@@ -24,7 +24,8 @@ data SrcFile
               , ts :: Map String Type
               , exprs :: Map String Expr
               , srcNs :: Maybe (Namespace String)
-              , renNs :: Maybe (Namespace String) }
+              , renNs :: Maybe (Namespace String)
+              , lnkNs :: Maybe (Namespace String) }
       deriving (Show)
 
 
@@ -37,7 +38,8 @@ initial t name deps =
             , ts = Map.empty
             , exprs = Map.empty
             , srcNs = Nothing
-            , renNs = Nothing }
+            , renNs = Nothing
+            , lnkNs = Nothing }
 
 
 type TypeDesc = [(String, Type)]

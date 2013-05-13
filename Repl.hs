@@ -8,7 +8,7 @@ import Data.Char (isSpace)
 import Data.Functor ((<$>))
 import Data.List (intercalate, isPrefixOf, nub)
 import Data.Map (Map)
-import qualified Data.Map as Map ((!), insert, elems, empty, keys, lookup, toList)
+import qualified Data.Map as Map ((!), fromList, insert, elems, empty, keys, lookup, toList)
 import System.Console.GetOpt
 import System.Console.Readline
 
@@ -19,9 +19,11 @@ import Data.Maybe
 import Data.SrcFile
 import qualified Data.SrcFile as SrcFile
 import Data.Stx
+import Data.Symbol
 import Data.Type
 import Interpreter
 import Lexer
+import Linker
 import Loader
 import Monad.InterpreterM
 import Parser
@@ -94,7 +96,7 @@ typecheckerEither fn = return $ either throwTypecheckerException id fn
 stageFiles :: [SrcFile] -> IO (Map String SrcFile)
 stageFiles srcfiles =
     do liftIO $ putStrLn $ "Staging " ++ show n ++ " namespaces"
-       loop Map.empty srcfiles [1..]
+       link =<< loop Map.empty srcfiles [1..]
     where n = length srcfiles
 
           putHeader i =
@@ -102,6 +104,13 @@ stageFiles srcfiles =
 
           updateFs fs srcfile =
               Map.insert (SrcFile.name srcfile) srcfile fs
+              
+          link :: Map String SrcFile -> IO (Map String SrcFile)
+          link fs =
+              do let srcs = map ((fs Map.!) . SrcFile.name) srcfiles
+                     srcs' = linkSrcFiles srcs
+                 putStrLn "linked"
+                 return $ Map.fromList [ (SrcFile.name srcfile, srcfile) | srcfile <- srcs' ]
 
           loop fs [] _ = return fs
           loop fs (srcs:srcss) (i:is) =
@@ -190,10 +199,12 @@ showModuleM showAll showBrief filename =
               "\n\n\t deps = " ++ intercalate ('\n':replicate 16 ' ') (SrcFile.deps srcfile)
 
           showDefs srcfile =
-              "\n\n\t defs = " ++ intercalate spacer [ showTuple (x, e x, t x) | x <- Map.keys (SrcFile.symbols srcfile) ]
+              "\n\n\t defs = " ++ intercalate spacer [ showTuple (x, e x, t x) ++ s y | (x, y) <- Map.toList (SrcFile.symbols srcfile) ]
               where spacer = '\n':replicate 16 ' '
                     e name = Map.lookup name (SrcFile.exprs srcfile)
                     t name = SrcFile.ts srcfile Map.! name
+                    s (TypeSymbol id) = " (" ++ show id ++ ")"
+                    s _ = ""
                     showTuple (x, Nothing, y) = x ++ " :: " ++ show y
                     showTuple (x, Just y, z) = x ++ " = " ++ show y ++ " :: " ++ show z
 
@@ -213,6 +224,12 @@ showModuleM showAll showBrief filename =
           showRenNs SrcFile { renNs = Nothing } =
               "\n\n\t renNs = Nothing"
 
+          showRenNs SrcFile { renNs = Just (Namespace uses [stx]) } =
+              "\n\n\t renNs = " ++ intercalate ('\n':replicate 17 ' ') (map use uses) ++
+              "\n\n\t         " ++ show stx
+              where use (x, "") = "use " ++ x
+                    use (x, y) = "use " ++ x ++ " as " ++ y
+
           showRenNs SrcFile { renNs = Just (Namespace uses _) } =
               "\n\n\t renNs = " ++ intercalate ('\n':replicate 17 ' ') (map use uses)
               where use (x, "") = "use " ++ x
@@ -223,9 +240,6 @@ showModuleM showAll showBrief filename =
               | otherwise = SrcFile.name srcfile ++ " (" ++ show (SrcFile.t srcfile) ++ ")" ++
                             showDeps srcfile ++
                             showDefs srcfile ++
-                            -- showSymbols srcfile ++
-                            -- showTs srcfile ++
-                            -- showExprs srcfile ++
                             showSrcNs srcfile ++
                             showRenNs srcfile
 
