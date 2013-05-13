@@ -440,11 +440,11 @@ rename _ srcfile@SrcFile { t = CoreT } =
 
 rename fs srcfile@SrcFile { t = SrcT, srcNs = Just ns } =
     do (ns', renSymbols) <- renameSrcFile fs ns
-       return $ srcfile { symbols = renSymbols, renNs = Just ns' }
+       return srcfile { symbols = renSymbols, renNs = Just ns' }
 
 rename fs srcfile@SrcFile { t = InteractiveT, symbols, srcNs = Just ns } =
     do (ns', renSymbols) <- renameSrcFile interactiveFs interactiveNs
-       return $ srcfile { symbols = renSymbols `Map.union` symbols, renNs = Just ns' }
+       return srcfile { symbols = renSymbols `Map.union` symbols, renNs = Just ns' }
     where interactiveNs =
               let SrcFile { srcNs = Just (Namespace uses stxs) } = srcfile in
               Namespace (uses ++ [(SrcFile.name srcfile, "")]) stxs
