@@ -63,7 +63,7 @@ evalM (LambdaStx str _ body) =
     where closure env expr =
               withLexicalEnvM env $ do
                 addBindM str expr
-                withEnvM $ evalM body
+                withEnvM (evalM body)
 
 evalM (ModuleStx prefix ns) =
     error $ "Interpreter.evalM(ModuleStx): modules must be flattened by the renamer" ++
@@ -91,7 +91,7 @@ evalM (TypeIsStx name) =
 evalM (WhereStx stx stxs) =
     withEnvM $ do
       mapM_ evalM stxs
-      withEnvM $ evalM stx
+      withEnvM (evalM stx)
 
 
 interpretNamespace :: Map String SrcFile -> [String] -> Namespace String -> ([Expr], ExprEnv)
