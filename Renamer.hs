@@ -9,6 +9,8 @@ import Data.Map (Map)
 import qualified Data.Map as Map ((!), elems, empty, fromList, insert, keys, lookup, union)
 import Data.Maybe (catMaybes, fromJust)
 
+import Data.FileSystem (FileSystem)
+import qualified Data.FileSystem as FileSystem
 import Data.Frame (Frame)
 import qualified Data.Frame as Frame (frameId, symbols)
 import Data.FrameEnv (FrameEnv)
@@ -23,7 +25,7 @@ import Utils (fromSingleton, split)
 
 
 data RenamerState =
-    RenamerState { fs :: Map String SrcFile
+    RenamerState { fs :: FileSystem
                  , frameEnv :: FrameEnv
                  , currentFrame :: Int
                  , currentCount :: Int
@@ -33,7 +35,7 @@ data RenamerState =
                  , prefixedUses :: Map String String }
 
 
-initialRenamerState :: Map String SrcFile -> RenamerState
+initialRenamerState :: FileSystem -> RenamerState
 initialRenamerState fs =
     let frameEnv = FrameEnv.empty in
     RenamerState { fs = fs
@@ -96,7 +98,7 @@ withNamespace ns m =
 
 
 getUnprefixedSymbol
-    :: Map String SrcFile
+    :: FileSystem
     -> FrameEnv
     -> [String]
     -> Frame
@@ -111,7 +113,7 @@ getUnprefixedSymbol fs frameEnv unprefixedUses currentFrame name =
 
           getNamespaceSymbol fs unprefixedUses =
               let
-                  srcfiles = map (fs Map.!) unprefixedUses
+                  srcfiles = map (FileSystem.get fs) unprefixedUses
                   symss = map SrcFile.symbols srcfiles
                   syms = catMaybes [ Map.lookup name syms | syms <- symss ]
               in
@@ -122,7 +124,7 @@ getUnprefixedSymbol fs frameEnv unprefixedUses currentFrame name =
 
 
 getPrefixedSymbol
-    :: Map String SrcFile
+    :: FileSystem
     -> FrameEnv
     -> Map String String
     -> [String]
@@ -144,7 +146,7 @@ getPrefixedSymbol fs frameEnv prefixedUses prefix name =
                 Just x -> Right x
 
           getNamespaceSymbol fs prefix' =
-              do let syms = SrcFile.symbols (fs Map.! prefix')
+              do let syms = SrcFile.symbols (FileSystem.get fs prefix')
                  case Map.lookup name syms of
                    Nothing -> Left $ "name " ++ show (intercalate "." prefix ++ "." ++ name) ++ " is not defined"
                    Just x -> Right x
@@ -427,14 +429,14 @@ renameM (WhereStx stx stxs) =
       return [WhereStx stx' stxs']
 
 
-renameSrcFile :: Map String SrcFile -> Namespace String -> Either String (Namespace String, Map String Symbol)
+renameSrcFile :: FileSystem -> Namespace String -> Either String (Namespace String, Map String Symbol)
 renameSrcFile fs ns =
   do (ns', state') <- runStateT (renameNamespaceM ns) (initialRenamerState fs)
      let symbols = Frame.symbols $ FrameEnv.getRootFrame $ frameEnv state'
      return (ns', symbols)
 
 
-rename :: Map String SrcFile -> SrcFile -> Either String SrcFile
+rename :: FileSystem -> SrcFile -> Either String SrcFile
 rename _ srcfile@SrcFile { t = CoreT } =
     return srcfile
 
@@ -450,4 +452,4 @@ rename fs srcfile@SrcFile { t = InteractiveT, symbols, srcNs = Just ns } =
               Namespace (uses ++ [(SrcFile.name srcfile, "")]) stxs
 
           interactiveFs =
-              Map.insert (SrcFile.name srcfile) srcfile { srcNs = Just interactiveNs } fs
+              FileSystem.add fs srcfile { srcNs = Just interactiveNs }

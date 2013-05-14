@@ -11,9 +11,11 @@ import Config
 import qualified Core.Shell (link)
 -- import qualified Core.Happstack (link)
 import Data.Exception
+import Data.FileSystem (FileSystem)
+import qualified Data.FileSystem as FileSystem (initial)
 import Data.SrcFile
 import qualified Data.SrcFile as SrcFile (name)
-import Repl hiding (fs)
+import Repl hiding (initialFs)
 
 
 links :: [[Int] -> (SrcFile, [Int])]
@@ -35,10 +37,6 @@ corefiles :: [SrcFile]
 corefiles = corefile:linkCorefiles (map (* (-1)) [1..]) links
 
 
-fs :: Map String SrcFile
-fs = Map.fromList $ map (\x -> (SrcFile.name x, x)) corefiles
-
-
 mainException :: FlException -> IO (Maybe a)
 mainException e =
     do flException e
@@ -48,8 +46,8 @@ mainException e =
 main :: IO ()
 main =
     do -- args <- getArgs
-       mstate <- ((Just <$> importFile fs preludeName)
-                  `catchFlException` mainException)
+       mstate <- (Just <$> importFile (FileSystem.initial corefiles) preludeName)
+                  `catchFlException` mainException
        case mstate of
          Nothing -> return ()
          Just state -> repl state

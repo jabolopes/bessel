@@ -7,6 +7,8 @@ import Data.Map as Map (Map)
 import qualified Data.Map as Map ((!), fromList, insert, keys, lookup, toList, union)
 import Data.Maybe (catMaybes)
 
+import Data.FileSystem (FileSystem)
+import qualified Data.FileSystem as FileSystem
 import qualified Data.Env as Env (initial, empty, getBinds)
 import Data.SrcFile
 import qualified Data.SrcFile as SrcFile (name, deps, symbols, exprs, renNs)
@@ -94,10 +96,10 @@ evalM (WhereStx stx stxs) =
       withEnvM (evalM stx)
 
 
-interpretNamespace :: Map String SrcFile -> [String] -> Namespace String -> ([Expr], ExprEnv)
+interpretNamespace :: FileSystem -> [String] -> Namespace String -> ([Expr], ExprEnv)
 interpretNamespace fs deps (Namespace _ stxs) =
     let
-        exprss = map (SrcFile.exprs . (fs Map.!)) deps
+        exprss = map (SrcFile.exprs . (FileSystem.get fs)) deps
         env = Env.initial (foldr1 Map.union exprss)
     in
      runState (mapM evalM stxs) env
@@ -114,7 +116,7 @@ envToExprs srcfile exprEnv =
                                    Just sym -> Just (name, sym) | name <- names ]
 
 
-interpret :: Map String SrcFile -> SrcFile -> SrcFile
+interpret :: FileSystem -> SrcFile -> SrcFile
 interpret _ srcfile@SrcFile { t = CoreT } =
     srcfile
 
@@ -129,7 +131,7 @@ interpret _ SrcFile { t = InteractiveT } =
     error "Interpreter.interpret: for interactive srcfiles use 'interpretInteractive' instead of 'interpret'"
 
 
-interpretInteractive :: Map String SrcFile -> SrcFile -> (SrcFile, Expr)
+interpretInteractive :: FileSystem -> SrcFile -> (SrcFile, Expr)
 interpretInteractive fs srcfile@SrcFile { t = InteractiveT, deps, renNs = Just ns } =
     let
         (exprs, env) = interpretNamespace interactiveFs interactiveDeps ns
@@ -137,7 +139,7 @@ interpretInteractive fs srcfile@SrcFile { t = InteractiveT, deps, renNs = Just n
     in
      (srcfile { exprs = Map.union (SrcFile.exprs srcfile) env' }, last exprs)
     where interactiveDeps =
-            SrcFile.deps srcfile ++ [SrcFile.name srcfile]
+              SrcFile.deps srcfile ++ [SrcFile.name srcfile]
 
           interactiveFs =
-            Map.insert (SrcFile.name srcfile) srcfile fs
+              FileSystem.add fs srcfile
