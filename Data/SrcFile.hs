@@ -3,6 +3,7 @@ module Data.SrcFile where
 import Data.Map (Map)
 import qualified Data.Map as Map (empty, fromList)
 
+import Data.Definition (Definition)
 import qualified Data.Env as Env
 import Data.FrameEnv
 import Data.Stx
@@ -25,8 +26,8 @@ data SrcFile
               , exprs :: Map String Expr
               , srcNs :: Maybe (Namespace String)
               , renNs :: Maybe (Namespace String)
-              , lnkNs :: Maybe (Namespace String) }
-      deriving (Show)
+              , lnkNs :: Maybe (Namespace String)
+              , defs :: Map String Definition }
 
 
 initial :: SrcFileT -> String -> [String] -> SrcFile
@@ -39,7 +40,8 @@ initial t name deps =
             , exprs = Map.empty
             , srcNs = Nothing
             , renNs = Nothing
-            , lnkNs = Nothing }
+            , lnkNs = Nothing
+            , defs = Map.empty }
 
 
 type TypeDesc = [(String, Type)]

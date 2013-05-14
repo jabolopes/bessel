@@ -6,9 +6,11 @@ import Control.Monad.State
 import Data.Functor ((<$>))
 import Data.List (intercalate, maximumBy, nub, partition, sort)
 import Data.Map (Map)
-import qualified Data.Map as Map ((!), elems, empty, fromList, insert, keys, lookup, union)
+import qualified Data.Map as Map
 import Data.Maybe (catMaybes, fromJust)
 
+import Data.Definition
+import qualified Data.Definition as Definition
 import Data.FileSystem (FileSystem)
 import qualified Data.FileSystem as FileSystem
 import Data.Frame (Frame)
@@ -306,10 +308,11 @@ renameNamespaceM (Namespace uses stxs) =
        checkUniqueQualifiers prefixed
 
        modify $ \state -> state { unprefixedUses = map fst unprefixed
-                                , prefixedUses = Map.fromList $ map swap prefixed }
+                                , prefixedUses = Map.fromList (map swap prefixed) }
 
-       withNslevel True $
-         Namespace uses . concat <$> mapM renameM stxs
+       withNslevel True $ do
+         stxs' <- concat <$> mapM renameM stxs
+         return $ Namespace uses stxs'
 
     where checkUniqueImports unprefixed prefixed
               | length (nub $ sort unprefixed) /= length unprefixed =
@@ -436,6 +439,17 @@ renameSrcFile fs ns =
      return (ns', symbols)
 
 
+updateDefSymbols :: Map String Definition -> [(String, Symbol)] -> Map String Definition
+updateDefSymbols defs [] = defs
+updateDefSymbols defs ((name, sym):syms) =
+    let
+        def = defs Map.! name
+        def' = def { symbol = Just sym }
+        defs' = Map.insert name def' defs
+    in
+      updateDefSymbols defs' syms
+
+
 rename :: FileSystem -> SrcFile -> Either String SrcFile
 rename _ srcfile@SrcFile { t = CoreT } =
     return srcfile
@@ -446,7 +460,9 @@ rename fs srcfile@SrcFile { t = SrcT, srcNs = Just ns } =
 
 rename fs srcfile@SrcFile { t = InteractiveT, symbols, srcNs = Just ns } =
     do (ns', renSymbols) <- renameSrcFile interactiveFs interactiveNs
-       return srcfile { symbols = renSymbols `Map.union` symbols, renNs = Just ns' }
+       return srcfile { symbols = renSymbols `Map.union` symbols
+                      , renNs = Just ns'
+                      , defs = updateDefSymbols (defs srcfile) (Map.toList renSymbols) }
     where interactiveNs =
               let SrcFile { srcNs = Just (Namespace uses stxs) } = srcfile in
               Namespace (uses ++ [(SrcFile.name srcfile, "")]) stxs
