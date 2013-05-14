@@ -14,6 +14,8 @@ import Data.Maybe (catMaybes)
 import Config
 import Data.Context
 import qualified Data.Context as Context
+import Data.FileSystem (FileSystem)
+import qualified Data.FileSystem as FileSystem
 import Data.SrcFile
 import qualified Data.SrcFile as SrcFile
 import Data.Exception
@@ -823,9 +825,9 @@ typecheckStxs ctx stxs = typecheck ctx stxs
                typecheck ctx' stxs
 
 
-typecheckNamespace :: Map String SrcFile -> [String] -> Namespace String -> Either String (Type, Map String Type)
+typecheckNamespace :: FileSystem -> [String] -> Namespace String -> Either String (Type, Map String Type)
 typecheckNamespace fs deps (Namespace _ stxs) =
-    do let tss = map (SrcFile.ts . (fs Map.!)) deps
+    do let tss = map (SrcFile.ts . (FileSystem.get fs)) deps
            ctx = nothingSyms (foldr1 Map.union tss)
        (t, ctx') <- typecheckStxs ctx stxs
        
@@ -834,7 +836,7 @@ typecheckNamespace fs deps (Namespace _ stxs) =
        return (t, Map.fromList (simpleSyms ctx'))
        
 
-typecheckSrcFile :: Map String SrcFile -> SrcFile -> Either String (Map String Type, Type)
+typecheckSrcFile :: FileSystem -> SrcFile -> Either String (Map String Type, Type)
 typecheckSrcFile fs srcfile@SrcFile { deps, renNs = Just ns }
     | doTypecheck =
         do (t, ts) <- typecheckNamespace fs deps ns
@@ -848,7 +850,7 @@ typecheckSrcFile fs srcfile@SrcFile { deps, renNs = Just ns }
            return (ts, DynT)
 
 
-typecheck :: Map String SrcFile -> SrcFile -> Either String SrcFile
+typecheck :: FileSystem -> SrcFile -> Either String SrcFile
 typecheck _ srcfile@SrcFile { t = CoreT } =
     return srcfile
 
@@ -863,7 +865,7 @@ typecheck fs srcfile@SrcFile { t = InteractiveT } =
     Left "Typechecker.typecheck: for interactive srcfiles use 'typecheckInteractive' instead of 'typecheck'"
 
 
-typecheckInteractive :: Map String SrcFile -> SrcFile -> Either String (SrcFile, Type)
+typecheckInteractive :: FileSystem -> SrcFile -> Either String (SrcFile, Type)
 typecheckInteractive fs srcfile =
      do (ts, t) <- typecheckSrcFile interactiveFs interactiveSrcfile
         return (srcfile { ts = ts `Map.union` SrcFile.ts srcfile }, t)
@@ -874,4 +876,4 @@ typecheckInteractive fs srcfile =
               srcfile { deps = interactiveDeps }
 
           interactiveFs =
-              Map.insert "Interactive" srcfile fs
+              FileSystem.add fs srcfile
