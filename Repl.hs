@@ -211,14 +211,13 @@ showModuleM showAll showBrief filename =
               "\n\n\t defs = " ++ intercalate ('\n':replicate 16 ' ') (map show (Map.elems (SrcFile.defs srcfile)))
 
           showDefs srcfile =
-              "\n\n\t defs = " ++ intercalate spacer [ showTuple (x, e x, t x) ++ s y | (x, y) <- Map.toList (SrcFile.symbols srcfile) ]
+              "\n\n\t defs = " ++ intercalate spacer [ showTuple (x, e x) ++ s y | (x, y) <- Map.toList (SrcFile.symbols srcfile) ]
               where spacer = '\n':replicate 16 ' '
                     e name = Map.lookup name (SrcFile.exprs srcfile)
-                    t name = SrcFile.ts srcfile Map.! name
                     s (TypeSymbol id) = " (" ++ show id ++ ")"
                     s _ = ""
-                    showTuple (x, Nothing, y) = x ++ " :: " ++ show y
-                    showTuple (x, Just y, z) = x ++ " = " ++ show y ++ " :: " ++ show z
+                    showTuple (x, Nothing) = x
+                    showTuple (x, Just y) = x ++ " = " ++ show y
 
           showSrcNs SrcFile { t = CoreT } = ""
 

@@ -620,9 +620,9 @@ synthAbstrM ctx stx@(AppStx fn arg) =
 -- ⇑Others
 synthAbstrM ctx (CondStx ms blame) =
     do let (evarT, ctx') = genEvar ctx
-       (ctx'', ts, ms') <- synthMs evarT ctx' [] ms
+       (ctx'', ms') <- synthMs evarT ctx' [] ms
        return (evarT, CondStx ms' blame, ctx'')
-    where synthMs _ ctx stxs [] = return (ctx, ts, stxs)
+    where synthMs _ ctx stxs [] = return (ctx, stxs)
           synthMs evarT ctx stxs ((stx1, stx2):ms) =
               do (stx1', ctx') <- checkM BoolT ctx stx1
                  (stx2', ctx'') <- checkM evarT ctx' stx2
@@ -827,7 +827,7 @@ typecheckStxs ctx stxs = typecheck ctx stxs
 
 typecheckNamespace :: FileSystem -> [String] -> Namespace String -> Either String (Type, Map String Type)
 typecheckNamespace fs deps (Namespace _ stxs) =
-    do let tss = map (SrcFile.ts . (FileSystem.get fs)) deps
+    do let tss = map (SrcFile.types . (FileSystem.get fs)) deps
            ctx = nothingSyms (foldr1 Map.union tss)
        (t, ctx') <- typecheckStxs ctx stxs
        
@@ -859,8 +859,7 @@ typecheck _ srcfile@SrcFile { t = SrcT, renNs = Just (Namespace _ []) } =
 
 typecheck fs srcfile@SrcFile { t = SrcT } =
     do (ts, t) <- typecheckSrcFile fs srcfile
-       let srcfile' = SrcFile.addDefinitionTypes srcfile ts
-       return srcfile' { ts = ts }
+       return $ SrcFile.addDefinitionTypes srcfile ts
 
 typecheck fs srcfile@SrcFile { t = InteractiveT } =
     Left "Typechecker.typecheck: for interactive srcfiles use 'typecheckInteractive' instead of 'typecheck'"
@@ -869,9 +868,7 @@ typecheck fs srcfile@SrcFile { t = InteractiveT } =
 typecheckInteractive :: FileSystem -> SrcFile -> Either String (SrcFile, Type)
 typecheckInteractive fs srcfile =
      do (ts, t) <- typecheckSrcFile interactiveFs interactiveSrcfile
-        let ts' = ts `Map.union` SrcFile.ts srcfile
-            srcfile' = SrcFile.addDefinitionTypes srcfile ts'
-        return (srcfile' { ts = ts' }, t)
+        return (SrcFile.addDefinitionTypes srcfile ts, t)
     where interactiveDeps =
               SrcFile.deps srcfile ++ ["Interactive"]
             

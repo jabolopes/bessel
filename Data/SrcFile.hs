@@ -1,7 +1,8 @@
 module Data.SrcFile where
 
 import Data.Map (Map)
-import qualified Data.Map as Map ((!), empty, fromList, insert, toList)
+import qualified Data.Map as Map ((!), empty, fromList, insert, mapMaybe, toList)
+import Data.Maybe (catMaybes)
 
 import Data.Definition (Definition (symbol, typ, expr))
 import qualified Data.Definition as Definition
@@ -23,7 +24,6 @@ data SrcFile
               , name :: String
               , deps :: [String]
               , symbols :: Map String Symbol
-              , ts :: Map String Type
               , exprs :: Map String Expr
               , srcNs :: Maybe (Namespace String)
               , renNs :: Maybe (Namespace String)
@@ -37,12 +37,15 @@ initial t name deps =
             , name = name
             , deps = deps
             , symbols = Map.empty
-            , ts = Map.empty
             , exprs = Map.empty
             , srcNs = Nothing
             , renNs = Nothing
             , lnkNs = Nothing
             , defs = Map.empty }
+
+
+types :: SrcFile -> Map String Type
+types srcfile = Map.mapMaybe Definition.typ (defs srcfile)
 
 
 type TypeDesc = [(String, Type)]
@@ -52,17 +55,12 @@ type FnDesc = [(String, Type, Expr)]
 mkCoreSrcFile :: String -> [String] -> TypeDesc -> FnDesc -> SrcFile
 mkCoreSrcFile name deps typeDesc fnDesc =
     (initial CoreT name deps) { symbols = symbols
-                              , ts = ts
                               , exprs = exprs
                               , defs = defs }
     where symbols =
               Map.fromList (typeSymbols ++ fnSymbols)
               where typeSymbols = [ (x, TypeSymbol x) | (x, _) <- typeDesc ]
                     fnSymbols = [ (x, FnSymbol x) | (x, _, _) <- fnDesc ]
-
-          ts =
-              Map.fromList (typeDesc ++ fnTs)
-              where fnTs = [ (x, y) | (x, y, _) <- fnDesc ]
 
           exprs =
               Map.fromList [ (x, y) | (x, _, y) <- fnDesc ]
