@@ -9,8 +9,6 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (catMaybes, fromJust)
 
-import Data.Definition
-import qualified Data.Definition as Definition
 import Data.FileSystem (FileSystem)
 import qualified Data.FileSystem as FileSystem
 import Data.Frame (Frame)
@@ -18,7 +16,7 @@ import qualified Data.Frame as Frame (frameId, symbols)
 import Data.FrameEnv (FrameEnv)
 import qualified Data.FrameEnv as FrameEnv
 import Data.SrcFile (SrcFileT (..), SrcFile(..))
-import qualified Data.SrcFile as SrcFile (name, srcNs, symbols)
+import qualified Data.SrcFile as SrcFile (name, srcNs, symbols, addDefinitionSymbols)
 import Data.Stx
 import Data.Symbol (Symbol (..))
 import qualified Data.Symbol as Symbol
@@ -439,30 +437,20 @@ renameSrcFile fs ns =
      return (ns', symbols)
 
 
-updateDefSymbols :: Map String Definition -> [(String, Symbol)] -> Map String Definition
-updateDefSymbols defs [] = defs
-updateDefSymbols defs ((name, sym):syms) =
-    let
-        def = defs Map.! name
-        def' = def { symbol = Just sym }
-        defs' = Map.insert name def' defs
-    in
-      updateDefSymbols defs' syms
-
-
 rename :: FileSystem -> SrcFile -> Either String SrcFile
 rename _ srcfile@SrcFile { t = CoreT } =
     return srcfile
 
 rename fs srcfile@SrcFile { t = SrcT, srcNs = Just ns } =
-    do (ns', renSymbols) <- renameSrcFile fs ns
-       return srcfile { symbols = renSymbols, renNs = Just ns' }
+    do (ns', syms) <- renameSrcFile fs ns
+       let srcfile' = SrcFile.addDefinitionSymbols srcfile syms
+       return srcfile' { symbols = syms, renNs = Just ns' }
 
-rename fs srcfile@SrcFile { t = InteractiveT, symbols, srcNs = Just ns } =
-    do (ns', renSymbols) <- renameSrcFile interactiveFs interactiveNs
-       return srcfile { symbols = renSymbols `Map.union` symbols
-                      , renNs = Just ns'
-                      , defs = updateDefSymbols (defs srcfile) (Map.toList renSymbols) }
+rename fs srcfile@SrcFile { t = InteractiveT, srcNs = Just ns } =
+    do (ns', syms) <- renameSrcFile interactiveFs interactiveNs
+       let syms' = syms `Map.union` symbols srcfile
+           srcfile' = SrcFile.addDefinitionSymbols srcfile syms'
+       return srcfile' { symbols = syms', renNs = Just ns' }
     where interactiveNs =
               let SrcFile { srcNs = Just (Namespace uses stxs) } = srcfile in
               Namespace (uses ++ [(SrcFile.name srcfile, "")]) stxs

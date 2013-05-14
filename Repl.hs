@@ -207,6 +207,9 @@ showModuleM showAll showBrief filename =
     where showDeps srcfile = 
               "\n\n\t deps = " ++ intercalate ('\n':replicate 16 ' ') (SrcFile.deps srcfile)
 
+          showDefns srcfile =
+              "\n\n\t defs = " ++ intercalate ('\n':replicate 16 ' ') (map show (Map.elems (SrcFile.defs srcfile)))
+
           showDefs srcfile =
               "\n\n\t defs = " ++ intercalate spacer [ showTuple (x, e x, t x) ++ s y | (x, y) <- Map.toList (SrcFile.symbols srcfile) ]
               where spacer = '\n':replicate 16 ' '
@@ -250,7 +253,8 @@ showModuleM showAll showBrief filename =
                             showDeps srcfile ++
                             showDefs srcfile ++
                             showSrcNs srcfile ++
-                            showRenNs srcfile
+                            showRenNs srcfile ++
+                            showDefns srcfile
 
 
 showTokensM :: String -> ReplM ()

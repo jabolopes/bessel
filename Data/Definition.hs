@@ -7,11 +7,22 @@ import Monad.InterpreterM (Expr)
 
 
 data Definition
-     = Definition { mdl :: Int
-                  , name :: String
+     = Definition { name :: String
                   , symbol :: Maybe Symbol
                   , typ :: Maybe Type
                   , expr :: Maybe Expr
                   , srcStx :: Maybe (Stx String)
                   , renStx :: Maybe (Stx String)
                   , lnkStx :: Maybe (Stx String) }
+     deriving (Show)
+
+
+initial :: String -> Definition
+initial name =
+    Definition { name = name
+               , symbol = Nothing
+               , typ = Nothing
+               , expr = Nothing
+               , srcStx = Nothing
+               , renStx = Nothing
+               , lnkStx = Nothing }
