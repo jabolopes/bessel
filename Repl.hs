@@ -174,7 +174,9 @@ showModuleM showAll showBrief filename =
                 do interactive <- interactive <$> get
                    return [interactive]
             | showAll =
-                Map.elems . fs <$> get
+                do srcfiles <- Map.elems . fs <$> get
+                   interactive <- interactive <$> get
+                   return (srcfiles ++ [interactive])
             | otherwise =
                 do fs <- fs <$> get
                    case Map.lookup filename fs of
@@ -239,13 +241,15 @@ showRenamedM showAll filename =
   do ensureLoadedM filename
      let filesM
            | filename == "Interactive" =
-             do interactive <- interactive <$> get
-                return [interactive]
+               do interactive <- interactive <$> get
+                  return [interactive]
            | showAll =
-               Map.elems . fs <$> get
+               do srcfiles <- Map.elems . fs <$> get
+                  interactive <- interactive <$> get
+                  return (srcfiles ++ [interactive])
            | otherwise =
-                 do fs <- fs <$> get
-                    return $ (:[]) $ fromJust $ Map.lookup filename fs
+               do fs <- fs <$> get
+                  return $ (:[]) $ fromJust $ Map.lookup filename fs
      filesM >>= showFiles
     where showFiles [] = return ()
           showFiles (srcfile:srcfiles) =
