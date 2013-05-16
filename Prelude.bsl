@@ -3,6 +3,37 @@ me Prelude
 use Core
 
 
+-- type List a = null | cons a (List a)
+
+-- sig isNull# : List a -> Bool
+-- def isNull# = ...
+
+-- sig isCons# = List a -> Bool
+-- def isCons# = ...
+
+-- sig isList# = Dyn -> Bool
+-- def isList# = ...
+
+-- sig null = List a
+-- def null = null#
+
+-- sig cons = a -> List a -> List a
+-- def cons = cons#
+
+
+-- sig isNull : List a -> Bool
+-- def isNull @[] = true
+--          | @ = false
+
+-- sig isNull : List a -> Bool
+-- def isNull @null = true
+--          | @ = false
+
+-- sig isNull : List a -> Bool
+-- def isNull x@isNull# = true
+--           | @ = false
+
+
 sig id : a -> a
 def id x@ = x
 
