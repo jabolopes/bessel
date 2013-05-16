@@ -443,14 +443,12 @@ rename _ srcfile@SrcFile { t = CoreT } =
 
 rename fs srcfile@SrcFile { t = SrcT, srcNs = Just ns } =
     do (ns', syms) <- renameSrcFile fs ns
-       let srcfile' = SrcFile.addDefinitionSymbols srcfile syms
-       return srcfile' { symbols = syms, renNs = Just ns' }
+       return (SrcFile.addDefinitionSymbols srcfile syms) { renNs = Just ns' }
 
 rename fs srcfile@SrcFile { t = InteractiveT, srcNs = Just ns } =
     do (ns', syms) <- renameSrcFile interactiveFs interactiveNs
-       let syms' = syms `Map.union` symbols srcfile
-           srcfile' = SrcFile.addDefinitionSymbols srcfile syms'
-       return srcfile' { symbols = syms', renNs = Just ns' }
+       let syms' = syms `Map.union` SrcFile.symbols srcfile
+       return (SrcFile.addDefinitionSymbols srcfile syms') { renNs = Just ns' }
     where interactiveNs =
               let SrcFile { srcNs = Just (Namespace uses stxs) } = srcfile in
               Namespace (uses ++ [(SrcFile.name srcfile, "")]) stxs

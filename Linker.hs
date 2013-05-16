@@ -6,6 +6,7 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 
 import Data.SrcFile
+import qualified Data.SrcFile as SrcFile
 import Data.Stx
 import Data.Symbol
 
@@ -95,7 +96,7 @@ linkNamespaceM (Namespace uses stxs) =
 
 linkSrcFileM :: SrcFile -> LinkerM SrcFile
 linkSrcFileM srcfile@SrcFile { t = CoreT } =
-    do let typeSyms = [ name | (name, TypeSymbol _) <- Map.toList (symbols srcfile) ]
+    do let typeSyms = [ name | (name, TypeSymbol _) <- Map.toList (SrcFile.symbols srcfile) ]
        mapM ensureTypeIdM typeSyms
        return srcfile
 

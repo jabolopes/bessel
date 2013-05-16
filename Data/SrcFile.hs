@@ -23,7 +23,6 @@ data SrcFile
     = SrcFile { t :: SrcFileT
               , name :: String
               , deps :: [String]
-              , symbols :: Map String Symbol
               , srcNs :: Maybe (Namespace String)
               , renNs :: Maybe (Namespace String)
               , lnkNs :: Maybe (Namespace String)
@@ -35,19 +34,22 @@ initial t name deps =
     SrcFile { t = t
             , name = name
             , deps = deps
-            , symbols = Map.empty
             , srcNs = Nothing
             , renNs = Nothing
             , lnkNs = Nothing
             , defs = Map.empty }
 
 
+symbols :: SrcFile -> Map String Symbol
+symbols = Map.mapMaybe Definition.symbol . defs
+
+
 types :: SrcFile -> Map String Type
-types srcfile = Map.mapMaybe Definition.typ (defs srcfile)
+types = Map.mapMaybe Definition.typ . defs
 
 
 exprs :: SrcFile -> Map String Expr
-exprs srcfile = Map.mapMaybe Definition.expr (defs srcfile)
+exprs = Map.mapMaybe Definition.expr . defs
 
 
 type TypeDesc = [(String, Type)]
@@ -56,17 +58,8 @@ type FnDesc = [(String, Type, Expr)]
 
 mkCoreSrcFile :: String -> [String] -> TypeDesc -> FnDesc -> SrcFile
 mkCoreSrcFile name deps typeDesc fnDesc =
-    (initial CoreT name deps) { symbols = symbols
-                              , defs = defs }
-    where symbols =
-              Map.fromList (typeSymbols ++ fnSymbols)
-              where typeSymbols = [ (x, TypeSymbol x) | (x, _) <- typeDesc ]
-                    fnSymbols = [ (x, FnSymbol x) | (x, _, _) <- fnDesc ]
-
-          exprs =
-              Map.fromList [ (x, y) | (x, _, y) <- fnDesc ]
-              
-          defs =
+    (initial CoreT name deps) { defs = defs }
+    where defs =
             let
                 typs = [ (x, def) | (x, y) <- typeDesc, let def = (Definition.initial x) { symbol = Just (TypeSymbol x), typ = Just y } ]
                 fns = [ (x, def) | (x, y, z) <- fnDesc, let def = (Definition.initial x) { symbol = Just (FnSymbol x), typ = Just y, expr = Just z } ]
