@@ -24,7 +24,6 @@ data SrcFile
               , name :: String
               , deps :: [String]
               , symbols :: Map String Symbol
-              , exprs :: Map String Expr
               , srcNs :: Maybe (Namespace String)
               , renNs :: Maybe (Namespace String)
               , lnkNs :: Maybe (Namespace String)
@@ -37,7 +36,6 @@ initial t name deps =
             , name = name
             , deps = deps
             , symbols = Map.empty
-            , exprs = Map.empty
             , srcNs = Nothing
             , renNs = Nothing
             , lnkNs = Nothing
@@ -48,6 +46,10 @@ types :: SrcFile -> Map String Type
 types srcfile = Map.mapMaybe Definition.typ (defs srcfile)
 
 
+exprs :: SrcFile -> Map String Expr
+exprs srcfile = Map.mapMaybe Definition.expr (defs srcfile)
+
+
 type TypeDesc = [(String, Type)]
 type FnDesc = [(String, Type, Expr)]
 
@@ -55,7 +57,6 @@ type FnDesc = [(String, Type, Expr)]
 mkCoreSrcFile :: String -> [String] -> TypeDesc -> FnDesc -> SrcFile
 mkCoreSrcFile name deps typeDesc fnDesc =
     (initial CoreT name deps) { symbols = symbols
-                              , exprs = exprs
                               , defs = defs }
     where symbols =
               Map.fromList (typeSymbols ++ fnSymbols)

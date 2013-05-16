@@ -125,7 +125,7 @@ interpret fs srcfile@SrcFile { t = SrcT, deps, renNs = Just ns } =
         (_, env) = interpretNamespace fs deps ns
         env' = envToExprs srcfile env
     in
-     (addDefinitionExprs srcfile env') { exprs = env' }
+      addDefinitionExprs srcfile env'
      
 interpret _ SrcFile { t = InteractiveT } =
     error "Interpreter.interpret: for interactive srcfiles use 'interpretInteractive' instead of 'interpret'"
@@ -138,7 +138,7 @@ interpretInteractive fs srcfile@SrcFile { t = InteractiveT, deps, renNs = Just n
         env' = envToExprs srcfile env
         env'' = SrcFile.exprs srcfile `Map.union` env'
     in
-     ((addDefinitionExprs srcfile env'') { exprs = env'' }, last exprs)
+      (addDefinitionExprs srcfile env'', last exprs)
     where interactiveDeps =
               SrcFile.deps srcfile ++ [SrcFile.name srcfile]
 
