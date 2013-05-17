@@ -1,7 +1,7 @@
 {-# LANGUAGE BangPatterns #-}
 module Repl where
 
-import Prelude hiding (lex, catch)
+import Prelude hiding (lex)
 
 import Control.Monad.State
 import Data.Char (isSpace)
@@ -11,7 +11,7 @@ import Data.Map (Map)
 import qualified Data.Map as Map (elems, null, union)
 import System.Console.GetOpt
 import System.Console.Readline
-import System.IO.Error (catchIOError)
+import System.IO.Error
 
 import Config
 import qualified Data.Env as Env (getBinds)
@@ -206,7 +206,7 @@ showModuleM showAll showBrief filename =
 
           showDefns srcfile
               | Map.null (defs srcfile) = "\n no definitions"
-              | otherwise = "\n " ++ intercalate ("\n ") (map show $ Map.elems $ SrcFile.defs srcfile)
+              | otherwise = "\n " ++ intercalate "\n " (map show $ Map.elems $ SrcFile.defs srcfile)
 
           showSrcFile srcfile =
               let str = SrcFile.name srcfile ++ " (" ++ show (SrcFile.t srcfile) ++ ")" ++ showDeps srcfile in
