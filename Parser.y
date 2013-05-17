@@ -8,14 +8,16 @@ import Data.List (intercalate)
 
 import Config
 import Data.Exception
+import Data.Functor ((<$>))
+import Data.LexState
 import Data.SrcFile
 import Data.Stx
 import Data.Token
 import Data.Type
 import Lexer
 import Macros
+import Monad.ParserM
 import Utils
-
 }
 
 %monad { ParserM } { thenM } { returnM }
@@ -28,67 +30,67 @@ import Utils
 %error { parseError }
 
 %token
-        -- punctuation
-        '->'    { TokenArrow }
-        '@'     { TokenAt }
-        '@ '    { TokenAtSpace }
-        '|'     { TokenBar }
-        '.'     { TokenDot }
-        ':'     { TokenColon }
-        ','     { TokenComma }
-        '='     { TokenEquiv }
+  -- punctuation
+  '->'    { TokenArrow }
+  '@'     { TokenAt }
+  '@ '    { TokenAtSpace }
+  '|'     { TokenBar }
+  '.'     { TokenDot }
+  ':'     { TokenColon }
+  ','     { TokenComma }
+  '='     { TokenEquiv }
 
-        -- grouping
-        '('     { TokenLParen }
-        ')'     { TokenRParen }
-        '['     { TokenLConsParen }
-        ']'     { TokenRConsParen }
-        '{'     { TokenLEnvParen }
-        '}'     { TokenREnvParen }
+  -- grouping
+  '('     { TokenLParen }
+  ')'     { TokenRParen }
+  '['     { TokenLConsParen }
+  ']'     { TokenRConsParen }
+  '{'     { TokenLEnvParen }
+  '}'     { TokenREnvParen }
 
-        -- keywords
-        as      { TokenAs }
-        def     { TokenDef }
-        me      { TokenMe }
-        module  { TokenModule }
-        sig     { TokenSig }
-        type    { TokenType }
-        use     { TokenUse }
-        where   { TokenWhere }
+  -- keywords
+  as      { TokenAs }
+  def     { TokenDef }
+  me      { TokenMe }
+  module  { TokenModule }
+  sig     { TokenSig }
+  type    { TokenType }
+  use     { TokenUse }
+  where   { TokenWhere }
 
-        -- literals
-        character { TokenChar $$ }
-        integer   { TokenInt $$ }
-        double    { TokenDouble $$ }
-        string    { TokenString $$ }
+  -- literals
+  character { TokenChar $$ }
+  integer   { TokenInt $$ }
+  double    { TokenDouble $$ }
+  string    { TokenString $$ }
 
-        -- operators
-        'o'     { TokenComposition $$ }
+  -- operators
+  'o'     { TokenComposition $$ }
 
-        '*'     { TokenMult $$ }
-        '/'     { TokenDiv $$ }
-        '+'     { TokenAdd $$ }
-        '-'     { TokenSub $$ }
+  '*'     { TokenMult $$ }
+  '/'     { TokenDiv $$ }
+  '+'     { TokenAdd $$ }
+  '-'     { TokenSub $$ }
 
-        '=='    { TokenEq $$ }
-        '/='    { TokenNeq $$ }
-        '<'     { TokenLt $$ }
-        '>'     { TokenGt $$ }
-        '<='    { TokenLe $$ }
-        '>='    { TokenGe $$ }
+  '=='    { TokenEq $$ }
+  '/='    { TokenNeq $$ }
+  '<'     { TokenLt $$ }
+  '>'     { TokenGt $$ }
+  '<='    { TokenLe $$ }
+  '>='    { TokenGe $$ }
 
-        '+>'    { TokenCons $$ }
-        '<+'    { TokenSnoc $$ }
+  '+>'    { TokenCons $$ }
+  '<+'    { TokenSnoc $$ }
 
-        '&&'    { TokenAnd $$ }
-        '||'    { TokenOr $$ }
+  '&&'    { TokenAnd $$ }
+  '||'    { TokenOr $$ }
 
-        -- identifier
-        id       { TokenId $$ }
-        quotedId { TokenQuotedId $$ }
-        typeId   { TokenTypeId $$ }
+  -- identifier
+  id       { TokenId $$ }
+  quotedId { TokenQuotedId $$ }
+  typeId   { TokenTypeId $$ }
 
-        -- eof   { TokenEOF }
+  -- eof   { TokenEOF }
 
 
 -- Precedence (lower)
@@ -342,60 +344,24 @@ Operator:
   | '||'        { $1 }
 
 {
-type ParserM a = LexState -> Either String a
-
-
-parseError :: Token -> ParserM a
-parseError tk = failM (show tk)
-
-
-thenM :: ParserM a -> (a -> ParserM b) -> ParserM b
-m `thenM` k = \s ->
-   case m s of 
-       Right a -> k a s
-       Left e -> Left e
-
-
-returnM :: a -> ParserM a
-returnM a = \s -> Right a
-
-
-failM :: String -> ParserM a
-failM err LexState { filename, beginLine = n } =
-  Left $ filename ++ ": line " ++ show n ++ ": " ++ err
-
-
-catchM :: ParserM a -> (String -> ParserM a) -> ParserM a
-catchM m k = \s ->
-   case m s of
-      Right a -> Right a
-      Left e -> k e s
-
-
-parsePrelude :: String -> String -> SrcFile
-parsePrelude filename str =
-  case parseSrcFile (lexState filename str) of
-    Right srcfile -> srcfile
-    Left str -> throwParseException str
-
-
-parseRepl :: String -> String -> Stx String
-parseRepl filename str =
-  case parseDefnOrExpr (lexState filename str) of
-    Right stx -> stx
-    Left str -> throwParseException str
-
-
-parseFile :: String -> String -> SrcFile
-parseFile filename str =
-  let uses = [("Core", ""), (preludeName, "")] in
-  case parseSrcFile (lexState filename str) of
-     Right srcfile -> addImplicitDeps uses srcfile
-     Left str -> throwParseException str
-
-
 nextToken :: (Token -> ParserM a) -> ParserM a
 nextToken cont state =
-  case lex state of
-    (tk, state') -> cont tk state'
+    let (tk, state') = lex state in
+    cont tk state'
+
+
+parsePrelude :: String -> String -> Either String SrcFile
+parsePrelude filename str =
+    parseSrcFile (lexState filename str)
+
+
+parseRepl :: String -> String -> Either String (Stx String)
+parseRepl filename str =
+    parseDefnOrExpr (lexState filename str)
+
+
+parseFile :: String -> String -> Either String SrcFile
+parseFile filename str =
+    let uses = [("Core", ""), (preludeName, "")] in
+    addImplicitDeps uses <$> parseSrcFile (lexState filename str)
 }

@@ -5,6 +5,7 @@ module Lexer where
 import Prelude hiding (lex)
 
 import Data.Exception
+import Data.LexState
 import Data.Token
 }
 
@@ -102,21 +103,6 @@ tokens :-
 
 
 {
-data LexState =
-     LexState { filename :: String
-     	      , beginLine :: Int
-     	      , endLine :: Int
-	      , input :: AlexInput }
-
-
-lexState :: String -> String -> LexState
-lexState filename str =
-  LexState { filename = filename
-  	   , beginLine = 1 
-	   , endLine = 1
-	   , input = ('\n',[],str) }
-
-
 lex :: LexState -> (Token, LexState)
 lex state@LexState { endLine = n, input } = lex' n input
   where lex' n input@(_, _, str) =

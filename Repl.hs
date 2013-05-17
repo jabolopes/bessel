@@ -87,12 +87,17 @@ putEnvironment env =
       putStrLn ""
 
 
-renamerEither :: Monad m => Either String a -> m a
-renamerEither fn = return $ either throwRenamerException id fn
+parserEither :: Either String a -> a
+parserEither fn = either throwParseException id fn
 
 
+renamerEither :: Either String a -> a
+renamerEither fn = either throwRenamerException id fn
+
+
+-- edit: the Monad forces the argument to be reduced to normal form
 typecheckerEither :: Monad m => Either String a -> m a
-typecheckerEither fn = return $ either throwTypecheckerException id fn
+typecheckerEither x = return $ either throwTypecheckerException id x
 
 
 stageFiles :: [SrcFile] -> IO FileSystem
@@ -108,7 +113,7 @@ stageFiles srcfiles =
               (FileSystem.add fs srcfile, srcfile)
 
           renameFile fs srcfile =
-              updateFs fs <$> renamerEither (rename fs srcfile)
+              updateFs fs $ renamerEither $ rename fs srcfile
 
           typecheckFile fs srcfile =
               updateFs fs <$> typecheckerEither (typecheck fs srcfile)
@@ -128,7 +133,7 @@ stageFiles srcfiles =
               do putHeader i
                  putStr $ SrcFile.name srcs ++ ": "
 
-                 (renfs, rens) <- renameFile fs srcs
+                 let (renfs, rens) = renameFile fs srcs
                  putStr "renamed, "
 
                  (typfs, typs) <- typecheckFile renfs rens
@@ -167,13 +172,13 @@ typecheckAndInterpretM fs srcfile =
 
 runSnippetM :: String -> ReplM ()
 runSnippetM ln =
-    do let stx = parseRepl interactiveName ln
+    do let stx = parserEither (parseRepl interactiveName ln)
        liftIO (putParsedStx stx)
 
        fs <- fs <$> get
 
        let srcf = (SrcFile.mkInteractiveSrcFile (FileSystem.toAscList fs) [stx]) { name = "Repl" }
-       renf <- renamerEither (rename fs srcf)
+           renf = renamerEither (rename fs srcf)
        evalf <- typecheckAndInterpretM fs renf
 
        modify $ \s -> s { fs = mergeReplInteractive fs evalf }

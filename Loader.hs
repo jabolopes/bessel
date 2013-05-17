@@ -15,6 +15,7 @@ import qualified Data.Set as Set
 import Data.Tree
 
 import Config
+import Data.Exception (throwParseException)
 import Data.FileSystem (FileSystem)
 import qualified Data.FileSystem as FileSystem
 import Data.SrcFile
@@ -64,7 +65,9 @@ dependenciesFileM filename =
     do str <- readFileM filename
        let parseFn | isPrelude filename = parsePrelude
                    | otherwise = parseFile
-           srcfile@SrcFile { name, srcNs = Just ns } = parseFn filename str
+           srcfile@SrcFile { name, srcNs = Just ns } = case parseFn filename str of
+                                                         Left str -> throwParseException str
+                                                         Right x -> x
        (_, deps) <- runStateT (dependenciesNsM ns) []
        if name /= filename
        then error $ "Loader.dependenciesFileM: me " ++ show name ++ " and filename " ++ show filename ++ " mismatch"
