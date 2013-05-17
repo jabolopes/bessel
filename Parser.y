@@ -18,7 +18,7 @@ import Utils
 
 }
 
-%monad { P } { thenP } { returnP }
+%monad { ParserM } { thenM } { returnM }
 %lexer { nextToken } { TokenEOF }
 
 %name parseSrcFile SrcFile
@@ -107,10 +107,6 @@ import Utils
 %nonassoc '(' '[' '[|' character integer double string id typeId
 -- /Precedence (greater)
 
--- This is the type of the data produced by a successful reduction of the 'start'
--- symbol:
--- %type < Ast.Stx > start
-
 %%
 
 SrcFile:
@@ -148,8 +144,8 @@ Defn:
                            (kw, name', body) = $2
                        in
                          if name == name'
-                         then returnP $ DefnStx (Just ann) kw name body
-                         else failP $ "Function names are not equal in" ++
+                         then returnM $ DefnStx (Just ann) kw name body
+                         else failM $ "Function names are not equal in" ++
                                       "\n  sig " ++ name ++ " ..." ++
 				      "\nand" ++
                                       "\n  def " ++ name' ++ " ..."
@@ -346,31 +342,31 @@ Operator:
   | '||'        { $1 }
 
 {
-type P a = LexState -> Either String a
+type ParserM a = LexState -> Either String a
 
 
-parseError :: Token -> P a
-parseError tk = failP (show tk)
+parseError :: Token -> ParserM a
+parseError tk = failM (show tk)
 
 
-thenP :: P a -> (a -> P b) -> P b
-m `thenP` k = \s ->
+thenM :: ParserM a -> (a -> ParserM b) -> ParserM b
+m `thenM` k = \s ->
    case m s of 
        Right a -> k a s
        Left e -> Left e
 
 
-returnP :: a -> P a
-returnP a = \s -> Right a
+returnM :: a -> ParserM a
+returnM a = \s -> Right a
 
 
-failP :: String -> P a
-failP err LexState { filename, beginLine = n } =
+failM :: String -> ParserM a
+failM err LexState { filename, beginLine = n } =
   Left $ filename ++ ": line " ++ show n ++ ": " ++ err
 
 
-catchP :: P a -> (String -> P a) -> P a
-catchP m k = \s ->
+catchM :: ParserM a -> (String -> ParserM a) -> ParserM a
+catchM m k = \s ->
    case m s of
       Right a -> Right a
       Left e -> k e s
@@ -398,7 +394,7 @@ parseFile filename str =
      Left str -> throwParseException str
 
 
-nextToken :: (Token -> P a) -> P a
+nextToken :: (Token -> ParserM a) -> ParserM a
 nextToken cont state =
   case lex state of
     (tk, state') -> cont tk state'
