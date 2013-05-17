@@ -4,7 +4,8 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe
 
-import Data.SrcFile
+import Data.SrcFile (SrcFile)
+import qualified Data.SrcFile as SrcFile
 
 
 data FileSystem
@@ -28,20 +29,20 @@ initial = initial' empty
 add :: FileSystem -> SrcFile -> FileSystem
 add fs srcfile =
     let
-       fid = case Map.lookup (name srcfile) (fileIds fs) of
+       fid = case Map.lookup (SrcFile.name srcfile) (fileIds fs) of
                Nothing -> Map.size (fileIds fs)
                Just id -> id
     in
       fs { files = Map.insert fid srcfile (files fs)
-         , fileIds = Map.insert (name srcfile) fid (fileIds fs) }
+         , fileIds = Map.insert (SrcFile.name srcfile) fid (fileIds fs) }
 
 
 get :: FileSystem -> String -> SrcFile
 get fs name = files fs Map.! (fileIds fs Map.! name)
 
 
-getAll :: FileSystem -> [SrcFile]
-getAll fs = map snd $ Map.toAscList $ files fs
+toAscList :: FileSystem -> [SrcFile]
+toAscList fs = map snd $ Map.toAscList $ files fs
 
 
 lookup :: FileSystem -> String -> Maybe SrcFile

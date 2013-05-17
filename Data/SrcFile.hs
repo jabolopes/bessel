@@ -1,3 +1,4 @@
+{-# LANGUAGE BangPatterns, TupleSections #-}
 module Data.SrcFile where
 
 import Data.Map (Map)
@@ -67,13 +68,17 @@ mkCoreSrcFile name deps typeDesc fnDesc =
               Map.fromList (typs ++ fns)
 
 
-mkInteractiveSrcFile :: [String] -> SrcFile
-mkInteractiveSrcFile deps =
+interactiveName :: String
+interactiveName = "Interactive"
+
+
+mkInteractiveSrcFile :: [SrcFile] -> [Stx String] -> SrcFile
+mkInteractiveSrcFile srcfiles stxs =
     let
-        uses = [ (x, "") | x <- deps ]
-        srcNs = Namespace uses []
+        deps = map name srcfiles
+        uses = map (,"") deps
     in
-      (initial InteractiveT "Interactive" deps) { srcNs = Just srcNs }
+      (initial InteractiveT interactiveName deps) { srcNs = Just (Namespace uses stxs) }
 
 
 mkParsedSrcFile :: String -> Namespace String -> SrcFile

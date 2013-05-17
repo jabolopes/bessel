@@ -441,17 +441,6 @@ rename :: FileSystem -> SrcFile -> Either String SrcFile
 rename _ srcfile@SrcFile { t = CoreT } =
     return srcfile
 
-rename fs srcfile@SrcFile { t = SrcT, srcNs = Just ns } =
+rename fs srcfile@SrcFile { srcNs = Just ns } =
     do (ns', syms) <- renameSrcFile fs ns
        return (SrcFile.addDefinitionSymbols srcfile syms) { renNs = Just ns' }
-
-rename fs srcfile@SrcFile { t = InteractiveT, srcNs = Just ns } =
-    do (ns', syms) <- renameSrcFile interactiveFs interactiveNs
-       let syms' = syms `Map.union` SrcFile.symbols srcfile
-       return (SrcFile.addDefinitionSymbols srcfile syms') { renNs = Just ns' }
-    where interactiveNs =
-              let SrcFile { srcNs = Just (Namespace uses stxs) } = srcfile in
-              Namespace (uses ++ [(SrcFile.name srcfile, "")]) stxs
-
-          interactiveFs =
-              FileSystem.add fs srcfile { srcNs = Just interactiveNs }

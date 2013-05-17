@@ -858,7 +858,7 @@ typecheck _ srcfile@SrcFile { t = SrcT, renNs = Just (Namespace _ []) } =
     return srcfile
 
 typecheck fs srcfile@SrcFile { t = SrcT } =
-    do (ts, t) <- typecheckSrcFile fs srcfile
+    do (ts, _) <- typecheckSrcFile fs srcfile
        return $ SrcFile.addDefinitionTypes srcfile ts
 
 typecheck fs srcfile@SrcFile { t = InteractiveT } =
@@ -867,13 +867,5 @@ typecheck fs srcfile@SrcFile { t = InteractiveT } =
 
 typecheckInteractive :: FileSystem -> SrcFile -> Either String (SrcFile, Type)
 typecheckInteractive fs srcfile =
-     do (ts, t) <- typecheckSrcFile interactiveFs interactiveSrcfile
+     do (ts, t) <- typecheckSrcFile fs srcfile
         return (SrcFile.addDefinitionTypes srcfile ts, t)
-    where interactiveDeps =
-              SrcFile.deps srcfile ++ ["Interactive"]
-            
-          interactiveSrcfile =
-              srcfile { deps = interactiveDeps }
-
-          interactiveFs =
-              FileSystem.add fs srcfile
