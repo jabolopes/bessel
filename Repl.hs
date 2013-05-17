@@ -8,7 +8,7 @@ import Data.Char (isSpace)
 import Data.Functor ((<$>))
 import Data.List (intercalate, isPrefixOf, nub)
 import Data.Map (Map)
-import qualified Data.Map as Map ((!), insert, elems, empty, keys, lookup, toList)
+import qualified Data.Map as Map (elems, null, union)
 import System.Console.GetOpt
 import System.Console.Readline
 import System.IO.Error (catchIOError)
@@ -16,13 +16,17 @@ import System.IO.Error (catchIOError)
 import Config
 import qualified Data.Env as Env (getBinds)
 import Data.Exception
+import Data.FileSystem (FileSystem)
+import qualified Data.FileSystem as FileSystem
 import Data.Maybe
 import Data.SrcFile
 import qualified Data.SrcFile as SrcFile
 import Data.Stx
+import Data.Symbol
 import Data.Type
 import Interpreter
 import Lexer
+import Linker
 import Loader
 import Monad.InterpreterM
 import Parser
@@ -34,9 +38,7 @@ import Utils
 
 
 data ReplState =
-    ReplState { initialFs :: Map String SrcFile
-              , fs :: Map String SrcFile
-              , interactive :: SrcFile }
+    ReplState { initialFs :: FileSystem, fs :: FileSystem }
 
 
 type ReplM a = StateT ReplState IO a
@@ -52,7 +54,8 @@ doPutEnvironment = False
 
 putLine :: String -> IO ()
 putLine str =
-    when doPutLine (putStrLn $ "> " ++ str)
+    when doPutLine $
+      putStrLn $ "> " ++ str
 
 
 putParsedStx :: Stx String -> IO ()
@@ -72,7 +75,7 @@ putExpr expr =
 putExprT :: (Show a, Show b) => a -> b -> IO ()
 putExprT expr t =
     when doPutExprT $
-         putStrLn $ show expr ++ " :: " ++ show t
+      putStrLn $ show expr ++ " :: " ++ show t
 
 
 putEnvironment :: Show a => a -> IO ()
@@ -92,47 +95,61 @@ typecheckerEither :: Monad m => Either String a -> m a
 typecheckerEither fn = return $ either throwTypecheckerException id fn
 
 
-stageFiles :: [SrcFile] -> IO (Map String SrcFile)
+stageFiles :: [SrcFile] -> IO FileSystem
 stageFiles srcfiles =
     do liftIO $ putStrLn $ "Staging " ++ show n ++ " namespaces"
-       loop Map.empty srcfiles [1..]
+       link =<< loop FileSystem.empty srcfiles [1..]
     where n = length srcfiles
 
           putHeader i =
               putStr $ "[" ++ show i ++ "/" ++ show n ++ "] "
 
-          updateFs fs srcfile =
-              Map.insert (SrcFile.name srcfile) srcfile fs
+          updateFs fs !srcfile =
+              (FileSystem.add fs srcfile, srcfile)
+
+          renameFile fs srcfile =
+              updateFs fs <$> renamerEither (rename fs srcfile)
+
+          typecheckFile fs srcfile =
+              updateFs fs <$> typecheckerEither (typecheck fs srcfile)
+
+          interpretFile fs srcfile =
+              let srcfile' = interpret fs srcfile in
+              (FileSystem.add fs srcfile', srcfile')
+
+          link fs =
+              do let srcfiles' = map (FileSystem.get fs . SrcFile.name) srcfiles
+                     fs' = FileSystem.initial (linkSrcFiles srcfiles')
+                 putStrLn "linked"
+                 return fs'
 
           loop fs [] _ = return fs
           loop fs (srcs:srcss) (i:is) =
               do putHeader i
                  putStr $ SrcFile.name srcs ++ ": "
 
-                 !rens <- renamerEither (rename fs srcs)
-                 let renfs = updateFs fs rens
+                 (renfs, rens) <- renameFile fs srcs
                  putStr "renamed, "
 
-                 !typs <- typecheckerEither (typecheck renfs rens)
-                 let typfs = updateFs renfs typs
+                 (typfs, typs) <- typecheckFile renfs rens
                  putStr "typechecked, "
 
-                 let evals = interpret typfs typs
-                     evalfs = updateFs typfs evals
+                 let (evalfs, evals) = interpretFile typfs typs
                  putStrLn "evaluated"
 
                  loop evalfs srcss is
 
 
-importFile :: Map String SrcFile -> String -> IO ReplState
+importFile :: FileSystem -> String -> IO ReplState
 importFile fs filename =
     do srcfiles <- preload fs filename
        fs' <- stageFiles srcfiles
-       let interactive = mkInteractiveSrcFile $ map SrcFile.name srcfiles
-       return ReplState { initialFs = fs, fs = fs', interactive = interactive }
+       let interactive = SrcFile.mkInteractiveSrcFile srcfiles []
+           fs'' = FileSystem.add fs' interactive
+       return ReplState { initialFs = fs, fs = fs'' }
 
 
-interpretM :: Maybe Type -> Map String SrcFile -> SrcFile -> ReplM SrcFile
+interpretM :: Maybe Type -> FileSystem -> SrcFile -> ReplM SrcFile
 interpretM mt fs srcfile =
     do let (srcfile', expr) = interpretInteractive fs srcfile
        liftIO $ putExprM mt expr
@@ -141,8 +158,8 @@ interpretM mt fs srcfile =
           putExprM (Just t) expr = putExprT expr t
 
 
-typecheckM :: Map String SrcFile -> SrcFile -> ReplM SrcFile
-typecheckM fs srcfile =
+typecheckAndInterpretM :: FileSystem -> SrcFile -> ReplM SrcFile
+typecheckAndInterpretM fs srcfile =
     case typecheckInteractive fs srcfile of
       Left str -> throwTypecheckerException str
       Right (srcfile', t) -> interpretM (Just t) fs srcfile'
@@ -150,85 +167,53 @@ typecheckM fs srcfile =
 
 runSnippetM :: String -> ReplM ()
 runSnippetM ln =
-    do state <- get
-       liftIO (putLine ln)
-
-       let stx = parseRepl "interactive" ln
+    do let stx = parseRepl interactiveName ln
        liftIO (putParsedStx stx)
 
        fs <- fs <$> get
-       interactive <- putStxInInteractive stx . interactive <$> get
-       interactive' <- renamerEither (rename fs interactive)
-       interactive'' <- typecheckM fs interactive'
-       put state { interactive = interactive'' }
-    where putStxInInteractive stx srcfile =
-            let Just (Namespace uses _) = SrcFile.srcNs srcfile in
-            srcfile { srcNs = Just (Namespace uses [stx]) }
+
+       let srcf = (SrcFile.mkInteractiveSrcFile (FileSystem.toAscList fs) [stx]) { name = "Repl" }
+       renf <- renamerEither (rename fs srcf)
+       evalf <- typecheckAndInterpretM fs renf
+
+       modify $ \s -> s { fs = mergeReplInteractive fs evalf }
+    where mergeReplInteractive fs srcfile =
+              let
+                  interactive = FileSystem.get fs interactiveName
+                  interactive' = interactive { defs = defs srcfile `Map.union` defs interactive }
+              in
+                FileSystem.add fs interactive'
 
 
 showModuleM :: Bool -> Bool -> String -> ReplM ()
 showModuleM showAll showBrief filename =
     let
         filesM
-            | filename == "Interactive" =
-                do interactive <- interactive <$> get
-                   return [interactive]
-            | showAll =
-                do srcfiles <- Map.elems . fs <$> get
-                   interactive <- interactive <$> get
-                   return (srcfiles ++ [interactive])
+            | showAll = FileSystem.toAscList . fs <$> get
             | otherwise =
                 do fs <- fs <$> get
-                   case Map.lookup filename fs of
+                   case FileSystem.lookup fs filename of
                      Nothing -> do liftIO $ do
                                      putStrLn $ "namespace " ++ show filename ++ " has not been staged"
-                                     putStrLn $ "staged namespaces are " ++ intercalate ", " (map SrcFile.name (Map.elems fs))
+                                     putStrLn $ "staged namespaces are " ++ intercalate ", " (map SrcFile.name (FileSystem.toAscList fs))
                                    return []
                      Just srcfile -> return [srcfile]
     in
       filesM >>= (liftIO . mapM_ (putStrLn . showSrcFile))
-    where showDeps srcfile = 
-              "\n\n\t deps = " ++ intercalate ('\n':replicate 16 ' ') (SrcFile.deps srcfile)
+    where showDeps srcfile
+              | null (deps srcfile) = ""
+              | otherwise = " uses " ++ intercalate ", " (SrcFile.deps srcfile)
 
-          showDefs srcfile =
-              "\n\n\t defs = " ++ intercalate spacer [ showTuple (x, e x, t x) | x <- Map.keys (SrcFile.symbols srcfile) ]
-              where spacer = '\n':replicate 16 ' '
-                    e name = Map.lookup name (SrcFile.exprs srcfile)
-                    t name = SrcFile.ts srcfile Map.! name
-                    showTuple (x, Nothing, y) = x ++ " :: " ++ show y
-                    showTuple (x, Just y, z) = x ++ " = " ++ show y ++ " :: " ++ show z
+          showDefns srcfile
+              | Map.null (defs srcfile) = "\n no definitions"
+              | otherwise = "\n " ++ intercalate ("\n ") (map show $ Map.elems $ SrcFile.defs srcfile)
 
-          showSrcNs SrcFile { t = CoreT } = ""
-
-          showSrcNs SrcFile { t = InteractiveT, srcNs = Just (Namespace uses [stx]) } =
-              "\n\n\t srcNs = " ++ intercalate ('\n':replicate 17 ' ') (map use uses) ++
-              "\n\n\t         " ++ show stx
-              where use (x, "") = "use " ++ x
-                    use (x, y) = "use " ++ x ++ " as " ++ y
-
-          showSrcNs SrcFile { srcNs = Just (Namespace uses _) } =
-              "\n\n\t srcNs = " ++ intercalate ('\n':replicate 17 ' ') (map use uses)
-              where use (x, "") = "use " ++ x
-                    use (x, y) = "use " ++ x ++ " as " ++ y
-
-          showRenNs SrcFile { renNs = Nothing } =
-              "\n\n\t renNs = Nothing"
-
-          showRenNs SrcFile { renNs = Just (Namespace uses _) } =
-              "\n\n\t renNs = " ++ intercalate ('\n':replicate 17 ' ') (map use uses)
-              where use (x, "") = "use " ++ x
-                    use (x, y) = "use " ++ x ++ " as " ++ y
-
-          showSrcFile srcfile
-              | showBrief = "SrcFile " ++ show (SrcFile.name srcfile) ++ " " ++ show (SrcFile.deps srcfile) ++ " ..."
-              | otherwise = SrcFile.name srcfile ++ " (" ++ show (SrcFile.t srcfile) ++ ")" ++
-                            showDeps srcfile ++
-                            showDefs srcfile ++
-                            -- showSymbols srcfile ++
-                            -- showTs srcfile ++
-                            -- showExprs srcfile ++
-                            showSrcNs srcfile ++
-                            showRenNs srcfile
+          showSrcFile srcfile =
+              let str = SrcFile.name srcfile ++ " (" ++ show (SrcFile.t srcfile) ++ ")" ++ showDeps srcfile in
+              if showBrief then
+                  str
+              else
+                  str ++ showDefns srcfile
 
 
 showTokensM :: String -> ReplM ()
@@ -240,16 +225,10 @@ showRenamedM :: Bool -> String -> ReplM ()
 showRenamedM showAll filename =
   do ensureLoadedM filename
      let filesM
-           | filename == "Interactive" =
-               do interactive <- interactive <$> get
-                  return [interactive]
-           | showAll =
-               do srcfiles <- Map.elems . fs <$> get
-                  interactive <- interactive <$> get
-                  return (srcfiles ++ [interactive])
+           | showAll = FileSystem.toAscList . fs <$> get
            | otherwise =
-               do fs <- fs <$> get
-                  return $ (:[]) $ fromJust $ Map.lookup filename fs
+                 do fs <- fs <$> get
+                    return $ (:[]) $ FileSystem.get fs filename
      filesM >>= showFiles
     where showFiles [] = return ()
           showFiles (srcfile:srcfiles) =
@@ -259,7 +238,7 @@ showRenamedM showAll filename =
           -- edit: check if file has changed on disk
           ensureLoadedM filename =
             do fs <- fs <$> get
-               when (isNothing (Map.lookup filename fs)) $
+               when (isNothing (FileSystem.lookup fs filename)) $
                  liftIO (importFile fs filename) >>= put
 
 

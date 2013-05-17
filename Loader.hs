@@ -15,6 +15,8 @@ import qualified Data.Set as Set
 import Data.Tree
 
 import Config
+import Data.FileSystem (FileSystem)
+import qualified Data.FileSystem as FileSystem
 import Data.SrcFile
 import qualified Data.SrcFile as SrcFile
 import Data.Stx
@@ -69,14 +71,14 @@ dependenciesFileM filename =
        else return srcfile { deps = nub (sort deps) }
 
 
-preloadSrcFile :: Map String SrcFile -> String -> IO [SrcFile]
+preloadSrcFile :: FileSystem -> String -> IO [SrcFile]
 preloadSrcFile fs filename = preloadSrcFile' [] Set.empty [filename]
     where preloadSrcFile' srcfiles _ [] = return srcfiles
           preloadSrcFile' srcfiles loaded (filename:filenames)
               | filename `Set.member` loaded =
                   preloadSrcFile' srcfiles loaded filenames
-              | filename `Map.member` fs =
-                  do let srcfile = fs Map.! filename
+              | fs `FileSystem.member` filename =
+                  do let srcfile = FileSystem.get fs filename
                      preloadSrcFile' (srcfile:srcfiles) (Set.insert filename loaded) (deps srcfile ++ filenames)
               | otherwise =
                   do srcfile <- dependenciesFileM filename
@@ -117,7 +119,7 @@ buildGraph srcfiles =
         Just is -> Left $ replaceIndexes srcfiles is
 
 
-preload :: Map String SrcFile -> String -> IO [SrcFile]
+preload :: FileSystem -> String -> IO [SrcFile]
 preload fs filename =
     do srcfiles <- preloadSrcFile fs filename
        case buildGraph srcfiles of

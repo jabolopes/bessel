@@ -6,15 +6,17 @@ import Control.Monad.State
 import Data.Functor ((<$>))
 import Data.List (intercalate, maximumBy, nub, partition, sort)
 import Data.Map (Map)
-import qualified Data.Map as Map ((!), elems, empty, fromList, insert, keys, lookup, union)
+import qualified Data.Map as Map
 import Data.Maybe (catMaybes, fromJust)
 
+import Data.FileSystem (FileSystem)
+import qualified Data.FileSystem as FileSystem
 import Data.Frame (Frame)
 import qualified Data.Frame as Frame (frameId, symbols)
 import Data.FrameEnv (FrameEnv)
 import qualified Data.FrameEnv as FrameEnv
 import Data.SrcFile (SrcFileT (..), SrcFile(..))
-import qualified Data.SrcFile as SrcFile (name, srcNs, symbols)
+import qualified Data.SrcFile as SrcFile (name, srcNs, symbols, addDefinitionSymbols)
 import Data.Stx
 import Data.Symbol (Symbol (..))
 import qualified Data.Symbol as Symbol
@@ -23,7 +25,7 @@ import Utils (fromSingleton, split)
 
 
 data RenamerState =
-    RenamerState { fs :: Map String SrcFile
+    RenamerState { fs :: FileSystem
                  , frameEnv :: FrameEnv
                  , currentFrame :: Int
                  , currentCount :: Int
@@ -33,7 +35,7 @@ data RenamerState =
                  , prefixedUses :: Map String String }
 
 
-initialRenamerState :: Map String SrcFile -> RenamerState
+initialRenamerState :: FileSystem -> RenamerState
 initialRenamerState fs =
     let frameEnv = FrameEnv.empty in
     RenamerState { fs = fs
@@ -96,7 +98,7 @@ withNamespace ns m =
 
 
 getUnprefixedSymbol
-    :: Map String SrcFile
+    :: FileSystem
     -> FrameEnv
     -> [String]
     -> Frame
@@ -111,7 +113,7 @@ getUnprefixedSymbol fs frameEnv unprefixedUses currentFrame name =
 
           getNamespaceSymbol fs unprefixedUses =
               let
-                  srcfiles = map (fs Map.!) unprefixedUses
+                  srcfiles = map (FileSystem.get fs) unprefixedUses
                   symss = map SrcFile.symbols srcfiles
                   syms = catMaybes [ Map.lookup name syms | syms <- symss ]
               in
@@ -122,7 +124,7 @@ getUnprefixedSymbol fs frameEnv unprefixedUses currentFrame name =
 
 
 getPrefixedSymbol
-    :: Map String SrcFile
+    :: FileSystem
     -> FrameEnv
     -> Map String String
     -> [String]
@@ -144,15 +146,16 @@ getPrefixedSymbol fs frameEnv prefixedUses prefix name =
                 Just x -> Right x
 
           getNamespaceSymbol fs prefix' =
-              do let syms = SrcFile.symbols (fs Map.! prefix')
+              do let syms = SrcFile.symbols (FileSystem.get fs prefix')
                  case Map.lookup name syms of
                    Nothing -> Left $ "name " ++ show (intercalate "." prefix ++ "." ++ name) ++ " is not defined"
                    Just x -> Right x
 
 
-lookupSymbolM :: [String] -> RenamerM (Either String Symbol)
-lookupSymbolM names =
-    do fs <- fs <$> get
+lookupSymbolM :: String -> RenamerM (Either String Symbol)
+lookupSymbolM name =
+    do let names = split '.' name
+       fs <- fs <$> get
        frameEnv <- frameEnv <$> get
        currentFrame <- getCurrentFrameM
        if null (tail names)
@@ -164,42 +167,34 @@ lookupSymbolM names =
          return $ getPrefixedSymbol fs frameEnv prefixedUses (init names) (last names)
 
 
-getSymbolM :: [String] -> RenamerM Symbol
-getSymbolM names =
-    do msym <- lookupSymbolM names
+getSymbolM :: String -> RenamerM Symbol
+getSymbolM name =
+    do msym <- lookupSymbolM name
        case msym of
          Left str -> throwError str
          Right t -> return t
 
 
-getFnSymbolM :: [String] -> RenamerM String
-getFnSymbolM names =
-    do sym <- getSymbolM names
+getFnSymbolM :: String -> RenamerM String
+getFnSymbolM name =
+    do sym <- getSymbolM name
        case sym of
          FnSymbol name -> return name
-         _ -> throwError $ "name " ++ show (intercalate "." names) ++ " is not a function"
+         _ -> throwError $ "name " ++ show name ++ " is not a function"
 
 
 getTypeSymbolM :: String -> RenamerM String
 getTypeSymbolM name =
-    do sym <- getSymbolM (split '.' name)
+    do sym <- getSymbolM name
        case sym of
          TypeSymbol name -> return name
          _ -> throwError $ "name " ++ show name ++ " is not a type"
 
 
-isTypeSymbolM :: String -> RenamerM (Maybe String)
-isTypeSymbolM name =
-    do sym <- getSymbolM (split '.' name)
-       case sym of
-         TypeSymbol name -> return (Just name)
-         _ -> return Nothing
-
-
 addSymbolM :: String -> Symbol -> RenamerM ()
 addSymbolM name sym = checkShadowing name >> addSymbol name sym
     where checkShadowing name =
-              do msym <- lookupSymbolM (split '.' name)
+              do msym <- lookupSymbolM name
                  case msym of
                    Left _ -> return ()
                    Right _ -> throwError $ "name " ++ show name ++ " has already been defined"
@@ -311,10 +306,11 @@ renameNamespaceM (Namespace uses stxs) =
        checkUniqueQualifiers prefixed
 
        modify $ \state -> state { unprefixedUses = map fst unprefixed
-                                , prefixedUses = Map.fromList $ map swap prefixed }
+                                , prefixedUses = Map.fromList (map swap prefixed) }
 
-       withNslevel True $
-         Namespace uses . concat <$> mapM renameM stxs
+       withNslevel True $ do
+         stxs' <- concat <$> mapM renameM stxs
+         return $ Namespace uses stxs'
 
     where checkUniqueImports unprefixed prefixed
               | length (nub $ sort unprefixed) /= length unprefixed =
@@ -356,7 +352,7 @@ renameM stx@(DoubleStx _) = return [stx]
 renameM (SeqStx stxs) = (:[]) . SeqStx <$> mapM renameOneM stxs
 
 renameM (IdStx name) =
-    (:[]) . IdStx <$> getFnSymbolM (split '.' name)
+    (:[]) . IdStx <$> getFnSymbolM name
 
 renameM (AppStx stx1 stx2) =
     (:[]) <$> ((AppStx <$> renameOneM stx1) `ap` renameOneM stx2)
@@ -416,7 +412,7 @@ renameM stx@(ModuleStx prefix ns) =
 renameM (TypeStx name stxs) =
     do name' <- show <$> genNumM
        addTypeSymbolM name name'
-       (:[]) . TypeStx name' <$> mapM renameOneM stxs
+       mapM renameOneM stxs
 
 renameM (TypeMkStx name) =
     (:[]) . TypeMkStx <$> getTypeSymbolM name
@@ -434,29 +430,17 @@ renameM (WhereStx stx stxs) =
       return [WhereStx stx' stxs']
 
 
-renameSrcFile :: Map String SrcFile -> Namespace String -> Either String (Namespace String, Map String Symbol)
+renameSrcFile :: FileSystem -> Namespace String -> Either String (Namespace String, Map String Symbol)
 renameSrcFile fs ns =
-  do let state = initialRenamerState fs
-     (ns', state') <- runStateT (renameNamespaceM ns) state
+  do (ns', state') <- runStateT (renameNamespaceM ns) (initialRenamerState fs)
      let symbols = Frame.symbols $ FrameEnv.getRootFrame $ frameEnv state'
-         renSymbols = Map.fromList [ (Symbol.name sym, sym) | sym <- Map.elems symbols ]
-     return (ns', renSymbols)
+     return (ns', symbols)
 
 
-rename :: Map String SrcFile -> SrcFile -> Either String SrcFile
+rename :: FileSystem -> SrcFile -> Either String SrcFile
 rename _ srcfile@SrcFile { t = CoreT } =
     return srcfile
 
-rename fs srcfile@SrcFile { t = SrcT, srcNs = Just ns } =
-    do (ns', renSymbols) <- renameSrcFile fs ns
-       return $ srcfile { symbols = renSymbols, renNs = Just ns' }
-
-rename fs srcfile@SrcFile { t = InteractiveT, symbols, srcNs = Just ns } =
-    do (ns', renSymbols) <- renameSrcFile interactiveFs interactiveNs
-       return $ srcfile { symbols = renSymbols `Map.union` symbols, renNs = Just ns' }
-    where interactiveNs =
-              let SrcFile { srcNs = Just (Namespace uses stxs) } = srcfile in
-              Namespace (uses ++ [(SrcFile.name srcfile, "")]) stxs
-
-          interactiveFs =
-              Map.insert (SrcFile.name srcfile) srcfile { srcNs = Just interactiveNs } fs
+rename fs srcfile@SrcFile { srcNs = Just ns } =
+    do (ns', syms) <- renameSrcFile fs ns
+       return (SrcFile.addDefinitionSymbols srcfile syms) { renNs = Just ns' }

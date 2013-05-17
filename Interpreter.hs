@@ -7,6 +7,8 @@ import Data.Map as Map (Map)
 import qualified Data.Map as Map ((!), fromList, insert, keys, lookup, toList, union)
 import Data.Maybe (catMaybes)
 
+import Data.FileSystem (FileSystem)
+import qualified Data.FileSystem as FileSystem
 import qualified Data.Env as Env (initial, empty, getBinds)
 import Data.SrcFile
 import qualified Data.SrcFile as SrcFile (name, deps, symbols, exprs, renNs)
@@ -63,7 +65,7 @@ evalM (LambdaStx str _ body) =
     where closure env expr =
               withLexicalEnvM env $ do
                 addBindM str expr
-                withEnvM $ evalM body
+                withEnvM (evalM body)
 
 evalM (ModuleStx prefix ns) =
     error $ "Interpreter.evalM(ModuleStx): modules must be flattened by the renamer" ++
@@ -71,33 +73,33 @@ evalM (ModuleStx prefix ns) =
             "\n\n\t namespace = " ++ show ns ++ "\n"
 
 evalM (TypeStx name stxs) =
-    do mapM_ evalM stxs
-       return $ SeqExpr $ map CharExpr name
+    error $ "Interpreter.evalM(TypeStx): datatypes must be flattened by the renamer" ++
+            "\n\n\t name = " ++ show name ++
+            "\n\n\t stxs = " ++ show stxs ++ "\n"
 
 evalM (TypeMkStx name) =
     return $ FnExpr $ \expr ->
         return $ TypeExpr name (read name) expr
 
 evalM (TypeUnStx) =
-    return $ FnExpr $ \(TypeExpr _ _ expr) -> return $ expr
+    return $ FnExpr $ \(TypeExpr _ _ expr) -> return expr
 
 evalM (TypeIsStx name) =
     return $ FnExpr $ \(TypeExpr _ tid _) ->
-        if (read name) == tid then
-            return true
-        else
-            return false
+        return $ if (read name) == tid
+                 then true
+                 else false
 
 evalM (WhereStx stx stxs) =
     withEnvM $ do
       mapM_ evalM stxs
-      withEnvM $ evalM stx
+      withEnvM (evalM stx)
 
 
-interpretNamespace :: Map String SrcFile -> [String] -> Namespace String -> ([Expr], ExprEnv)
+interpretNamespace :: FileSystem -> [String] -> Namespace String -> ([Expr], ExprEnv)
 interpretNamespace fs deps (Namespace _ stxs) =
     let
-        exprss = map (SrcFile.exprs . (fs Map.!)) deps
+        exprss = map (SrcFile.exprs . (FileSystem.get fs)) deps
         env = Env.initial (foldr1 Map.union exprss)
     in
      runState (mapM evalM stxs) env
@@ -114,30 +116,19 @@ envToExprs srcfile exprEnv =
                                    Just sym -> Just (name, sym) | name <- names ]
 
 
-interpret :: Map String SrcFile -> SrcFile -> SrcFile
+interpret :: FileSystem -> SrcFile -> SrcFile
 interpret _ srcfile@SrcFile { t = CoreT } =
     srcfile
 
 interpret fs srcfile@SrcFile { t = SrcT, deps, renNs = Just ns } =
-    let
-        (_, env) = interpretNamespace fs deps ns
-        env' = envToExprs srcfile env
-    in
-     srcfile { exprs = env' }
+    let (_, env) = interpretNamespace fs deps ns in
+    addDefinitionExprs srcfile (envToExprs srcfile env)
      
 interpret _ SrcFile { t = InteractiveT } =
     error "Interpreter.interpret: for interactive srcfiles use 'interpretInteractive' instead of 'interpret'"
 
 
-interpretInteractive :: Map String SrcFile -> SrcFile -> (SrcFile, Expr)
+interpretInteractive :: FileSystem -> SrcFile -> (SrcFile, Expr)
 interpretInteractive fs srcfile@SrcFile { t = InteractiveT, deps, renNs = Just ns } =
-    let
-        (exprs, env) = interpretNamespace interactiveFs interactiveDeps ns
-        env' = envToExprs srcfile env
-    in
-     (srcfile { exprs = Map.union (SrcFile.exprs srcfile) env' }, last exprs)
-    where interactiveDeps =
-            SrcFile.deps srcfile ++ [SrcFile.name srcfile]
-
-          interactiveFs =
-            Map.insert (SrcFile.name srcfile) srcfile fs
+    let (exprs, env) = interpretNamespace fs deps ns in
+    (addDefinitionExprs srcfile (envToExprs srcfile env), last exprs)

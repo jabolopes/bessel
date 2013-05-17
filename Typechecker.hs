@@ -14,6 +14,8 @@ import Data.Maybe (catMaybes)
 import Config
 import Data.Context
 import qualified Data.Context as Context
+import Data.FileSystem (FileSystem)
+import qualified Data.FileSystem as FileSystem
 import Data.SrcFile
 import qualified Data.SrcFile as SrcFile
 import Data.Exception
@@ -618,9 +620,9 @@ synthAbstrM ctx stx@(AppStx fn arg) =
 -- ⇑Others
 synthAbstrM ctx (CondStx ms blame) =
     do let (evarT, ctx') = genEvar ctx
-       (ctx'', ts, ms') <- synthMs evarT ctx' [] ms
+       (ctx'', ms') <- synthMs evarT ctx' [] ms
        return (evarT, CondStx ms' blame, ctx'')
-    where synthMs _ ctx stxs [] = return (ctx, ts, stxs)
+    where synthMs _ ctx stxs [] = return (ctx, stxs)
           synthMs evarT ctx stxs ((stx1, stx2):ms) =
               do (stx1', ctx') <- checkM BoolT ctx stx1
                  (stx2', ctx'') <- checkM evarT ctx' stx2
@@ -823,9 +825,9 @@ typecheckStxs ctx stxs = typecheck ctx stxs
                typecheck ctx' stxs
 
 
-typecheckNamespace :: Map String SrcFile -> [String] -> Namespace String -> Either String (Type, Map String Type)
+typecheckNamespace :: FileSystem -> [String] -> Namespace String -> Either String (Type, Map String Type)
 typecheckNamespace fs deps (Namespace _ stxs) =
-    do let tss = map (SrcFile.ts . (fs Map.!)) deps
+    do let tss = map (SrcFile.types . (FileSystem.get fs)) deps
            ctx = nothingSyms (foldr1 Map.union tss)
        (t, ctx') <- typecheckStxs ctx stxs
        
@@ -834,7 +836,7 @@ typecheckNamespace fs deps (Namespace _ stxs) =
        return (t, Map.fromList (simpleSyms ctx'))
        
 
-typecheckSrcFile :: Map String SrcFile -> SrcFile -> Either String (Map String Type, Type)
+typecheckSrcFile :: FileSystem -> SrcFile -> Either String (Map String Type, Type)
 typecheckSrcFile fs srcfile@SrcFile { deps, renNs = Just ns }
     | doTypecheck =
         do (t, ts) <- typecheckNamespace fs deps ns
@@ -848,7 +850,7 @@ typecheckSrcFile fs srcfile@SrcFile { deps, renNs = Just ns }
            return (ts, DynT)
 
 
-typecheck :: Map String SrcFile -> SrcFile -> Either String SrcFile
+typecheck :: FileSystem -> SrcFile -> Either String SrcFile
 typecheck _ srcfile@SrcFile { t = CoreT } =
     return srcfile
 
@@ -856,22 +858,14 @@ typecheck _ srcfile@SrcFile { t = SrcT, renNs = Just (Namespace _ []) } =
     return srcfile
 
 typecheck fs srcfile@SrcFile { t = SrcT } =
-    do (ts, t) <- typecheckSrcFile fs srcfile
-       return srcfile { ts = ts }
+    do (ts, _) <- typecheckSrcFile fs srcfile
+       return $ SrcFile.addDefinitionTypes srcfile ts
 
 typecheck fs srcfile@SrcFile { t = InteractiveT } =
     Left "Typechecker.typecheck: for interactive srcfiles use 'typecheckInteractive' instead of 'typecheck'"
 
 
-typecheckInteractive :: Map String SrcFile -> SrcFile -> Either String (SrcFile, Type)
+typecheckInteractive :: FileSystem -> SrcFile -> Either String (SrcFile, Type)
 typecheckInteractive fs srcfile =
-     do (ts, t) <- typecheckSrcFile interactiveFs interactiveSrcfile
-        return (srcfile { ts = ts `Map.union` SrcFile.ts srcfile }, t)
-    where interactiveDeps =
-              SrcFile.deps srcfile ++ ["Interactive"]
-            
-          interactiveSrcfile =
-              srcfile { deps = interactiveDeps }
-
-          interactiveFs =
-              Map.insert "Interactive" srcfile fs
+     do (ts, t) <- typecheckSrcFile fs srcfile
+        return (SrcFile.addDefinitionTypes srcfile ts, t)

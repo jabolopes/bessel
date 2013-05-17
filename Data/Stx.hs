@@ -79,9 +79,15 @@ data Stx a
 
     | ModuleStx [String] (Namespace a)
     | TypeStx String [Stx a]
+
     | TypeMkStx String
+    | TypeMkOp Int
+
     | TypeUnStx
+    
     | TypeIsStx String
+    | TypeIsOp Int
+
     | WhereStx (Stx a) [Stx a]
       deriving (Show)
 
