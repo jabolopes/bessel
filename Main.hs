@@ -37,9 +37,9 @@ corefiles :: [SrcFile]
 corefiles = corefile:linkCorefiles (map (* (-1)) [1..]) links
 
 
-mainException :: FlException -> IO (Maybe a)
+mainException :: UserException -> IO (Maybe a)
 mainException e =
-    do flException e
+    do putUserException e
        return Nothing
 
 
@@ -47,7 +47,7 @@ main :: IO ()
 main =
     do -- args <- getArgs
        mstate <- (Just <$> importFile (FileSystem.initial corefiles) preludeName)
-                  `catchFlException` mainException
+                  `catchUserException` mainException
        case mstate of
          Nothing -> return ()
          Just state -> repl state

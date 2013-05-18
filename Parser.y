@@ -1,10 +1,11 @@
 {
+{-# LANGUAGE TupleSections #-}
 module Parser where
 
 import Prelude hiding (lex)
 
 import Control.Monad.State
-import Data.List (intercalate)
+import Data.List (intercalate, nub, sort)
 
 import Config
 import Data.Exception
@@ -117,7 +118,7 @@ SrcFile:
     me LongTypeId Namespace { mkParsedSrcFile (flattenId $2) $3 }
 
 Namespace:
-    UseList DefnList { Namespace $1 $2 }
+    UseList DefnList {% mapM_ (addDependencyM . fst) $1 >> return (Namespace $1 $2) }
   | DefnList         { Namespace [] $1 }
 
 UseList:
@@ -356,18 +357,28 @@ nextToken cont =
        cont tk
 
 
+runParser :: ParserM SrcFile -> [String] -> String -> String -> Either String SrcFile
+runParser m deps filename str =
+    case runStateT m $ ParserM.initial $ lexState filename str of
+        Right (srcfile, s) -> Right srcfile { deps = nub (sort (deps ++ dependencies s)) }
+        Left str -> Left str
+
+
+parseFile :: String -> String -> Either String SrcFile
+parseFile filename str =
+    let
+        deps = ["Core", preludeName]
+        uses = map (,"") deps
+    in
+      addImplicitDeps uses <$> runParser parseSrcFile deps filename str
+
+
 parsePrelude :: String -> String -> Either String SrcFile
 parsePrelude filename str =
-    evalStateT parseSrcFile $ ParserM.initial $ lexState filename str
+    runParser parseSrcFile [] filename str
 
 
 parseRepl :: String -> String -> Either String (Stx String)
 parseRepl filename str =
     evalStateT parseDefnOrExpr $ ParserM.initial $ lexState filename str
-
-
-parseFile :: String -> String -> Either String SrcFile
-parseFile filename str =
-    let uses = [("Core", ""), (preludeName, "")] in
-    addImplicitDeps uses <$> evalStateT parseSrcFile (ParserM.initial (lexState filename str))
 }

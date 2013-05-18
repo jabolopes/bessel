@@ -7,16 +7,21 @@ import Control.Exception (Exception, throw, catch)
 import Data.Typeable
 
 
-data FlException
-    = RenamerException String
+data UserException
+    = LoaderException String
+    | RenamerException String
     | InterpreterException String
-    | LexException String
-    | ParseException String
+    | LexerException String
+    | ParserException String
     | SignalException String
     | TypecheckerException String
       deriving (Show, Typeable)
 
-instance Exception FlException
+instance Exception UserException
+
+
+throwLoaderException :: String -> a
+throwLoaderException = throw . LoaderException
 
 
 throwRenamerException :: String -> a
@@ -27,12 +32,12 @@ throwInterpreterException :: String -> a
 throwInterpreterException = throw . InterpreterException
 
 
-throwLexException :: String -> a
-throwLexException = throw . LexException
+throwLexerException :: String -> a
+throwLexerException = throw . LexerException
 
 
-throwParseException :: String -> a
-throwParseException = throw . ParseException
+throwParserException :: String -> a
+throwParserException = throw . ParserException
 
 
 throwSignalException :: String -> a
@@ -43,5 +48,5 @@ throwTypecheckerException :: String -> a
 throwTypecheckerException = throw . TypecheckerException
 
 
-catchFlException :: IO a -> (FlException -> IO a) -> IO a
-catchFlException m fn = catch m fn
+catchUserException :: IO a -> (UserException -> IO a) -> IO a
+catchUserException m fn = catch m fn

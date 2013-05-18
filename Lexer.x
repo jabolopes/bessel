@@ -108,7 +108,7 @@ lex state@LexState { endLine = n, input } = lex' n input
   where lex' n input@(_, _, str) =
           case alexScan input 0 of
             AlexEOF -> (TokenEOF, state { beginLine = n, endLine = n, input = input })
-            AlexError _ -> throwLexException str
+            AlexError _ -> throwLexerException str
             AlexSkip  input' len -> lex' (line n (take len str)) input'
             AlexToken input' len action ->
 	      (action (take len str), state { beginLine = n,

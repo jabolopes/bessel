@@ -4,53 +4,20 @@ module Loader where
 
 import Prelude hiding (lex)
 
-import Control.Monad.State
-import Data.Functor ((<$>))
 import Data.Graph (buildG, topSort, scc)
-import Data.List (intercalate, nub, sort)
 import Data.Map (Map)
-import qualified Data.Map as Map
-import Data.Set (Set)
-import qualified Data.Set as Set
-import Data.Tree
+import qualified Data.Map as Map ((!), fromList)
+import qualified Data.Set as Set (empty, member, insert)
+import Data.Tree (levels)
 
-import Config
-import Data.Exception (throwParseException)
+import Config (isPrelude)
+import Data.Exception (throwLoaderException, throwParserException)
 import Data.FileSystem (FileSystem)
-import qualified Data.FileSystem as FileSystem
+import qualified Data.FileSystem as FileSystem (get, member)
 import Data.SrcFile
-import qualified Data.SrcFile as SrcFile
-import Data.Stx
+import qualified Data.SrcFile as SrcFile (name, deps)
 import Parser (parsePrelude, parseFile)
-import Utils
-
-
-type LoaderM a = StateT [String] IO a
-
-
-dependenciesNsM :: Namespace String -> LoaderM ()
-dependenciesNsM (Namespace uses stxs) =
-    modify (map fst uses ++) >> mapM_ dependenciesM stxs
-
-
-dependenciesM :: Stx String -> LoaderM ()
-dependenciesM (CharStx _) = return ()
-dependenciesM (IntStx _) = return ()
-dependenciesM (DoubleStx _) = return ()
-dependenciesM (SeqStx stxs) = mapM_ dependenciesM stxs
-dependenciesM (IdStx _) = return ()
-dependenciesM (AppStx stx1 stx2) = dependenciesM stx1 >> dependenciesM stx2
-dependenciesM (CondMacro ms _) = mapM_ dependenciesM (snd (unzip ms))
-dependenciesM (CondStx ms _) = mapM_ dependenciesM (snd (unzip ms))
-dependenciesM (DefnStx _ _ _ body) = dependenciesM body
-dependenciesM (LambdaMacro _ body) = dependenciesM body
-dependenciesM (LambdaStx _ _ body) = dependenciesM body
-dependenciesM (ModuleStx _ ns) = dependenciesNsM ns
-dependenciesM (TypeStx _ stxs) = mapM_ dependenciesM stxs
-dependenciesM (TypeMkStx _) = return ()
-dependenciesM (TypeUnStx) = return ()
-dependenciesM (TypeIsStx _) = return ()
-dependenciesM (WhereStx _ stxs) = mapM_ dependenciesM stxs
+import Utils (singleton)
 
 
 readFileM :: String -> IO String
@@ -60,18 +27,17 @@ readFileM filename = readFile $ toFilename filename ++ ".bsl"
                     f c = c
 
 
-dependenciesFileM :: String -> IO SrcFile
-dependenciesFileM filename =
+loadSrcFileM :: String -> IO SrcFile
+loadSrcFileM filename =
     do str <- readFileM filename
        let parseFn | isPrelude filename = parsePrelude
                    | otherwise = parseFile
-           srcfile@SrcFile { name, srcNs = Just ns } = case parseFn filename str of
-                                                         Left str -> throwParseException str
-                                                         Right x -> x
-       (_, deps) <- runStateT (dependenciesNsM ns) []
-       if name /= filename
-       then error $ "Loader.dependenciesFileM: me " ++ show name ++ " and filename " ++ show filename ++ " mismatch"
-       else return srcfile { deps = nub (sort deps) }
+           srcfile = case parseFn filename str of
+                       Left str -> throwParserException str
+                       Right x -> x
+       if SrcFile.name srcfile /= filename
+       then throwLoaderException $ "me " ++ show (SrcFile.name srcfile) ++ " and filename " ++ show filename ++ " mismatch"
+       else return srcfile
 
 
 preloadSrcFile :: FileSystem -> String -> IO [SrcFile]
@@ -84,7 +50,7 @@ preloadSrcFile fs filename = preloadSrcFile' [] Set.empty [filename]
                   do let srcfile = FileSystem.get fs filename
                      preloadSrcFile' (srcfile:srcfiles) (Set.insert filename loaded) (deps srcfile ++ filenames)
               | otherwise =
-                  do srcfile <- dependenciesFileM filename
+                  do srcfile <- loadSrcFileM filename
                      preloadSrcFile' (srcfile:srcfiles) (Set.insert filename loaded) (deps srcfile ++ filenames)
 
 

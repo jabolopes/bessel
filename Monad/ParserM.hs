@@ -10,14 +10,21 @@ import Data.Token
 
 
 data ParserState
-    = ParserState { lexerState :: LexState }
+    = ParserState { lexerState :: LexState
+                  , dependencies :: [String] }
 
 type ParserM a = StateT ParserState (Either String) a
 
 
 initial :: LexState -> ParserState
 initial lexerState =
-    ParserState { lexerState = lexerState }
+    ParserState { lexerState = lexerState
+                , dependencies = [] }
+
+
+addDependencyM :: String -> ParserM ()
+addDependencyM dep =
+    modify $ \s -> s { dependencies = dependencies s ++ [dep] }
 
 
 failM :: String -> ParserM a

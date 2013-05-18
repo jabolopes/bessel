@@ -88,7 +88,7 @@ putEnvironment env =
 
 
 parserEither :: Either String a -> a
-parserEither fn = either throwParseException id fn
+parserEither fn = either throwParserException id fn
 
 
 renamerEither :: Either String a -> a
@@ -329,41 +329,44 @@ replM =
                  | otherwise -> promptM ln >> return False
 
 
+putUserException :: UserException -> IO ()
+putUserException (LoaderException str) =
+    putStrLn $ "loader error: " ++ str
+
+putUserException (RenamerException str) =
+    putStrLn $ "renamer error: " ++ str
+
+putUserException (TypecheckerException str) =
+    putStrLn $ "typechecker error: " ++ str
+
+putUserException (InterpreterException str) =
+    putStrLn $ "interpreter error: " ++ str
+
+putUserException (LexerException str) =
+    putStrLn $ "lexical error: " ++ str
+
+putUserException (ParserException str) =
+    putStrLn $ "parse error: " ++ str
+
+putUserException (SignalException str) =
+    putStrLn $ "uncaught exception: " ++ str
+
+
 finallyIOException :: Show a => ReplState -> a -> IO (Bool, ReplState)
 finallyIOException state e =
     print e >> return (False, state)
 
 
-finallyFlException :: a -> FlException -> IO (Bool, a)
-finallyFlException state e =
-    flException e >> return (False, state)
-
-
-flException :: FlException -> IO ()
-flException (RenamerException str) =
-    putStrLn $ "renamer error: " ++ str
-
-flException (TypecheckerException str) =
-    putStrLn $ "typechecker error: " ++ str
-
-flException (InterpreterException str) =
-    putStrLn $ "interpreter error: " ++ str
-
-flException (LexException str) =
-    putStrLn $ "lexical error: " ++ str
-
-flException (ParseException str) =
-    putStrLn $ "parse error: " ++ str
-
-flException (SignalException str) =
-    putStrLn $ "uncaught exception: " ++ str
+finallyException :: a -> UserException -> IO (Bool, a)
+finallyException state e =
+    putUserException e >> return (False, state)
 
 
 repl :: ReplState -> IO ()
 repl state =
     do (b, state') <- (runStateT replM state
                        `catchIOError` finallyIOException state)
-                      `catchFlException` finallyFlException state
+                      `catchUserException` finallyException state
        unless b (repl state')
 
 
@@ -371,5 +374,5 @@ batch :: String -> ReplState -> IO ()
 batch ln state =
     do _ <- (runStateT (promptM ln >> return True) state
              `catchIOError` finallyIOException state)
-            `catchFlException` finallyFlException state
+            `catchUserException` finallyException state
        return ()
