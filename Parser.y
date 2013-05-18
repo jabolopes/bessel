@@ -116,7 +116,6 @@ SrcFile:
 
 Namespace:
     UseList DefnList { Namespace $1 $2 }
-  | UseList          { Namespace $1 [] }
   | DefnList         { Namespace [] $1 }
 
 UseList:
