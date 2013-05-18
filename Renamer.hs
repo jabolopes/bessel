@@ -1,7 +1,7 @@
 {-# LANGUAGE NamedFieldPuns, ParallelListComp #-}
 module Renamer where
 
-import Control.Monad.Error
+import Control.Monad.Error (throwError)
 import Control.Monad.State
 import Data.Functor ((<$>))
 import Data.List (intercalate, maximumBy, nub, partition, sort)
