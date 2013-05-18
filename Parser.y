@@ -1,9 +1,9 @@
 {
-{-# LANGUAGE NamedFieldPuns #-}
 module Parser where
 
 import Prelude hiding (lex)
 
+import Control.Monad.State
 import Data.List (intercalate)
 
 import Config
@@ -17,10 +17,12 @@ import Data.Type
 import Lexer
 import Macros
 import Monad.ParserM
+import qualified Monad.ParserM as ParserM
 import Utils
 }
 
-%monad { ParserM } { thenM } { returnM }
+-- %monad { ParserM } { thenM } { returnM }
+%monad { ParserM }
 %lexer { nextToken } { TokenEOF }
 
 %name parseSrcFile SrcFile
@@ -145,7 +147,7 @@ Defn:
                            (kw, name', body) = $2
                        in
                          if name == name'
-                         then returnM $ DefnStx (Just ann) kw name body
+                         then return $ DefnStx (Just ann) kw name body
                          else failM $ "Function names are not equal in" ++
                                       "\n  sig " ++ name ++ " ..." ++
 				      "\nand" ++
@@ -343,24 +345,29 @@ Operator:
   | '||'        { $1 }
 
 {
+parseError :: Token -> ParserM a
+parseError = failM . show
+
+
 nextToken :: (Token -> ParserM a) -> ParserM a
-nextToken cont state =
-    let (tk, state') = lex state in
-    cont tk state'
+nextToken cont =
+    do (tk, state') <- lex . lexerState <$> get
+       modify $ \s -> s { lexerState = state' }
+       cont tk
 
 
 parsePrelude :: String -> String -> Either String SrcFile
 parsePrelude filename str =
-    parseSrcFile (lexState filename str)
+    evalStateT parseSrcFile $ ParserM.initial $ lexState filename str
 
 
 parseRepl :: String -> String -> Either String (Stx String)
 parseRepl filename str =
-    parseDefnOrExpr (lexState filename str)
+    evalStateT parseDefnOrExpr $ ParserM.initial $ lexState filename str
 
 
 parseFile :: String -> String -> Either String SrcFile
 parseFile filename str =
     let uses = [("Core", ""), (preludeName, "")] in
-    addImplicitDeps uses <$> parseSrcFile (lexState filename str)
+    addImplicitDeps uses <$> evalStateT parseSrcFile (ParserM.initial (lexState filename str))
 }
