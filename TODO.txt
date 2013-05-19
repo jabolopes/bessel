@@ -62,3 +62,6 @@ Infer types from predicates, i.e., eliminate the following casts
 
 Typechecker crashes when functions are applied with the wrong number
 of arguments.
+
+
+Standardize identifier names: qualified vs string
