@@ -158,7 +158,7 @@ Defn:
   | FnDefn          { let (kw, name, body) = $1 in
                       DefnStx Nothing kw name body }
 
-  | type   typeId '=' PatNoSpace          { typeMacro $2 $4 }
+  | type  typeId '=' PatNoSpace { typeMacro $2 $4 }
 
 FnDefn:
     def Name TypePatList DefnMatches { (Def, $2, LambdaMacro $3 (CondMacro $4 $2)) }
