@@ -143,22 +143,22 @@ DefnOrExpr:
 
 Defn:
     -- edit: ensure the name in the type ann is the same
-    TypeAnn FnDefn  {% let
-                           (name, ann) = $1
-                           (kw, name', body) = $2
-                       in
-                         if name == name'
-                         then return $ DefnStx (Just ann) kw name body
-                         else failM $ "Function names are not equal in" ++
-                                      "\n  sig " ++ name ++ " ..." ++
-				      "\nand" ++
-                                      "\n  def " ++ name' ++ " ..."
-                    }
+    TypeAnn FnDefn {% let
+                          (name, ann) = $1
+                          (kw, name', body) = $2
+                      in
+                        if name == name'
+                        then return $ DefnStx (Just ann) kw name body
+                        else failM $ "Function names are not equal in" ++
+                                     "\n  sig " ++ name ++ " ..." ++
+                                     "\nand" ++
+                                     "\n  def " ++ name' ++ " ..."
+                   }
 
-  | FnDefn          { let (kw, name, body) = $1 in
-                      DefnStx Nothing kw name body }
+  | FnDefn         { let (kw, name, body) = $1 in
+                     DefnStx Nothing kw name body }
 
-  | type  typeId '=' PatNoSpace { typeMacro $2 $4 }
+  | type typeId '=' PatNoSpace { typeMacro $2 $4 }
 
 FnDefn:
     def Name TypePatList DefnMatches { (Def, $2, LambdaMacro $3 (CondMacro $4 $2)) }
