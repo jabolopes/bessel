@@ -53,6 +53,7 @@ import Utils
 
   -- keywords
   as      { TokenAs }
+  cotype  { TokenCotype }
   def     { TokenDef }
   me      { TokenMe }
   module  { TokenModule }
@@ -158,7 +159,11 @@ Defn:
   | FnDefn         { let (kw, name, body) = $1 in
                      DefnStx Nothing kw name body }
 
-  | type typeId '=' PatNoSpace { typeMacro $2 $4 }
+  | cotype typeId '=' PatNoSpace { cotypeMacro $2 $4 }
+  | type typeId '=' TypeCons     { undefined }
+
+TypeAnn:
+    sig Name ':' Type { ($2, $4) }
 
 FnDefn:
     def Name TypePatList DefnMatches { (Def, $2, LambdaMacro $3 (CondMacro $4 $2)) }
@@ -166,8 +171,9 @@ FnDefn:
   | def Name DefnMatches             { (Def, $2, CondMacro $3 $2) }
   | def Name '=' Expr                { (Def, $2, $4) }
 
-TypeAnn:
-    sig Name ':' Type { ($2, $4) }
+TypeCons:
+    TypeCons '|' id Type { $1 ++ [($3, $4)] }
+  | id Type              { [($1, $2)] }
 
 DefnMatches:
     DefnMatches '|' PredPatList '=' Expr  { $1 ++ [($3, $5)] }

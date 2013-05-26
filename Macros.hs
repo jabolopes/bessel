@@ -12,7 +12,7 @@ mkDefn name pat =
         arg = "arg"
         mkname = "mk" ++ name
         match = namePat arg (mkPredPat (patPred pat))
-        body = AppStx (TypeMkStx name) (IdStx arg)
+        body = AppStx (CotypeMkStx name) (IdStx arg)
     in
       DefnStx (Just t) NrDef mkname (CondMacro [([match], body)] mkname)
 
@@ -23,7 +23,7 @@ isDefn name =
         t = ArrowT DynT DynT
         isname = "is" ++ name
     in
-      DefnStx (Just t) NrDef isname (TypeIsStx name)
+      DefnStx (Just t) NrDef isname (CotypeIsStx name)
 
 
 unDefn :: String -> Pat String -> Stx String
@@ -34,7 +34,7 @@ unDefn name pat =
         unname = "un" ++ name
         isname = "is" ++ name
         match = namePat arg (mkPredPat (IdStx isname))
-        body = AppStx TypeUnStx (IdStx arg)
+        body = AppStx CotypeUnStx (IdStx arg)
     in
       DefnStx (Just t) NrDef unname (CondMacro [([match], body)] unname)
 
@@ -51,7 +51,7 @@ destructorDefns name pat =
       [ DefnStx (Just t) NrDef dname (CondMacro [([argPat], body defns "arg")] dname) | (dname, defns) <- patDefns pat ]
 
 
-typeMacro :: String -> Pat String -> Stx String
-typeMacro name pat =
+cotypeMacro :: String -> Pat String -> Stx String
+cotypeMacro name pat =
     let defns = [mkDefn name pat, isDefn name, unDefn name pat] in
-    TypeStx name (defns ++ destructorDefns name pat)
+    CotypeStx name (defns ++ destructorDefns name pat)

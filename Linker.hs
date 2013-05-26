@@ -73,16 +73,16 @@ linkM (LambdaStx name ann body) =
 linkM (ModuleStx name ns) =
     ModuleStx name <$> linkNamespaceM ns
 
-linkM (TypeStx _ _) =
-    error "Linker.link(TypeStx): types must be eliminated by the renamer"
+linkM (CotypeStx _ _) =
+    error "Linker.link(CotypeStx): types must be eliminated by the renamer"
 
-linkM (TypeMkStx name) =
-    TypeMkOp <$> ensureTypeIdM name
+linkM (CotypeMkStx name) =
+    CotypeMkOp <$> ensureTypeIdM name
 
-linkM stx@TypeUnStx = return stx
+linkM stx@CotypeUnStx = return stx
 
-linkM (TypeIsStx name) =
-    TypeIsOp <$> ensureTypeIdM name
+linkM (CotypeIsStx name) =
+    CotypeIsOp <$> ensureTypeIdM name
 
 linkM (WhereStx stx stxs) =
     do stx' <- linkM stx

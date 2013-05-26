@@ -21,6 +21,7 @@ data Token
 
      -- keywords
      | TokenAs
+     | TokenCotype
      | TokenDef
      | TokenMe
      | TokenModule

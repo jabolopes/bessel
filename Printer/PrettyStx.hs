@@ -153,7 +153,7 @@ printStxM (ModuleStx prefix ns) =
          printNamespaceM ns
        putPrinter "}"
 
-printStxM (TypeStx name stxs) =
+printStxM (CotypeStx name stxs) =
     do putPrinter $ "type " ++ name
        withPrinterCol $ do
          nlPrinter
@@ -165,13 +165,13 @@ printStxM (TypeStx name stxs) =
                  nlPrinter
                  printStxs stxs
 
-printStxM (TypeMkStx name) =
+printStxM (CotypeMkStx name) =
     putPrinter $ "mk# " ++ name
 
-printStxM (TypeUnStx) =
+printStxM (CotypeUnStx) =
     putPrinter $ "un#"
 
-printStxM (TypeIsStx name) =
+printStxM (CotypeIsStx name) =
     putPrinter $ "is# " ++ name
 
 printStxM (WhereStx stx stxs) =

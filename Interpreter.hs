@@ -72,19 +72,19 @@ evalM (ModuleStx prefix ns) =
             "\n\n\t prefix = " ++ show prefix ++
             "\n\n\t namespace = " ++ show ns ++ "\n"
 
-evalM (TypeStx name stxs) =
-    error $ "Interpreter.evalM(TypeStx): datatypes must be flattened by the renamer" ++
+evalM (CotypeStx name stxs) =
+    error $ "Interpreter.evalM(CotypeStx): datatypes must be flattened by the renamer" ++
             "\n\n\t name = " ++ show name ++
             "\n\n\t stxs = " ++ show stxs ++ "\n"
 
-evalM (TypeMkStx name) =
+evalM (CotypeMkStx name) =
     return $ FnExpr $ \expr ->
         return $ TypeExpr name (read name) expr
 
-evalM (TypeUnStx) =
+evalM (CotypeUnStx) =
     return $ FnExpr $ \(TypeExpr _ _ expr) -> return expr
 
-evalM (TypeIsStx name) =
+evalM (CotypeIsStx name) =
     return $ FnExpr $ \(TypeExpr _ tid _) ->
         return $ if (read name) == tid
                  then true

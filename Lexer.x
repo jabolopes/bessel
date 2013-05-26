@@ -61,6 +61,7 @@ tokens :-
 
   -- keywords
   "as"                { \_ -> TokenAs }
+  "cotype"            { \_ -> TokenCotype }
   "def"               { \_ -> TokenDef }
   "me"                { \_ -> TokenMe }
   "module"            { \_ -> TokenModule }
@@ -111,9 +112,9 @@ lex state@LexState { endLine = n, input } = lex' n input
             AlexError _ -> throwLexerException str
             AlexSkip  input' len -> lex' (line n (take len str)) input'
             AlexToken input' len action ->
-	      (action (take len str), state { beginLine = n,
-	      	      	    	      	      endLine = line n (take len str),
-					      input = input' })
+              (action (take len str), state { beginLine = n,
+                                              endLine = line n (take len str),
+                                              input = input' })
 
         line n = (n +) . length . filter (== '\n')
 

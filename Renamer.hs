@@ -409,19 +409,19 @@ renameM stx@(ModuleStx prefix ns) =
     do Namespace _ stxs <- withPrefixedScopeM prefix (renameModuleM ns)
        return stxs
 
-renameM (TypeStx name stxs) =
+renameM (CotypeStx name stxs) =
     do name' <- show <$> genNumM
        addTypeSymbolM name name'
        mapM renameOneM stxs
 
-renameM (TypeMkStx name) =
-    (:[]) . TypeMkStx <$> getTypeSymbolM name
+renameM (CotypeMkStx name) =
+    (:[]) . CotypeMkStx <$> getTypeSymbolM name
 
-renameM TypeUnStx =
-    return [TypeUnStx]
+renameM CotypeUnStx =
+    return [CotypeUnStx]
 
-renameM (TypeIsStx name) =
-    (:[]) . TypeIsStx <$> getTypeSymbolM name
+renameM (CotypeIsStx name) =
+    (:[]) . CotypeIsStx <$> getTypeSymbolM name
 
 renameM (WhereStx stx stxs) =
     withScopeM $ do

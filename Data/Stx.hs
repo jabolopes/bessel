@@ -78,15 +78,15 @@ data Stx a
     | LambdaStx String (Maybe String) (Stx a)
 
     | ModuleStx [String] (Namespace a)
-    | TypeStx String [Stx a]
+    | CotypeStx String [Stx a]
 
-    | TypeMkStx String
-    | TypeMkOp Int
+    | CotypeMkStx String
+    | CotypeMkOp Int
 
-    | TypeUnStx
+    | CotypeUnStx
     
-    | TypeIsStx String
-    | TypeIsOp Int
+    | CotypeIsStx String
+    | CotypeIsOp Int
 
     | WhereStx (Stx a) [Stx a]
       deriving (Show)
