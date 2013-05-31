@@ -1,6 +1,6 @@
 bessel
 ======
-#### The Bessel programming language
+#### The Bessel programming language and environment
 
 A FL and Haskell inspired, gradually typed programming language with
 automatic type inference.
