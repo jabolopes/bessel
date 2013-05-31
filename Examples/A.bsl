@@ -1,3 +1,4 @@
 me Examples.A
 
-nrdef a := `a
+sig a : Char
+def a = 'a'
