@@ -1,7 +1,11 @@
 module Data.Symbol where
 
+import Data.Stx
+
 
 data Symbol
-    = FnSymbol String
-    | TypeSymbol String
+    = CotypeSymbol String Int [Observation]
+    | FnSymbol String
+    | ModuleSymbol Int
+    | TypeSymbol Int
       deriving (Show)

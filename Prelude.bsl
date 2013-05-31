@@ -59,6 +59,9 @@ def toChar x@isChar = x
 sig toSeq : Dyn -> [Dyn]
 def toSeq x@isSeq = x
 
+sig ofInt : Int -> Dyn
+def ofInt x@isInt = x
+
 sig eq : Dyn -> Dyn -> Bool
 def eq x@isBool y@isBool = eqBool (toBool x) (toBool y)
      | x@isInt  y@isInt  = eqInt (toInt x) (toInt y)
@@ -193,5 +196,15 @@ def length @[] = 0
 sig reverse : [a] -> [a]
 def reverse @[] = []
           | (x@ +> xs@) = ar (reverse xs) x
+
+-- sig index : [a] -> Int -> a
+-- def index (x@ +> xs@) n@((==) 0 o ofInt) = x
+--         | ( @ +> xs@) n@ = index xs (n - 1)
+
+
+cotype Point = x : Int | y : Int
+
+def p1 = Point {x = 0, y = 1}
+def p2 = Point {x = 0, y = Point {x = 1, y = 2}}
 
 -- nrdef raise := \f@isfunc isfunc || (seqof isfunc && (¬ isnull)) -> lift f | f

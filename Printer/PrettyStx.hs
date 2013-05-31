@@ -130,7 +130,7 @@ printStxM (DefnStx ann kw name body) =
 
           putAnn Nothing = return ()
           putAnn (Just t) =
-              do putPrinter $ "sig " ++ name ++ ":" ++ show t
+              do putPrinter $ "sig " ++ name ++ " : " ++ show t
                  nlPrinter
 
 printStxM (LambdaMacro pats body) =
@@ -144,6 +144,20 @@ printStxM (LambdaStx str t body) =
     where putT Nothing = ""
           putT (Just t) = ":" ++ t
 
+printStxM (MergeStx name vals) =
+    do putPrinter $ name ++ " {"
+       loop vals
+       putPrinter "}"
+    where loop [] = return ()
+          loop [(name, stx)] =
+              do putPrinter $ name ++ " = "
+                 printStxM stx
+          loop ((name, stx):vals) =
+              do putPrinter $ name ++ " = "
+                 printStxM stx
+                 putPrinter ", "
+                 loop vals
+
 printStxM (ModuleStx prefix ns) =
     do let prefix' | null prefix = ""
                    | otherwise = intercalate "." prefix ++ " "
@@ -152,27 +166,6 @@ printStxM (ModuleStx prefix ns) =
          nlPrinter
          printNamespaceM ns
        putPrinter "}"
-
-printStxM (CotypeStx name stxs) =
-    do putPrinter $ "type " ++ name
-       withPrinterCol $ do
-         nlPrinter
-         printStxs stxs
-    where printStxs [] = return ()
-          printStxs [stx] = printStxM stx
-          printStxs (stx:stxs) =
-              do printStxM stx
-                 nlPrinter
-                 printStxs stxs
-
-printStxM (CotypeMkStx name) =
-    putPrinter $ "mk# " ++ name
-
-printStxM (CotypeUnStx) =
-    putPrinter $ "un#"
-
-printStxM (CotypeIsStx name) =
-    putPrinter $ "is# " ++ name
 
 printStxM (WhereStx stx stxs) =
     do printStxM stx
@@ -214,3 +207,7 @@ prettyPrintSrcFile SrcFile { name, renNs = Just ns } =
                  nlPrinter
                  nlPrinter
                  printNamespaceM ns
+
+prettyPrintSrcFile SrcFile { name } =
+    runStateT (printSrcFileM name) initialPrinterState >> return ()
+    where printSrcFileM name = putPrinter $ "me " ++ name

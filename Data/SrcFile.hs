@@ -1,18 +1,15 @@
-{-# LANGUAGE BangPatterns, TupleSections #-}
+{-# LANGUAGE BangPatterns, ParallelListComp, TupleSections #-}
 module Data.SrcFile where
 
 import Data.Map (Map)
-import qualified Data.Map as Map ((!), empty, fromList, insert, mapMaybe, toList)
-import Data.Maybe (catMaybes)
+import qualified Data.Map as Map ((!), empty, fromList, insert, lookup, mapMaybe, toList)
 
 import Data.Definition (Definition (symbol, typ, expr))
-import qualified Data.Definition as Definition
-import qualified Data.Env as Env
-import Data.FrameEnv
-import Data.Stx
+import qualified Data.Definition as Definition (initial, expr, typ, symbol)
+import Data.Stx (Namespace (..), Stx)
 import Data.Symbol (Symbol (..))
-import Data.Type
-import Monad.InterpreterM
+import Data.Type (Type)
+import Monad.InterpreterM (Expr)
 
 
 data SrcFileT = CoreT
@@ -62,7 +59,7 @@ mkCoreSrcFile name deps typeDesc fnDesc =
     (initial CoreT name deps) { defs = defs }
     where defs =
             let
-                typs = [ (x, def) | (x, y) <- typeDesc, let def = (Definition.initial x) { symbol = Just (TypeSymbol x), typ = Just y } ]
+                typs = [ (x, (Definition.initial x) { symbol = Just (TypeSymbol i), typ = Just y }) | (x, y) <- typeDesc | i <- [0..] ]
                 fns = [ (x, def) | (x, y, z) <- fnDesc, let def = (Definition.initial x) { symbol = Just (FnSymbol x), typ = Just y, expr = Just z } ]
             in
               Map.fromList (typs ++ fns)
@@ -121,7 +118,10 @@ addDefinitionExprs srcfile exprs =
     where loop defs [] = defs
           loop defs ((name, expr):ts) =
               let
-                  def = (defs Map.! name) { expr = Just expr }
-                  defs' = Map.insert name def defs
+                  def = case Map.lookup name defs of
+                          Nothing -> error $ "addDefinitionExprs: definition " ++ show name ++ " is not defined"
+                          Just x -> x
+                  def' = def { expr = Just expr }
+                  defs' = Map.insert name def' defs
               in
                 loop defs' ts

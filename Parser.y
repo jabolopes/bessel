@@ -7,6 +7,8 @@ import Prelude hiding (lex)
 import Control.Monad.State
 import Data.List (intercalate, nub, sort)
 
+import GHC.Exts (sortWith)
+
 import Config
 import Data.Exception
 import Data.Functor ((<$>))
@@ -16,7 +18,6 @@ import Data.Stx
 import Data.Token
 import Data.Type
 import Lexer
-import Macros
 import Monad.ParserM
 import qualified Monad.ParserM as ParserM
 import Utils
@@ -143,7 +144,7 @@ DefnOrExpr:
   | Expr { $1 }
 
 Defn:
-    -- edit: ensure the name in the type ann is the same
+    -- info: ensure the name in the type ann is the same
     TypeAnn FnDefn {% let
                           (name, ann) = $1
                           (kw, name', body) = $2
@@ -159,7 +160,7 @@ Defn:
   | FnDefn         { let (kw, name, body) = $1 in
                      DefnStx Nothing kw name body }
 
-  | cotype typeId '=' PatNoSpace { cotypeMacro $2 $4 }
+  | Cotype         { $1 }
   | type typeId '=' TypeCons     { undefined }
 
 TypeAnn:
@@ -170,6 +171,13 @@ FnDefn:
   | def Name TypePatList '=' Expr    { (Def, $2, LambdaMacro $3 $5) }
   | def Name DefnMatches             { (Def, $2, CondMacro $3 $2) }
   | def Name '=' Expr                { (Def, $2, $4) }
+
+Cotype:
+    cotype typeId '=' CotypeObservations { CotypeStx $2 (sortWith fst $4) }
+
+CotypeObservations:
+    CotypeObservations '|' id ':' Type { $1 ++ [($3, $5)] }
+  | id ':' Type                        { [($1, $3)] }
 
 TypeCons:
     TypeCons '|' id Type { $1 ++ [($3, $4)] }
@@ -208,6 +216,7 @@ Expr:
   | Expr quotedId Expr { binOpStx $2 $1 $3 }
 
   | Lambda          { $1 }
+  | Merge           { $1 }
 
   | Expr where '{' DefnList '}' { WhereStx $1 $4 }
 
@@ -228,10 +237,17 @@ PredPatList:
     PredPatList Pat { $1 ++ [$2] }
   | Pat             { [$1] }
 
+Merge:
+    LongTypeId '{' MergeObservations '}' { MergeStx (flattenId $1) (sortWith fst $3) }
+
+MergeObservations:
+    MergeObservations ',' id '=' Expr { $1 ++ [($3, $5)] }
+  | id '=' Expr                       { [($1, $3)] }
+
 SimpleExpr:
-    LongName                 { IdStx $1 }
-  | Constant                 { $1 }
-  | '(' Expr ')'             { $2 }
+    LongName     { IdStx $1 }
+  | Constant     { $1 }
+  | '(' Expr ')' { $2 }
 
 Constant:
     character   { CharStx $1 }

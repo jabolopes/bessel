@@ -59,6 +59,9 @@ namePat name (Pat pred defns) =
     Pat pred $ (name, []):defns
 
 
+type Observation = (String, Type)
+
+
 data Stx a
     = CharStx Char
     | IntStx Int
@@ -72,21 +75,17 @@ data Stx a
     | CondMacro [([Pat a], Stx a)] String
     | CondStx [(Stx a, Stx a)] String
 
+    -- info: observations (2nd argument) are sorted in Parser
+    | CotypeStx String [Observation]
+
     | DefnStx (Maybe Type) DefnKw String (Stx a)
 
     | LambdaMacro [Pat a] (Stx a)
     | LambdaStx String (Maybe String) (Stx a)
 
+    -- info: initialization vals (2nd argument) are sorted in Parser
+    | MergeStx String [(String, Stx a)]
     | ModuleStx [String] (Namespace a)
-    | CotypeStx String [Stx a]
-
-    | CotypeMkStx String
-    | CotypeMkOp Int
-
-    | CotypeUnStx
-    
-    | CotypeIsStx String
-    | CotypeIsOp Int
 
     | WhereStx (Stx a) [Stx a]
       deriving (Show)
@@ -262,6 +261,13 @@ freeVars' _ _ (LambdaMacro _ _) =
 
 freeVars' env fvars (LambdaStx arg _ body) =
     freeVars' (arg:env) fvars body
+
+freeVars' env fvars (MergeStx _ vals) =
+    loop env fvars vals
+    where loop env fvars [] = (env, fvars)
+          loop env fvars ((_, stx):vals) =
+              let (env', fvars') = freeVars' env fvars stx in
+              loop env' fvars' vals
 
 freeVars' env fvars (WhereStx stx stxs) =
     let (env', fvars') = loop env fvars stxs in

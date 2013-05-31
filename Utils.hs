@@ -10,11 +10,7 @@ cross (lst:lsts) = [x:l | x <- lst, l <- cross lsts]
 
 
 flattenId :: [String] -> String
-flattenId xs = intercalate "." xs
-
-
-fromSingleton :: [a] -> a
-fromSingleton [x] = x
+flattenId = intercalate "."
 
 
 primeId :: String -> String

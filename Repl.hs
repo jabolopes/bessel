@@ -37,6 +37,9 @@ import Typechecker
 import Utils
 
 
+import Debug.Trace
+
+
 data ReplState =
     ReplState { initialFs :: FileSystem, fs :: FileSystem }
 
@@ -228,23 +231,19 @@ showTokensM filename =
 
 showRenamedM :: Bool -> String -> ReplM ()
 showRenamedM showAll filename =
-  do ensureLoadedM filename
-     let filesM
-           | showAll = FileSystem.toAscList . fs <$> get
-           | otherwise =
-                 do fs <- fs <$> get
-                    return $ (:[]) $ FileSystem.get fs filename
-     filesM >>= showFiles
-    where showFiles [] = return ()
-          showFiles (srcfile:srcfiles) =
-              do liftIO $ prettyPrintSrcFile srcfile
-                 showFiles srcfiles
-
-          -- edit: check if file has changed on disk
-          ensureLoadedM filename =
-            do fs <- fs <$> get
-               when (isNothing (FileSystem.lookup fs filename)) $
-                 liftIO (importFile fs filename) >>= put
+    let
+        filesM
+            | showAll = FileSystem.toAscList . fs <$> get
+            | otherwise =
+                do fs <- fs <$> get
+                   case FileSystem.lookup fs filename of
+                     Nothing -> do liftIO $ do
+                                     putStrLn $ "namespace " ++ show filename ++ " has not been staged"
+                                     putStrLn $ "staged namespaces are " ++ intercalate ", " (map SrcFile.name (FileSystem.toAscList fs))
+                                   return []
+                     Just srcfile -> return [srcfile]
+    in
+      filesM >>= liftIO . mapM_ prettyPrintSrcFile
 
 
 data Flag
@@ -266,7 +265,7 @@ runCommandM "show" opts ("namespace":nonOpts) =
         filename | null nonOpts = ""
                  | otherwise = last nonOpts
     in
-      if not showAll && null nonOpts then
+      if not showAll && null filename then
           liftIO $ putStrLn ":show namespace [-b] [-a | <namespace>]"
       else
           showModuleM showAll showBrief filename
@@ -277,12 +276,17 @@ runCommandM "show" _ ["tokens"] =
 runCommandM "show" _ ("tokens":nonOpts) =
     showTokensM $ last nonOpts
 
-runCommandM "show" _ ["renamed"] =
-    liftIO $ putStrLn ":show renamed [-a] <namespace>"
-
+runCommandM "show" opts ("renamed":nonOpts) | trace ("runCommandM: show: " ++ show opts ++ " " ++ show nonOpts) False = undefined
 runCommandM "show" opts ("renamed":nonOpts) =
-    let showAll = ShowAll `elem` opts in
-    showRenamedM showAll $ last nonOpts
+    let
+        showAll = ShowAll `elem` opts
+        filename | null nonOpts = ""
+                 | otherwise = last nonOpts
+    in
+      if not showAll && null filename then
+          liftIO $ putStrLn ":show renamed [-a | <namespace>]"
+      else
+          showRenamedM showAll filename
 
 runCommandM "show" _ _ =
     liftIO $ putStrLn ":show [ namespace | tokens | renamed ]"

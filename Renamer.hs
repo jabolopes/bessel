@@ -1,4 +1,4 @@
-{-# LANGUAGE NamedFieldPuns, ParallelListComp #-}
+{-# LANGUAGE BangPatterns, NamedFieldPuns, ParallelListComp #-}
 module Renamer where
 
 import Control.Monad.Error (throwError)
@@ -7,41 +7,45 @@ import Data.Functor ((<$>))
 import Data.List (intercalate, maximumBy, nub, partition, sort)
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Data.Maybe (catMaybes, fromJust)
+import Data.Maybe (catMaybes)
 
 import Data.FileSystem (FileSystem)
-import qualified Data.FileSystem as FileSystem
+import qualified Data.FileSystem as FileSystem (get)
 import Data.Frame (Frame)
-import qualified Data.Frame as Frame (frameId, symbols)
-import Data.FrameEnv (FrameEnv)
-import qualified Data.FrameEnv as FrameEnv
+import qualified Data.Frame as Frame (fid)
+import Data.FrameTree (FrameTree)
+import qualified Data.FrameTree as FrameTree
 import Data.SrcFile (SrcFileT (..), SrcFile(..))
-import qualified Data.SrcFile as SrcFile (name, srcNs, symbols, addDefinitionSymbols)
+import qualified Data.SrcFile as SrcFile (name, symbols, addDefinitionSymbols)
 import Data.Stx
 import Data.Symbol (Symbol (..))
-import qualified Data.Symbol as Symbol
 import Data.Tuple (swap)
-import Utils (fromSingleton, split)
+import Data.Type
+import Utils (split)
 
 
 data RenamerState =
     RenamerState { fs :: FileSystem
-                 , frameEnv :: FrameEnv
+                 , srcfile :: SrcFile
+                 , frameTree :: FrameTree
+                 , nameCount :: Int
+                 , typeCount :: Int
                  , currentFrame :: Int
-                 , currentCount :: Int
                  , currentNamespace :: String
                  , nslevel :: Bool
                  , unprefixedUses :: [String]
                  , prefixedUses :: Map String String }
 
 
-initialRenamerState :: FileSystem -> RenamerState
-initialRenamerState fs =
-    let frameEnv = FrameEnv.empty in
+initialRenamerState :: FileSystem -> SrcFile -> RenamerState
+initialRenamerState fs srcfile =
+    let frameTree = FrameTree.empty in
     RenamerState { fs = fs
-                 , frameEnv = frameEnv
-                 , currentFrame = FrameEnv.rootId frameEnv
-                 , currentCount = 0
+                 , srcfile = srcfile
+                 , frameTree = frameTree
+                 , nameCount = 0
+                 , typeCount = 0
+                 , currentFrame = FrameTree.rootId frameTree
                  , currentNamespace = ""
                  , nslevel = True
                  , unprefixedUses = []
@@ -53,14 +57,17 @@ type RenamerM a = StateT RenamerState (Either String) a
 
 getCurrentFrameM :: RenamerM Frame
 getCurrentFrameM =
-    do frameEnv <- frameEnv <$> get
-       FrameEnv.getFrame frameEnv <$> currentFrame <$> get
+    do tree <- frameTree <$> get
+       fid <- currentFrame <$> get
+       case FrameTree.getFrame tree fid of
+         Nothing -> error "Renamer.getCurrentFrameM: current frame does not exist"
+         Just x -> return x
 
 
 genNumM :: RenamerM Int
 genNumM =
-    do count <- currentCount <$> get
-       modify $ \state -> state { currentCount = count + 1 }
+    do count <- nameCount <$> get
+       modify $ \s -> s { nameCount = count + 1 }
        return count
 
 
@@ -77,94 +84,73 @@ genNameM name =
          (name ++) . show <$> genNumM
 
 
-withNslevel :: Bool -> RenamerM a -> RenamerM a
-withNslevel l m =
-    do l' <- nslevel <$> get
-       modify $ \state -> state { nslevel = l }
-       val <- m
-       modify $ \state -> state { nslevel = l' }
-       return val
+genTypeIdM :: RenamerM Int
+genTypeIdM =
+    do count <- typeCount <$> get
+       modify $ \s -> s { typeCount = count + 1 }
+       return count
 
 
-withNamespace :: [String] -> RenamerM a -> RenamerM a
-withNamespace ns m =
-    do ns' <- currentNamespace <$> get
-       let qual | null ns' = intercalate "." ns
-                | otherwise = ns' ++ "." ++ intercalate "." ns
-       modify $ \state -> state { currentNamespace = qual }
-       val <- m
-       modify $ \state -> state { currentNamespace = ns' }
-       return val
+
+getModuleFrame :: FrameTree -> Frame -> [String] -> Maybe Frame
+getModuleFrame tree currentFrame longName =
+    loop (FrameTree.getLexicalSymbol tree) currentFrame longName
+    where loop _ frame [] = Just frame
+          loop fn frame (name:longName) =
+            case fn frame name of
+              Nothing -> Nothing
+              Just (ModuleSymbol fid) -> let Just frame = FrameTree.getFrame tree fid in
+                                         loop FrameTree.getFrameSymbol frame longName
+              _ -> Nothing
 
 
-getUnprefixedSymbol
+getModuleSymbol :: FrameTree -> Frame -> [String] -> String -> Maybe Symbol
+getModuleSymbol tree currentFrame prefix name =
+    do frame <- getModuleFrame tree currentFrame prefix
+       FrameTree.getFrameSymbol frame name
+
+
+lookupLocalSymbol :: FrameTree -> Frame -> String -> Maybe Symbol
+lookupLocalSymbol tree currentFrame name =
+    case split '.' name of
+      [name] -> FrameTree.getLexicalSymbol tree currentFrame name
+      names -> getModuleSymbol tree currentFrame (init names) (last names)
+
+
+lookupUseSymbol :: FileSystem -> [String] -> Map String String -> String -> [Symbol]
+lookupUseSymbol fs unprefixedUses prefixedUses name =
+    let
+        unprefixedSyms = map (SrcFile.symbols . FileSystem.get fs) unprefixedUses
+        prefixedSyms = map (\(name, prefix) -> Map.mapKeys ((prefix ++ ".") ++) $ SrcFile.symbols $ FileSystem.get fs name) (Map.toList prefixedUses)
+    in
+      catMaybes [ Map.lookup name syms | syms <- unprefixedSyms ++ prefixedSyms ]
+
+
+lookupSymbol
     :: FileSystem
-    -> FrameEnv
-    -> [String]
+    -> FrameTree
     -> Frame
-    -> String
-    -> Either String Symbol
-getUnprefixedSymbol fs frameEnv unprefixedUses currentFrame name =
-    case getLocalSymbol frameEnv currentFrame of
-      Just sym -> Right sym
-      Nothing -> getNamespaceSymbol fs unprefixedUses
-    where getLocalSymbol frameEnv currentFrame =
-              FrameEnv.getLexicalSymbol frameEnv currentFrame name
-
-          getNamespaceSymbol fs unprefixedUses =
-              let
-                  srcfiles = map (FileSystem.get fs) unprefixedUses
-                  symss = map SrcFile.symbols srcfiles
-                  syms = catMaybes [ Map.lookup name syms | syms <- symss ]
-              in
-                case syms of
-                  [] -> Left $ "name " ++ show name ++ " is not defined"
-                  [sym] -> Right sym
-                  _ -> Left $ "name " ++ show name ++ " is multiply defined"
-
-
-getPrefixedSymbol
-    :: FileSystem
-    -> FrameEnv
-    -> Map String String
     -> [String]
+    -> Map String String
     -> String
     -> Either String Symbol
-getPrefixedSymbol fs frameEnv prefixedUses prefix name =
-    case getModuleSymbol frameEnv of
-      Just sym -> Right sym
-      Nothing -> case getPrefixModule prefixedUses of
-                   Left str -> Left str
-                   Right prefix' -> getNamespaceSymbol fs prefix'
-    where getModuleSymbol env =
-              do fr <- FrameEnv.getModuleFrame env prefix
-                 FrameEnv.getFrameSymbol env fr name
-
-          getPrefixModule prefixedUses =
-              case Map.lookup (intercalate "." prefix) prefixedUses of
-                Nothing -> Left $ "namespace or module " ++ show (intercalate "." prefix) ++ " is not defined"
-                Just x -> Right x
-
-          getNamespaceSymbol fs prefix' =
-              do let syms = SrcFile.symbols (FileSystem.get fs prefix')
-                 case Map.lookup name syms of
-                   Nothing -> Left $ "name " ++ show (intercalate "." prefix ++ "." ++ name) ++ " is not defined"
-                   Just x -> Right x
+lookupSymbol fs tree currentFrame unprefixedUses prefixedUses name =
+    case lookupLocalSymbol tree currentFrame name of
+      Just x -> Right x
+      Nothing -> case lookupUseSymbol fs unprefixedUses prefixedUses name of
+                   [] -> Left $ "name " ++ show name ++ " is not defined"
+                   [sym] -> Right sym
+                   _ -> Left $ "name " ++ show name ++ " is multiply defined"
 
 
 lookupSymbolM :: String -> RenamerM (Either String Symbol)
 lookupSymbolM name =
-    do let names = split '.' name
-       fs <- fs <$> get
-       frameEnv <- frameEnv <$> get
+    do fs <- fs <$> get
+       tree <- frameTree <$> get
        currentFrame <- getCurrentFrameM
-       if null (tail names)
-       then do
-         unprefixedUses <- unprefixedUses <$> get
-         return $ getUnprefixedSymbol fs frameEnv unprefixedUses currentFrame (head names)
-       else do
-         prefixedUses <- prefixedUses <$> get
-         return $ getPrefixedSymbol fs frameEnv prefixedUses (init names) (last names)
+       unprefixedUses <- unprefixedUses <$> get
+       prefixedUses <- prefixedUses <$> get
+       return $ lookupSymbol fs tree currentFrame unprefixedUses prefixedUses name
 
 
 getSymbolM :: String -> RenamerM Symbol
@@ -175,6 +161,14 @@ getSymbolM name =
          Right t -> return t
 
 
+getCotypeSymbolM :: String -> RenamerM (String, Int, [Observation])
+getCotypeSymbolM name =
+    do sym <- getSymbolM name
+       case sym of
+         CotypeSymbol ns tid obs -> return (ns, tid, obs)
+         _ -> throwError $ "name " ++ show name ++ " is not a coindunctive type"
+
+
 getFnSymbolM :: String -> RenamerM String
 getFnSymbolM name =
     do sym <- getSymbolM name
@@ -183,12 +177,12 @@ getFnSymbolM name =
          _ -> throwError $ "name " ++ show name ++ " is not a function"
 
 
-getTypeSymbolM :: String -> RenamerM String
+getTypeSymbolM :: String -> RenamerM Int
 getTypeSymbolM name =
     do sym <- getSymbolM name
        case sym of
-         TypeSymbol name -> return name
-         _ -> throwError $ "name " ++ show name ++ " is not a type"
+         TypeSymbol tid -> return tid
+         _ -> throwError $ "name " ++ show name ++ " is not an inductive type"
 
 
 addSymbolM :: String -> Symbol -> RenamerM ()
@@ -197,46 +191,88 @@ addSymbolM name sym = checkShadowing name >> addSymbol name sym
               do msym <- lookupSymbolM name
                  case msym of
                    Left _ -> return ()
-                   Right _ -> throwError $ "name " ++ show name ++ " has already been defined"
+                   Right _ -> throwError $ "name " ++ show name ++ " is already defined"
 
           addSymbol name sym =
-              do frameEnv <- frameEnv <$> get
+              do tree <- frameTree <$> get
                  currentFrame <- getCurrentFrameM
-                 let frameEnv' = FrameEnv.addSymbol frameEnv currentFrame name sym
-                 modify $ \state -> state { frameEnv = frameEnv' }
+                 let tree' = FrameTree.addSymbol tree currentFrame name sym
+                 modify $ \s -> s { frameTree = tree' }
+
+
+addCotypeSymbolM :: String -> String -> Int -> [Observation] -> RenamerM ()
+addCotypeSymbolM name ns tid obs = addSymbolM name (CotypeSymbol ns tid obs)
 
 
 addFnSymbolM :: String -> String -> RenamerM ()
-addFnSymbolM name rename = addSymbolM name (FnSymbol rename)
+addFnSymbolM name = addSymbolM name . FnSymbol
 
 
-addTypeSymbolM :: String -> String -> RenamerM ()
-addTypeSymbolM name rename = addSymbolM name (TypeSymbol rename)
+addModuleSymbolM :: String -> Int -> RenamerM ()
+addModuleSymbolM name = addSymbolM name . ModuleSymbol
+
+
+addTypeSymbolM :: String -> Int -> RenamerM ()
+addTypeSymbolM name = addSymbolM name . TypeSymbol
 
 
 withScopeM :: RenamerM a -> RenamerM a
 withScopeM m =
-    do frameEnv <- frameEnv <$> get
-       currentFrame <- getCurrentFrameM
-       let (frameEnv', frame') = FrameEnv.addFrame frameEnv currentFrame
-       modify $ \state -> state { frameEnv = frameEnv'
-                                , currentFrame = Frame.frameId frame' }
+    do tree <- frameTree <$> get
+       frame <- getCurrentFrameM
+       let (tree', frame') = FrameTree.addFrame tree frame
+       modify $ \s -> s { frameTree = tree', currentFrame = Frame.fid frame' }
        val <- m
-       modify $ \state -> state { currentFrame = Frame.frameId currentFrame }
+       modify $ \s -> s { currentFrame = Frame.fid frame }
        return val
 
 
 withPrefixedScopeM :: [String] -> RenamerM a -> RenamerM a
-withPrefixedScopeM prefix m =
-    do (val, frame) <- withScopeM $ do
-                         val <- withNamespace prefix m
-                         frame <- getCurrentFrameM
-                         return (val, frame)
-       frameEnv <- frameEnv <$> get
-       let frameEnv' = FrameEnv.addModuleFrame frameEnv prefix frame
-       modify $ \state -> state { frameEnv = frameEnv' }
+withPrefixedScopeM longName m =
+    addLongModuleSymbolM longName
+    where addLongModuleSymbolM [] = withNamespace longName m
+          addLongModuleSymbolM (name:longName) =
+              do (val, frame) <- withScopeM $ do
+                                   frame <- getCurrentFrameM
+                                   val <- addLongModuleSymbolM longName
+                                   return (val, frame)
+                 addModuleSymbolM name (Frame.fid frame)
+                 return val
+
+
+withNamespace :: [String] -> RenamerM a -> RenamerM a
+withNamespace ns m =
+    do ns' <- currentNamespace <$> get
+       let longName | null ns' = intercalate "." ns
+                    | otherwise = ns' ++ "." ++ intercalate "." ns
+       modify $ \s -> s { currentNamespace = longName }
+       val <- m
+       modify $ \s -> s { currentNamespace = ns' }
        return val
 
+
+withNslevel :: Bool -> RenamerM a -> RenamerM a
+withNslevel l m =
+    do l' <- nslevel <$> get
+       modify $ \s -> s { nslevel = l }
+       val <- m
+       modify $ \s -> s { nslevel = l' }
+       return val
+
+
+withUsesM :: [String] -> Map String String -> RenamerM a -> RenamerM a
+withUsesM unprefixed prefixed m =
+    do unprefixed' <- unprefixedUses <$> get
+       prefixed' <- prefixedUses <$> get
+       modify $ \s -> s { unprefixedUses = unprefixedUses s ++ unprefixed
+                        , prefixedUses = prefixedUses s `Map.union` prefixed }
+       val <- m
+       modify $ \s -> s { unprefixedUses = unprefixed'
+                        , prefixedUses = prefixed' }
+       return val
+
+
+-- lambda macros
 
 mkPatDefns :: Stx a -> [(String, [Stx a])] -> [Stx a]
 mkPatDefns val = map (mkDefn `uncurry`)
@@ -293,24 +329,44 @@ renameUnannotatedLambdaM arg = renameLambdaM arg Nothing
 
 
 renameAnnotatedLambdaM :: String -> String -> Stx String -> RenamerM (Stx String)
-renameAnnotatedLambdaM arg ann body =
-    do argT <- getTypeSymbolM ann
-       renameLambdaM arg (Just argT) body
+renameAnnotatedLambdaM arg ann body = undefined
+-- edit: remove undefined
+-- renameAnnotatedLambdaM arg ann body =
+--     do argT <- getTypeSymbolM ann
+--        renameLambdaM arg (Just argT) body
+
+
+-- /lambda macros
+
+
+-- cotype macros
+
+cotypeObservation :: Int -> Observation -> Int -> Stx String
+cotypeObservation tid (name, obT) i =
+    let
+        t = ArrowT DynT obT
+        isStx = appStx "is#" (IntStx tid)
+        argPat = namePat "arg" (mkPredPat isStx)
+        condBody = foldAppStx (IdStx "arg") [appStx "index" (IntStx i), IdStx "un#"]
+        body = CondMacro [([argPat], condBody)] name
+    in
+      DefnStx (Just t) NrDef name body
+
+
+cotypeObservations :: Int -> [Observation] -> [Stx String]
+cotypeObservations tid obs = zipWith (cotypeObservation tid) obs [0..]
+
+-- /cotype macros
 
 
 renameNamespaceM :: Namespace String -> RenamerM (Namespace String)
 renameNamespaceM (Namespace uses stxs) =
     do let (unprefixed, prefixed) = partition (null . snd) uses
-
        checkUniqueImports unprefixed prefixed
        checkUniqueQualifiers prefixed
-
-       modify $ \state -> state { unprefixedUses = map fst unprefixed
-                                , prefixedUses = Map.fromList (map swap prefixed) }
-
-       withNslevel True $ do
-         stxs' <- concat <$> mapM renameM stxs
-         return $ Namespace uses stxs'
+       withNslevel True $
+         withUsesM (map fst unprefixed) (Map.fromList (map swap prefixed)) $
+           Namespace uses . concat <$> mapM renameM stxs
 
     where checkUniqueImports unprefixed prefixed
               | length (nub $ sort unprefixed) /= length unprefixed =
@@ -327,22 +383,8 @@ renameNamespaceM (Namespace uses stxs) =
                   return ()
 
 
-renameModuleM :: Namespace String -> RenamerM (Namespace String)
-renameModuleM (Namespace uses stxs) =
-    do let (unprefixed, prefixed) = partition (null . snd) uses
-
-       -- edit: check that the new imports don't collide with the old ones
-       -- checkUniqueImports unprefixed prefixed
-       -- checkUniqueQualifiers prefixed
-
-       modify $ \state -> state { unprefixedUses = unprefixedUses state ++ map fst unprefixed
-                                , prefixedUses = prefixedUses state `Map.union` Map.fromList (map swap prefixed) }
-
-       withNslevel True $
-         Namespace uses . concat <$> mapM renameM stxs
-
-
-renameOneM stx = fromSingleton <$> renameM stx
+renameOneM :: Stx String -> RenamerM (Stx String)
+renameOneM stx = head <$> renameM stx
 
 
 renameM :: Stx String -> RenamerM [Stx String]
@@ -367,6 +409,12 @@ renameM (CondStx ms blame) =
                  stx2' <- renameOneM stx2
                  return (stx1', stx2')
 
+renameM (CotypeStx name obs) =
+    do srcfile <- srcfile <$> get
+       tid <- genTypeIdM
+       addCotypeSymbolM name (SrcFile.name srcfile) tid obs
+       concat <$> mapM renameM (cotypeObservations tid obs)
+
 renameM (DefnStx ann Def name body) =
     do let fvars = freeVars body
        if name `elem` fvars
@@ -376,7 +424,6 @@ renameM (DefnStx ann Def name body) =
          (:[]) . DefnStx ann Def name' <$>
            withNslevel False (renameOneM body)
        else
-           -- edit: do let !_ | trace ("renameM: " ++ show name ++ " is nrdef") True = True
            renameM (DefnStx ann NrDef name body)
 
 renameM (DefnStx ann NrDef name body) =
@@ -401,46 +448,55 @@ renameM (LambdaStx arg Nothing body) =
 renameM (LambdaStx arg (Just ann) body) =
     (:[]) <$> renameAnnotatedLambdaM arg ann body
 
+renameM (MergeStx name vals) =
+    do (ns, tid, obs) <- getCotypeSymbolM name
+       _ <- checkObservations (map fst obs) (map fst vals)
+       moduleId <- IdStx <$> getFnSymbolM (ns ++ ".moduleId")
+       stxs <- mapM (renameOneM . snd) vals
+       return $ (:[]) $ AppStx (AppStx (appStx "mk#" moduleId) (IntStx tid)) (SeqStx stxs)
+    where checkObservations obs vals
+              | obs == vals = return ()
+              | otherwise = throwError $ "coinductive type " ++ show name ++
+                                         " observations " ++ show obs ++
+                                         " and initialization " ++ show vals ++
+                                         " do not match"
+
 renameM stx@(ModuleStx [] ns) =
-    do Namespace _ stxs <- renameModuleM ns
+    do Namespace _ stxs <- renameNamespaceM ns
        return stxs
 
 renameM stx@(ModuleStx prefix ns) =
-    do Namespace _ stxs <- withPrefixedScopeM prefix (renameModuleM ns)
+    do Namespace _ stxs <- withPrefixedScopeM prefix (renameNamespaceM ns)
        return stxs
-
-renameM (CotypeStx name stxs) =
-    do name' <- show <$> genNumM
-       addTypeSymbolM name name'
-       mapM renameOneM stxs
-
-renameM (CotypeMkStx name) =
-    (:[]) . CotypeMkStx <$> getTypeSymbolM name
-
-renameM CotypeUnStx =
-    return [CotypeUnStx]
-
-renameM (CotypeIsStx name) =
-    (:[]) . CotypeIsStx <$> getTypeSymbolM name
 
 renameM (WhereStx stx stxs) =
     withScopeM $ do
       stxs' <- concat <$> mapM renameM stxs
-      stx' <- withScopeM $ renameOneM stx
+      stx' <- withScopeM (renameOneM stx)
       return [WhereStx stx' stxs']
 
 
-renameSrcFile :: FileSystem -> Namespace String -> Either String (Namespace String, Map String Symbol)
-renameSrcFile fs ns =
-  do (ns', state') <- runStateT (renameNamespaceM ns) (initialRenamerState fs)
-     let symbols = Frame.symbols $ FrameEnv.getRootFrame $ frameEnv state'
-     return (ns', symbols)
+extendNamespace :: String -> Namespace a -> Namespace a
+extendNamespace name (Namespace uses stxs) =
+    let
+        defn = DefnStx (Just IntT) NrDef "moduleId" (IntStx 0)
+        mdl = ModuleStx [name] (Namespace [] [defn])
+    in
+      Namespace uses (mdl:stxs)
+
+
+renameSrcFile :: FileSystem -> SrcFile -> Namespace String -> Either String (Namespace String, Map String Symbol)
+renameSrcFile fs srcfile ns =
+  do (ns', state') <- runStateT (renameNamespaceM (extendNamespace (SrcFile.name srcfile) ns)) (initialRenamerState fs srcfile)
+     return (ns', FrameTree.getSymbols (frameTree state'))
 
 
 rename :: FileSystem -> SrcFile -> Either String SrcFile
 rename _ srcfile@SrcFile { t = CoreT } =
-    return srcfile
+    do let moduleIdName = SrcFile.name srcfile ++ ".moduleId"
+           syms = Map.fromList [(moduleIdName, FnSymbol moduleIdName)]
+       return $ SrcFile.addDefinitionSymbols srcfile syms
 
 rename fs srcfile@SrcFile { srcNs = Just ns } =
-    do (ns', syms) <- renameSrcFile fs ns
+    do (ns', syms) <- renameSrcFile fs srcfile ns
        return (SrcFile.addDefinitionSymbols srcfile syms) { renNs = Just ns' }
