@@ -65,3 +65,18 @@ of arguments.
 
 
 Standardize identifier names: qualified vs string
+
+
+Commands 'showRenamedM' and 'showModuleM' need refactoring.
+
+
+Rethink shadowing. Is this shadowing ?
+
+def f = ...
+
+module Ola where {
+  def f = ...
+}
+
+
+Names in CondMacro (I believe) are being renamed twice.
