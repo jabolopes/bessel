@@ -25,9 +25,6 @@ import Data.Type
 import Utils (split)
 
 
-import Debug.Trace
-
-
 data RenamerState =
     RenamerState { fs :: FileSystem
                  , srcfile :: SrcFile
@@ -176,7 +173,6 @@ addSymbolM name sym = checkShadowing name >> addSymbol name sym
     where checkShadowing name =
               do msym <- lookupSymbolM name
                  case msym of
-                   _ | trace ("addSymbolM: " ++ show msym) False -> undefined
                    Left _ -> return ()
                    Right sym' | Symbol.isModuleSymbol sym && Symbol.isCotypeSymbol sym' -> return ()
                    Right sym' | Symbol.isModuleSymbol sym && Symbol.isTypeSymbol sym' -> return ()
