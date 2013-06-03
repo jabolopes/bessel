@@ -91,7 +91,6 @@ genTypeIdM =
        return count
 
 
-
 getModuleFrame :: FrameTree -> Frame -> [String] -> Maybe Frame
 getModuleFrame tree currentFrame longName =
     loop (FrameTree.getLexicalSymbol tree) currentFrame longName
