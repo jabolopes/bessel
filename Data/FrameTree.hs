@@ -83,7 +83,7 @@ getLexicalSymbol tree frame name =
 
 -- | 'getFrameSymbol' @frame name@ returns the 'Symbol' bound by
 -- @name@ by performing a search only in @frame@.  Contrary to
--- 'getLexicalSymbol', no lexically scoped searched is performed.
+-- 'getLexicalSymbol', no lexically scoped search is performed.
 getFrameSymbol :: Frame -> String -> Maybe Symbol
 getFrameSymbol frame name = Map.lookup name (Frame.symbols frame)
 
