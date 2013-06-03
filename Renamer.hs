@@ -19,9 +19,13 @@ import Data.SrcFile (SrcFileT (..), SrcFile(..))
 import qualified Data.SrcFile as SrcFile (name, symbols, addDefinitionSymbols)
 import Data.Stx
 import Data.Symbol (Symbol (..))
+import qualified Data.Symbol as Symbol
 import Data.Tuple (swap)
 import Data.Type
 import Utils (split)
+
+
+import Debug.Trace
 
 
 data RenamerState =
@@ -91,29 +95,12 @@ genTypeIdM =
        return count
 
 
-getModuleFrame :: FrameTree -> Frame -> [String] -> Maybe Frame
-getModuleFrame tree currentFrame longName =
-    loop (FrameTree.getLexicalSymbol tree) currentFrame longName
-    where loop _ frame [] = Just frame
-          loop fn frame (name:longName) =
-            case fn frame name of
-              Nothing -> Nothing
-              Just (ModuleSymbol fid) -> let Just frame = FrameTree.getFrame tree fid in
-                                         loop FrameTree.getFrameSymbol frame longName
-              _ -> Nothing
-
-
-getModuleSymbol :: FrameTree -> Frame -> [String] -> String -> Maybe Symbol
-getModuleSymbol tree currentFrame prefix name =
-    do frame <- getModuleFrame tree currentFrame prefix
-       FrameTree.getFrameSymbol frame name
-
-
 lookupLocalSymbol :: FrameTree -> Frame -> String -> Maybe Symbol
 lookupLocalSymbol tree currentFrame name =
     case split '.' name of
       [name] -> FrameTree.getLexicalSymbol tree currentFrame name
-      names -> getModuleSymbol tree currentFrame (init names) (last names)
+      names -> do frame <- FrameTree.getModuleFrame tree currentFrame (init names)
+                  FrameTree.getFrameSymbol frame (last names)
 
 
 lookupUseSymbol :: FileSystem -> [String] -> Map String String -> String -> [Symbol]
@@ -189,7 +176,12 @@ addSymbolM name sym = checkShadowing name >> addSymbol name sym
     where checkShadowing name =
               do msym <- lookupSymbolM name
                  case msym of
+                   _ | trace ("addSymbolM: " ++ show msym) False -> undefined
                    Left _ -> return ()
+                   Right sym' | Symbol.isModuleSymbol sym && Symbol.isCotypeSymbol sym' -> return ()
+                   Right sym' | Symbol.isModuleSymbol sym && Symbol.isTypeSymbol sym' -> return ()
+                   Right sym' | Symbol.isCotypeSymbol sym && Symbol.isModuleSymbol sym' -> return ()
+                   Right sym' | Symbol.isTypeSymbol sym && Symbol.isModuleSymbol sym' -> return ()
                    Right _ -> throwError $ "name " ++ show name ++ " is already defined"
 
           addSymbol name sym =

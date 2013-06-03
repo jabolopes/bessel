@@ -9,3 +9,18 @@ data Symbol
     | ModuleSymbol Int
     | TypeSymbol Int
       deriving (Show)
+
+
+isCotypeSymbol :: Symbol -> Bool
+isCotypeSymbol CotypeSymbol {} = True
+isCotypeSymbol _ = False
+
+
+isModuleSymbol :: Symbol -> Bool
+isModuleSymbol (ModuleSymbol _) = True
+isModuleSymbol _ = False
+
+
+isTypeSymbol :: Symbol -> Bool
+isTypeSymbol (TypeSymbol _) = True
+isTypeSymbol _ = False

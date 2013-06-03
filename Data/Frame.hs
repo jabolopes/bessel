@@ -16,7 +16,8 @@ data Frame =
           , parentId :: Int
             -- | 'symbols' maps bound names to symbols within this
             -- frame.
-          , symbols :: Map String Symbol }
+          , symbols :: Map String Symbol
+          , moduleSymbols :: Map String Symbol }
 
 
 -- | 'empty' @fid parentId@ returns a frame with the given @fid@ and
@@ -25,4 +26,5 @@ empty :: Int -> Int -> Frame
 empty fid parentId =
     Frame { fid = fid
           , parentId = parentId
-          , symbols = Map.empty }
+          , symbols = Map.empty
+          , moduleSymbols = Map.empty }
