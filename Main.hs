@@ -8,6 +8,7 @@ import System.Environment
 import Config
 -- import qualified Core.Environment (link)
 -- import qualified Core.IO (link)
+import qualified Core.Math (link)
 import qualified Core.Shell (link)
 -- import qualified Core.Happstack (link)
 import Data.Exception
@@ -21,7 +22,8 @@ import Repl hiding (initialFs)
 links :: [[Int] -> (SrcFile, [Int])]
 links = [
     -- Core.Environment.link,
-    --  Core.IO.link,
+    --  Core.IO.link
+    Core.Math.link,
     Core.Shell.link]
     --  Core.Happstack.link
 
