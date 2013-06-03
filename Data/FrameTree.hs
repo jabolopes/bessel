@@ -16,13 +16,7 @@ data FrameTree =
                 -- | 'frameCount' is a counter for 'Frame' ids.
               , frameCount :: Int
                 -- | 'rootId' is the 'Frame' id of the root 'Frame'.
-              , rootId :: Int
-                -- | 'moduleFrames' maps module names into their
-                -- respective 'Frame's.  Module names can be
-                -- qualified, for example, 'Hello.World'.  However,
-                -- they are flattened and kept only at the root of the
-                -- tree.
-              , moduleFrames :: Map String Frame }
+              , rootId :: Int }
 
 
 -- | 'empty' returns a 'FrameTree' containing only the root 'Frame'.
@@ -31,8 +25,7 @@ empty =
     let fid = 0 in
     FrameTree { frames = Map.fromList [(fid, Frame.empty fid fid)]
              , frameCount = fid + 1
-             , rootId = fid
-             , moduleFrames = Map.empty }
+             , rootId = fid }
 
 
 -- | 'getFrame' @tree fid@ returns the 'Frame' with id 'fid'.
