@@ -173,7 +173,8 @@ FnDefn:
   | def Name '=' Expr                { (Def, $2, $4) }
 
 Cotype:
-    cotype typeId '=' CotypeObservations { CotypeStx $2 (sortWith fst $4) }
+    cotype typeId '=' CotypeObservations                         { CotypeStx $2 (sortWith fst $4) (Namespace [] []) }
+  | cotype typeId '=' CotypeObservations where '{' Namespace '}' { CotypeStx $2 (sortWith fst $4) $7 }
 
 CotypeObservations:
     CotypeObservations '|' id ':' Type { $1 ++ [($3, $5)] }

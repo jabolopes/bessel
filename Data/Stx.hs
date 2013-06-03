@@ -76,7 +76,7 @@ data Stx a
     | CondStx [(Stx a, Stx a)] String
 
     -- info: observations (2nd argument) are sorted in Parser
-    | CotypeStx String [Observation]
+    | CotypeStx String [Observation] (Namespace a)
 
     | DefnStx (Maybe Type) DefnKw String (Stx a)
 

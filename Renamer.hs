@@ -400,13 +400,13 @@ renameM (CondStx ms blame) =
                  stx2' <- renameOneM stx2
                  return (stx1', stx2')
 
-renameM (CotypeStx name obs) =
+renameM (CotypeStx name obs ns) =
     do srcfile <- srcfile <$> get
        tid <- genTypeIdM
        addCotypeSymbolM name (SrcFile.name srcfile) tid obs
-       renameM (cotypeObservationsModule name tid obs)
-    where cotypeObservationsModule name tid obs =
-              ModuleStx [name] (Namespace [] (cotypeObservations tid obs))
+       renameM (cotypeObservationsModule name tid obs ns)
+    where cotypeObservationsModule name tid obs (Namespace uses stxs) =
+              ModuleStx [name] (Namespace uses (cotypeObservations tid obs ++ stxs))
 
 renameM (DefnStx ann Def name body) =
     do let fvars = freeVars body

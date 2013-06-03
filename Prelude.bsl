@@ -202,7 +202,9 @@ def reverse @[] = []
 --         | ( @ +> xs@) n@ = index xs (n - 1)
 
 
-cotype Point = x : Int | y : Int
+cotype Point = x : Int | y : Int where {
+  def f = 0
+}
 
 def p1 = Point {x = 0, y = 1}
 def p2 = Point {x = 0, y = Point {x = 1, y = 2}}
