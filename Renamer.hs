@@ -404,7 +404,9 @@ renameM (CotypeStx name obs) =
     do srcfile <- srcfile <$> get
        tid <- genTypeIdM
        addCotypeSymbolM name (SrcFile.name srcfile) tid obs
-       concat <$> mapM renameM (cotypeObservations tid obs)
+       renameM (cotypeObservationsModule name tid obs)
+    where cotypeObservationsModule name tid obs =
+              ModuleStx [name] (Namespace [] (cotypeObservations tid obs))
 
 renameM (DefnStx ann Def name body) =
     do let fvars = freeVars body
