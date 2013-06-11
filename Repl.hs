@@ -33,6 +33,7 @@ import Parser
 import Printer.PrettyStx
 -- edit: remove this hiding
 import Renamer hiding (fs)
+import Reorderer (reorder)
 import Typechecker
 import Utils
 
@@ -115,8 +116,8 @@ stageFiles srcfiles =
           updateFs fs !srcfile =
               (FileSystem.add fs srcfile, srcfile)
 
-          renameFile fs srcfile =
-              updateFs fs $ renamerEither $ rename fs srcfile
+          reorderFile fs = updateFs fs . reorder
+          renameFile fs = updateFs fs . renamerEither . rename fs
 
           typecheckFile fs srcfile =
               updateFs fs <$> typecheckerEither (typecheck fs srcfile)
@@ -136,7 +137,10 @@ stageFiles srcfiles =
               do putHeader i
                  putStr $ SrcFile.name srcs ++ ": "
 
-                 let (renfs, rens) = renameFile fs srcs
+                 let (reordfs, reords) = reorderFile fs srcs
+                 putStr "reordered, "
+
+                 let (renfs, rens) = renameFile reordfs reords
                  putStr "renamed, "
 
                  (typfs, typs) <- typecheckFile renfs rens

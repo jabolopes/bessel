@@ -101,6 +101,10 @@ isAppStx (AppStx _ _) = True
 isAppStx _ = False
 
 
+isDefnStx DefnStx {} = True
+isDefnStx _ = False
+
+
 isLambdaStx :: Stx a -> Bool
 isLambdaStx (LambdaStx _ _ _) = True
 isLambdaStx _ = False

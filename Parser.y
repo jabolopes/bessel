@@ -120,8 +120,8 @@ SrcFile:
     me LongTypeId Namespace { mkParsedSrcFile (flattenId $2) $3 }
 
 Namespace:
-    UseList DefnList {% mapM_ (addDependencyM . fst) $1 >> return (Namespace $1 $2) }
-  | DefnList         { Namespace [] $1 }
+    UseList DefnOrModuleList {% mapM_ (addDependencyM . fst) $1 >> return (Namespace $1 $2) }
+  | DefnOrModuleList         { Namespace [] $1 }
 
 UseList:
     UseList use LongTypeId as LongTypeId { $1 ++ [(flattenId $3, flattenId $5)] }
@@ -129,11 +129,11 @@ UseList:
   | use LongTypeId as LongTypeId         { [(flattenId $2, flattenId $4)] }
   | use LongTypeId                       { [(flattenId $2, "")] }
 
-DefnList:
-    DefnList Module { $1 ++ [$2] }
-  | DefnList Defn   { $1 ++ [$2] }
-  | Module          { [$1] }
-  | Defn            { [$1] }
+DefnOrModuleList:
+    DefnOrModuleList Module { $1 ++ [$2] }
+  | DefnOrModuleList Defn   { $1 ++ [$2] }
+  | Module                  { [$1] }
+  | Defn                    { [$1] }
 
 Module:
     module            where '{' Namespace '}' { ModuleStx [] $4 }
@@ -216,10 +216,14 @@ Expr:
 
   | Expr quotedId Expr { binOpStx $2 $1 $3 }
 
+  | Expr where '{' DefnList '}' { WhereStx $1 $4 }
+
   | Lambda          { $1 }
   | Merge           { $1 }
 
-  | Expr where '{' DefnList '}' { WhereStx $1 $4 }
+DefnList:
+    DefnList Defn   { $1 ++ [$2] }
+  | Defn            { [$1] }
 
 Lambda:
     TypePatList LambdaMatches { LambdaMacro $1 (CondMacro $2 "lambda") }
