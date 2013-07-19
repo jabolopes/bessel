@@ -9,7 +9,7 @@ import Data.Functor ((<$>))
 import Data.List (intercalate, isPrefixOf, nub)
 import Data.Map (Map)
 import qualified Data.Map as Map (elems, null, union)
-import System.Console.GetOpt
+import System.Console.GetOpt (OptDescr(..), ArgDescr(..), ArgOrder(..), getOpt)
 import System.Console.Readline
 import System.IO.Error
 
