@@ -9,6 +9,7 @@ import Data.Typeable
 
 data UserException
     = LoaderException String
+    | ExpanderException String
     | RenamerException String
     | InterpreterException String
     | LexerException String
@@ -22,6 +23,10 @@ instance Exception UserException
 
 throwLoaderException :: String -> a
 throwLoaderException = throw . LoaderException
+
+
+throwExpanderException :: String -> a
+throwExpanderException = throw . ExpanderException
 
 
 throwRenamerException :: String -> a

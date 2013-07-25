@@ -1,3 +1,6 @@
+Expander should run before Reorderer because a definition that expands
+can produce more than one definition.
+
 Base types should be looked up in the environment instead of being
 hardcoded in the parser.
 
@@ -83,3 +86,6 @@ Names in CondMacro (I believe) are being renamed twice.
 
 
 Clean Core modules and the link stuff.
+
+
+Rename 'flattenId' to 'joinId'.

@@ -5,7 +5,7 @@ module Parser where
 import Prelude hiding (lex)
 
 import Control.Monad.State
-import Data.List (intercalate, nub, sort)
+import Data.List (intercalate, nub, partition, sort)
 
 import GHC.Exts (sortWith)
 
@@ -21,9 +21,33 @@ import Lexer
 import Monad.ParserM
 import qualified Monad.ParserM as ParserM
 import Utils
+
+
+checkUniqueImports :: [String] -> [(String, String)] -> ParserM ()
+checkUniqueImports unprefixed prefixed
+  | length (nub $ sort unprefixed) /= length unprefixed =
+      failM "duplicated 'use' forms"
+  | length (nub $ sort $ map fst prefixed) /= length (map fst prefixed) =
+      failM "duplicated 'use' forms"
+  | otherwise =
+      return ()
+
+
+checkUniqueQualifiers :: [(String, String)] -> ParserM ()
+checkUniqueQualifiers prefixed
+  | length (nub $ sort $ map snd prefixed) /= length (map snd prefixed) =
+      failM "duplicated qualifiers in 'use' forms"
+  | otherwise =
+      return ()
+
+
+checkUseList :: [(String, String)] -> ParserM ()
+checkUseList uses =
+  do let (unprefixed, prefixed) = partition (null . snd) uses
+     checkUniqueImports (map fst unprefixed) prefixed
+     checkUniqueQualifiers prefixed
 }
 
--- %monad { ParserM } { thenM } { returnM }
 %monad { ParserM }
 %lexer { nextToken } { TokenEOF }
 
@@ -120,7 +144,9 @@ SrcFile:
     me LongTypeId Namespace { mkParsedSrcFile (flattenId $2) $3 }
 
 Namespace:
-    UseList DefnOrModuleList {% mapM_ (addDependencyM . fst) $1 >> return (Namespace $1 $2) }
+    UseList DefnOrModuleList {% checkUseList $1 >>
+                                mapM_ (addDependencyM . fst) $1 >>
+                                return (Namespace $1 $2) }
   | DefnOrModuleList         { Namespace [] $1 }
 
 UseList:

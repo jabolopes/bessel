@@ -2,10 +2,10 @@
 module Data.SrcFile where
 
 import Data.Map (Map)
-import qualified Data.Map as Map ((!), empty, fromList, insert, lookup, mapMaybe, toList)
+import qualified Data.Map as Map ((!), empty, fromList, insert, lookup, mapKeys, mapMaybe, union, toList)
 
 import Data.Definition (Definition (symbol, typ, expr))
-import qualified Data.Definition as Definition (initial, expr, typ, symbol)
+import qualified Data.Definition as Definition (name, initial, expr, typ, symbol)
 import Data.Stx (Namespace (..), Stx)
 import Data.Symbol (Symbol (..))
 import Data.Type (Type)
@@ -22,9 +22,8 @@ data SrcFile
               , name :: String
               , deps :: [String]
               , srcNs :: Maybe (Namespace String)
-              , renNs :: Maybe (Namespace String)
-              , lnkNs :: Maybe (Namespace String)
-              , defs :: Map String Definition }
+              , defs :: Map String Definition
+              , defOrd :: [String] }
 
 
 initial :: SrcFileT -> String -> [String] -> SrcFile
@@ -33,9 +32,16 @@ initial t name deps =
             , name = name
             , deps = deps
             , srcNs = Nothing
-            , renNs = Nothing
-            , lnkNs = Nothing
-            , defs = Map.empty }
+            , defs = Map.empty
+            , defOrd = [] }
+
+
+defsAsc :: SrcFile -> [Definition]
+defsAsc srcfile = map def (defOrd srcfile)
+    where def name =
+              case Map.lookup name (defs srcfile) of
+                Nothing -> error $ "defsAsc: definition " ++ show name ++ " is not defined"
+                Just x -> x
 
 
 symbols :: SrcFile -> Map String Symbol
@@ -43,11 +49,13 @@ symbols = Map.mapMaybe Definition.symbol . defs
 
 
 types :: SrcFile -> Map String Type
-types = Map.mapMaybe Definition.typ . defs
+types srcfile =
+    Map.mapKeys ((name srcfile ++ ".") ++) $ Map.mapMaybe Definition.typ $ defs srcfile
 
 
 exprs :: SrcFile -> Map String Expr
-exprs = Map.mapMaybe Definition.expr . defs
+exprs srcfile =
+    Map.mapKeys ((name srcfile ++ ".") ++) $ Map.mapMaybe Definition.expr $ defs srcfile
 
 
 type TypeDesc = [(String, Type)]
@@ -55,14 +63,17 @@ type FnDesc = [(String, Type, Expr)]
 
 
 mkCoreSrcFile :: String -> [String] -> TypeDesc -> FnDesc -> SrcFile
-mkCoreSrcFile name deps typeDesc fnDesc =
-    (initial CoreT name deps) { defs = defs }
-    where defs =
+mkCoreSrcFile srcfileName deps typeDesc fnDesc =
+    addDefinitions (initial CoreT srcfileName deps) defs
+    where defName name = srcfileName ++ "." ++ name
+          fnSymbol = FnSymbol . defName
+          
+          defs =
             let
-                typs = [ (x, (Definition.initial x) { symbol = Just (TypeSymbol i), typ = Just y }) | (x, y) <- typeDesc | i <- [0..] ]
-                fns = [ (x, def) | (x, y, z) <- fnDesc, let def = (Definition.initial x) { symbol = Just (FnSymbol x), typ = Just y, expr = Just z } ]
+                typs = [ (Definition.initial (defName x)) { symbol = Just (TypeSymbol i), typ = Just y } | (x, y) <- typeDesc | i <- [0..] ]
+                fns = [ (Definition.initial (defName x)) { symbol = Just (fnSymbol x), typ = Just y, expr = Just z } | (x, y, z) <- fnDesc ]
             in
-              Map.fromList (typs ++ fns)
+              typs ++ fns
 
 
 interactiveName :: String
@@ -88,13 +99,35 @@ addImplicitDeps uses srcfile@SrcFile { srcNs = Just (Namespace uses' stxs) } =
     srcfile { srcNs = Just $ Namespace (uses ++ uses') stxs }
 
 
+addDefinitions :: SrcFile -> [Definition] -> SrcFile
+addDefinitions srcfile definitions =
+    srcfile { defs = defsMp `Map.union` defs srcfile
+            , defOrd = defOrd srcfile ++ map Definition.name definitions }
+    where defsMp =
+              Map.fromList [ (Definition.name def, def) | def <- definitions ]
+
+
+updateDefinitions :: SrcFile -> [Definition] -> SrcFile
+updateDefinitions srcfile definitions =
+    srcfile { defs = defsMp `Map.union` defs srcfile }
+    where defsMp =
+              Map.fromList [ (Definition.name def, def) | def <- definitions ]
+
+
 addDefinitionSymbols :: SrcFile -> Map String Symbol -> SrcFile
 addDefinitionSymbols srcfile syms =
     srcfile { defs = loop (defs srcfile) (Map.toList syms) }
     where loop defs [] = defs
           loop defs ((name, sym):syms) =
             let
-                def = (Definition.initial name) { symbol = Just sym }
+                def = case Map.lookup name defs of
+                        -- info: Renamer generates code, therefore,
+                        -- some definitions will not have been
+                        -- initialized through 'addDefinitions' by
+                        -- 'Reorder' when 'addDefinitionSymbols' is
+                        -- called by the 'Renamer'
+                        Nothing -> Definition.initial name
+                        Just def -> def { symbol = Just sym }
                 defs' = Map.insert name def defs
             in
               loop defs' syms
@@ -106,7 +139,9 @@ addDefinitionTypes srcfile ts =
     where loop defs [] = defs
           loop defs ((name, t):ts) =
               let
-                  def = (defs Map.! name) { typ = Just t }
+                  def = case Map.lookup name defs of
+                          Nothing -> error $ "SrcFile.addDefinitionTypes: definition " ++ show name ++ " is not defined"
+                          Just def -> def { typ = Just t }
                   defs' = Map.insert name def defs
               in
                 loop defs' ts
@@ -119,9 +154,13 @@ addDefinitionExprs srcfile exprs =
           loop defs ((name, expr):ts) =
               let
                   def = case Map.lookup name defs of
-                          Nothing -> error $ "addDefinitionExprs: definition " ++ show name ++ " is not defined"
-                          Just x -> x
-                  def' = def { expr = Just expr }
-                  defs' = Map.insert name def' defs
+                          Nothing -> error $ "SrcFile.addDefinitionExprs: definition " ++ show name ++ " is not defined"
+                          Just def -> def { expr = Just expr }
+                  defs' = Map.insert name def defs
               in
                 loop defs' ts
+
+
+setDefinitionOrder :: SrcFile -> [String] -> SrcFile
+setDefinitionOrder srcfile defOrd =
+    srcfile { defOrd = defOrd }

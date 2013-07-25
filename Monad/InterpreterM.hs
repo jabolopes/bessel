@@ -2,12 +2,12 @@ module Monad.InterpreterM where
 
 import Control.Monad.State
 import Data.Dynamic
+import Data.Functor ((<$>))
 import Data.List (intercalate)
 import Data.Maybe
 
 import Data.Env (Env)
 import qualified Data.Env as Env
-
 
 type ExprEnv = Env Expr
 

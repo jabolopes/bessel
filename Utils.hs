@@ -18,3 +18,13 @@ split c s =
       "" -> []
       s' -> w:split c s''
             where (w, s'') = break (== c) s'
+
+
+splitId :: String -> [String]
+splitId = split '.'
+
+
+rebaseName :: [a] -> [a] -> [a] -> [a]
+rebaseName prefix1 prefix2 name =
+    let name' = drop (length prefix2) name in
+    prefix1 ++ name'

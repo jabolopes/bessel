@@ -200,7 +200,7 @@ prettyPrintSrcFile SrcFile { t = CoreT, name } =
     runStateT (do putPrinter $ "me " ++ name
                   nlPrinter) initialPrinterState >> return ()
 
-prettyPrintSrcFile SrcFile { name, renNs = Just ns } =
+prettyPrintSrcFile SrcFile { name, srcNs = Just ns } =
     runStateT (printSrcFileM name ns) initialPrinterState >> return ()
     where printSrcFileM name ns =
               do putPrinter $ "me " ++ name

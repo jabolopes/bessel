@@ -9,19 +9,23 @@ import Data.Functor ((<$>))
 import Data.List (intercalate, isPrefixOf)
 import Data.Map (Map)
 import qualified Data.Map as Map
-import Data.Maybe (catMaybes)
+import Data.Maybe (catMaybes, fromJust)
 
 import Config
 import Data.Context
 import qualified Data.Context as Context
+import Data.Exception
 import Data.FileSystem (FileSystem)
 import qualified Data.FileSystem as FileSystem
 import Data.SrcFile
 import qualified Data.SrcFile as SrcFile
-import Data.Exception
+import Data.Symbol
 import Data.Type
 import Data.Stx
 import Printer.AbbrevStx
+
+import Data.Definition
+import qualified Data.Definition as Definition
 
 import Debug.Trace
 import System.IO.Unsafe
@@ -825,47 +829,27 @@ typecheckStxs ctx stxs = typecheck ctx stxs
                typecheck ctx' stxs
 
 
-typecheckNamespace :: FileSystem -> [String] -> Namespace String -> Either String (Type, Map String Type)
-typecheckNamespace fs deps (Namespace _ stxs) =
-    do let tss = map (SrcFile.types . (FileSystem.get fs)) deps
-           ctx = nothingSyms (foldr1 Map.union tss)
-       (t, ctx') <- typecheckStxs ctx stxs
-       
-       let !_ | trace ((("    " ++) . show) $ filter (\x -> "^" `isPrefixOf` fst x) $ reverse $ Context.syms ctx') True = True
+typecheckDefinitionM :: FileSystem -> Definition -> TypecheckerM Definition
+typecheckDefinitionM fs def@Definition { renStx = Just stx } =
+    do let defs = map (FileSystem.definition fs) (freeNames def)
+           typs = [ (sym, fromJust (Definition.typ def)) | def <- defs, let Just (FnSymbol sym) = Definition.symbol def ]
+       t <- fst <$> typecheckSubstitute (nothingSyms $ Map.fromList typs) stx
+       return def { typ = Just t }
 
-       return (t, Map.fromList (simpleSyms ctx'))
-       
 
-typecheckSrcFile :: FileSystem -> SrcFile -> Either String (Map String Type, Type)
-typecheckSrcFile fs srcfile@SrcFile { deps, renNs = Just ns }
-    | doTypecheck =
-        do (t, ts) <- typecheckNamespace fs deps ns
-           let names = Map.keys (SrcFile.symbols srcfile)
-               ts' = Map.fromList $ catMaybes [ case Map.lookup name ts of
-                                                  Nothing -> Nothing
-                                                  Just t -> Just (name, t) | name <- names ]
-           return (ts', t)
-    | otherwise =
-        do let ts = Map.map (const DynT) (SrcFile.symbols srcfile)
-           return (ts, DynT)
+typecheckDefinitionsM :: FileSystem -> SrcFile -> [Definition] -> TypecheckerM SrcFile
+typecheckDefinitionsM _ srcfile [] = return srcfile
+
+typecheckDefinitionsM fs srcfile (def:defs) =
+    do def' <- typecheckDefinitionM fs def
+       let srcfile' = SrcFile.updateDefinitions srcfile [def']
+           fs' = FileSystem.add fs srcfile'
+       typecheckDefinitionsM fs' srcfile' defs
 
 
 typecheck :: FileSystem -> SrcFile -> Either String SrcFile
 typecheck _ srcfile@SrcFile { t = CoreT } =
     return srcfile
 
-typecheck _ srcfile@SrcFile { t = SrcT, renNs = Just (Namespace _ []) } =
-    return srcfile
-
-typecheck fs srcfile@SrcFile { t = SrcT } =
-    do (ts, _) <- typecheckSrcFile fs srcfile
-       return $ SrcFile.addDefinitionTypes srcfile ts
-
-typecheck fs srcfile@SrcFile { t = InteractiveT } =
-    Left "Typechecker.typecheck: for interactive srcfiles use 'typecheckInteractive' instead of 'typecheck'"
-
-
-typecheckInteractive :: FileSystem -> SrcFile -> Either String (SrcFile, Type)
-typecheckInteractive fs srcfile =
-     do (ts, t) <- typecheckSrcFile fs srcfile
-        return (SrcFile.addDefinitionTypes srcfile ts, t)
+typecheck fs srcfile =
+    typecheckDefinitionsM fs srcfile (SrcFile.defsAsc srcfile)

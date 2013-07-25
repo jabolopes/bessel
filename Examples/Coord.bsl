@@ -51,8 +51,8 @@ cotype Coord = x : Real | y : Real | z : Real
 --    (λz (xyz-z c))))
 
 
-sig xyz : Real -> Real -> Real -> Dyn
-def xyz x@ y@ z@ = Coord {x = x, y = y, z = z}
+-- sig xyz : Real -> Real -> Real -> Dyn
+-- def xyz x@ y@ z@ = Coord {x = x, y = y, z = z}
 
 -- (define xy
 --   (case-lambda

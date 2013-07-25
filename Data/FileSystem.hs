@@ -4,8 +4,10 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe
 
+import Data.Definition (Definition)
 import Data.SrcFile (SrcFile)
 import qualified Data.SrcFile as SrcFile
+import Utils
 
 
 data FileSystem
@@ -38,7 +40,12 @@ add fs srcfile =
 
 
 get :: FileSystem -> String -> SrcFile
-get fs name = files fs Map.! (fileIds fs Map.! name)
+get fs name =
+    case Map.lookup name (fileIds fs) of
+      Nothing -> error $ "FileSystem.get: srcfile " ++ show name ++ " has no id in the filesystem"
+      Just srcfileId -> case Map.lookup srcfileId (files fs) of
+                          Nothing -> error $ "FileSystem.get: srcfile " ++ show name ++ " is not in the filesystem"
+                          Just srcfile -> srcfile
 
 
 toAscList :: FileSystem -> [SrcFile]
@@ -53,3 +60,15 @@ lookup fs name =
 
 member :: FileSystem -> String -> Bool
 member fs name = name `Map.member` fileIds fs
+
+
+definition :: FileSystem -> String -> Definition
+definition fs name =
+    let srcfileName:_ = splitId name in
+    SrcFile.defs (get fs srcfileName) Map.! name
+
+
+lookupDefinition :: FileSystem -> String -> Maybe Definition
+lookupDefinition fs name =
+    let srcfileName:_:_ = splitId name in
+    name `Map.lookup` SrcFile.defs (get fs srcfileName)

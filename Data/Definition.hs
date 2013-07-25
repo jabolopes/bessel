@@ -8,6 +8,9 @@ import Monad.InterpreterM (Expr)
 
 data Definition
      = Definition { name :: String
+                  , freeNames :: [String]
+                  , unprefixedUses :: [String]
+                  , prefixedUses :: [(String, String)]
                   , symbol :: Maybe Symbol
                   , typ :: Maybe Type
                   , expr :: Maybe Expr
@@ -20,6 +23,9 @@ data Definition
 initial :: String -> Definition
 initial name =
     Definition { name = name
+               , freeNames = []
+               , unprefixedUses = []
+               , prefixedUses = []
                , symbol = Nothing
                , typ = Nothing
                , expr = Nothing

@@ -15,15 +15,18 @@ import System.IO.Error
 
 import Config
 import qualified Data.Env as Env (getBinds)
+import Data.Definition (Definition(..))
+import qualified Data.Definition as Definition
 import Data.Exception
 import Data.FileSystem (FileSystem)
 import qualified Data.FileSystem as FileSystem
 import Data.Maybe
-import Data.SrcFile
+import Data.SrcFile (SrcFile(..))
 import qualified Data.SrcFile as SrcFile
 import Data.Stx
 import Data.Symbol
 import Data.Type
+import Expander (expand, expandDefinition)
 import Interpreter
 import Lexer
 import Linker
@@ -32,13 +35,10 @@ import Monad.InterpreterM
 import Parser
 import Printer.PrettyStx
 -- edit: remove this hiding
-import Renamer hiding (fs)
+import Renamer (rename, renameDefinition)
 import Reorderer (reorder)
 import Typechecker
 import Utils
-
-
-import Debug.Trace
 
 
 data ReplState =
@@ -95,6 +95,10 @@ parserEither :: Either String a -> a
 parserEither fn = either throwParserException id fn
 
 
+expanderEither :: Either String a -> a
+expanderEither fn = either throwExpanderException id fn
+
+
 renamerEither :: Either String a -> a
 renamerEither fn = either throwRenamerException id fn
 
@@ -117,6 +121,7 @@ stageFiles srcfiles =
               (FileSystem.add fs srcfile, srcfile)
 
           reorderFile fs = updateFs fs . reorder
+          expandFile fs = updateFs fs . expanderEither . expand fs
           renameFile fs = updateFs fs . renamerEither . rename fs
 
           typecheckFile fs srcfile =
@@ -140,7 +145,10 @@ stageFiles srcfiles =
                  let (reordfs, reords) = reorderFile fs srcs
                  putStr "reordered, "
 
-                 let (renfs, rens) = renameFile reordfs reords
+                 let (expfs, exps) = expandFile reordfs reords
+                 putStr "renamed, "
+
+                 let (renfs, rens) = renameFile expfs exps
                  putStr "renamed, "
 
                  (typfs, typs) <- typecheckFile renfs rens
@@ -169,36 +177,55 @@ interpretM mt fs srcfile =
     where putExprM Nothing expr = putExpr expr
           putExprM (Just t) expr = putExprT expr t
 
+          interpretInteractive :: a -> b -> (SrcFile, Expr)
+          interpretInteractive = undefined
+
 
 typecheckAndInterpretM :: FileSystem -> SrcFile -> ReplM SrcFile
 typecheckAndInterpretM fs srcfile =
     case typecheckInteractive fs srcfile of
       Left str -> throwTypecheckerException str
       Right (srcfile', t) -> interpretM (Just t) fs srcfile'
+    where typecheckInteractive = undefined
+
+
+mkSnippet :: FileSystem -> Stx String -> Definition
+mkSnippet fs stx@(DefnStx _ _ name _) =
+    let
+        name' = SrcFile.interactiveName ++ "." ++ name
+        unprefixed = map SrcFile.name (FileSystem.toAscList fs)
+    in
+      (Definition.initial name') { unprefixedUses = unprefixed
+                                 , srcStx = Just stx }
+
+mkSnippet fs stx =
+    mkSnippet fs $ DefnStx Nothing NrDef "val" stx
+
+
+renameSnippet :: FileSystem -> Definition -> Either String Definition
+renameSnippet fs def = renameDefinition fs SrcFile.interactiveName def
 
 
 runSnippetM :: String -> ReplM ()
 runSnippetM ln =
-    do let stx = parserEither (parseRepl interactiveName ln)
+    do fs <- fs <$> get
+       let stx = parserEither (parseRepl SrcFile.interactiveName ln)
        liftIO (putParsedStx stx)
-
-       fs <- fs <$> get
-
-       let srcf = (SrcFile.mkInteractiveSrcFile (FileSystem.toAscList fs) [stx]) { name = "Repl" }
-           renf = renamerEither (rename fs srcf)
-       evalf <- typecheckAndInterpretM fs renf
-
-       modify $ \s -> s { fs = mergeReplInteractive fs evalf }
-    where mergeReplInteractive fs srcfile =
-              let
-                  interactive = FileSystem.get fs interactiveName
-                  interactive' = interactive { defs = defs srcfile `Map.union` defs interactive }
-              in
-                FileSystem.add fs interactive'
+       let def = mkSnippet fs stx
+           expDef = expanderEither (expandDefinition fs def)
+           renDef = renamerEither (renameSnippet fs expDef)
+       typDef <- typecheckerEither (typecheckDefinitionM fs renDef)
+       let evalDef = interpretDefinition fs typDef
+           interactive = FileSystem.get fs SrcFile.interactiveName
+           interactive' = SrcFile.updateDefinitions interactive [evalDef]
+       modify $ \s -> s { fs = FileSystem.add fs interactive' }
+       liftIO $ putExprM (Definition.typ evalDef) (Definition.expr evalDef)
+    where putExprM Nothing expr = putExpr expr
+          putExprM (Just t) expr = putExprT expr t
 
 
-showModuleM :: Bool -> Bool -> String -> ReplM ()
-showModuleM showAll showBrief filename =
+showModuleM :: Bool -> Bool -> Bool -> String -> ReplM ()
+showModuleM showAll showBrief showOrd filename =
     let
         filesM
             | showAll = FileSystem.toAscList . fs <$> get
@@ -213,12 +240,13 @@ showModuleM showAll showBrief filename =
     in
       filesM >>= (liftIO . mapM_ (putStrLn . showSrcFile))
     where showDeps srcfile
-              | null (deps srcfile) = ""
+              | null (SrcFile.deps srcfile) = ""
               | otherwise = " uses " ++ intercalate ", " (SrcFile.deps srcfile)
 
           showDefns srcfile
-              | Map.null (defs srcfile) = "\n no definitions"
-              | otherwise = "\n " ++ intercalate "\n " (map show $ Map.elems $ SrcFile.defs srcfile)
+              | Map.null (SrcFile.defs srcfile) = "\n no definitions"
+              | showOrd = "\n " ++ intercalate "\n " (map show . SrcFile.defsAsc $ srcfile)
+              | otherwise = "\n " ++ intercalate "\n " (map show . Map.elems . SrcFile.defs $ srcfile)
 
           showSrcFile srcfile =
               let str = SrcFile.name srcfile ++ " (" ++ show (SrcFile.t srcfile) ++ ")" ++ showDeps srcfile in
@@ -253,12 +281,14 @@ showRenamedM showAll filename =
 data Flag
     = ShowAll
     | ShowBrief
+    | ShowOrd
       deriving (Eq, Show)
 
 
 options :: [OptDescr Flag]
 options = [Option "a" [] (NoArg ShowAll) "Show all",
-           Option "b" [] (NoArg ShowBrief) "Show brief"]
+           Option "b" [] (NoArg ShowBrief) "Show brief",
+           Option "o" [] (NoArg ShowOrd) "Show in order"]
 
 
 runCommandM :: String -> [Flag] -> [String] -> ReplM ()
@@ -266,13 +296,14 @@ runCommandM "show" opts ("namespace":nonOpts) =
     let
         showAll = ShowAll `elem` opts
         showBrief = ShowBrief `elem` opts
+        showOrd = ShowOrd `elem` opts
         filename | null nonOpts = ""
                  | otherwise = last nonOpts
     in
       if not showAll && null filename then
-          liftIO $ putStrLn ":show namespace [-b] [-a | <namespace>]"
+          liftIO $ putStrLn ":show namespace [-b] [-o] [-a | <namespace>]"
       else
-          showModuleM showAll showBrief filename
+          showModuleM showAll showBrief showOrd filename
 
 runCommandM "show" _ ["tokens"] =
     liftIO $ putStrLn ":show tokens <namespace>"
@@ -280,7 +311,6 @@ runCommandM "show" _ ["tokens"] =
 runCommandM "show" _ ("tokens":nonOpts) =
     showTokensM $ last nonOpts
 
-runCommandM "show" opts ("renamed":nonOpts) | trace ("runCommandM: show: " ++ show opts ++ " " ++ show nonOpts) False = undefined
 runCommandM "show" opts ("renamed":nonOpts) =
     let
         showAll = ShowAll `elem` opts
@@ -340,6 +370,9 @@ replM =
 putUserException :: UserException -> IO ()
 putUserException (LoaderException str) =
     putStrLn $ "loader error: " ++ str
+
+putUserException (ExpanderException str) =
+    putStrLn $ "renamer error: " ++ str
 
 putUserException (RenamerException str) =
     putStrLn $ "renamer error: " ++ str

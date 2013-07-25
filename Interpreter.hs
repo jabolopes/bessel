@@ -11,9 +11,18 @@ import Data.FileSystem (FileSystem)
 import qualified Data.FileSystem as FileSystem
 import qualified Data.Env as Env (initial, empty, getBinds)
 import Data.SrcFile
-import qualified Data.SrcFile as SrcFile (name, deps, symbols, exprs, renNs)
+import qualified Data.SrcFile as SrcFile (updateDefinitions, defsAsc, deps, name, symbols, exprs)
 import Data.Stx
 import Monad.InterpreterM
+import Utils
+
+
+import Data.Maybe (fromJust)
+import Data.Symbol
+
+import Data.Definition (Definition(..))
+import qualified Data.Definition as Definition
+
 
 
 evalM :: Stx String -> InterpreterM Expr
@@ -102,19 +111,29 @@ envToExprs srcfile exprEnv =
                                    Just sym -> Just (name, sym) | name <- names ]
 
 
+interpretDefinition :: FileSystem -> Definition -> Definition
+interpretDefinition fs def@Definition { renStx = Just stx } =
+    do let defs = map (FileSystem.definition fs) (freeNames def)
+           exprs = Map.fromList [ (sym, fromJust (Definition.expr def)) | def <- defs, let Just (FnSymbol sym) = Definition.symbol def ]
+           expr = fst $ runState (evalM stx) (Env.initial exprs)
+       def { expr = Just expr }
+
+
+interpretDefinitions :: FileSystem -> SrcFile -> [Definition] -> SrcFile
+interpretDefinitions _ srcfile [] = srcfile
+
+interpretDefinitions fs srcfile (def:defs) =
+    let
+        def' = interpretDefinition fs def
+        srcfile' = SrcFile.updateDefinitions srcfile [def']
+        fs' = FileSystem.add fs srcfile'
+    in
+      interpretDefinitions fs' srcfile' defs
+
+
 interpret :: FileSystem -> SrcFile -> SrcFile
 interpret _ srcfile@SrcFile { t = CoreT } =
     srcfile
 
-interpret fs srcfile@SrcFile { t = SrcT, deps, renNs = Just ns } =
-    let (_, env) = interpretNamespace fs deps ns in
-    addDefinitionExprs srcfile (envToExprs srcfile env)
-     
-interpret _ SrcFile { t = InteractiveT } =
-    error "Interpreter.interpret: for interactive srcfiles use 'interpretInteractive' instead of 'interpret'"
-
-
-interpretInteractive :: FileSystem -> SrcFile -> (SrcFile, Expr)
-interpretInteractive fs srcfile@SrcFile { t = InteractiveT, deps, renNs = Just ns } =
-    let (exprs, env) = interpretNamespace fs deps ns in
-    (addDefinitionExprs srcfile (envToExprs srcfile env), last exprs)
+interpret fs srcfile =
+    interpretDefinitions fs srcfile (SrcFile.defsAsc srcfile)

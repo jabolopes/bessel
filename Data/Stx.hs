@@ -1,6 +1,8 @@
 {-# LANGUAGE ParallelListComp #-}
 module Data.Stx where
 
+import Data.List (nub, sort)
+
 import Data.Type
 
 
@@ -15,9 +17,12 @@ data Namespace a
       deriving (Show)
 
 
+type PatDefn a = (String, [Stx a])
+
+
 data Pat a
     = Pat { patPred :: Stx a
-          , patDefns :: [(String, [Stx a])] }
+          , patDefns :: [PatDefn a] }
       deriving (Show)
 
 
@@ -47,6 +52,11 @@ mkPredPat pred =
     mkGeneralPat pred [] []
 
 
+-- edit: plist already checks the lenght of the list, however, it
+-- might be better to generate end of list pattern
+-- @
+-- nrdef [] = tail (... (tail xs)...)
+-- @
 mkListPat :: [Pat String] -> Pat String
 mkListPat pats =
     mkGeneralPat (IdStx "plist") (map (reverse . listRef) [1..length pats]) pats
@@ -72,7 +82,24 @@ data Stx a
 
     | AppStx (Stx a) (Stx a)
 
+    -- |
+    -- This construct is not available in the parser
+    -- @
+    -- x@Int y@isInt = val1
+    -- x@Int y@isReal = val2
+    --  @     @ = blame "..."
+    -- @
     | CondMacro [([Pat a], Stx a)] String
+
+    -- |
+    -- This construct is not available in the parser
+    -- @
+    -- case
+    --   pred1 val1 -> val1'
+    --   pred2 val2 -> val2'
+    --   ...
+    --   _ -> blame "..."
+    -- @
     | CondStx [(Stx a, Stx a)] String
 
     -- info: observations (2nd argument) are sorted in Parser
@@ -202,7 +229,7 @@ freeVarsList env fvars (x:xs) =
 freeVarsPat :: [String] -> [String] -> Pat String -> ([String], [String])
 freeVarsPat env fvars pat =
     let (env', fvars') = freeVars' env fvars (patPred pat) in
-    freeVarsList env' fvars' (concatMap snd (patDefns pat))
+    freeVarsList (env' ++ map fst (patDefns pat)) fvars' (concatMap snd (patDefns pat))
 
 
 freeVarsPats :: [String] -> [String] -> [Pat String] -> ([String], [String])
@@ -286,4 +313,4 @@ freeVars' _ _ _ =
 
 
 freeVars :: Stx String -> [String]
-freeVars = snd . freeVars' [] []
+freeVars = nub . sort . snd . freeVars' [] []
