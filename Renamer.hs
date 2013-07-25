@@ -347,10 +347,6 @@ renameM (MergeStx name vals) =
                                          " and initialization " ++ show vals ++
                                          " do not match"
 
-renameM stx@(ModuleStx [] ns) =
-    do Namespace _ stxs <- renameNamespaceM ns
-       return stxs
-
 renameM stx@(ModuleStx prefix ns) =
     do Namespace _ stxs <- withPrefixedScopeM prefix (renameNamespaceM ns)
        return stxs

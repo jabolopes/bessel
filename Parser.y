@@ -173,8 +173,7 @@ DefnOrModuleList:
   | Defn                    { [$1] }
 
 Module:
-    module            where '{' Namespace '}' { ModuleStx [] $4 }
-  | module LongTypeId where '{' Namespace '}' { ModuleStx $2 $5 }
+    module LongTypeId where '{' Namespace '}' { ModuleStx $2 $5 }
 
 DefnOrExpr:
     Defn { $1 }
