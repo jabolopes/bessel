@@ -24,7 +24,7 @@ import Data.Tuple (swap)
 import Data.Type
 import Utils (rebaseName, splitId)
 
-import Data.Definition (Definition(Definition, freeNames, srcStx, symbol, renStx))
+import Data.Definition (Definition(Definition, freeNames, expStx, symbol, renStx))
 import qualified Data.Definition as Definition
 
 
@@ -389,7 +389,7 @@ lookupFreeVars fs unprefixed prefixed (name:names) =
 
 
 renameDefinitionM :: FileSystem -> Definition -> RenamerM Definition
-renameDefinitionM fs def@Definition { srcStx = Just stx } =
+renameDefinitionM fs def@Definition { expStx = Just stx } =
     do let unprefixed = Definition.unprefixedUses def
            prefixed = Definition.prefixedUses def
            names = freeVars stx

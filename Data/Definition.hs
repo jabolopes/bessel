@@ -15,6 +15,7 @@ data Definition
                   , typ :: Maybe Type
                   , expr :: Maybe Expr
                   , srcStx :: Maybe (Stx String)
+                  , expStx :: Maybe (Stx String)
                   , renStx :: Maybe (Stx String)
                   , lnkStx :: Maybe (Stx String) }
      deriving (Show)
@@ -30,5 +31,6 @@ initial name =
                , typ = Nothing
                , expr = Nothing
                , srcStx = Nothing
+               , expStx = Nothing
                , renStx = Nothing
                , lnkStx = Nothing }

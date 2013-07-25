@@ -32,7 +32,7 @@ genNameM name =
        return (name ++ "#" ++ show c)
 
 
--- lambda macros
+-- cond macros
 
 -- |
 -- Generates a function definition for a pattern.
@@ -89,7 +89,7 @@ lambdaBody args pats body =
 --
 -- The generated code above is a simplified representation because
 -- '&&' is encoded through 'CondStx'.
-expandCondMacro :: [([Pat String], Stx String)] -> String -> ExpanderM [Stx String]
+expandCondMacro :: [([Pat String], Stx String)] -> String -> ExpanderM (Stx String)
 expandCondMacro ms blame =
     do let npats = length $ fst $ maximumBy (\x y -> compare (length (fst x)) (length (fst y))) ms
        args <- replicateM npats (genNameM "arg")
@@ -98,7 +98,7 @@ expandCondMacro ms blame =
        exprs' <- mapM expandOneM exprs
        let exprs'' = zipWith (lambdaBody args) patss exprs'
            ms' = zip preds exprs''
-       return $ (:[]) $ lambdas args (CondStx ms' blame)
+       returnOneM $ lambdas args (CondStx ms' blame)
     where lambdas [] body = body
           lambdas (arg:args) body =
               LambdaStx arg Nothing (lambdas args body)
@@ -112,7 +112,7 @@ expandCondMacro ms blame =
           combinePreds args pats =
               foldl1 andStx (zipWith applyPred (alignArgs args pats) pats)
 
--- /lambda macros
+-- /cond macros
 
 
 -- cotype macros
@@ -134,27 +134,35 @@ cotypeObservations tid obs = zipWith (cotypeObservation tid) obs [0..]
 
 -- /cotype macros
 
+oneM :: Stx String -> Stx String
+oneM = id
 
+-- edit: in case someday we want to return multiple stxs in expand
 expandOneM :: Stx String -> ExpanderM (Stx String)
-expandOneM stx = head <$> expandM stx
+expandOneM = expandM
+-- expandOneM stx = head <$> expandM stx
+
+-- edit: in case someday we want to return multiple stxs in expand
+returnOneM :: Stx String -> ExpanderM (Stx String)
+returnOneM = return . oneM
 
 
-expandM :: Stx String -> ExpanderM [Stx String]
-expandM stx@(CharStx _) = return [stx]
-expandM stx@(IntStx _) = return [stx]
-expandM stx@(DoubleStx _) = return [stx]
-expandM (SeqStx stxs) = (:[]) . SeqStx <$> mapM expandOneM stxs
+expandM :: Stx String -> ExpanderM (Stx String)
+expandM stx@(CharStx _) = returnOneM stx
+expandM stx@(IntStx _) = returnOneM stx
+expandM stx@(DoubleStx _) = returnOneM stx
+expandM (SeqStx stxs) = oneM . SeqStx <$> mapM expandOneM stxs
 
-expandM stx@(IdStx _) = return [stx]
+expandM stx@(IdStx _) = returnOneM stx
 
 expandM (AppStx stx1 stx2) =
-    (:[]) <$> ((AppStx <$> expandOneM stx1) `ap` expandOneM stx2)
+    oneM <$> ((AppStx <$> expandOneM stx1) `ap` expandOneM stx2)
 
 expandM (CondMacro ms blame) =
     expandCondMacro ms blame
 
 expandM (CondStx ms blame) =
-    (:[]) . (`CondStx` blame) <$> mapM expandMatch ms
+    oneM . (`CondStx` blame) <$> mapM expandMatch ms
     where expandMatch (stx1, stx2) =
               do stx1' <- expandOneM stx1
                  stx2' <- expandOneM stx2
@@ -172,10 +180,10 @@ expandM (CotypeStx name obs ns) = undefined
     --           ModuleStx [name] (Namespace uses (cotypeId:cotypeObservations tid obs ++ stxs))
 
 expandM (DefnStx t kw name body) =
-    (:[]) . DefnStx t kw name <$> expandOneM body
+    oneM . DefnStx t kw name <$> expandOneM body
 
 expandM (LambdaMacro typePats body) =
-    return $ (:[]) $ lambdas typePats body
+    returnOneM $ lambdas typePats body
     where lambdas [] body = body
           lambdas (pat:pats) body =
               let
@@ -185,10 +193,10 @@ expandM (LambdaMacro typePats body) =
                 LambdaStx arg (Just ann) (lambdas pats body)
 
 expandM (LambdaStx arg ann body) =
-    (:[]) . LambdaStx arg ann <$> expandOneM body
+    oneM . LambdaStx arg ann <$> expandOneM body
 
 expandM (MergeStx name vals) =
-    (:[]) . MergeStx name <$> mapM expandVals vals
+    oneM . MergeStx name <$> mapM expandVals vals
     where expandVals (key, stx) =
               do stx' <- expandOneM stx
                  return (key, stx')
@@ -198,13 +206,13 @@ expandM (ModuleStx prefix ns) =
 
 expandM (WhereStx body defns) =
     do body' <- expandOneM body
-       (:[]) . WhereStx body' <$> concat <$> mapM expandM defns
+       oneM . WhereStx body' <$> mapM expandM defns
 
 
 expandDefinitionM :: Definition -> ExpanderM Definition
 expandDefinitionM def@Definition { srcStx = Just stx } =
     do stx' <- expandOneM stx
-       return def { srcStx = Just stx' }
+       return def { expStx = Just stx' }
 
 
 expandDefinition :: FileSystem -> Definition -> Either String Definition
@@ -216,14 +224,10 @@ expandDefinitions :: FileSystem -> SrcFile -> [Definition] -> Either String SrcF
 expandDefinitions _ srcfile [] = return srcfile
 
 expandDefinitions fs srcfile (def:defs) =
-    case expandDefinition fs def of
-      Left str -> Left str
-      Right def ->
-          let
-              srcfile' = SrcFile.updateDefinitions srcfile [def]
-              fs' = FileSystem.add fs srcfile'
-          in
-            expandDefinitions fs' srcfile' defs
+    do def' <- expandDefinition fs def
+       let srcfile' = SrcFile.updateDefinitions srcfile [def']
+           fs' = FileSystem.add fs srcfile'
+       expandDefinitions fs' srcfile' defs
 
 
 expand :: FileSystem -> SrcFile -> Either String SrcFile
