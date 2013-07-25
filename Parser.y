@@ -46,6 +46,17 @@ checkUseList uses =
   do let (unprefixed, prefixed) = partition (null . snd) uses
      checkUniqueImports (map fst unprefixed) prefixed
      checkUniqueQualifiers prefixed
+
+
+checkSigDefName :: String -> String -> ParserM ()
+checkSigDefName sigName defName
+  | sigName == defName =
+      return ()
+  | otherwise =
+      failM $ "Function names are not equal in" ++
+              "\n  sig " ++ sigName ++ " ..." ++
+              "\nand" ++
+              "\n  def " ++ defName ++ " ..."
 }
 
 %monad { ParserM }
@@ -170,18 +181,12 @@ DefnOrExpr:
   | Expr { $1 }
 
 Defn:
-    -- info: ensure the name in the type ann is the same
     TypeAnn FnDefn {% let
                           (name, ann) = $1
                           (kw, name', body) = $2
                       in
-                        if name == name'
-                        then return $ DefnStx (Just ann) kw name body
-                        else failM $ "Function names are not equal in" ++
-                                     "\n  sig " ++ name ++ " ..." ++
-                                     "\nand" ++
-                                     "\n  def " ++ name' ++ " ..."
-                   }
+                        checkSigDefName name name' >>
+			(return $ DefnStx (Just ann) kw name body) }
 
   | FnDefn         { let (kw, name, body) = $1 in
                      DefnStx Nothing kw name body }
