@@ -142,8 +142,8 @@ eliminateForalls ctx t = (ctx, t)
 
 
 -- 'substituteEvarTs' @ctx t@ replaces existential variables that
--- occur in @t@ by the types that have been to them in 'Context'
--- @ctx@.
+-- occur in @t@ by the types that have been assigned to them in
+-- 'Context' @ctx@.
 substituteEvarTs :: Context -> Type -> Type
 substituteEvarTs _ t@BoolT = t
 substituteEvarTs _ t@IntT  = t
@@ -624,9 +624,9 @@ synthAbstrM ctx stx@(AppStx fn arg) =
 -- ⇑Others
 synthAbstrM ctx (CondStx ms blame) =
     do let (evarT, ctx') = genEvar ctx
-       (ctx'', ms') <- synthMs evarT ctx' [] ms
+       (ms', ctx'') <- synthMs evarT ctx' [] ms
        return (evarT, CondStx ms' blame, ctx'')
-    where synthMs _ ctx stxs [] = return (ctx, stxs)
+    where synthMs _ ctx stxs [] = return (reverse stxs, ctx)
           synthMs evarT ctx stxs ((stx1, stx2):ms) =
               do (stx1', ctx') <- checkM BoolT ctx stx1
                  (stx2', ctx'') <- checkM evarT ctx' stx2

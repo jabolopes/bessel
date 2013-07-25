@@ -148,12 +148,12 @@ returnOneM = return . oneM
 
 
 expandM :: Stx String -> ExpanderM (Stx String)
-expandM stx@(CharStx _) = returnOneM stx
-expandM stx@(IntStx _) = returnOneM stx
-expandM stx@(DoubleStx _) = returnOneM stx
+expandM stx@CharStx {} = returnOneM stx
+expandM stx@IntStx {} = returnOneM stx
+expandM stx@DoubleStx {} = returnOneM stx
 expandM (SeqStx stxs) = oneM . SeqStx <$> mapM expandOneM stxs
 
-expandM stx@(IdStx _) = returnOneM stx
+expandM stx@IdStx {} = returnOneM stx
 
 expandM (AppStx stx1 stx2) =
     oneM <$> ((AppStx <$> expandOneM stx1) `ap` expandOneM stx2)
