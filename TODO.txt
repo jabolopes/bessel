@@ -1,3 +1,19 @@
+LALR grammar rules really look like pattern matching... especially
+those $1, $2, and so on...
+
+
+Integration with software development tools, for example, online
+repository, packages, and version control.
+
+
+Add a synthesis declaration, for example,
+
+sig f : a -> b -> a
+def f x@ y@ = x
+
+syn f : a -> b -> a
+
+
 Expander should run before Reorderer because a definition that expands
 can produce more than one definition.
 
