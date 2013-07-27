@@ -1,4 +1,12 @@
-module Data.FrameTree where
+module Data.FrameTree
+  (FrameTree(rootId),
+   empty,
+   getFrame,
+   getRootFrame,
+   addFrame,
+   getLexicalSymbol,
+   addSymbol)
+where
 
 import Data.Map (Map)
 import qualified Data.Map as Map (empty, fromList, insert, lookup, toList)
@@ -79,57 +87,10 @@ getLexicalSymbol :: FrameTree -> Frame -> String -> Maybe Symbol
 getLexicalSymbol = lookupLexically Frame.symbols
 
 
-getLexicalModule :: FrameTree -> Frame -> String -> Maybe Int
-getLexicalModule tree frame name =
-    do ModuleSymbol fid <- lookupLexically Frame.moduleSymbols tree frame name
-       return fid
-
-
--- | 'getFrameSymbol' @frame name@ returns the 'Symbol' bound by
--- @name@ by performing a search only in @frame@.  Contrary to
--- 'getLexicalSymbol', no lexically scoped search is performed.
-getFrameSymbol :: Frame -> String -> Maybe Symbol
-getFrameSymbol frame name = Map.lookup name (Frame.symbols frame)
-
-
-getFrameModule :: Frame -> String -> Maybe Int
-getFrameModule frame name =
-    do ModuleSymbol fid <- Map.lookup name (Frame.moduleSymbols frame)
-       return fid
-
-
 -- | 'addSymbol' @tree frame name sym@ returns the updated 'FrameTree'
 -- that results from binding @name@ to @sym@ in @frame@.
 addSymbol :: FrameTree -> Frame -> String -> Symbol -> FrameTree
 addSymbol tree frame name sym =
     putFrame tree (addSymbol' sym)
-    where addSymbol' sym@(ModuleSymbol _) =
-              frame { moduleSymbols = Map.insert name sym (Frame.moduleSymbols frame) }
-          addSymbol' sym =
+    where addSymbol' sym =
               frame { symbols = Map.insert name sym (Frame.symbols frame) }
-
-
-getSymbols :: FrameTree -> Map String Symbol
-getSymbols tree = Map.fromList $ symbolsFrame "" $ getRootFrame tree
-    where symbols frame = Map.toList (Frame.symbols frame) ++ Map.toList (Frame.moduleSymbols frame)
-          symbolsFrame prefix frame = loopSymbols prefix (symbols frame)
-
-          append "" name = name
-          append prefix name = prefix ++ "." ++ name
-
-          loopSymbols _ [] = []
-          loopSymbols prefix ((name, sym):syms) =
-              case sym of
-                ModuleSymbol fid -> let Just frame = getFrame tree fid in
-                                    loopSymbols prefix syms ++ symbolsFrame (append prefix name) frame
-                sym -> (append prefix name, sym):loopSymbols prefix syms
-
-
-getModuleFrame :: FrameTree -> Frame -> [String] -> Maybe Frame
-getModuleFrame tree frame longName =
-    loop (getLexicalModule tree) frame longName
-    where loop _ frame [] = Just frame
-          loop fn frame (name:longName) =
-            do fid <- fn frame name
-               let Just frame = getFrame tree fid
-               loop getFrameModule frame longName
