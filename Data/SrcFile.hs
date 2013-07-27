@@ -142,7 +142,7 @@ addDefinitionExprs srcfile exprs =
               let
                   def = case Map.lookup name defs of
                           Nothing -> error $ "SrcFile.addDefinitionExprs: definition " ++ show name ++ " is not defined"
-                          Just def -> def { val = Just expr }
+                          Just def -> def { val = Just val }
                   defs' = Map.insert name def defs
               in
                 loop defs' ts
