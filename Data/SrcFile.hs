@@ -113,12 +113,7 @@ addDefinitionSymbols srcfile syms =
           loop defs ((name, sym):syms) =
             let
                 def = case Map.lookup name defs of
-                        -- info: Renamer generates code, therefore,
-                        -- some definitions will not have been
-                        -- initialized through 'addDefinitions' by
-                        -- 'Reorder' when 'addDefinitionSymbols' is
-                        -- called by the 'Renamer'
-                        Nothing -> Definition.initial name
+                        Nothing -> error $ "SrcFile.addDefinitionSymbols: definition " ++ show name ++ " is not defined"
                         Just def -> def { symbol = Just sym }
                 defs' = Map.insert name def defs
             in
