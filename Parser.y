@@ -204,8 +204,8 @@ TypeDefn:
     type Cotype { CotypeStx $2 }
 
 DefnMatches:
-    DefnMatches '|' PredPatList '=' Expr  { $1 ++ [($3, $5)] }
-  | PredPatList '=' Expr                  { [($1, $3)] }
+    DefnMatches '|' PatList '=' Expr  { $1 ++ [($3, $5)] }
+  | PatList '=' Expr                  { [($1, $3)] }
 
 Expr:
     SimpleExpr %prec below_app_prec { $1 }
@@ -250,16 +250,16 @@ Lambda:
   | LambdaMatches             { CondMacro $1 "lambda" }
 
 LambdaMatches:
-    LambdaMatches '|' PredPatList SimpleExpr { $1 ++ [($3, $4)] }
-  | PredPatList SimpleExpr                   { [($1, $2)] }
+    LambdaMatches '|' PatList SimpleExpr { $1 ++ [($3, $4)] }
+  | PatList SimpleExpr                   { [($1, $2)] }
 
 TypePatList:
     TypePatList TypePat { $1 ++ [$2] }
   | TypePat             { [$1] }
 
-PredPatList:
-    PredPatList Pat { $1 ++ [$2] }
-  | Pat             { [$1] }
+PatList:
+    PatList Pat		{ $1 ++ [$2] }
+  | Pat         	{ [$1] }
 
 Merge:
     '{' MergeObservations '}' { MergeStx (sortWith fst $2) }
@@ -298,26 +298,33 @@ PatNoSpace:
   | PatRest     { $1 }
 
 PatRest:
-    ListPat              { $1 }
-  | '(' OpPat ')'        { $2 }
-  | '@' LongName         { mkPredPat (IdStx $2) }
-  | '@' '(' Expr ')'     { mkPredPat $3 }
-  | id '@' LongName      { namePat $1 (mkPredPat (IdStx $3)) }
-  | id '@' ListPat       { namePat $1 $3 }
-  | id '@' '(' OpPat ')' { namePat $1 $4 }
+-- expression patterns
+    '@' '(' Expr ')'     { mkPredPat $3 }
   | id '@' '(' Expr ')'  { namePat $1 (mkPredPat $4) }
 
-OpPat:
+-- predicate patterns
+  | '@' LongName         { mkPredPat (IdStx $2) }
+  | id '@' LongName      { namePat $1 (mkPredPat (IdStx $3)) }
+
+-- list patterns
+  | ListPat              { $1 }
+  | id '@' ListPat       { namePat $1 $3 }
+
+-- combined patterns
+  | '(' CombPat ')'        { $2 }
+  | id '@' '(' CombPat ')' { namePat $1 $4 }
+
+CombPat:
     Pat '+>' PatNoSpace { mkPat (IdStx "pal") [IdStx "hd", IdStx "tl"] [$1, $3] }
   | Pat '<+' PatNoSpace { mkPat (IdStx "par") [IdStx "tlr", IdStx "hdr"] [$1, $3] }
   | Pat '&&' PatNoSpace { mkPat (IdStx "pand") [IdStx "id", IdStx "id"] [$1, $3] }
   | Pat '||' PatNoSpace { mkPat (IdStx "por") [IdStx "id", IdStx "id"] [$1, $3] }
 
 ListPat:
-    '[' PatList ']' { mkListPat $2 }
-  | '@' '[' ']'     { Pat (applyStx "plist" []) [] }
+    '[' ExprPatList ']' { mkListPat $2 }
+  | '@' '[' ']'         { mkListPat [] }
 
-PatList:
+ExprPatList:
     ExprList ',' PatNoSpace ',' PatList2 { map mkPredPat $1 ++ [$3] ++ $5 }
   | ExprList ',' PatNoSpace              { map mkPredPat $1 ++ [$3] }
   | PatNoSpace ',' PatList2              { $1:$3 }
@@ -343,7 +350,7 @@ TypeAux:
     TypeAux '->' TypeAux { ArrowT $1 $3 }
   | '(' TypeList ')'     { TupT $2 }
   | '[' TypeAux ']'      { SeqT $2 }
-  | Cotype		 { $1 }
+  | Cotype               { $1 }
   | typeId               { case $1 of
                              "Bool" -> BoolT
                              "Int" -> IntT

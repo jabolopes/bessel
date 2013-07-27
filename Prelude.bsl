@@ -203,7 +203,7 @@ def reverse @[] = []
 
 -- nrdef raise := \f@isfunc isfunc || (seqof isfunc && (¬ isnull)) -> lift f | f
 
-cotype {x : Int}
+type {x : Int}
 
 sig f : {x : Int}
 def f = {x = 0}

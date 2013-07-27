@@ -52,16 +52,22 @@ mkPredPat pred =
     mkGeneralPat pred [] []
 
 
+-- edit: document why this function has a special case for the empty
+-- list
+--
 -- edit: plist already checks the lenght of the list, however, it
 -- might be better to generate end of list pattern
 -- @
 -- nrdef [] = tail (... (tail xs)...)
 -- @
 mkListPat :: [Pat String] -> Pat String
+mkListPat [] =
+  Pat (applyStx "plist" []) []
+
 mkListPat pats =
-    mkGeneralPat (IdStx "plist") (map (reverse . listRef) [1..length pats]) pats
-    where listRef 1 = [IdStx "hd"]
-          listRef i = IdStx "tl":listRef (i - 1)
+  mkGeneralPat (IdStx "plist") (map (reverse . listRef) [1..length pats]) pats
+  where listRef 1 = [IdStx "hd"]
+        listRef i = IdStx "tl":listRef (i - 1)
 
 
 namePat :: String -> Pat String -> Pat String
