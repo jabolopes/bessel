@@ -54,4 +54,4 @@ throwTypecheckerException = throw . TypecheckerException
 
 
 catchUserException :: IO a -> (UserException -> IO a) -> IO a
-catchUserException m fn = catch m fn
+catchUserException = catch

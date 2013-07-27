@@ -11,7 +11,7 @@ import Data.FileSystem (FileSystem)
 import qualified Data.FileSystem as FileSystem
 import qualified Data.Env as Env (initial, empty, getBinds)
 import Data.SrcFile
-import qualified Data.SrcFile as SrcFile (updateDefinitions, defsAsc, deps, name, symbols, exprs)
+import qualified Data.SrcFile as SrcFile (updateDefinitions, defsAsc, deps, name)
 import Data.Stx
 import Monad.InterpreterM
 import Utils
@@ -25,11 +25,11 @@ import qualified Data.Definition as Definition
 
 
 
-evalM :: Stx String -> InterpreterM Expr
-evalM (CharStx c) = return $ CharExpr c
-evalM (IntStx i) = return $ IntExpr i
-evalM (DoubleStx d) = return $ DoubleExpr d
-evalM (SeqStx stxs) = SeqExpr <$> mapM evalM stxs
+evalM :: Stx String -> InterpreterM Val
+evalM (CharStx c) = return $ CharVal c
+evalM (IntStx i) = return $ IntVal i
+evalM (DoubleStx d) = return $ DoubleVal d
+evalM (SeqStx stxs) = SeqVal <$> mapM evalM stxs
 
 evalM (IdStx str) =
     do msym <- findBindM str
@@ -42,7 +42,7 @@ evalM (AppStx stx1 stx2) =
     do expr1 <- evalM stx1
        expr2 <- evalM stx2
        case expr1 of
-         FnExpr fn -> fn expr2
+         FnVal fn -> fn expr2
          _ -> error $ "Interpreter.evalM(AppStx): application of non-functions must be detected by the renamer" ++
                       "\n\n\t stx1 = " ++ show stx1 ++
                       "\n\n\t -> expr1 = " ++ show expr1 ++
@@ -56,7 +56,7 @@ evalM (CondStx ms blame) = evalMatches ms
           evalMatches ((pred, expr):ms) =
               do val <- evalM pred
                  case val of
-                   BoolExpr False -> evalMatches ms
+                   BoolVal False -> evalMatches ms
                    _ -> evalM expr
 
 evalM CotypeStx {} =
@@ -73,14 +73,14 @@ evalM (DefnStx _ NrDef str body) =
        return expr
 
 evalM (LambdaStx str _ body) =
-    FnExpr . closure <$> get
+    FnVal . closure <$> get
     where closure env expr =
               withLexicalEnvM env $ do
                 addBindM str expr
                 withEnvM (evalM body)
 
 evalM (MergeStx vals) =
-  TypeExpr <$> SeqExpr <$> mapM (evalM . snd) vals
+  TypeVal <$> SeqVal <$> mapM (evalM . snd) vals
 
 evalM (ModuleStx prefix ns) =
     error $ "Interpreter.evalM(ModuleStx): modules must be flattened by the renamer" ++
@@ -93,32 +93,12 @@ evalM (WhereStx stx stxs) =
       withEnvM (evalM stx)
 
 
-interpretNamespace :: FileSystem -> [String] -> Namespace String -> ([Expr], ExprEnv)
-interpretNamespace fs deps (Namespace _ stxs) =
-    let
-        exprss = map (SrcFile.exprs . (FileSystem.get fs)) deps
-        env = Env.initial (foldr1 Map.union exprss)
-    in
-     runState (mapM evalM stxs) env
-
-
-envToExprs :: SrcFile -> ExprEnv -> Map String Expr
-envToExprs srcfile exprEnv =
-    let
-        binds = Env.getBinds exprEnv
-        names = Map.keys (SrcFile.symbols srcfile)
-    in
-     Map.fromList $ catMaybes [ case Map.lookup name binds of
-                                   Nothing -> Nothing
-                                   Just sym -> Just (name, sym) | name <- names ]
-
-
 interpretDefinition :: FileSystem -> Definition -> Definition
 interpretDefinition fs def@Definition { renStx = Just stx } =
     do let defs = map (FileSystem.definition fs) (freeNames def)
-           exprs = Map.fromList [ (sym, fromJust (Definition.expr def)) | def <- defs, let Just (FnSymbol sym) = Definition.symbol def ]
-           expr = fst $ runState (evalM stx) (Env.initial exprs)
-       def { expr = Just expr }
+           exprs = Map.fromList [ (sym, fromJust (Definition.val def)) | def <- defs, let Just (FnSymbol sym) = Definition.symbol def ]
+           val = fst $ runState (evalM stx) (Env.initial exprs)
+       def { val = Just val }
 
 
 interpretDefinitions :: FileSystem -> SrcFile -> [Definition] -> SrcFile

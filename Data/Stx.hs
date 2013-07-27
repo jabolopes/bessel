@@ -1,4 +1,3 @@
-{-# LANGUAGE ParallelListComp #-}
 module Data.Stx where
 
 import Data.List (nub, sort)
@@ -43,8 +42,7 @@ mkGeneralPat pred mods pats =
 
 
 mkPat :: Stx String -> [Stx String] -> [Pat String] -> Pat String
-mkPat pred mods pats =
-    mkGeneralPat pred (map (:[]) mods) pats
+mkPat pred mods = mkGeneralPat pred (map (:[]) mods)
 
 
 mkPredPat :: Stx String -> Pat String
@@ -139,27 +137,27 @@ isDefnStx _ = False
 
 
 isLambdaStx :: Stx a -> Bool
-isLambdaStx (LambdaStx _ _ _) = True
+isLambdaStx LambdaStx {} = True
 isLambdaStx _ = False
 
 
 isModuleStx :: Stx a -> Bool
-isModuleStx (ModuleStx _ _) = True
+isModuleStx ModuleStx {} = True
 isModuleStx _ = False
 
 
 isWhereStx :: Stx a -> Bool
-isWhereStx (WhereStx _ _) = True
+isWhereStx WhereStx {} = True
 isWhereStx _ = False
 
 
 isValueStx :: Stx a -> Bool
-isValueStx (CharStx _) = True
-isValueStx (IntStx _) = True
-isValueStx (DoubleStx _) = True
-isValueStx (SeqStx _) = True
-isValueStx (IdStx _) = True
-isValueStx (LambdaStx _ _ _) = True
+isValueStx CharStx {} = True
+isValueStx IntStx {} = True
+isValueStx DoubleStx {} = True
+isValueStx SeqStx {} = True
+isValueStx IdStx {} = True
+isValueStx LambdaStx {} = True
 isValueStx _ = False
 
 
@@ -177,7 +175,7 @@ andStx stx1 stx2 =
 
 
 appStx :: a -> Stx a -> Stx a
-appStx str stx = AppStx (IdStx str) stx
+appStx str = AppStx (IdStx str)
 
 
 applyStx :: a -> [Stx a] -> Stx a
@@ -185,12 +183,11 @@ applyStx str = appStx str . SeqStx
 
 
 binOpStx :: a -> Stx a -> Stx a -> Stx a
-binOpStx op stx1 stx2 =
-    AppStx (appStx op stx1) stx2
+binOpStx op stx1 = AppStx (appStx op stx1)
 
 
 constStx :: Stx a -> Stx a
-constStx stx1 = LambdaStx "_" Nothing stx1
+constStx = LambdaStx "_" Nothing
 -- edit: maybe it should be TvarT or Evar instead of Nothing?
 
 
@@ -199,8 +196,7 @@ constTrueStx = constStx (IdStx "true")
 
 
 foldAppStx :: Stx a -> [Stx a] -> Stx a
-foldAppStx x [] = x
-foldAppStx x (y:ys) = AppStx y (foldAppStx x ys)
+foldAppStx = foldr AppStx
 
 
 orStx :: Stx String -> Stx String -> Stx String

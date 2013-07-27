@@ -1,5 +1,4 @@
-{-# LANGUAGE BangPatterns, NamedFieldPuns,
-  ParallelListComp, TupleSections #-}
+{-# LANGUAGE NamedFieldPuns, ParallelListComp, TupleSections #-}
 module Renamer where
 
 import Control.Monad.Error (throwError)

@@ -23,123 +23,123 @@ import Renamer
 
 -- predicates
 
-isBool :: Expr -> Expr
-isBool BoolExpr {} = true
+isBool :: Val -> Val
+isBool BoolVal {} = true
 isBool _ = false
 
 
-isInt :: Expr -> Expr
-isInt IntExpr {} = true
+isInt :: Val -> Val
+isInt IntVal {} = true
 isInt _ = false
 
 
-isReal :: Expr -> Expr
-isReal DoubleExpr {} = true
+isReal :: Val -> Val
+isReal DoubleVal {} = true
 isReal _ = false
 
 
-isChar :: Expr -> Expr
-isChar CharExpr {} = true
+isChar :: Val -> Val
+isChar CharVal {} = true
 isChar _ = false
 
 
-isFn :: Expr -> Expr
-isFn FnExpr {} = true
+isFn :: Val -> Val
+isFn FnVal {} = true
 isFn _ = false
 
 
-isObj :: Expr -> Expr
-isObj TypeExpr {} = true
+isObj :: Val -> Val
+isObj TypeVal {} = true
 isObj _ = false
 
 
-isSeq :: Expr -> Expr
-isSeq SeqExpr {} = true
+isSeq :: Val -> Val
+isSeq SeqVal {} = true
 isSeq _ = false
 
 
-isSeqOf :: Expr -> Expr
-isSeqOf (FnExpr fn) = FnExpr hof
-    where hof (SeqExpr exprs) =
-              do b <- all isNotFalseExpr <$> mapM fn exprs
+isSeqOf :: Val -> Val
+isSeqOf (FnVal fn) = FnVal hof
+    where hof (SeqVal exprs) =
+              do b <- all isNotFalseVal <$> mapM fn exprs
                  return $ if b then true else false
           hof _ = return false
 
 
 -- comparison functions
 
-eqBool :: Expr -> Expr
-eqBool (BoolExpr b1) = FnExpr eqBoolHof
-    where eqBoolHof (BoolExpr b2)
+eqBool :: Val -> Val
+eqBool (BoolVal b1) = FnVal eqBoolHof
+    where eqBoolHof (BoolVal b2)
               | b1 == b2 = return true
               | otherwise = return false
 
 
-eqInt :: Expr -> Expr
-eqInt (IntExpr i1) = FnExpr eqIntHof
-    where eqIntHof (IntExpr i2)
+eqInt :: Val -> Val
+eqInt (IntVal i1) = FnVal eqIntHof
+    where eqIntHof (IntVal i2)
               | i1 == i2 = return true
               | otherwise = return false
 
 
-eqReal :: Expr -> Expr
-eqReal (DoubleExpr d1) = FnExpr eqRealHof
-    where eqRealHof (DoubleExpr d2)
+eqReal :: Val -> Val
+eqReal (DoubleVal d1) = FnVal eqRealHof
+    where eqRealHof (DoubleVal d2)
               | d1 == d2 = return true
               | otherwise = return false
 
 
-eqChar :: Expr -> Expr
-eqChar (CharExpr c1) = FnExpr eqCharHof
-    where eqCharHof (CharExpr c2)
+eqChar :: Val -> Val
+eqChar (CharVal c1) = FnVal eqCharHof
+    where eqCharHof (CharVal c2)
               | c1 == c2 = return true
               | otherwise = return false
 
 
-all2 :: (a -> b -> Expr) -> [a] -> [b] -> Expr
+all2 :: (a -> b -> Val) -> [a] -> [b] -> Val
 all2 _ [] [] = true
 all2 _ [] _ = false
 all2 _ _ [] = false
 all2 fn (x1:xs1) (x2:xs2)
-    | isNotFalseExpr (fn x1 x2) = all2 fn xs1 xs2
+    | isNotFalseVal (fn x1 x2) = all2 fn xs1 xs2
     | otherwise = false
 
 
-ltBool :: Expr -> Expr
-ltBool (BoolExpr b1) = FnExpr ltBoolHof
-    where ltBoolHof (BoolExpr b2)
+ltBool :: Val -> Val
+ltBool (BoolVal b1) = FnVal ltBoolHof
+    where ltBoolHof (BoolVal b2)
               | b1 < b2 = return true
               | otherwise = return false
 
 
-ltInt :: Expr -> Expr
-ltInt (IntExpr i1) = FnExpr ltIntHof
-    where ltIntHof (IntExpr i2)
+ltInt :: Val -> Val
+ltInt (IntVal i1) = FnVal ltIntHof
+    where ltIntHof (IntVal i2)
               | i1 < i2 = return true
               | otherwise = return false
 
 
-ltReal :: Expr -> Expr
-ltReal (DoubleExpr d1) = FnExpr ltRealHof
-    where ltRealHof (DoubleExpr d2)
+ltReal :: Val -> Val
+ltReal (DoubleVal d1) = FnVal ltRealHof
+    where ltRealHof (DoubleVal d2)
               | d1 < d2 = return true
               | otherwise = return false
 
 
-ltChar :: Expr -> Expr
-ltChar (CharExpr c1) = FnExpr ltCharHof
-    where ltCharHof (CharExpr c2)
+ltChar :: Val -> Val
+ltChar (CharVal c1) = FnVal ltCharHof
+    where ltCharHof (CharVal c2)
               | c1 < c2 = return true
               | otherwise = return false
 
 
 -- edit: to eliminate
-exprLt :: Expr -> Expr -> Expr
-exprLt (IntExpr b1) (IntExpr b2) | b1 < b2 = true
-exprLt (IntExpr i1) (IntExpr i2) | i1 < i2 = true
-exprLt (DoubleExpr d1) (DoubleExpr d2) | d1 < d2 = true
-exprLt (CharExpr c1) (CharExpr c2) | c1 < c2 = true
-exprLt (SeqExpr exprs1) (SeqExpr exprs2)
+exprLt :: Val -> Val -> Val
+exprLt (IntVal b1) (IntVal b2) | b1 < b2 = true
+exprLt (IntVal i1) (IntVal i2) | i1 < i2 = true
+exprLt (DoubleVal d1) (DoubleVal d2) | d1 < d2 = true
+exprLt (CharVal c1) (CharVal c2) | c1 < c2 = true
+exprLt (SeqVal exprs1) (SeqVal exprs2)
     | null exprs1 && null exprs2 = false
     | length exprs1 < length exprs2 = true
     | length exprs1 == length exprs2 = all2 exprLt exprs1 exprs2
@@ -147,9 +147,9 @@ exprLt _ _ = false
 
 
 -- edit: improve efficiency
-ltSeq :: Expr -> Expr
-ltSeq (SeqExpr exprs1) = FnExpr ltSeqHof
-    where ltSeqHof (SeqExpr exprs2)
+ltSeq :: Val -> Val
+ltSeq (SeqVal exprs1) = FnVal ltSeqHof
+    where ltSeqHof (SeqVal exprs2)
               | null exprs1 && null exprs2 = return false
               | length exprs1 < length exprs2 = return true
               | length exprs1 == length exprs2 =
@@ -159,94 +159,94 @@ ltSeq (SeqExpr exprs1) = FnExpr ltSeqHof
 
 -- arithmetic functions
 
-mkInt :: Expr -> Expr
-mkInt expr@(IntExpr _) = expr
-mkInt (DoubleExpr d) = IntExpr (floor d)
+mkInt :: Val -> Val
+mkInt expr@(IntVal _) = expr
+mkInt (DoubleVal d) = IntVal (floor d)
 
 
-mkReal :: Expr -> Expr
-mkReal (IntExpr i) = DoubleExpr (fromIntegral i)
-mkReal expr@(DoubleExpr _) = expr
+mkReal :: Val -> Val
+mkReal (IntVal i) = DoubleVal (fromIntegral i)
+mkReal expr@(DoubleVal _) = expr
 
 
-addInt :: Expr -> Expr
-addInt (IntExpr i1) =
-    FnExpr $ \(IntExpr i2) -> return $ IntExpr (i1 + i2)
+addInt :: Val -> Val
+addInt (IntVal i1) =
+    FnVal $ \(IntVal i2) -> return $ IntVal (i1 + i2)
 
 
-addReal :: Expr -> Expr
-addReal (DoubleExpr i1) =
-    FnExpr $ \(DoubleExpr i2) -> return $ DoubleExpr (i1 + i2)
+addReal :: Val -> Val
+addReal (DoubleVal i1) =
+    FnVal $ \(DoubleVal i2) -> return $ DoubleVal (i1 + i2)
 
 
-subInt :: Expr -> Expr
-subInt (IntExpr i1) =
-    FnExpr $ \(IntExpr i2) -> return $ IntExpr (i1 - i2)
+subInt :: Val -> Val
+subInt (IntVal i1) =
+    FnVal $ \(IntVal i2) -> return $ IntVal (i1 - i2)
 
 
-subReal :: Expr -> Expr
-subReal (DoubleExpr d1) =
-    FnExpr $ \(DoubleExpr d2) -> return $ DoubleExpr (d1 - d2)
+subReal :: Val -> Val
+subReal (DoubleVal d1) =
+    FnVal $ \(DoubleVal d2) -> return $ DoubleVal (d1 - d2)
 
 
-mulInt :: Expr -> Expr
-mulInt (IntExpr i1) =
-    FnExpr $ \(IntExpr i2) -> return $ IntExpr (i1 * i2)
+mulInt :: Val -> Val
+mulInt (IntVal i1) =
+    FnVal $ \(IntVal i2) -> return $ IntVal (i1 * i2)
 
 
-mulReal :: Expr -> Expr
-mulReal (DoubleExpr d1) =
-    FnExpr $ \(DoubleExpr d2) -> return $ DoubleExpr (d1 * d2)
+mulReal :: Val -> Val
+mulReal (DoubleVal d1) =
+    FnVal $ \(DoubleVal d2) -> return $ DoubleVal (d1 * d2)
 
 
-divInt :: Expr -> Expr
-divInt (IntExpr i1) =
-    FnExpr $ \(IntExpr i2) -> return $ IntExpr (i1 `div` i2)
+divInt :: Val -> Val
+divInt (IntVal i1) =
+    FnVal $ \(IntVal i2) -> return $ IntVal (i1 `div` i2)
 
 
-divReal :: Expr -> Expr
-divReal (DoubleExpr d1) =
-    FnExpr $ \(DoubleExpr d2) -> return $ DoubleExpr (d1 / d2)
+divReal :: Val -> Val
+divReal (DoubleVal d1) =
+    FnVal $ \(DoubleVal d2) -> return $ DoubleVal (d1 / d2)
 
 
-absInt :: Expr -> Expr
-absInt (IntExpr i) = IntExpr (abs i)
+absInt :: Val -> Val
+absInt (IntVal i) = IntVal (abs i)
 
 
-absReal :: Expr -> Expr
-absReal (DoubleExpr d) = DoubleExpr (abs d)
+absReal :: Val -> Val
+absReal (DoubleVal d) = DoubleVal (abs d)
 
 
-ceilingReal :: Expr -> Expr
-ceilingReal (DoubleExpr d) = IntExpr (ceiling d)
+ceilingReal :: Val -> Val
+ceilingReal (DoubleVal d) = IntVal (ceiling d)
 
 
-floorReal :: Expr -> Expr
-floorReal (DoubleExpr d) = IntExpr (floor d)
+floorReal :: Val -> Val
+floorReal (DoubleVal d) = IntVal (floor d)
 
 
-negInt :: Expr -> Expr
-negInt (IntExpr i) = IntExpr (- i)
+negInt :: Val -> Val
+negInt (IntVal i) = IntVal (- i)
 
 
-negReal :: Expr -> Expr
-negReal (DoubleExpr d) = DoubleExpr (- d)
+negReal :: Val -> Val
+negReal (DoubleVal d) = DoubleVal (- d)
 
 
-remInt :: Expr -> Expr
-remInt (IntExpr i1) =
-    FnExpr $ \(IntExpr i2) -> return $ IntExpr (i1 `rem` i2)
+remInt :: Val -> Val
+remInt (IntVal i1) =
+    FnVal $ \(IntVal i2) -> return $ IntVal (i1 `rem` i2)
 
 
 -- combining forms
 
-apply :: Expr -> InterpreterM Expr
-apply (SeqExpr [FnExpr fn, expr]) = fn expr
+apply :: Val -> InterpreterM Val
+apply (SeqVal [FnVal fn, expr]) = fn expr
 
 
-o :: Expr -> Expr
-o (FnExpr fn1) =
-    FnExpr $ \(FnExpr fn2) -> return $ FnExpr (fn1 <=< fn2)
+o :: Val -> Val
+o (FnVal fn1) =
+    FnVal $ \(FnVal fn2) -> return $ FnVal (fn1 <=< fn2)
 
 
 -- K (see Prelude)
@@ -267,127 +267,127 @@ o (FnExpr fn1) =
 
 -- predicate combining forms
 
-plist :: Expr -> Expr
-plist (SeqExpr fns) = FnExpr plistHof
-    where all' :: [Expr] -> [Expr] -> InterpreterM Bool
+plist :: Val -> Val
+plist (SeqVal fns) = FnVal plistHof
+    where all' :: [Val] -> [Val] -> InterpreterM Bool
           all' [] [] = return True
           all' [] _ = return False
           all' _ [] = return False
-          all' (FnExpr fn:fns') (val:vals') =
+          all' (FnVal fn:fns') (val:vals') =
               do expr <- fn val
-                 if isNotFalseExpr expr
+                 if isNotFalseVal expr
                    then all' fns' vals'
                    else return False
 
-          plistHof (SeqExpr vals)
-                   | length fns == length vals = BoolExpr <$> all' fns vals
+          plistHof (SeqVal vals)
+                   | length fns == length vals = BoolVal <$> all' fns vals
                    | otherwise = return false
           plistHof _ = return false
 
 
-pand :: Expr -> Expr
-pand (FnExpr fn) = FnExpr $ \expr -> fn expr
-pand (SeqExpr exprs) =
-    FnExpr $ \expr -> andHof expr exprs
+pand :: Val -> Val
+pand (FnVal fn) = FnVal $ \expr -> fn expr
+pand (SeqVal exprs) =
+    FnVal $ \expr -> andHof expr exprs
     where andHof _ [] = return true
-          andHof expr [FnExpr fn] = fn expr
-          andHof expr (FnExpr fn:exprs) =
+          andHof expr [FnVal fn] = fn expr
+          andHof expr (FnVal fn:exprs) =
               do val <- fn expr
-                 if isFalseExpr val
+                 if isFalseVal val
                    then return false
                    else andHof expr exprs
 
 
-por :: Expr -> Expr
-por (FnExpr fn) = FnExpr $ \expr -> fn expr
-por (SeqExpr exprs) =
-    FnExpr $ \expr -> orHof expr exprs
+por :: Val -> Val
+por (FnVal fn) = FnVal $ \expr -> fn expr
+por (SeqVal exprs) =
+    FnVal $ \expr -> orHof expr exprs
     where orHof _ [] = return false
-          orHof expr [FnExpr fn] = fn expr
-          orHof expr (FnExpr fn:exprs) =
+          orHof expr [FnVal fn] = fn expr
+          orHof expr (FnVal fn:exprs) =
               do val <- fn expr
-                 if isFalseExpr val
+                 if isFalseVal val
                    then orHof expr exprs
                    else return true
 
 
-pal :: Expr -> Expr
-pal (SeqExpr [FnExpr fn1, FnExpr fn2]) =
-    FnExpr pal'
-    where pal' (SeqExpr (x:xs)) =
+pal :: Val -> Val
+pal (SeqVal [FnVal fn1, FnVal fn2]) =
+    FnVal pal'
+    where pal' (SeqVal (x:xs)) =
               do expr1 <- fn1 x
-                 if isNotFalseExpr expr1
-                   then do expr2 <- fn2 (SeqExpr xs)
-                           return (if isNotFalseExpr expr2
+                 if isNotFalseVal expr1
+                   then do expr2 <- fn2 (SeqVal xs)
+                           return (if isNotFalseVal expr2
                                    then true
                                    else false)
                    else return false
           pal' _ = return false
 
 
-par :: Expr -> Expr
-par (SeqExpr [FnExpr fn1, FnExpr fn2]) =
-    FnExpr par'
-    where par' (SeqExpr xs) | not (null xs) =
-              do expr1 <- fn1 $ SeqExpr $ init xs
-                 if isNotFalseExpr expr1
+par :: Val -> Val
+par (SeqVal [FnVal fn1, FnVal fn2]) =
+    FnVal par'
+    where par' (SeqVal xs) | not (null xs) =
+              do expr1 <- fn1 $ SeqVal $ init xs
+                 if isNotFalseVal expr1
                    then do expr2 <- fn2 $ last xs
-                           return (if isNotFalseExpr expr2
+                           return (if isNotFalseVal expr2
                                    then true
                                    else false)
                    else return false
           par' _ = return false
 
 
-al :: Expr -> Expr
+al :: Val -> Val
 al expr =
-    FnExpr $ \(SeqExpr exprs) -> return $ SeqExpr (expr:exprs)
+    FnVal $ \(SeqVal exprs) -> return $ SeqVal (expr:exprs)
 
 
-ar :: Expr -> Expr
-ar (SeqExpr exprs) =
-    FnExpr $ \expr -> return $ SeqExpr (exprs ++ [expr])
+ar :: Val -> Val
+ar (SeqVal exprs) =
+    FnVal $ \expr -> return $ SeqVal (exprs ++ [expr])
 
 
-concat :: Expr -> Expr
-concat (SeqExpr exprs) =
-    SeqExpr $ concatMap (\(SeqExpr exprs) -> exprs) exprs
+concat :: Val -> Val
+concat (SeqVal exprs) =
+    SeqVal $ concatMap (\(SeqVal exprs) -> exprs) exprs
 
 
-hd :: Expr -> Expr
-hd (SeqExpr (expr:_)) = expr
+hd :: Val -> Val
+hd (SeqVal (expr:_)) = expr
 
 
-tl :: Expr -> Expr
-tl (SeqExpr (_:exprs)) = SeqExpr exprs
+tl :: Val -> Val
+tl (SeqVal (_:exprs)) = SeqVal exprs
 
 
-hdr :: Expr -> Expr
-hdr (SeqExpr exprs@(_:_)) = last exprs
+hdr :: Val -> Val
+hdr (SeqVal exprs@(_:_)) = last exprs
 
 
-tlr :: Expr -> Expr
-tlr (SeqExpr exprs@(_:_)) = SeqExpr $ init exprs
+tlr :: Val -> Val
+tlr (SeqVal exprs@(_:_)) = SeqVal $ init exprs
 
 
 -- input, output, and file functions
 
-out :: Expr -> Expr
+out :: Val -> Val
 {-# NOINLINE out #-}
-out expr@(SeqExpr [SeqExpr [CharExpr 's', CharExpr 'c', CharExpr 'r'], SeqExpr str]) =
-    unsafePerformIO $ do putStr $ map (\(CharExpr c) -> c) str
+out expr@(SeqVal [SeqVal [CharVal 's', CharVal 'c', CharVal 'r'], SeqVal str]) =
+    unsafePerformIO $ do putStr $ map (\(CharVal c) -> c) str
                          return expr
-out expr = signal $ SeqExpr [boxString "out", boxString "arg1", expr]
+out expr = signal $ SeqVal [boxString "out", boxString "arg1", expr]
 
 
-signal :: Expr -> a
+signal :: Val -> a
 signal expr = throwSignalException $ show expr
 
 
 -- environment
 
-m :: (Expr -> Expr) -> Expr
-m fn = FnExpr $ \expr -> return $ fn expr
+m :: (Val -> Val) -> Val
+m fn = FnVal $ \expr -> return $ fn expr
 
 
 predT :: Type
@@ -450,7 +450,7 @@ fnDesc = [
   ("negReal", ArrowT DoubleT DoubleT, m negReal),
   ("remInt", ArrowT IntT (ArrowT IntT IntT), m remInt),
   -- combining forms
-  ("apply", ArrowT (TupT [ArrowT DynT DynT, DynT]) DynT, FnExpr apply),
+  ("apply", ArrowT (TupT [ArrowT DynT DynT, DynT]) DynT, FnVal apply),
   ("o", ForallT "a"
          (ForallT "b"
           (ForallT "c"
@@ -480,13 +480,13 @@ fnDesc = [
   ("index", ArrowT IntT (ArrowT DynT DynT), m index)]
 
 
-unSharp :: Expr -> Expr
-unSharp (TypeExpr expr) = expr
+unSharp :: Val -> Val
+unSharp (TypeVal expr) = expr
 
 
-index :: Expr -> Expr
-index (IntExpr i) = FnExpr (return . hof)
-    where hof (SeqExpr exprs) = exprs !! i
+index :: Val -> Val
+index (IntVal i) = FnVal (return . hof)
+    where hof (SeqVal exprs) = exprs !! i
 
 
 srcfile :: SrcFile

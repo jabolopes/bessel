@@ -92,15 +92,15 @@ putEnvironment env =
 
 
 parserEither :: Either String a -> a
-parserEither fn = either throwParserException id fn
+parserEither = either throwParserException id
 
 
 expanderEither :: Either String a -> a
-expanderEither fn = either throwExpanderException id fn
+expanderEither = either throwExpanderException id
 
 
 renamerEither :: Either String a -> a
-renamerEither fn = either throwRenamerException id fn
+renamerEither = either throwRenamerException id
 
 
 -- edit: the Monad forces the argument to be reduced to normal form
@@ -183,7 +183,7 @@ mkSnippet fs stx =
 
 
 renameSnippet :: FileSystem -> Definition -> Either String Definition
-renameSnippet fs def = renameDefinition fs SrcFile.interactiveName def
+renameSnippet fs = renameDefinition fs SrcFile.interactiveName
 
 
 runSnippetM :: String -> ReplM ()
@@ -199,7 +199,7 @@ runSnippetM ln =
          interactive = FileSystem.get fs SrcFile.interactiveName
          interactive' = SrcFile.updateDefinitions interactive [evalDef]
      modify $ \s -> s { fs = FileSystem.add fs interactive' }
-     liftIO $ putExprM (Definition.typ evalDef) (Definition.expr evalDef)
+     liftIO $ putExprM (Definition.typ evalDef) (Definition.val evalDef)
   where putExprM Nothing expr = putExpr expr
         putExprM (Just t) (Just expr) = putExprT expr t
 

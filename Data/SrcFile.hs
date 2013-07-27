@@ -1,15 +1,16 @@
-{-# LANGUAGE BangPatterns, ParallelListComp, TupleSections #-}
+{-# LANGUAGE ParallelListComp, TupleSections #-}
 module Data.SrcFile where
 
 import Data.Map (Map)
 import qualified Data.Map as Map ((!), empty, fromList, insert, lookup, mapKeys, mapMaybe, union, toList)
+import Data.Maybe (fromMaybe)
 
-import Data.Definition (Definition (symbol, typ, expr))
-import qualified Data.Definition as Definition (name, initial, expr, typ, symbol)
+import Data.Definition (Definition (symbol, typ, val))
+import qualified Data.Definition as Definition (name, initial, val, typ, symbol)
 import Data.Stx (Namespace (..), Stx)
 import Data.Symbol (Symbol (..))
 import Data.Type (Type)
-import Monad.InterpreterM (Expr)
+import Monad.InterpreterM (Val)
 
 
 data SrcFileT = CoreT
@@ -39,27 +40,17 @@ initial t name deps =
 defsAsc :: SrcFile -> [Definition]
 defsAsc srcfile = map def (defOrd srcfile)
     where def name =
-              case Map.lookup name (defs srcfile) of
-                Nothing -> error $ "defsAsc: definition " ++ show name ++ " is not defined"
-                Just x -> x
+            fromMaybe
+              (error $ "defsAsc: definition " ++ show name ++ " is not defined")
+              (Map.lookup name (defs srcfile))
 
 
 symbols :: SrcFile -> Map String Symbol
 symbols = Map.mapMaybe Definition.symbol . defs
 
 
-types :: SrcFile -> Map String Type
-types srcfile =
-    Map.mapKeys ((name srcfile ++ ".") ++) $ Map.mapMaybe Definition.typ $ defs srcfile
-
-
-exprs :: SrcFile -> Map String Expr
-exprs srcfile =
-    Map.mapKeys ((name srcfile ++ ".") ++) $ Map.mapMaybe Definition.expr $ defs srcfile
-
-
 type TypeDesc = [(String, Type)]
-type FnDesc = [(String, Type, Expr)]
+type FnDesc = [(String, Type, Val)]
 
 
 mkCoreSrcFile :: String -> [String] -> TypeDesc -> FnDesc -> SrcFile
@@ -71,7 +62,7 @@ mkCoreSrcFile srcfileName deps typeDesc fnDesc =
           defs =
             let
                 typs = [ (Definition.initial (defName x)) { symbol = Just (TypeSymbol i), typ = Just y } | (x, y) <- typeDesc | i <- [0..] ]
-                fns = [ (Definition.initial (defName x)) { symbol = Just (fnSymbol x), typ = Just y, expr = Just z } | (x, y, z) <- fnDesc ]
+                fns = [ (Definition.initial (defName x)) { symbol = Just (fnSymbol x), typ = Just y, val = Just z } | (x, y, z) <- fnDesc ]
             in
               typs ++ fns
 
@@ -147,7 +138,7 @@ addDefinitionTypes srcfile ts =
                 loop defs' ts
 
 
-addDefinitionExprs :: SrcFile -> Map String Expr -> SrcFile
+addDefinitionExprs :: SrcFile -> Map String Val -> SrcFile
 addDefinitionExprs srcfile exprs =
     srcfile { defs = loop (defs srcfile) (Map.toList exprs) }
     where loop defs [] = defs
@@ -155,7 +146,7 @@ addDefinitionExprs srcfile exprs =
               let
                   def = case Map.lookup name defs of
                           Nothing -> error $ "SrcFile.addDefinitionExprs: definition " ++ show name ++ " is not defined"
-                          Just def -> def { expr = Just expr }
+                          Just def -> def { val = Just expr }
                   defs' = Map.insert name def defs
               in
                 loop defs' ts

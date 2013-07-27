@@ -13,7 +13,7 @@ empty = Env Nothing Map.empty
 
 
 initial :: Map String a -> Env a
-initial mp = Env Nothing mp
+initial = Env Nothing
 
 
 getBinds :: Env a -> Map String a

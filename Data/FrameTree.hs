@@ -2,6 +2,7 @@ module Data.FrameTree where
 
 import Data.Map (Map)
 import qualified Data.Map as Map (empty, fromList, insert, lookup, toList)
+import Data.Maybe (fromMaybe)
 
 import Data.Frame (Frame(..))
 import qualified Data.Frame as Frame
@@ -36,9 +37,9 @@ getFrame tree fid = Map.lookup fid (frames tree)
 -- | 'getRootFrame' @tree@ returns the root 'Frame'.
 getRootFrame :: FrameTree -> Frame
 getRootFrame tree =
-    case Map.lookup (rootId tree) (frames tree) of
-      Nothing -> error "FrameTree.getRootFrame: root frame does not exist"
-      Just x -> x
+  fromMaybe
+    (error "FrameTree.getRootFrame: root frame does not exist")
+    (Map.lookup (rootId tree) (frames tree))
 
 
 -- | 'putFrame' @tree frame@ returns the updated 'FrameTree' that
@@ -80,7 +81,7 @@ getLexicalSymbol = lookupLexically Frame.symbols
 
 getLexicalModule :: FrameTree -> Frame -> String -> Maybe Int
 getLexicalModule tree frame name =
-    do ModuleSymbol fid <- lookupLexically (Frame.moduleSymbols) tree frame name
+    do ModuleSymbol fid <- lookupLexically Frame.moduleSymbols tree frame name
        return fid
 
 

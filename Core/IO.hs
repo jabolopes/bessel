@@ -46,7 +46,7 @@ link ids = (srcfile, tail ids)
 
           -- edit: fixed undefined
           srcfile :: SrcFile
-          srcfile = SrcFile "Core.IO" ["Core"] Nothing undefined undefined $ Right $
+          srcfile = SrcFile "Core.IO" ["Core"] Nothing undefined undefined $ Right
                     (["File"],
                      Map.fromList [("open", (ArrowT DynT DynT, FnExpr open)),
                                    ("read", (ArrowT DynT DynT, m read)),

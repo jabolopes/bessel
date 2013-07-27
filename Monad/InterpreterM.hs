@@ -9,76 +9,76 @@ import Data.Maybe
 import Data.Env (Env)
 import qualified Data.Env as Env
 
-type ExprEnv = Env Expr
+type ValEnv = Env Val
 
 
-data Expr
-    = BoolExpr Bool
-    | IntExpr Int
-    | DoubleExpr Double
-    | CharExpr Char
-    | SeqExpr [Expr]
-    | FnExpr (Expr -> InterpreterM Expr)
-    | TypeExpr Expr
-    | DynExpr Dynamic
+data Val
+    = BoolVal Bool
+    | IntVal Int
+    | DoubleVal Double
+    | CharVal Char
+    | SeqVal [Val]
+    | FnVal (Val -> InterpreterM Val)
+    | TypeVal Val
+    | DynVal Dynamic
 
 
-instance Show Expr where
-    show (BoolExpr False) = "false"
-    show (BoolExpr True) = "true"
-    show (CharExpr c) = show c
-    show (IntExpr i) = show i
-    show (DoubleExpr d) = show d
-    show (SeqExpr exprs)
-        | not (null exprs) && all isCharExpr exprs = show $ map (\(CharExpr c) -> c) exprs
+instance Show Val where
+    show (BoolVal False) = "false"
+    show (BoolVal True) = "true"
+    show (CharVal c) = show c
+    show (IntVal i) = show i
+    show (DoubleVal d) = show d
+    show (SeqVal exprs)
+        | not (null exprs) && all isCharVal exprs = show $ map (\(CharVal c) -> c) exprs
         | otherwise = "[" ++ intercalate "," (map show exprs) ++ "]"
-    show (FnExpr _) = "fn"
-    show (TypeExpr expr) = "{" ++ show expr ++ "}"
-    show (DynExpr _) = "#"
+    show (FnVal _) = "fn"
+    show (TypeVal expr) = "{" ++ show expr ++ "}"
+    show (DynVal _) = "#"
 
 
-isFalseExpr :: Expr -> Bool
-isFalseExpr (BoolExpr False) = True
-isFalseExpr _ = False
+isFalseVal :: Val -> Bool
+isFalseVal (BoolVal False) = True
+isFalseVal _ = False
 
 
-isCharExpr :: Expr -> Bool
-isCharExpr (CharExpr _) = True
-isCharExpr _ = False
+isCharVal :: Val -> Bool
+isCharVal CharVal {} = True
+isCharVal _ = False
 
 
-isNotFalseExpr :: Expr -> Bool
-isNotFalseExpr = not . isFalseExpr
+isNotFalseVal :: Val -> Bool
+isNotFalseVal = not . isFalseVal
 
 
-toDynExpr :: Typeable a => a -> Expr
-toDynExpr val = DynExpr $ toDyn val
+toDynVal :: Typeable a => a -> Val
+toDynVal val = DynVal $ toDyn val
 
 
-fromDynExpr :: Typeable a => Expr -> a
-fromDynExpr (DynExpr dyn) = fromJust $ fromDynamic dyn
+fromDynVal :: Typeable a => Val -> a
+fromDynVal (DynVal dyn) = fromJust $ fromDynamic dyn
 
 
-false :: Expr
-false = BoolExpr False
+false :: Val
+false = BoolVal False
 
 
-true :: Expr
-true = BoolExpr True
+true :: Val
+true = BoolVal True
 
 
-boxString :: String -> Expr
-boxString = SeqExpr . map CharExpr
+boxString :: String -> Val
+boxString = SeqVal . map CharVal
 
 
-unboxString :: Expr -> String
-unboxString (SeqExpr cs) | all isCharExpr cs = map (\(CharExpr c) -> c) cs
+unboxString :: Val -> String
+unboxString (SeqVal cs) | all isCharVal cs = map (\(CharVal c) -> c) cs
 unboxString expr =
     error $ "Monad.InterpreterM.unboxString: expecting character sequence" ++
             "\n\n\t expr = " ++ show expr ++ "\n\n"
 
 
-type InterpreterM a = State ExprEnv a
+type InterpreterM a = State ValEnv a
 
 
 withEnvM :: InterpreterM a -> InterpreterM a
@@ -87,7 +87,7 @@ withEnvM m =
        withLexicalEnvM env m
 
 
-withLexicalEnvM :: Env Expr -> InterpreterM a -> InterpreterM a
+withLexicalEnvM :: Env Val -> InterpreterM a -> InterpreterM a
 withLexicalEnvM env m =
     do env' <- get
        put $ Env.push env
@@ -96,13 +96,13 @@ withLexicalEnvM env m =
        return val
 
 
-addBindM :: String -> Expr -> InterpreterM ()
+addBindM :: String -> Val -> InterpreterM ()
 addBindM name expr =
     do env <- get
        put $ Env.addBind env name expr
 
 
-findBindM :: String -> InterpreterM (Maybe Expr)
+findBindM :: String -> InterpreterM (Maybe Val)
 findBindM name =
     do env <- get
        return $ Env.findBind env name

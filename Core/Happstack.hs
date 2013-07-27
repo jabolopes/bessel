@@ -40,7 +40,7 @@ instance ToMessage Expr where
 
 
 
-applyAttributes :: (Html -> Html) -> [Expr] -> (Html -> Html)
+applyAttributes :: (Html -> Html) -> [Expr] -> Html -> Html
 applyAttributes tag [] = tag
 applyAttributes tag (TypeExpr _ _ (SeqExpr [attr,val]):attrs) =
     let 
@@ -56,7 +56,7 @@ applyAttributes _ attrs =
 link :: [Int] -> (SrcFile, [Int])
 link ids = (srcfile, drop 2 ids)
     where tagTypename = "Core.Happstack.Tag"
-          tagTid = ids !! 0
+          tagTid = head ids
 
           attrTypename = "Core.Happstack.Attribute"
           attrTid = ids !! 1
@@ -70,24 +70,24 @@ link ids = (srcfile, drop 2 ids)
           tagM tag =
               FnExpr $ \(SeqExpr attrs) ->
                   return $ FnExpr $ \expr ->
-                      return $ toTypeDynExpr tagTypename tagTid $ (applyAttributes tag attrs) $ toMarkup expr
+                      return $ toTypeDynExpr tagTypename tagTid $ applyAttributes tag attrs $ toMarkup expr
 
           singleTagM tag =
-              toTypeDynExpr tagTypename tagTid $ tag
+              toTypeDynExpr tagTypename tagTid tag
 
           serve :: Expr -> InterpreterM Expr
           {-# NOINLINE serve #-}
           serve (FnExpr fn) =
               do val <- fn (SeqExpr [])
                  return $ unsafePerformIO $ do
-                   threadId <- forkIO $ simpleHTTP nullConf (ok $ toResponse $ (fromTypeDynExpr tagTid val :: Html))
+                   threadId <- forkIO $ simpleHTTP nullConf (ok $ toResponse (fromTypeDynExpr tagTid val :: Html))
                    waitForTermination
                    killThread threadId
                    return $ SeqExpr []
 
           -- edit: fixed undefined
           srcfile :: SrcFile
-          srcfile = SrcFile "Core.Happstack" ["Core"] Nothing undefined undefined $ Right $
+          srcfile = SrcFile "Core.Happstack" ["Core"] Nothing undefined undefined $ Right
                     ([tagTypename],
                      Map.fromList [("a", (ArrowT DynT DynT, tagM Html.a)),
                                    ("abbr", (ArrowT DynT DynT, tagM Html.abbr)),

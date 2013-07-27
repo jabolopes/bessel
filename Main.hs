@@ -1,5 +1,6 @@
 module Main where
 
+import Data.Foldable (forM_)
 import Data.Functor ((<$>))
 import Data.Map (Map)
 import qualified Data.Map as Map (fromList)
@@ -50,6 +51,4 @@ main =
     do -- args <- getArgs
        mstate <- (Just <$> importFile (FileSystem.initial corefiles) preludeName)
                   `catchUserException` mainException
-       case mstate of
-         Nothing -> return ()
-         Just state -> repl state
+       forM_ mstate repl

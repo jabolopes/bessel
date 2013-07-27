@@ -1,5 +1,6 @@
 module Data.Type where
 
+import Control.Arrow (second)
 import Data.Functor ((<$>))
 import Data.List (intercalate, nub, sort)
 
@@ -112,7 +113,7 @@ freshForallT count t =
 kickForalls :: Type -> Type
 kickForalls t =
     let (vars, t') = kick [] t in
-    foldl (\t var -> ForallT var t) t' vars
+    foldl (flip ForallT) t' vars
     where kick vars t@BoolT = (vars, t)
           kick vars t@IntT = (vars, t)
           kick vars t@DoubleT = (vars, t)
@@ -241,7 +242,7 @@ generalizeEvarsT t@DynT = t
 generalizeEvarsT (ArrowT fnT argT) =
     ArrowT (generalizeEvarsT fnT) (generalizeEvarsT argT)
 
-generalizeEvarsT (CoT coTs) = CoT $ map (\(x, y) -> (x, generalizeEvarsT y)) coTs
+generalizeEvarsT (CoT coTs) = CoT $ map (second generalizeEvarsT) coTs
 
 generalizeEvarsT (EvarT ('^':var2)) = TvarT (var2 ++ "1")
 

@@ -552,9 +552,7 @@ synthAbstrM ctx stx@(LambdaStx arg (Just ann) body) =
 
 -- ⇑LetChk
 synthAbstrM ctx stx@(AppStx fn@(LambdaStx x Nothing body) arg@(LambdaStx {})) =
-    do let evar = ['^', toEnum (count ctx)]
-           evarT = EvarT evar
-           ctx' = insertContext ctx { count = count ctx + 1 } evar evarT
+    do let (evarT@(EvarT evar), ctx') = genEvar ctx
 
        (arg', ctx'') <- checkM evarT ctx' arg
        (rangeT, body', ctx''') <- synthM (insertContext ctx'' x evarT) body

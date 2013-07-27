@@ -13,16 +13,16 @@ import Data.Type
 import Monad.InterpreterM
 
 
-shell :: Expr -> Expr
+shell :: Val -> Val
 {-# NOINLINE shell #-}
 shell expr =
-    FnExpr $ \args -> return $
-      FnExpr $ \_ -> return $ unsafePerformIO $ do
-                       let line = unboxString expr ++ " " ++ unboxString args
-                       (hIn, hOut, hErr, p) <- runInteractiveCommand line
-                       str <- hGetContents hOut
-                       waitForProcess p
-                       return $ boxString str
+    FnVal $ \args -> return $
+      FnVal $ \_ -> return $ unsafePerformIO $ do
+                      let line = unboxString expr ++ " " ++ unboxString args
+                      (hIn, hOut, hErr, p) <- runInteractiveCommand line
+                      str <- hGetContents hOut
+                      waitForProcess p
+                      return $ boxString str
 
 
 fnDesc :: FnDesc

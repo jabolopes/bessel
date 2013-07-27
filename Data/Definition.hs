@@ -3,7 +3,7 @@ module Data.Definition where
 import Data.Stx (Stx)
 import Data.Symbol (Symbol)
 import Data.Type (Type)
-import Monad.InterpreterM (Expr)
+import Monad.InterpreterM (Val)
 
 
 data Definition
@@ -13,7 +13,7 @@ data Definition
                   , prefixedUses :: [(String, String)]
                   , symbol :: Maybe Symbol
                   , typ :: Maybe Type
-                  , expr :: Maybe Expr
+                  , val :: Maybe Val
                   , srcStx :: Maybe (Stx String)
                   , expStx :: Maybe (Stx String)
                   , renStx :: Maybe (Stx String)
@@ -29,7 +29,7 @@ initial name =
                , prefixedUses = []
                , symbol = Nothing
                , typ = Nothing
-               , expr = Nothing
+               , val = Nothing
                , srcStx = Nothing
                , expStx = Nothing
                , renStx = Nothing

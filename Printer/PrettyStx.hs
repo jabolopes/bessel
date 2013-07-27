@@ -81,19 +81,17 @@ printStxM (AppStx stx1 stx2) =
                      putPrinter ")"
 
 printStxM (CondMacro ms blame) =
-    do withPrinterCol $ do
-         nlPrinter
-         putMatches ms
-         nlPrinter
-         putPrinter ("_ -> blame " ++ show blame)
+  withPrinterCol $ do
+    nlPrinter
+    putMatches ms
+    nlPrinter
+    putPrinter ("_ -> blame " ++ show blame)
     where putMatches [] = return ()
-
           putMatches [(pats, stx)] =
               do printPatsM pats
                  putPrinter " ("
                  printStxM stx
                  putPrinter ")"
-
           putMatches ((pats, stx):ms) =
               do printPatsM pats
                  putPrinter " "
@@ -115,9 +113,7 @@ printStxM (CondStx ms blame) =
                  printStxM expr
 
           putMatches ((pred, expr):ms) =
-              do printStxM pred
-                 putPrinter " -> "
-                 printStxM expr
+              do putMatches [(pred, expr)]
                  nlPrinter
                  putMatches ms
 
@@ -187,27 +183,27 @@ initialPrinterState = PrinterState 0
 
 prettyPrint :: Stx String -> IO ()
 prettyPrint stx =
-    runStateT (printStxM stx) initialPrinterState >> return ()
+  void $ runStateT (printStxM stx) initialPrinterState
 
 
 prettyPrintNamespace :: Namespace String -> IO ()
 prettyPrintNamespace ns =
-    runStateT (printNamespaceM ns) initialPrinterState >> return ()
+  void $ runStateT (printNamespaceM ns) initialPrinterState
 
 
 prettyPrintSrcFile :: SrcFile -> IO ()
 prettyPrintSrcFile SrcFile { t = CoreT, name } =
-    runStateT (do putPrinter $ "me " ++ name
-                  nlPrinter) initialPrinterState >> return ()
+  void $ runStateT (do putPrinter $ "me " ++ name
+                       nlPrinter) initialPrinterState
 
 prettyPrintSrcFile SrcFile { name, srcNs = Just ns } =
-    runStateT (printSrcFileM name ns) initialPrinterState >> return ()
-    where printSrcFileM name ns =
-              do putPrinter $ "me " ++ name
-                 nlPrinter
-                 nlPrinter
-                 printNamespaceM ns
+  void $ runStateT (printSrcFileM name ns) initialPrinterState
+  where printSrcFileM name ns =
+          do putPrinter $ "me " ++ name
+             nlPrinter
+             nlPrinter
+             printNamespaceM ns
 
 prettyPrintSrcFile SrcFile { name } =
-    runStateT (printSrcFileM name) initialPrinterState >> return ()
-    where printSrcFileM name = putPrinter $ "me " ++ name
+  void $ runStateT (printSrcFileM name) initialPrinterState
+  where printSrcFileM name = putPrinter $ "me " ++ name

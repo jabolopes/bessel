@@ -22,18 +22,15 @@ empty =
 
 
 initial :: [SrcFile] -> FileSystem
-initial = initial' empty
-  where initial' fs [] = fs
-        initial' fs (srcfile:srcfiles) =
-            initial' (add fs srcfile) srcfiles
+initial = foldl add empty
 
 
 add :: FileSystem -> SrcFile -> FileSystem
 add fs srcfile =
     let
-       fid = case Map.lookup (SrcFile.name srcfile) (fileIds fs) of
-               Nothing -> Map.size (fileIds fs)
-               Just id -> id
+       fid = fromMaybe
+               (Map.size (fileIds fs))
+               (Map.lookup (SrcFile.name srcfile) (fileIds fs))
     in
       fs { files = Map.insert fid srcfile (files fs)
          , fileIds = Map.insert (SrcFile.name srcfile) fid (fileIds fs) }
@@ -43,9 +40,9 @@ get :: FileSystem -> String -> SrcFile
 get fs name =
     case Map.lookup name (fileIds fs) of
       Nothing -> error $ "FileSystem.get: srcfile " ++ show name ++ " has no id in the filesystem"
-      Just srcfileId -> case Map.lookup srcfileId (files fs) of
-                          Nothing -> error $ "FileSystem.get: srcfile " ++ show name ++ " is not in the filesystem"
-                          Just srcfile -> srcfile
+      Just srcfileId -> fromMaybe
+                          (error $ "FileSystem.get: srcfile " ++ show name ++ " is not in the filesystem")
+                          (Map.lookup srcfileId (files fs))
 
 
 toAscList :: FileSystem -> [SrcFile]

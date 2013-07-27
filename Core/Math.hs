@@ -15,12 +15,12 @@ import Data.Type
 import Monad.InterpreterM
 
 
-cos :: Expr -> Expr
-cos (DoubleExpr d) = DoubleExpr (Prelude.cos d)
+cos :: Val -> Val
+cos (DoubleVal d) = DoubleVal (Prelude.cos d)
 
 
-sin :: Expr -> Expr
-sin (DoubleExpr d) = DoubleExpr (Prelude.sin d)
+sin :: Val -> Val
+sin (DoubleVal d) = DoubleVal (Prelude.sin d)
 
 
 fnDesc :: FnDesc

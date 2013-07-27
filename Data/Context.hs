@@ -75,7 +75,7 @@ dropContext ctx@Context { syms } name =
 
 nothingSyms :: Map String Type -> Context
 nothingSyms syms =
-    resetCount (Context { syms = Map.toList syms, count = 97 })
+    resetCount Context { syms = Map.toList syms, count = 97 }
 
 
 resetCount :: Context -> Context
