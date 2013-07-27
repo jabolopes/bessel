@@ -51,8 +51,8 @@ type ReplM a = StateT ReplState IO a
 doPutLine = False
 doPutTokens = True
 doPutParsedStx = True
-doPutExpr = True
-doPutExprT = True
+doPutVal = True
+doPutValT = True
 doPutEnvironment = False
 
 
@@ -71,15 +71,15 @@ putParsedStx stx =
       putStrLn ""
 
 
-putExpr :: Show a => a -> IO ()
-putExpr expr =
-  when doPutExpr (print expr)
+putVal :: Show a => a -> IO ()
+putVal val =
+  when doPutVal (print val)
 
 
-putExprT :: (Show a, Show b) => a -> b -> IO ()
-putExprT expr t =
-  when doPutExprT $
-    putStrLn $ show expr ++ " :: " ++ show t
+putValT :: (Show a, Show b) => a -> b -> IO ()
+putValT val t =
+  when doPutValT $
+    putStrLn $ show val ++ " :: " ++ show t
 
 
 putEnvironment :: Show a => a -> IO ()
@@ -199,9 +199,9 @@ runSnippetM ln =
          interactive = FileSystem.get fs SrcFile.interactiveName
          interactive' = SrcFile.updateDefinitions interactive [evalDef]
      modify $ \s -> s { fs = FileSystem.add fs interactive' }
-     liftIO $ putExprM (Definition.typ evalDef) (Definition.val evalDef)
-  where putExprM Nothing expr = putExpr expr
-        putExprM (Just t) (Just expr) = putExprT expr t
+     liftIO $ putValM (Definition.typ evalDef) (Definition.val evalDef)
+  where putValM Nothing val = putVal val
+        putValM (Just t) (Just val) = putValT val t
 
 
 showModuleM :: Bool -> Bool -> Bool -> String -> ReplM ()

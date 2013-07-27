@@ -29,11 +29,11 @@ instance Show Val where
     show (CharVal c) = show c
     show (IntVal i) = show i
     show (DoubleVal d) = show d
-    show (SeqVal exprs)
-        | not (null exprs) && all isCharVal exprs = show $ map (\(CharVal c) -> c) exprs
-        | otherwise = "[" ++ intercalate "," (map show exprs) ++ "]"
+    show (SeqVal vals)
+        | not (null vals) && all isCharVal vals = show $ map (\(CharVal c) -> c) vals
+        | otherwise = "[" ++ intercalate "," (map show vals) ++ "]"
     show (FnVal _) = "fn"
-    show (TypeVal expr) = "{" ++ show expr ++ "}"
+    show (TypeVal val) = "{" ++ show val ++ "}"
     show (DynVal _) = "#"
 
 
@@ -73,9 +73,9 @@ boxString = SeqVal . map CharVal
 
 unboxString :: Val -> String
 unboxString (SeqVal cs) | all isCharVal cs = map (\(CharVal c) -> c) cs
-unboxString expr =
+unboxString val =
     error $ "Monad.InterpreterM.unboxString: expecting character sequence" ++
-            "\n\n\t expr = " ++ show expr ++ "\n\n"
+            "\n\n\t val = " ++ show val ++ "\n\n"
 
 
 type InterpreterM a = State ValEnv a
@@ -97,9 +97,9 @@ withLexicalEnvM env m =
 
 
 addBindM :: String -> Val -> InterpreterM ()
-addBindM name expr =
+addBindM name val =
     do env <- get
-       put $ Env.addBind env name expr
+       put $ Env.addBind env name val
 
 
 findBindM :: String -> InterpreterM (Maybe Val)

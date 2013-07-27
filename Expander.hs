@@ -93,11 +93,11 @@ expandCondMacro :: [([Pat String], Stx String)] -> String -> ExpanderM (Stx Stri
 expandCondMacro ms blame =
     do let npats = length $ fst $ maximumBy (\x y -> compare (length (fst x)) (length (fst y))) ms
        args <- replicateM npats (genNameM "arg")
-       let (patss, exprs) = unzip ms
+       let (patss, vals) = unzip ms
            preds = map (combinePreds args) patss
-       exprs' <- mapM expandOneM exprs
-       let exprs'' = zipWith (lambdaBody args) patss exprs'
-           ms' = zip preds exprs''
+       vals' <- mapM expandOneM vals
+       let vals'' = zipWith (lambdaBody args) patss vals'
+           ms' = zip preds vals''
        returnOneM $ lambdas args (CondStx ms' blame)
     where lambdas [] body = body
           lambdas (arg:args) body =

@@ -134,14 +134,14 @@ addDefinitionTypes srcfile ts =
                 loop defs' ts
 
 
-addDefinitionExprs :: SrcFile -> Map String Val -> SrcFile
-addDefinitionExprs srcfile exprs =
-    srcfile { defs = loop (defs srcfile) (Map.toList exprs) }
+addDefinitionVals :: SrcFile -> Map String Val -> SrcFile
+addDefinitionVals srcfile vals =
+    srcfile { defs = loop (defs srcfile) (Map.toList vals) }
     where loop defs [] = defs
-          loop defs ((name, expr):ts) =
+          loop defs ((name, val):ts) =
               let
                   def = case Map.lookup name defs of
-                          Nothing -> error $ "SrcFile.addDefinitionExprs: definition " ++ show name ++ " is not defined"
+                          Nothing -> error $ "SrcFile.addDefinitionVals: definition " ++ show name ++ " is not defined"
                           Just def -> def { val = Just val }
                   defs' = Map.insert name def defs
               in

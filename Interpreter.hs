@@ -34,49 +34,49 @@ evalM (SeqStx stxs) = SeqVal <$> mapM evalM stxs
 evalM (IdStx str) =
     do msym <- findBindM str
        case msym of
-         Just expr -> return expr
+         Just val -> return val
          Nothing -> error $ "Interpreter.evalM(IdStx): unbound symbols must be caught by the renamer" ++
                             "\n\n\t str = " ++ str ++ "\n"
 
 evalM (AppStx stx1 stx2) =
-    do expr1 <- evalM stx1
-       expr2 <- evalM stx2
-       case expr1 of
-         FnVal fn -> fn expr2
+    do val1 <- evalM stx1
+       val2 <- evalM stx2
+       case val1 of
+         FnVal fn -> fn val2
          _ -> error $ "Interpreter.evalM(AppStx): application of non-functions must be detected by the renamer" ++
                       "\n\n\t stx1 = " ++ show stx1 ++
-                      "\n\n\t -> expr1 = " ++ show expr1 ++
+                      "\n\n\t -> val1 = " ++ show val1 ++
                       "\n\n\t stx2 = " ++ show stx2 ++
-                      "\n\n\t -> expr2 = " ++ show expr2 ++ "\n"
+                      "\n\n\t -> val2 = " ++ show val2 ++ "\n"
 
 evalM (CondStx ms blame) = evalMatches ms
     where evalMatches [] =
               error $ "Interpreter.evalM(CondStx): non-exhaustive patterns in " ++ blame
                     
-          evalMatches ((pred, expr):ms) =
-              do val <- evalM pred
-                 case val of
+          evalMatches ((pred, val):ms) =
+              do pred' <- evalM pred
+                 case pred' of
                    BoolVal False -> evalMatches ms
-                   _ -> evalM expr
+                   _ -> evalM val
 
 evalM CotypeStx {} =
   error "Interpreter.evalM(CotypeStx): cotypes must be eliminated in reoderer"
 
 evalM (DefnStx _ Def str body) =
-    do rec addBindM str expr
-           expr <- evalM body
-       return expr
+    do rec addBindM str val
+           val <- evalM body
+       return val
 
 evalM (DefnStx _ NrDef str body) =
-    do expr <- evalM body
-       addBindM str expr
-       return expr
+    do val <- evalM body
+       addBindM str val
+       return val
 
 evalM (LambdaStx str _ body) =
     FnVal . closure <$> get
-    where closure env expr =
+    where closure env val =
               withLexicalEnvM env $ do
-                addBindM str expr
+                addBindM str val
                 withEnvM (evalM body)
 
 evalM (MergeStx vals) =
@@ -96,8 +96,8 @@ evalM (WhereStx stx stxs) =
 interpretDefinition :: FileSystem -> Definition -> Definition
 interpretDefinition fs def@Definition { renStx = Just stx } =
     do let defs = map (FileSystem.definition fs) (freeNames def)
-           exprs = Map.fromList [ (sym, fromJust (Definition.val def)) | def <- defs, let Just (FnSymbol sym) = Definition.symbol def ]
-           val = fst $ runState (evalM stx) (Env.initial exprs)
+           vals = Map.fromList [ (sym, fromJust (Definition.val def)) | def <- defs, let Just (FnSymbol sym) = Definition.symbol def ]
+           val = fst $ runState (evalM stx) (Env.initial vals)
        def { val = Just val }
 
 

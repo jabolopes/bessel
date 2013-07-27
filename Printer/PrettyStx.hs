@@ -107,13 +107,13 @@ printStxM (CondStx ms blame) =
          putMatches (ms ++ [(IdStx "_", appStx "signal" (stringStx blame))])
     where putMatches [] = return ()
 
-          putMatches [(pred, expr)] =
+          putMatches [(pred, val)] =
               do printStxM pred
                  putPrinter " -> "
-                 printStxM expr
+                 printStxM val
 
-          putMatches ((pred, expr):ms) =
-              do putMatches [(pred, expr)]
+          putMatches ((pred, val):ms) =
+              do putMatches [(pred, val)]
                  nlPrinter
                  putMatches ms
 

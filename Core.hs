@@ -60,8 +60,8 @@ isSeq _ = false
 
 isSeqOf :: Val -> Val
 isSeqOf (FnVal fn) = FnVal hof
-    where hof (SeqVal exprs) =
-              do b <- all isNotFalseVal <$> mapM fn exprs
+    where hof (SeqVal vals) =
+              do b <- all isNotFalseVal <$> mapM fn vals
                  return $ if b then true else false
           hof _ = return false
 
@@ -134,39 +134,39 @@ ltChar (CharVal c1) = FnVal ltCharHof
 
 
 -- edit: to eliminate
-exprLt :: Val -> Val -> Val
-exprLt (IntVal b1) (IntVal b2) | b1 < b2 = true
-exprLt (IntVal i1) (IntVal i2) | i1 < i2 = true
-exprLt (DoubleVal d1) (DoubleVal d2) | d1 < d2 = true
-exprLt (CharVal c1) (CharVal c2) | c1 < c2 = true
-exprLt (SeqVal exprs1) (SeqVal exprs2)
-    | null exprs1 && null exprs2 = false
-    | length exprs1 < length exprs2 = true
-    | length exprs1 == length exprs2 = all2 exprLt exprs1 exprs2
-exprLt _ _ = false
+valLt :: Val -> Val -> Val
+valLt (IntVal b1) (IntVal b2) | b1 < b2 = true
+valLt (IntVal i1) (IntVal i2) | i1 < i2 = true
+valLt (DoubleVal d1) (DoubleVal d2) | d1 < d2 = true
+valLt (CharVal c1) (CharVal c2) | c1 < c2 = true
+valLt (SeqVal vals1) (SeqVal vals2)
+    | null vals1 && null vals2 = false
+    | length vals1 < length vals2 = true
+    | length vals1 == length vals2 = all2 valLt vals1 vals2
+valLt _ _ = false
 
 
 -- edit: improve efficiency
 ltSeq :: Val -> Val
-ltSeq (SeqVal exprs1) = FnVal ltSeqHof
-    where ltSeqHof (SeqVal exprs2)
-              | null exprs1 && null exprs2 = return false
-              | length exprs1 < length exprs2 = return true
-              | length exprs1 == length exprs2 =
-                  return (all2 exprLt exprs1 exprs2)
+ltSeq (SeqVal vals1) = FnVal ltSeqHof
+    where ltSeqHof (SeqVal vals2)
+              | null vals1 && null vals2 = return false
+              | length vals1 < length vals2 = return true
+              | length vals1 == length vals2 =
+                  return (all2 valLt vals1 vals2)
               | otherwise = return false
 
 
 -- arithmetic functions
 
 mkInt :: Val -> Val
-mkInt expr@(IntVal _) = expr
+mkInt val@(IntVal _) = val
 mkInt (DoubleVal d) = IntVal (floor d)
 
 
 mkReal :: Val -> Val
 mkReal (IntVal i) = DoubleVal (fromIntegral i)
-mkReal expr@(DoubleVal _) = expr
+mkReal val@(DoubleVal _) = val
 
 
 addInt :: Val -> Val
@@ -241,7 +241,7 @@ remInt (IntVal i1) =
 -- combining forms
 
 apply :: Val -> InterpreterM Val
-apply (SeqVal [FnVal fn, expr]) = fn expr
+apply (SeqVal [FnVal fn, val]) = fn val
 
 
 o :: Val -> Val
@@ -273,10 +273,10 @@ plist (SeqVal fns) = FnVal plistHof
           all' [] [] = return True
           all' [] _ = return False
           all' _ [] = return False
-          all' (FnVal fn:fns') (val:vals') =
-              do expr <- fn val
-                 if isNotFalseVal expr
-                   then all' fns' vals'
+          all' (FnVal fn:fns) (val:vals) =
+              do val' <- fn val
+                 if isNotFalseVal val'
+                   then all' fns vals
                    else return False
 
           plistHof (SeqVal vals)
@@ -286,28 +286,28 @@ plist (SeqVal fns) = FnVal plistHof
 
 
 pand :: Val -> Val
-pand (FnVal fn) = FnVal $ \expr -> fn expr
-pand (SeqVal exprs) =
-    FnVal $ \expr -> andHof expr exprs
+pand val@FnVal {} = val
+pand (SeqVal vals) =
+    FnVal $ \val -> andHof val vals
     where andHof _ [] = return true
-          andHof expr [FnVal fn] = fn expr
-          andHof expr (FnVal fn:exprs) =
-              do val <- fn expr
+          andHof val [FnVal fn] = fn val
+          andHof val (FnVal fn:vals) =
+              do val <- fn val
                  if isFalseVal val
                    then return false
-                   else andHof expr exprs
+                   else andHof val vals
 
 
 por :: Val -> Val
-por (FnVal fn) = FnVal $ \expr -> fn expr
-por (SeqVal exprs) =
-    FnVal $ \expr -> orHof expr exprs
+por val@FnVal {} = val
+por (SeqVal vals) =
+    FnVal $ \val -> orHof val vals
     where orHof _ [] = return false
-          orHof expr [FnVal fn] = fn expr
-          orHof expr (FnVal fn:exprs) =
-              do val <- fn expr
+          orHof val [FnVal fn] = fn val
+          orHof val (FnVal fn:vals) =
+              do val <- fn val
                  if isFalseVal val
-                   then orHof expr exprs
+                   then orHof val vals
                    else return true
 
 
@@ -315,10 +315,10 @@ pal :: Val -> Val
 pal (SeqVal [FnVal fn1, FnVal fn2]) =
     FnVal pal'
     where pal' (SeqVal (x:xs)) =
-              do expr1 <- fn1 x
-                 if isNotFalseVal expr1
-                   then do expr2 <- fn2 (SeqVal xs)
-                           return (if isNotFalseVal expr2
+              do val1 <- fn1 x
+                 if isNotFalseVal val1
+                   then do val2 <- fn2 (SeqVal xs)
+                           return (if isNotFalseVal val2
                                    then true
                                    else false)
                    else return false
@@ -329,10 +329,10 @@ par :: Val -> Val
 par (SeqVal [FnVal fn1, FnVal fn2]) =
     FnVal par'
     where par' (SeqVal xs) | not (null xs) =
-              do expr1 <- fn1 $ SeqVal $ init xs
-                 if isNotFalseVal expr1
-                   then do expr2 <- fn2 $ last xs
-                           return (if isNotFalseVal expr2
+              do val1 <- fn1 $ SeqVal $ init xs
+                 if isNotFalseVal val1
+                   then do val2 <- fn2 $ last xs
+                           return (if isNotFalseVal val2
                                    then true
                                    else false)
                    else return false
@@ -340,54 +340,54 @@ par (SeqVal [FnVal fn1, FnVal fn2]) =
 
 
 al :: Val -> Val
-al expr =
-    FnVal $ \(SeqVal exprs) -> return $ SeqVal (expr:exprs)
+al val =
+    FnVal $ \(SeqVal vals) -> return $ SeqVal (val:vals)
 
 
 ar :: Val -> Val
-ar (SeqVal exprs) =
-    FnVal $ \expr -> return $ SeqVal (exprs ++ [expr])
+ar (SeqVal vals) =
+    FnVal $ \val -> return $ SeqVal (vals ++ [val])
 
 
 concat :: Val -> Val
-concat (SeqVal exprs) =
-    SeqVal $ concatMap (\(SeqVal exprs) -> exprs) exprs
+concat (SeqVal vals) =
+    SeqVal $ concatMap (\(SeqVal vals) -> vals) vals
 
 
 hd :: Val -> Val
-hd (SeqVal (expr:_)) = expr
+hd (SeqVal (val:_)) = val
 
 
 tl :: Val -> Val
-tl (SeqVal (_:exprs)) = SeqVal exprs
+tl (SeqVal (_:vals)) = SeqVal vals
 
 
 hdr :: Val -> Val
-hdr (SeqVal exprs@(_:_)) = last exprs
+hdr (SeqVal vals@(_:_)) = last vals
 
 
 tlr :: Val -> Val
-tlr (SeqVal exprs@(_:_)) = SeqVal $ init exprs
+tlr (SeqVal vals@(_:_)) = SeqVal $ init vals
 
 
 -- input, output, and file functions
 
 out :: Val -> Val
 {-# NOINLINE out #-}
-out expr@(SeqVal [SeqVal [CharVal 's', CharVal 'c', CharVal 'r'], SeqVal str]) =
+out val@(SeqVal [SeqVal [CharVal 's', CharVal 'c', CharVal 'r'], SeqVal str]) =
     unsafePerformIO $ do putStr $ map (\(CharVal c) -> c) str
-                         return expr
-out expr = signal $ SeqVal [boxString "out", boxString "arg1", expr]
+                         return val
+out val = signal $ SeqVal [boxString "out", boxString "arg1", val]
 
 
 signal :: Val -> a
-signal expr = throwSignalException $ show expr
+signal = throwSignalException . show
 
 
 -- environment
 
 m :: (Val -> Val) -> Val
-m fn = FnVal $ \expr -> return $ fn expr
+m fn = FnVal $ \val -> return $ fn val
 
 
 predT :: Type
@@ -481,12 +481,12 @@ fnDesc = [
 
 
 unSharp :: Val -> Val
-unSharp (TypeVal expr) = expr
+unSharp (TypeVal val) = val
 
 
 index :: Val -> Val
 index (IntVal i) = FnVal (return . hof)
-    where hof (SeqVal exprs) = exprs !! i
+    where hof (SeqVal vals) = vals !! i
 
 
 srcfile :: SrcFile
