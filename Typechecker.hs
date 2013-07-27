@@ -156,6 +156,10 @@ substituteEvarTs ctx t@DynT = t
 substituteEvarTs ctx (ArrowT t1 t2) =
   ArrowT (substituteEvarTs ctx t1) (substituteEvarTs ctx t2)
 
+substituteEvarTs ctx (CoT obs) =
+  CoT $ map substitutePar obs
+  where substitutePar (x, y) = (x, substituteEvarTs ctx y)
+
 substituteEvarTs ctx t@(EvarT var) =
   case lookupContext ctx var of
     Nothing -> error $ "Typechecker.substituteEvarTs: " ++ show var
@@ -641,6 +645,16 @@ synthAbstrM ctx (DefnStx ann@Nothing NrDef name body) =
     do (bodyT, body', ctx') <- synthM ctx body
        let bodyT' = rebuildForallT (substituteEvarTs ctx' bodyT)
        return (bodyT', DefnStx ann NrDef name body', insertContext ctx' name bodyT')
+
+synthAbstrM ctx (MergeStx obs) =
+  do (stxs, ctx') <- synthObsM [] ctx obs
+     let obs' = [ (name, ob) | (name, ob, _) <- stxs ]
+         ts = [ (name, t) | (name, _, t) <- stxs ]
+     return (CoT ts, MergeStx obs', ctx')
+  where synthObsM stxs ctx [] = return (reverse stxs, ctx)
+        synthObsM stxs ctx ((name, stx):obs) =
+          do (t, stx', ctx') <- synthM ctx stx
+             synthObsM ((name, stx', t):stxs) ctx' obs
 
 synthAbstrM ctx (WhereStx stx stxs) =
     do ctx' <- typecheckWhereM ctx stxs

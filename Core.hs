@@ -24,27 +24,27 @@ import Renamer
 -- predicates
 
 isBool :: Expr -> Expr
-isBool (BoolExpr _) = true
+isBool BoolExpr {} = true
 isBool _ = false
 
 
 isInt :: Expr -> Expr
-isInt (IntExpr _) = true
+isInt IntExpr {} = true
 isInt _ = false
 
 
 isReal :: Expr -> Expr
-isReal (DoubleExpr _) = true
+isReal DoubleExpr {} = true
 isReal _ = false
 
 
 isChar :: Expr -> Expr
-isChar (CharExpr _) = true
+isChar CharExpr {} = true
 isChar _ = false
 
 
 isFn :: Expr -> Expr
-isFn (FnExpr _) = true
+isFn FnExpr {} = true
 isFn _ = false
 
 
@@ -54,7 +54,7 @@ isObj _ = false
 
 
 isSeq :: Expr -> Expr
-isSeq (SeqExpr _) = true
+isSeq SeqExpr {} = true
 isSeq _ = false
 
 
@@ -475,28 +475,13 @@ fnDesc = [
   -- misc
   ("signal", ForallT "a" (ArrowT (TvarT "a") (ForallT "b" (TvarT "b"))), m signal),
 
-  ("mk#", ArrowT IntT (ArrowT IntT (ArrowT DynT DynT)), m mkSharp),
-  ("is#", ArrowT IntT (ArrowT DynT BoolT), m isSharp),
   ("un#", ArrowT DynT DynT, m unSharp),
 
   ("index", ArrowT IntT (ArrowT DynT DynT), m index)]
 
 
-mkSharp :: Expr -> Expr
-mkSharp (IntExpr moduleId) = FnExpr (return . hof)
-    where hof (IntExpr tid) = FnExpr (return . hof' tid)
-          hof' tid expr = TypeExpr moduleId tid expr
-
-
-isSharp :: Expr -> Expr
-isSharp (IntExpr tid1) = FnExpr (return . hof)
-    where hof (TypeExpr _ tid2 _)
-              | tid1 == tid2 = true
-              | otherwise = false
-
-
 unSharp :: Expr -> Expr
-unSharp (TypeExpr _ _ expr) = expr
+unSharp (TypeExpr expr) = expr
 
 
 index :: Expr -> Expr
@@ -504,6 +489,5 @@ index (IntExpr i) = FnExpr (return . hof)
     where hof (SeqExpr exprs) = exprs !! i
 
 
--- edit: fixed undefined
 srcfile :: SrcFile
 srcfile = mkCoreSrcFile "Core" [] typeDesc fnDesc

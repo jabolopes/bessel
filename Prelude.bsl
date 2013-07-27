@@ -202,3 +202,11 @@ def reverse @[] = []
 --         | ( @ +> xs@) n@ = index xs (n - 1)
 
 -- nrdef raise := \f@isfunc isfunc || (seqof isfunc && (¬ isnull)) -> lift f | f
+
+cotype {x : Int}
+
+sig f : {x : Int}
+def f = {x = 0}
+
+sig g : {x : Int} -> Int
+def g v@ = x v

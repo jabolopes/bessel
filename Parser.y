@@ -89,7 +89,6 @@ checkSigDefName sigName defName
 
   -- keywords
   as      { TokenAs }
-  cotype  { TokenCotype }
   def     { TokenDef }
   me      { TokenMe }
   module  { TokenModule }
@@ -185,13 +184,12 @@ Defn:
                           (kw, name', body) = $2
                       in
                         checkSigDefName name name' >>
-			(return $ DefnStx (Just ann) kw name body) }
+                        (return $ DefnStx (Just ann) kw name body) }
 
   | FnDefn         { let (kw, name, body) = $1 in
                      DefnStx Nothing kw name body }
 
-  | Cotype         { $1 }
-  | type typeId '=' TypeCons     { undefined }
+  | TypeDefn       { $1 }
 
 TypeAnn:
     sig Name ':' Type { ($2, $4) }
@@ -202,17 +200,8 @@ FnDefn:
   | def Name DefnMatches             { (Def, $2, CondMacro $3 $2) }
   | def Name '=' Expr                { (Def, $2, $4) }
 
-Cotype:
-    cotype typeId '=' CotypeObservations                         { CotypeStx $2 (sortWith fst $4) (Namespace [] []) }
-  | cotype typeId '=' CotypeObservations where '{' Namespace '}' { CotypeStx $2 (sortWith fst $4) $7 }
-
-CotypeObservations:
-    CotypeObservations '|' id ':' Type { $1 ++ [($3, $5)] }
-  | id ':' Type                        { [($1, $3)] }
-
-TypeCons:
-    TypeCons '|' id Type { $1 ++ [($3, $4)] }
-  | id Type              { [($1, $2)] }
+TypeDefn:
+    type Cotype { CotypeStx $2 }
 
 DefnMatches:
     DefnMatches '|' PredPatList '=' Expr  { $1 ++ [($3, $5)] }
@@ -273,7 +262,7 @@ PredPatList:
   | Pat             { [$1] }
 
 Merge:
-    LongTypeId '{' MergeObservations '}' { MergeStx (flattenId $1) (sortWith fst $3) }
+    '{' MergeObservations '}' { MergeStx (sortWith fst $2) }
 
 MergeObservations:
     MergeObservations ',' id '=' Expr { $1 ++ [($3, $5)] }
@@ -354,6 +343,7 @@ TypeAux:
     TypeAux '->' TypeAux { ArrowT $1 $3 }
   | '(' TypeList ')'     { TupT $2 }
   | '[' TypeAux ']'      { SeqT $2 }
+  | Cotype		 { $1 }
   | typeId               { case $1 of
                              "Bool" -> BoolT
                              "Int" -> IntT
@@ -366,6 +356,12 @@ TypeList:
     TypeList ',' TypeAux { $1 ++ [$3] }
   | TypeAux              { [$1] }
 
+Cotype:
+    '{' CotypeObservations '}' { CoT (sortWith fst $2) }
+
+CotypeObservations:
+    CotypeObservations '|' id ':' Type { $1 ++ [($3, $5)] }
+  | id ':' Type                        { [($1, $3)] }
 
 -- identifiers
 

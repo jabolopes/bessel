@@ -168,35 +168,27 @@ expandM (CondStx ms blame) =
                  stx2' <- expandOneM stx2
                  return (stx1', stx2')
 
-expandM (CotypeStx name obs ns) = undefined
-    -- do srcfile <- srcfile <$> get
-    --    tid <- genTypeIdM
-    --    addCotypeSymbolM name (SrcFile.name srcfile) tid obs
-    --    expandM (cotypeObservationsModule name tid obs ns)
-    -- where cotypeId =
-    --           DefnStx (Just IntT) NrDef "typeId" (IntStx 0)
-          
-    --       cotypeObservationsModule name tid obs (Namespace uses stxs) =
-    --           ModuleStx [name] (Namespace uses (cotypeId:cotypeObservations tid obs ++ stxs))
+expandM CotypeStx {} =
+  error "Expander.expandM(CotypeStx): cotypes must be eliminated in reorderer"
 
 expandM (DefnStx t kw name body) =
     oneM . DefnStx t kw name <$> expandOneM body
 
 expandM (LambdaMacro typePats body) =
-    returnOneM $ lambdas typePats body
-    where lambdas [] body = body
-          lambdas (pat:pats) body =
-              let
-                  arg = fst (head (patDefns pat))
-                  IdStx ann = patPred pat
-              in
-                LambdaStx arg (Just ann) (lambdas pats body)
+  oneM . lambdas typePats <$> expandOneM body
+  where lambdas [] body = body
+        lambdas (pat:pats) body =
+          let
+            arg = fst (head (patDefns pat))
+            IdStx ann = patPred pat
+          in
+            LambdaStx arg (Just ann) (lambdas pats body)
 
 expandM (LambdaStx arg ann body) =
     oneM . LambdaStx arg ann <$> expandOneM body
 
-expandM (MergeStx name vals) =
-    oneM . MergeStx name <$> mapM expandVals vals
+expandM (MergeStx vals) =
+    oneM . MergeStx <$> mapM expandVals vals
     where expandVals (key, stx) =
               do stx' <- expandOneM stx
                  return (key, stx')

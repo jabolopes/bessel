@@ -2,10 +2,10 @@
 module Reorderer where
 
 import Data.List (partition)
-import Data.GraphUtils (acyclicTopSort)
-import Data.Map (Map)
-import qualified Data.Map as Map (fromList, lookup)
-import Data.Maybe (catMaybes)
+-- import Data.GraphUtils (acyclicTopSort)
+-- import Data.Map (Map)
+-- import qualified Data.Map as Map (fromList, lookup)
+-- import Data.Maybe (catMaybes)
 
 import Data.Definition (Definition(..))
 import qualified Data.Definition as Definition (initial)
@@ -13,6 +13,8 @@ import Data.SrcFile (SrcFileT(..), SrcFile(..))
 import qualified Data.SrcFile as SrcFile (addDefinitions, name)
 import Data.Stx
 import Utils (flattenId)
+
+import Data.Type
 
 
 -- reorderStx :: Stx String -> (String, [String])
@@ -46,28 +48,54 @@ import Utils (flattenId)
 --         Right defns' -> Namespace uses (stxs' ++ defns')
 
 
-splitDefnOrModule :: SrcFile -> Stx String -> Definition
-splitDefnOrModule srcfile@SrcFile { srcNs = Just (Namespace uses ns) } stx@(DefnStx _ _ name _) =
+-- |
+-- @
+-- (f, Int)
+-- @
+-- 
+-- @
+-- sig f : {f:Int} -> Int
+-- def f x@ = index 0 (un# x)
+-- @
+splitDefn :: SrcFile -> Stx String -> [Definition]
+splitDefn srcfile stx@(CotypeStx coT@(CoT obs)) =
+  concat [ splitDefn srcfile (defn ob i) | ob <- obs | i <- [0..] ]
+  where var = "x"
+
+        pat = namePat var (mkPredPat constTrueStx)
+
+        body i =
+          AppStx
+          (appStx "index" (IntStx i))
+          (appStx "un#" (IdStx var))
+
+        lambda name i =
+          LambdaMacro [] (CondMacro [([pat], body i)] name)
+
+        defn (name, t) i =
+          DefnStx (Just (ArrowT coT t)) NrDef name (lambda name i)
+
+splitDefn srcfile@SrcFile { srcNs = Just (Namespace uses ns) } stx@(DefnStx _ _ name _) =
     let
         srcfileName = SrcFile.name srcfile
         defName = srcfileName ++ "." ++ name
         (unprefixed, prefixed) = partition (null . snd) uses
         unprefixed' = map fst unprefixed
     in
-      (Definition.initial defName) { unprefixedUses = srcfileName:unprefixed'
-                                   , prefixedUses = prefixed
-                                   , srcStx = Just stx }
+      (:[]) $ (Definition.initial defName) { unprefixedUses = srcfileName:unprefixed'
+                                            , prefixedUses = prefixed
+                                            , srcStx = Just stx }
 
--- splitDefnOrModule stx@(ModuleStx [] ns) =
---     error "Reorderer.splitDefnOrModule(ModuleStx): not implemented for unnamed modules"
+-- splitDefn stx@(ModuleStx [] ns) =
+--     error "Reorderer.splitDefn(ModuleStx): not implemented for unnamed modules"
 
--- splitDefnOrModule stx@(ModuleStx prefix ns) =
+-- splitDefn stx@(ModuleStx prefix ns) =
 --     (Definition.initial (flattenId prefix)) { srcStx = Just stx }
 
 
 splitNamespace :: SrcFile -> Namespace String -> [Definition]
 splitNamespace srcfile ns@(Namespace _ stxs) =
-    map (splitDefnOrModule srcfile) stxs
+    concatMap (splitDefn srcfile) stxs
 
 
 reorder :: SrcFile -> SrcFile

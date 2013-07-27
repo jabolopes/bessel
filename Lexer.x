@@ -61,7 +61,6 @@ tokens :-
 
   -- keywords
   "as"                { \_ -> TokenAs }
-  "cotype"            { \_ -> TokenCotype }
   "def"               { \_ -> TokenDef }
   "me"                { \_ -> TokenMe }
   "module"            { \_ -> TokenModule }

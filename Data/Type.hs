@@ -18,7 +18,7 @@ data Type
 
     | DynT
     | ArrowT Type Type
-      
+    | CoT [(String, Type)]
     | EvarT String
     | ForallT String Type
     | TvarT String
@@ -34,13 +34,11 @@ instance Show Type where
     show DynT = "Dyn"
     show (ArrowT t1@(ArrowT _ _) t2) = "(" ++ show t1 ++ ") -> " ++ show t2
     show (ArrowT t1 t2) = show t1 ++ " -> " ++ show t2
-
+    show (CoT ts) = "{" ++ intercalate ", " (map show ts) ++ "}"
     show (EvarT str) = str
-    
     show (ForallT var t@(ForallT _ _)) = "forall " ++ var ++ showForall t
       where showForall (ForallT var t) = "," ++ var ++ showForall t
             showForall t = ". " ++ show t
-
     show (ForallT var t) = "forall " ++ var ++ ". " ++ show t
     show (TvarT str) = str
 
@@ -86,6 +84,12 @@ freshForallT count t =
                   (state'', t2') = freshForallT' state' t2
               in
                 (state'', ArrowT t1' t2')
+
+          freshForallT' state t@(CoT coTs) = loop state [] coTs
+            where loop state coTs [] = (state, CoT (reverse coTs))
+                  loop state coTs ((name,t):ts) =
+                    let (state', t') = freshForallT' state t in
+                    loop state' ((name,t'):coTs) ts
 
           freshForallT' state t@(EvarT _) = (state, t)
 
@@ -159,6 +163,9 @@ freeTvarsT t = nub $ sort $ freeTvars [] t
           freeTvars vars (ArrowT argT rangeT) =
               freeTvars vars argT ++ freeTvars vars rangeT
 
+          freeTvars vars (CoT coTs) =
+            concatMap (freeTvars vars . snd) coTs
+
           freeTvars vars (EvarT var) = []
 
           freeTvars vars (ForallT var forallT) =
@@ -220,8 +227,8 @@ substituteTvarT t var1 tvarT@(TvarT var2)
   | otherwise = tvarT
 
 
--- 'generalizeEvarsT' @t1 var t2@ replaces existential variables ('EvarT')
--- named @var@ that occur in @t2@ with @t1@.
+-- 'generalizeEvarsT' @t@ replaces existential variables ('EvarT')
+-- that occur in @t@ with universally quantified variables ('TvarT')
 generalizeEvarsT :: Type -> Type
 generalizeEvarsT t@BoolT = t
 generalizeEvarsT t@IntT = t
@@ -233,6 +240,8 @@ generalizeEvarsT t@DynT = t
 
 generalizeEvarsT (ArrowT fnT argT) =
     ArrowT (generalizeEvarsT fnT) (generalizeEvarsT argT)
+
+generalizeEvarsT (CoT coTs) = CoT $ map (\(x, y) -> (x, generalizeEvarsT y)) coTs
 
 generalizeEvarsT (EvarT ('^':var2)) = TvarT (var2 ++ "1")
 

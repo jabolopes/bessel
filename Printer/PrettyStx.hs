@@ -142,10 +142,10 @@ printStxM (LambdaStx str t body) =
     do putPrinter $ "\\" ++ str ++ putT t ++ " -> "
        withPrinterCol $ printStxM body
     where putT Nothing = ""
-          putT (Just t) = ":" ++ t
+          putT (Just t) = " : " ++ t
 
-printStxM (MergeStx name vals) =
-    do putPrinter $ name ++ " {"
+printStxM (MergeStx vals) =
+    do putPrinter "{"
        loop vals
        putPrinter "}"
     where loop [] = return ()

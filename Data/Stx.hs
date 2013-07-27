@@ -102,16 +102,16 @@ data Stx a
     -- @
     | CondStx [(Stx a, Stx a)] String
 
-    -- info: observations (2nd argument) are sorted in Parser
-    | CotypeStx String [Observation] (Namespace a)
+    -- info: observations (1st argument) are sorted in Parser
+    | CotypeStx Type
 
     | DefnStx (Maybe Type) DefnKw String (Stx a)
 
     | LambdaMacro [Pat a] (Stx a)
     | LambdaStx String (Maybe String) (Stx a)
 
-    -- info: initialization vals (2nd argument) are sorted in Parser
-    | MergeStx String [(String, Stx a)]
+    -- info: initialization vals (1st argument) are sorted in Parser
+    | MergeStx [(String, Stx a)]
     | ModuleStx [String] (Namespace a)
 
     | WhereStx (Stx a) [Stx a]
@@ -293,7 +293,7 @@ freeVars' _ _ (LambdaMacro _ _) =
 freeVars' env fvars (LambdaStx arg _ body) =
     freeVars' (arg:env) fvars body
 
-freeVars' env fvars (MergeStx _ vals) =
+freeVars' env fvars (MergeStx vals) =
     loop env fvars vals
     where loop env fvars [] = (env, fvars)
           loop env fvars ((_, stx):vals) =

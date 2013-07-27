@@ -59,6 +59,9 @@ evalM (CondStx ms blame) = evalMatches ms
                    BoolExpr False -> evalMatches ms
                    _ -> evalM expr
 
+evalM CotypeStx {} =
+  error "Interpreter.evalM(CotypeStx): cotypes must be eliminated in reoderer"
+
 evalM (DefnStx _ Def str body) =
     do rec addBindM str expr
            expr <- evalM body
@@ -76,14 +79,13 @@ evalM (LambdaStx str _ body) =
                 addBindM str expr
                 withEnvM (evalM body)
 
+evalM (MergeStx vals) =
+  TypeExpr <$> SeqExpr <$> mapM (evalM . snd) vals
+
 evalM (ModuleStx prefix ns) =
     error $ "Interpreter.evalM(ModuleStx): modules must be flattened by the renamer" ++
             "\n\n\t prefix = " ++ show prefix ++
             "\n\n\t namespace = " ++ show ns ++ "\n"
-
--- evalM (CotypeMkStx name) =
---     return $ FnExpr $ \expr ->
---         return $ TypeExpr name (read name) expr
 
 evalM (WhereStx stx stxs) =
     withEnvM $ do

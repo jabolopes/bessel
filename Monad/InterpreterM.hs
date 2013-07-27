@@ -19,7 +19,7 @@ data Expr
     | CharExpr Char
     | SeqExpr [Expr]
     | FnExpr (Expr -> InterpreterM Expr)
-    | TypeExpr Int Int Expr
+    | TypeExpr Expr
     | DynExpr Dynamic
 
 
@@ -33,7 +33,7 @@ instance Show Expr where
         | not (null exprs) && all isCharExpr exprs = show $ map (\(CharExpr c) -> c) exprs
         | otherwise = "[" ++ intercalate "," (map show exprs) ++ "]"
     show (FnExpr _) = "fn"
-    show (TypeExpr moduleId tid expr) = "{" ++ show moduleId ++ " " ++ show tid ++ " " ++ show expr ++ "}"
+    show (TypeExpr expr) = "{" ++ show expr ++ "}"
     show (DynExpr _) = "#"
 
 
@@ -57,15 +57,6 @@ toDynExpr val = DynExpr $ toDyn val
 
 fromDynExpr :: Typeable a => Expr -> a
 fromDynExpr (DynExpr dyn) = fromJust $ fromDynamic dyn
-
-
-toTypeDynExpr :: Typeable a => Int -> Int -> a -> Expr
-toTypeDynExpr moduleId tid = TypeExpr moduleId tid . toDynExpr
-
-
-fromTypeDynExpr :: Typeable a => Int -> Expr -> a
-fromTypeDynExpr tid1 (TypeExpr _ tid2 expr)
-    | tid1 == tid2 = fromDynExpr expr
 
 
 false :: Expr

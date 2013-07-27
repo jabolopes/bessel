@@ -73,22 +73,22 @@ putParsedStx stx =
 
 putExpr :: Show a => a -> IO ()
 putExpr expr =
-    when doPutExpr (print expr)
+  when doPutExpr (print expr)
 
 
 putExprT :: (Show a, Show b) => a -> b -> IO ()
 putExprT expr t =
-    when doPutExprT $
-      putStrLn $ show expr ++ " :: " ++ show t
+  when doPutExprT $
+    putStrLn $ show expr ++ " :: " ++ show t
 
 
 putEnvironment :: Show a => a -> IO ()
 putEnvironment env =
-    when doPutEnvironment $ do
-      putStrLn ""
-      putStrLn "Environment"
-      print env
-      putStrLn ""
+  when doPutEnvironment $ do
+    putStrLn ""
+    putStrLn "Environment"
+    print env
+    putStrLn ""
 
 
 parserEither :: Either String a -> a
@@ -146,7 +146,7 @@ stageFiles srcfiles =
                  putStr "reordered, "
 
                  let (expfs, exps) = expandFile reordfs reords
-                 putStr "renamed, "
+                 putStr "expanded, "
 
                  let (renfs, rens) = renameFile expfs exps
                  putStr "renamed, "
@@ -169,37 +169,17 @@ importFile fs filename =
        return ReplState { initialFs = fs, fs = fs'' }
 
 
-interpretM :: Maybe Type -> FileSystem -> SrcFile -> ReplM SrcFile
-interpretM mt fs srcfile =
-    do let (srcfile', expr) = interpretInteractive fs srcfile
-       liftIO $ putExprM mt expr
-       return srcfile'
-    where putExprM Nothing expr = putExpr expr
-          putExprM (Just t) expr = putExprT expr t
-
-          interpretInteractive :: a -> b -> (SrcFile, Expr)
-          interpretInteractive = undefined
-
-
-typecheckAndInterpretM :: FileSystem -> SrcFile -> ReplM SrcFile
-typecheckAndInterpretM fs srcfile =
-    case typecheckInteractive fs srcfile of
-      Left str -> throwTypecheckerException str
-      Right (srcfile', t) -> interpretM (Just t) fs srcfile'
-    where typecheckInteractive = undefined
-
-
 mkSnippet :: FileSystem -> Stx String -> Definition
 mkSnippet fs stx@(DefnStx _ _ name _) =
-    let
-        name' = SrcFile.interactiveName ++ "." ++ name
-        unprefixed = map SrcFile.name (FileSystem.toAscList fs)
-    in
-      (Definition.initial name') { unprefixedUses = unprefixed
-                                 , srcStx = Just stx }
+  let
+    name' = SrcFile.interactiveName ++ "." ++ name
+    unprefixed = map SrcFile.name (FileSystem.toAscList fs)
+  in
+    (Definition.initial name') { unprefixedUses = unprefixed
+                               , srcStx = Just stx }
 
 mkSnippet fs stx =
-    mkSnippet fs $ DefnStx Nothing NrDef "val" stx
+  mkSnippet fs $ DefnStx Nothing NrDef "val" stx
 
 
 renameSnippet :: FileSystem -> Definition -> Either String Definition
@@ -208,20 +188,20 @@ renameSnippet fs def = renameDefinition fs SrcFile.interactiveName def
 
 runSnippetM :: String -> ReplM ()
 runSnippetM ln =
-    do fs <- fs <$> get
-       let stx = parserEither (parseRepl SrcFile.interactiveName ln)
-       liftIO (putParsedStx stx)
-       let def = mkSnippet fs stx
-           expDef = expanderEither (expandDefinition fs def)
-           renDef = renamerEither (renameSnippet fs expDef)
-       typDef <- typecheckerEither (typecheckDefinitionM fs renDef)
-       let evalDef = interpretDefinition fs typDef
-           interactive = FileSystem.get fs SrcFile.interactiveName
-           interactive' = SrcFile.updateDefinitions interactive [evalDef]
-       modify $ \s -> s { fs = FileSystem.add fs interactive' }
-       liftIO $ putExprM (Definition.typ evalDef) (Definition.expr evalDef)
-    where putExprM Nothing expr = putExpr expr
-          putExprM (Just t) expr = putExprT expr t
+  do fs <- fs <$> get
+     let stx = parserEither (parseRepl SrcFile.interactiveName ln)
+     liftIO (putParsedStx stx)
+     let def = mkSnippet fs stx
+         expDef = expanderEither (expandDefinition fs def)
+         renDef = renamerEither (renameSnippet fs expDef)
+     typDef <- typecheckerEither (typecheckDefinitionM fs renDef)
+     let evalDef = interpretDefinition fs typDef
+         interactive = FileSystem.get fs SrcFile.interactiveName
+         interactive' = SrcFile.updateDefinitions interactive [evalDef]
+     modify $ \s -> s { fs = FileSystem.add fs interactive' }
+     liftIO $ putExprM (Definition.typ evalDef) (Definition.expr evalDef)
+  where putExprM Nothing expr = putExpr expr
+        putExprM (Just t) (Just expr) = putExprT expr t
 
 
 showModuleM :: Bool -> Bool -> Bool -> String -> ReplM ()

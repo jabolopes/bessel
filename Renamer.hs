@@ -1,4 +1,5 @@
-{-# LANGUAGE BangPatterns, NamedFieldPuns, ParallelListComp #-}
+{-# LANGUAGE BangPatterns, NamedFieldPuns,
+  ParallelListComp, TupleSections #-}
 module Renamer where
 
 import Control.Monad.Error (throwError)
@@ -298,17 +299,8 @@ renameM (CondStx ms blame) =
                  stx2' <- renameOneM stx2
                  return (stx1', stx2')
 
-renameM (CotypeStx name obs ns) =
-    undefined
-    -- do srcfile <- srcfile <$> get
-    --    tid <- genTypeIdM
-    --    addCotypeSymbolM name (SrcFile.name srcfile) tid obs
-    --    renameM (cotypeObservationsModule name tid obs ns)
-    -- where cotypeId =
-    --           DefnStx (Just IntT) NrDef "typeId" (IntStx 0)
-          
-    --       cotypeObservationsModule name tid obs (Namespace uses stxs) =
-    --           ModuleStx [name] (Namespace uses (cotypeId:cotypeObservations tid obs ++ stxs))
+renameM CotypeStx {} =
+  error "Renaner.renameM(CotypeStx): cotypes must be eliminated in reoderer"
 
 renameM (DefnStx ann Def name body) =
     if name `elem` freeVars body
@@ -334,18 +326,9 @@ renameM (LambdaStx arg Nothing body) =
 renameM (LambdaStx arg (Just ann) body) =
     (:[]) <$> renameAnnotatedLambdaM arg ann body
 
-renameM (MergeStx name vals) =
-    do (ns, tid, obs) <- getCotypeSymbolM name
-       _ <- checkObservations (map fst obs) (map fst vals)
-       moduleId <- IdStx <$> getFnSymbolM (ns ++ ".moduleId")
-       stxs <- mapM (renameOneM . snd) vals
-       return $ (:[]) $ AppStx (AppStx (appStx "mk#" moduleId) (IntStx tid)) (SeqStx stxs)
-    where checkObservations obs vals
-              | obs == vals = return ()
-              | otherwise = throwError $ "coinductive type " ++ show name ++
-                                         " observations " ++ show obs ++
-                                         " and initialization " ++ show vals ++
-                                         " do not match"
+renameM (MergeStx vals) =
+  (:[]) <$> MergeStx <$> mapM renameValsM vals
+  where renameValsM (name, stx) =  (name,) <$> renameOneM stx
 
 renameM stx@(ModuleStx prefix ns) =
     do Namespace _ stxs <- withPrefixedScopeM prefix (renameNamespaceM ns)
