@@ -1,0 +1,77 @@
+Simple patterns
+
+Simple patterns are defined by an optional binder followed by a type,
+an expression, or a predicate. Simple patterns always have '@'.
+
+
+Type patterns
+
+  Type patterns always have an '@' followed by a type.
+
+  id '@' Type
+     '@' Type
+
+  x@Int
+  x@Double
+
+
+Expression patterns
+  Predicate patterns always have '@' followed by an expression.
+
+  id '@' '(' Expr ')
+     '@' '(' Expr ')'
+
+  x@(isInt x)
+  y@(isReal y && isPos y)
+
+
+Predicate patterns
+
+  Predicate patterns always have '@' followed by a predicate.
+
+  id '@' QualName
+     '@' QualName
+  id '@'
+     '@'
+
+  x@isInt	equivalent to x@(isInt x)
+  y@isReal	equivalent to y@(isReal y)
+   @isBool	equivalent to v#@(isBool v#)
+  x@		equivalent to x@(const true x)
+   @		equivalent to v#@(const true v#)
+
+
+
+Complex patterns
+
+Complex patterns are defined by an optional binder followed by a
+pattern or a combined pattern. Complex patterns have '@' only when a
+name is being defined.
+
+
+ListPat: List patterns
+
+  List patterns have '@' only when a name is being defined.
+
+  id '@' '[' Pat ']'
+         '[' Pat ']'
+         '[' ']'
+
+  
+  [x@isInt, xs@[y@isReal, z@isBool]]
+
+
+CombPat: Combined patterns
+
+  Combined patterns have '@' only when a name is being defined.
+
+  id '@' '(' Pat +> Pat ')'
+  id '@' '(' Pat <+ Pat ')'
+  id '@' '(' Pat && Pat ')'
+  id '@' '(' Pat || Pat ')'
+         '(' Pat +> Pat ')'
+         '(' Pat <+ Pat ')'
+         '(' Pat && Pat ')'
+         '(' Pat || Pat ')'
+
+  def f (x@isInt +> xs@[Int]) = ...
