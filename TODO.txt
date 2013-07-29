@@ -105,3 +105,6 @@ Clean Core modules and the link stuff.
 
 
 Rename 'flattenId' to 'joinId'.
+
+
+Redefinition of names is not being properly detected and reported.

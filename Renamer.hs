@@ -22,7 +22,7 @@ import Data.Symbol (Symbol (..))
 import qualified Data.Symbol as Symbol
 import Data.Tuple (swap)
 import Data.Type
-import Utils (rebaseName, splitId)
+import Utils (rebaseName, flattenId, splitId)
 
 import Data.Definition (Definition(Definition, freeNames, expStx, symbol, renStx))
 import qualified Data.Definition as Definition
@@ -268,7 +268,7 @@ renameDefinitionM fs def@Definition { expStx = Just stx } =
        defs <- lookupFreeVars fs unprefixed prefixed names
        sequence_ [ addSymbolM name sym | name <- names | def <- defs, let Just sym = Definition.symbol def ]
        stx' <- renameOneM stx
-       sym <- getSymbolM $ last $ splitId $ Definition.name def
+       sym <- getSymbolM $ flattenId $ tail $ splitId $ Definition.name def
        return $ def { freeNames = map Definition.name defs
                     , symbol = Just sym
                     , renStx = Just stx' }

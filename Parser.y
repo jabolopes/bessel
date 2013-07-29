@@ -70,6 +70,7 @@ checkSigDefName sigName defName
 
 %token
   -- punctuation
+  '&'     { TokenAmpersand }
   '->'    { TokenArrow }
   '@'     { TokenAt }
   '@ '    { TokenAtSpace }
@@ -247,18 +248,18 @@ TypePatList:
   | TypePat             { [$1] }
 
 PatList:
-    PatList Pat		{ $1 ++ [$2] }
-  | Pat         	{ [$1] }
+    PatList Pat         { $1 ++ [$2] }
+  | Pat                 { [$1] }
 
 Merge:
     '{' MergeObservations '}' { MergeStx (sortWith fst $2) }
 
 MergeObservations:
-    MergeObservations ',' id '=' Expr { $1 ++ [($3, $5)] }
-  | id '=' Expr                       { [($1, $3)] }
+    MergeObservations '&' QualName '=' Expr { $1 ++ [($3, $5)] }
+  | QualName '=' Expr                       { [($1, $3)] }
 
 SimpleExpr:
-    LongName     { IdStx $1 }
+    QualName     { IdStx $1 }
   | Constant     { $1 }
   | '(' Expr ')' { $2 }
 
@@ -292,8 +293,8 @@ PatRest:
   | id '@' '(' Expr ')'  { namePat $1 (mkPredPat $4) }
 
 -- predicate patterns
-  | '@' LongName         { mkPredPat (IdStx $2) }
-  | id '@' LongName      { namePat $1 (mkPredPat (IdStx $3)) }
+  | '@' QualName         { mkPredPat (IdStx $2) }
+  | id '@' QualName      { namePat $1 (mkPredPat (IdStx $3)) }
 
 -- list patterns
   | ListPat              { $1 }
@@ -356,12 +357,13 @@ Cotype:
     '{' CotypeObservations '}' { CoT (sortWith fst $2) }
 
 CotypeObservations:
-    CotypeObservations '|' id ':' Type { $1 ++ [($3, $5)] }
-  | id ':' Type                        { [($1, $3)] }
+    CotypeObservations '|' QualName ':' Type { $1 ++ [($3, $5)] }
+  | QualName ':' Type                        { [($1, $3)] }
+
 
 -- identifiers
 
-LongName:     
+QualName:     
     LongTypeId '.' Name { intercalate "." ($1 ++ [$3]) }
   | Name                { $1 }
 

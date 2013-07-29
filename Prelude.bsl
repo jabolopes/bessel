@@ -203,10 +203,19 @@ def reverse @[] = []
 
 -- nrdef raise := \f@isfunc isfunc || (seqof isfunc && (¬ isnull)) -> lift f | f
 
-type {x : Int}
+type {x : Int | y : Real}
 
-sig f : {x : Int}
-def f = {x = 0}
+sig f : {x : Int | y : Real}
+def f = {x = 0 & y = 0.0}
 
-sig g : {x : Int} -> Int
+sig g : {x : Int | y : Real} -> Int
 def g v@ = x v
+
+
+type {Ola.i : Int | Ola.j : Real}
+
+sig a : {Ola.i : Int | Ola.j : Real}
+def a = {Ola.i = 0 & Ola.j = 0.0}
+
+sig b : {Ola.i : Int | Ola.j : Real} -> Int
+def b v@ = Ola.i v
