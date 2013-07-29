@@ -8,9 +8,9 @@ import Data.List (partition)
 -- import Data.Maybe (catMaybes)
 
 import Data.Definition (Definition(..))
-import qualified Data.Definition as Definition (initial)
+import qualified Data.Definition as Definition (initial, prefixedUses, unprefixedUses)
 import Data.SrcFile (SrcFileT(..), SrcFile(..))
-import qualified Data.SrcFile as SrcFile (addDefinitions, name)
+import qualified Data.SrcFile as SrcFile (addDefinitions, name, prefixedUses, decls, unprefixedUses)
 import Data.Stx
 import Utils (flattenId)
 
@@ -75,16 +75,16 @@ splitDefn srcfile stx@(CotypeStx coT@(CoT obs)) =
         defn (name, t) i =
           DefnStx (Just (ArrowT coT t)) NrDef name (lambda name i)
 
-splitDefn srcfile@SrcFile { srcNs = Just (Namespace uses ns) } stx@(DefnStx _ _ name _) =
+splitDefn srcfile stx@(DefnStx _ _ name _) =
     let
         srcfileName = SrcFile.name srcfile
         defName = srcfileName ++ "." ++ name
-        (unprefixed, prefixed) = partition (null . snd) uses
-        unprefixed' = map fst unprefixed
+        unprefixed = SrcFile.unprefixedUses srcfile
+        prefixed = SrcFile.prefixedUses srcfile
     in
-      (:[]) $ (Definition.initial defName) { unprefixedUses = srcfileName:unprefixed'
-                                            , prefixedUses = prefixed
-                                            , srcStx = Just stx }
+      (:[]) $ (Definition.initial defName) { Definition.unprefixedUses = srcfileName:unprefixed
+                                           , Definition.prefixedUses = prefixed
+                                           , srcStx = Just stx }
 
 -- splitDefn stx@(ModuleStx [] ns) =
 --     error "Reorderer.splitDefn(ModuleStx): not implemented for unnamed modules"
@@ -93,13 +93,8 @@ splitDefn srcfile@SrcFile { srcNs = Just (Namespace uses ns) } stx@(DefnStx _ _ 
 --     (Definition.initial (flattenId prefix)) { srcStx = Just stx }
 
 
-splitNamespace :: SrcFile -> Namespace String -> [Definition]
-splitNamespace srcfile ns@(Namespace _ stxs) =
-    concatMap (splitDefn srcfile) stxs
-
-
 reorder :: SrcFile -> SrcFile
 reorder srcfile@SrcFile { t = CoreT } = srcfile
 
-reorder srcfile@SrcFile { srcNs = Just ns } =
-    SrcFile.addDefinitions srcfile (splitNamespace srcfile ns)
+reorder srcfile =
+  SrcFile.addDefinitions srcfile $ concatMap (splitDefn srcfile) (SrcFile.decls srcfile)

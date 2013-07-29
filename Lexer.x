@@ -63,7 +63,6 @@ tokens :-
   "as"                { \_ -> TokenAs }
   "def"               { \_ -> TokenDef }
   "me"                { \_ -> TokenMe }
-  "module"            { \_ -> TokenModule }
   "sig"               { \_ -> TokenSig }
   "type"              { \_ -> TokenType }
   "use"               { \_ -> TokenUse }

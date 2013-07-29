@@ -21,8 +21,8 @@ import Data.Exception
 import Data.FileSystem (FileSystem)
 import qualified Data.FileSystem as FileSystem
 import Data.Maybe
-import Data.SrcFile (SrcFile(..))
-import qualified Data.SrcFile as SrcFile
+import Data.SrcFile (SrcFile)
+import qualified Data.SrcFile as SrcFile hiding (unprefixedUses)
 import Data.Stx
 import Data.Symbol
 import Data.Type

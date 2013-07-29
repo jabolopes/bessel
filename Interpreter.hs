@@ -82,11 +82,6 @@ evalM (LambdaStx str _ body) =
 evalM (MergeStx vals) =
   TypeVal <$> SeqVal <$> mapM (evalM . snd) vals
 
-evalM (ModuleStx prefix ns) =
-    error $ "Interpreter.evalM(ModuleStx): modules must be flattened by the renamer" ++
-            "\n\n\t prefix = " ++ show prefix ++
-            "\n\n\t namespace = " ++ show ns ++ "\n"
-
 evalM (WhereStx stx stxs) =
     withEnvM $ do
       mapM_ evalM stxs

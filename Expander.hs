@@ -193,9 +193,6 @@ expandM (MergeStx vals) =
               do stx' <- expandOneM stx
                  return (key, stx')
 
-expandM (ModuleStx prefix ns) =
-    undefined
-
 expandM (WhereStx body defns) =
     do body' <- expandOneM body
        oneM . WhereStx body' <$> mapM expandM defns

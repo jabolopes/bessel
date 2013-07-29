@@ -11,11 +11,6 @@ data DefnKw
       deriving (Show)
 
 
-data Namespace a
-    = Namespace [(String, String)] [Stx a]
-      deriving (Show)
-
-
 type PatDefn a = (String, [Stx a])
 
 
@@ -116,7 +111,6 @@ data Stx a
 
     -- info: initialization vals (1st argument) are sorted in Parser
     | MergeStx [(String, Stx a)]
-    | ModuleStx [String] (Namespace a)
 
     | WhereStx (Stx a) [Stx a]
       deriving (Show)
@@ -139,11 +133,6 @@ isDefnStx _ = False
 isLambdaStx :: Stx a -> Bool
 isLambdaStx LambdaStx {} = True
 isLambdaStx _ = False
-
-
-isModuleStx :: Stx a -> Bool
-isModuleStx ModuleStx {} = True
-isModuleStx _ = False
 
 
 isWhereStx :: Stx a -> Bool

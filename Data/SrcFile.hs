@@ -1,13 +1,14 @@
 {-# LANGUAGE ParallelListComp, TupleSections #-}
 module Data.SrcFile where
 
+import Data.List (partition)
 import Data.Map (Map)
 import qualified Data.Map as Map ((!), empty, fromList, insert, lookup, mapKeys, mapMaybe, union, toList)
 import Data.Maybe (fromMaybe)
 
 import Data.Definition (Definition (symbol, typ, val))
 import qualified Data.Definition as Definition (name, initial, val, typ, symbol)
-import Data.Stx (Namespace (..), Stx)
+import Data.Stx (Stx)
 import Data.Symbol (Symbol (..))
 import Data.Type (Type)
 import Monad.InterpreterM (Val)
@@ -23,7 +24,9 @@ data SrcFile
     = SrcFile { t :: SrcFileT
               , name :: String
               , deps :: [String]
-              , srcNs :: Maybe (Namespace String)
+              , unprefixedUses :: [String]
+              , prefixedUses :: [(String, String)]
+              , decls :: [Stx String]
               , defs :: Map String Definition
               , defOrd :: [String] }
 
@@ -33,7 +36,9 @@ initial t name deps =
     SrcFile { t = t
             , name = name
             , deps = deps
-            , srcNs = Nothing
+            , unprefixedUses = []
+            , prefixedUses = []
+            , decls = []
             , defs = Map.empty
             , defOrd = [] }
 
@@ -74,21 +79,22 @@ interactiveName = "Interactive"
 
 mkInteractiveSrcFile :: [SrcFile] -> [Stx String] -> SrcFile
 mkInteractiveSrcFile srcfiles stxs =
-    let
-        deps = map name srcfiles
-        uses = map (,"") deps
-    in
-      (initial InteractiveT interactiveName deps) { srcNs = Just (Namespace uses stxs) }
+    let deps = map name srcfiles in
+    (initial InteractiveT interactiveName deps) { unprefixedUses = deps
+                                                , decls = stxs }
 
 
-mkParsedSrcFile :: String -> Namespace String -> SrcFile
-mkParsedSrcFile name ns =
-    (initial SrcT name []) { srcNs = Just ns }
+mkParsedSrcFile :: String -> [(String, String)] -> [Stx String] -> SrcFile
+mkParsedSrcFile name uses stxs =
+  let (unprefixed, prefixed) = partition (null . snd) uses in
+  (initial SrcT name []) { unprefixedUses = map fst unprefixed
+                         , prefixedUses = prefixed
+                         , decls = stxs }
 
 
-addImplicitDeps :: [(String, String)] -> SrcFile -> SrcFile
-addImplicitDeps uses srcfile@SrcFile { srcNs = Just (Namespace uses' stxs) } =
-    srcfile { srcNs = Just $ Namespace (uses ++ uses') stxs }
+addImplicitUnprefixedUses :: [String] -> SrcFile -> SrcFile
+addImplicitUnprefixedUses uses srcfile =
+  srcfile { unprefixedUses = uses ++ unprefixedUses srcfile }
 
 
 addDefinitions :: SrcFile -> [Definition] -> SrcFile

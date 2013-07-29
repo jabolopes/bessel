@@ -91,7 +91,6 @@ checkSigDefName sigName defName
   as      { TokenAs }
   def     { TokenDef }
   me      { TokenMe }
-  module  { TokenModule }
   sig     { TokenSig }
   type    { TokenType }
   use     { TokenUse }
@@ -150,14 +149,19 @@ checkSigDefName sigName defName
 
 %%
 
-SrcFile:
-    me LongTypeId Namespace { mkParsedSrcFile (flattenId $2) $3 }
+DefnOrExpr:
+    Defn { $1 }
+  | Expr { $1 }
 
-Namespace:
-    UseList DefnOrModuleList {% checkUseList $1 >>
-                                mapM_ (addDependencyM . fst) $1 >>
-                                return (Namespace $1 $2) }
-  | DefnOrModuleList         { Namespace [] $1 }
+
+SrcFile:
+    me LongTypeId CheckUseList DefnList { mkParsedSrcFile (flattenId $2) $3 $4 }
+  | me LongTypeId DefnList              { mkParsedSrcFile (flattenId $2) [] $3 }
+
+CheckUseList:
+    UseList {% checkUseList $1 >>
+               mapM_ (addDependencyM . fst) $1 >>
+               return $1 }
 
 UseList:
     UseList use LongTypeId as LongTypeId { $1 ++ [(flattenId $3, flattenId $5)] }
@@ -165,30 +169,19 @@ UseList:
   | use LongTypeId as LongTypeId         { [(flattenId $2, flattenId $4)] }
   | use LongTypeId                       { [(flattenId $2, "")] }
 
-DefnOrModuleList:
-    DefnOrModuleList Module { $1 ++ [$2] }
-  | DefnOrModuleList Defn   { $1 ++ [$2] }
-  | Module                  { [$1] }
-  | Defn                    { [$1] }
-
-Module:
-    module LongTypeId where '{' Namespace '}' { ModuleStx $2 $5 }
-
-DefnOrExpr:
-    Defn { $1 }
-  | Expr { $1 }
+DefnList:
+    DefnList Defn   { $1 ++ [$2] }
+  | Defn            { [$1] }
 
 Defn:
     TypeAnn FnDefn {% let
-                          (name, ann) = $1
-                          (kw, name', body) = $2
+                        (name, ann) = $1
+                        (kw, name', body) = $2
                       in
-                        checkSigDefName name name' >>
-                        (return $ DefnStx (Just ann) kw name body) }
-
+                       checkSigDefName name name' >>
+                       (return $ DefnStx (Just ann) kw name body) }
   | FnDefn         { let (kw, name, body) = $1 in
                      DefnStx Nothing kw name body }
-
   | TypeDefn       { $1 }
 
 TypeAnn:
@@ -239,10 +232,6 @@ Expr:
 
   | Lambda          { $1 }
   | Merge           { $1 }
-
-DefnList:
-    DefnList Defn   { $1 ++ [$2] }
-  | Defn            { [$1] }
 
 Lambda:
     TypePatList LambdaMatches { LambdaMacro $1 (CondMacro $2 "lambda") }
@@ -420,17 +409,14 @@ nextToken cont =
 runParser :: ParserM SrcFile -> [String] -> String -> String -> Either String SrcFile
 runParser m deps filename str =
     case runStateT m $ ParserM.initial $ lexState filename str of
-        Right (srcfile, s) -> Right srcfile { deps = nub (sort (deps ++ dependencies s)) }
+        Right (srcfile, s) -> Right srcfile { deps = nub $ sort $ deps ++ dependencies s }
         Left str -> Left str
 
 
 parseFile :: String -> String -> Either String SrcFile
 parseFile filename str =
-    let
-        deps = ["Core", preludeName]
-        uses = map (,"") deps
-    in
-      addImplicitDeps uses <$> runParser parseSrcFile deps filename str
+    let deps = ["Core", preludeName] in
+    addImplicitUnprefixedUses deps <$> runParser parseSrcFile deps filename str
 
 
 parsePrelude :: String -> String -> Either String SrcFile

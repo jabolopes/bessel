@@ -23,7 +23,6 @@ data Token
      | TokenAs
      | TokenDef
      | TokenMe
-     | TokenModule
      | TokenSig
      | TokenType
      | TokenUse

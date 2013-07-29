@@ -4,7 +4,7 @@ module Renamer where
 import Control.Monad.Error (throwError)
 import Control.Monad.State
 import Data.Functor ((<$>))
-import Data.List (intercalate, isPrefixOf, maximumBy, nub, partition, sort)
+import Data.List (intercalate, isPrefixOf, maximumBy, nub, sort)
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (catMaybes, mapMaybe)
@@ -226,9 +226,6 @@ renameM (LambdaStx arg (Just ann) body) =
 renameM (MergeStx vals) =
   (:[]) <$> MergeStx <$> mapM renameValsM vals
   where renameValsM (name, stx) =  (name,) <$> renameOneM stx
-
-renameM stx@(ModuleStx prefix ns) =
-  error "Renamer.renameM(ModuleStx): not implemented"
 
 renameM (WhereStx stx stxs) =
     withScopeM $ do
