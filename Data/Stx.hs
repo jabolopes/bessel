@@ -5,12 +5,6 @@ import Data.List (nub, sort)
 import Data.Type
 
 
-data DefnKw
-    = Def
-    | NrDef
-      deriving (Show)
-
-
 type PatDefn a = (String, [Stx a])
 
 
@@ -66,6 +60,12 @@ mkListPat pats =
 namePat :: String -> Pat String -> Pat String
 namePat name (Pat pred defns) =
     Pat pred $ (name, []):defns
+
+
+data DefnKw
+    = Def
+    | NrDef
+      deriving (Show)
 
 
 type Observation = (String, Type)
