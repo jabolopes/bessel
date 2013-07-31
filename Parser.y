@@ -328,10 +328,11 @@ TypeAux:
                              "Char" -> CharT
                              "Dyn" -> DynT }
   | id                   { TvarT $1 }
+  | '(' TypeAux ')'      { $2 }
 
 TypeList:
     TypeList ',' TypeAux { $1 ++ [$3] }
-  | TypeAux              { [$1] }
+  | TypeAux ',' TypeAux  { [$1, $3] }
 
 Cotype:
     '{' CotypeObservations '}' { CoT (sortWith fst $2) }
