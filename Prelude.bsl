@@ -64,27 +64,27 @@ def ofInt x@isInt = x
 
 sig eq : Dyn -> Dyn -> Bool
 def eq x@isBool y@isBool = eqBool (toBool x) (toBool y)
-     | x@isInt  y@isInt  = eqInt (toInt x) (toInt y)
+     | x@isInt  y@isInt  = eqInt  (toInt  x) (toInt  y)
      | x@isReal y@isReal = eqReal (toReal x) (toReal y)
      | x@isChar y@isChar = eqChar (toChar x) (toChar y)
-     | seq1@isSeq seq2@isSeq = eqSeq (toSeq seq1) (toSeq seq2)
-                           where {
-                             sig eqSeq : [Dyn] -> [Dyn] -> Bool
-                             def eqSeq @[] @[] = true
-                                     | (x@ +> xs@) (y@ +> ys@) = eq x y && eqSeq xs ys
-                                     | @ @ = false
-                           }
+     | seq1@isSeq seq2@isSeq =
+         eqSeq (toSeq seq1) (toSeq seq2) where {
+           sig eqSeq : [Dyn] -> [Dyn] -> Bool
+           def eqSeq @[] @[] = true
+                   | (x@ +> xs@) (y@ +> ys@) = eq x y && eqSeq xs ys
+                   | @ @ = false
+         }
      -- | x@isobj  y@isobj  = eqObj x y
      | @ @ = false
 
 sig lt : Dyn -> Dyn -> Bool
-def lt x@isBool y@isBool = eqBool (toBool x) (toBool y)
-     | x@isInt  y@isInt  = ltInt (toInt x) (toInt y)
+def lt x@isBool y@isBool = ltBool (toBool x) (toBool y)
+     | x@isInt  y@isInt  = ltInt  (toInt  x) (toInt  y)
      | x@isInt  y@isReal = ltReal (mkReal x) (toReal y)
      | x@isReal y@isInt  = ltReal (toReal x) (mkReal y)
      | x@isReal y@isReal = ltReal (toReal x) (toReal y)
      | x@isChar y@isChar = ltChar (toChar x) (toChar y)
-     | x@isSeq  y@isSeq  = ltSeq (toSeq x) (toSeq y)
+     | x@isSeq  y@isSeq  = ltSeq  (toSeq  x) (toSeq  y)
      | @ @ = false
 
 sig (==) : Dyn -> Dyn -> Bool
