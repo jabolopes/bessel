@@ -17,14 +17,15 @@ import Data.FrameTree (FrameTree)
 import qualified Data.FrameTree as FrameTree
 import Data.SrcFile (SrcFileT (..), SrcFile(..))
 import qualified Data.SrcFile as SrcFile (name, defsAsc, symbols, addDefinitionSymbols, updateDefinitions)
-import Data.Stx
+import Data.Expr
+import qualified Data.QualName as QualName (fromQualName)
 import Data.Symbol (Symbol (..))
 import qualified Data.Symbol as Symbol
 import Data.Tuple (swap)
 import Data.Type
 import Utils (rebaseName, flattenId, splitId)
 
-import Data.Definition (Definition(Definition, freeNames, expStx, symbol, renStx))
+import Data.Definition (Definition(Definition, freeNames, expExpr, symbol, renExpr))
 import qualified Data.Definition as Definition
 
 
@@ -147,20 +148,20 @@ withScopeM m =
 
 -- lambda
 
-renameLambdaM :: String -> Maybe String -> Stx String -> RenamerM (Stx String)
+renameLambdaM :: String -> Maybe String -> Expr -> RenamerM (Expr)
 renameLambdaM arg ann body =
     do arg' <- genNameM arg
-       LambdaStx arg' ann <$>
+       LambdaE arg' ann <$>
          withScopeM
            (do addFnSymbolM arg arg'
                withScopeM (renameOneM body))
 
 
-renameUnannotatedLambdaM :: String -> Stx String -> RenamerM (Stx String)
+renameUnannotatedLambdaM :: String -> Expr -> RenamerM (Expr)
 renameUnannotatedLambdaM arg = renameLambdaM arg Nothing
 
 
-renameAnnotatedLambdaM :: String -> String -> Stx String -> RenamerM (Stx String)
+renameAnnotatedLambdaM :: String -> String -> Expr -> RenamerM (Expr)
 renameAnnotatedLambdaM arg ann body = undefined
 -- edit: remove undefined
 -- renameAnnotatedLambdaM arg ann body =
@@ -170,68 +171,68 @@ renameAnnotatedLambdaM arg ann body = undefined
 -- /lambda
 
 
-renameOneM :: Stx String -> RenamerM (Stx String)
-renameOneM stx = head <$> renameM stx
+renameOneM :: Expr -> RenamerM (Expr)
+renameOneM expr = head <$> renameM expr
 
 
-renameM :: Stx String -> RenamerM [Stx String]
-renameM stx@(CharStx _) = return [stx]
-renameM stx@(IntStx _) = return [stx]
-renameM stx@(DoubleStx _) = return [stx]
-renameM (SeqStx stxs) = (:[]) . SeqStx <$> mapM renameOneM stxs
+renameM :: Expr -> RenamerM [Expr]
+renameM expr@CharE {} = return [expr]
+renameM expr@IntE {} = return [expr]
+renameM expr@RealE {} = return [expr]
+renameM (SeqE exprs) = (:[]) . SeqE <$> mapM renameOneM exprs
 
-renameM (IdStx name) =
-    (:[]) . IdStx <$> getFnSymbolM name
+renameM (IdE name) =
+    (:[]) . idE <$> getFnSymbolM (QualName.fromQualName name)
 
-renameM (AppStx stx1 stx2) =
-    (:[]) <$> ((AppStx <$> renameOneM stx1) `ap` renameOneM stx2)
+renameM (AppE expr1 expr2) =
+    (:[]) <$> ((AppE <$> renameOneM expr1) `ap` renameOneM expr2)
 
 renameM CondMacro {} =
     error "Renamer.renameM(CondMacro): macros must be expanded in expander"
 
-renameM (CondStx ms blame) =
-    (:[]) . (`CondStx` blame) <$> mapM renameMatch ms
-    where renameMatch (stx1, stx2) =
-              do stx1' <- renameOneM stx1
-                 stx2' <- renameOneM stx2
-                 return (stx1', stx2')
+renameM (CondE ms blame) =
+    (:[]) . (`CondE` blame) <$> mapM renameMatch ms
+    where renameMatch (expr1, expr2) =
+              do expr1' <- renameOneM expr1
+                 expr2' <- renameOneM expr2
+                 return (expr1', expr2')
 
-renameM CotypeStx {} =
-  error "Renaner.renameM(CotypeStx): cotypes must be eliminated in reoderer"
+renameM CotypeDecl {} =
+  error "Renaner.renameM(CotypeDecl): cotypes must be eliminated in reoderer"
 
-renameM (DefnStx ann Def name body) =
+renameM (FnDecl ann Def name body) =
     if name `elem` freeVars body
     then do
       name' <- genNameM name
       addFnSymbolM name name'
-      (:[]) . DefnStx ann Def name' <$> renameOneM body
+      (:[]) . FnDecl ann Def name' <$> renameOneM body
     else
-        renameM (DefnStx ann NrDef name body)
+        renameM (FnDecl ann NrDef name body)
 
-renameM (DefnStx ann NrDef name body) =
+renameM (FnDecl ann NrDef name body) =
     do name' <- genNameM name
        body' <- renameOneM body
        addFnSymbolM name name'
-       return [DefnStx ann NrDef name' body']
+       return [FnDecl ann NrDef name' body']
 
 renameM LambdaMacro {} =
     error "Renamer.renameM(LambdaMacro): macros must be expanded in expander"
 
-renameM (LambdaStx arg Nothing body) =
+renameM (LambdaE arg Nothing body) =
     (:[]) <$> renameUnannotatedLambdaM arg body
 
-renameM (LambdaStx arg (Just ann) body) =
+renameM (LambdaE arg (Just ann) body) =
     (:[]) <$> renameAnnotatedLambdaM arg ann body
 
-renameM (MergeStx vals) =
-  (:[]) <$> MergeStx <$> mapM renameValsM vals
-  where renameValsM (name, stx) =  (name,) <$> renameOneM stx
+renameM (MergeE vals) =
+  (:[]) <$> MergeE <$> mapM renameValsM vals
+  where renameValsM (name, expr) =  (name,) <$> renameOneM expr
 
-renameM (WhereStx stx stxs) =
+renameM (WhereE expr exprs) =
     withScopeM $ do
-      stxs' <- concat <$> mapM renameM stxs
-      stx' <- withScopeM (renameOneM stx)
-      return [WhereStx stx' stxs']
+      exprs' <- concat <$> mapM renameM exprs
+      expr' <- withScopeM (renameOneM expr)
+      return [WhereE expr' exprs']
 
 
 lookupUnprefixedFreeVar :: FileSystem -> [String] -> String -> [Definition]
@@ -261,17 +262,17 @@ lookupFreeVars fs unprefixed prefixed (name:names) =
 
 
 renameDefinitionM :: FileSystem -> Definition -> RenamerM Definition
-renameDefinitionM fs def@Definition { expStx = Just stx } =
+renameDefinitionM fs def@Definition { expExpr = Just expr } =
     do let unprefixed = Definition.unprefixedUses def
            prefixed = Definition.prefixedUses def
-           names = freeVars stx
+           names = freeVars expr
        defs <- lookupFreeVars fs unprefixed prefixed names
        sequence_ [ addSymbolM name sym | name <- names | def <- defs, let Just sym = Definition.symbol def ]
-       stx' <- renameOneM stx
+       expr' <- renameOneM expr
        sym <- getSymbolM $ flattenId $ tail $ splitId $ Definition.name def
        return $ def { freeNames = map Definition.name defs
                     , symbol = Just sym
-                    , renStx = Just stx' }
+                    , renExpr = Just expr' }
 
 
 renameDefinition :: FileSystem -> String -> Definition -> Either String Definition

@@ -11,10 +11,11 @@ import Data.Definition (Definition(..))
 import qualified Data.Definition as Definition (initial, prefixedUses, unprefixedUses)
 import Data.SrcFile (SrcFileT(..), SrcFile(..))
 import qualified Data.SrcFile as SrcFile (addDefinitions, name, prefixedUses, decls, unprefixedUses)
-import Data.Stx
-import Utils (flattenId)
-
+import Data.Expr
+import Data.QualName (QualName)
+import qualified Data.QualName as QualName (fromQualName)
 import Data.Type
+import Utils (flattenId)
 
 
 -- reorderStx :: Stx String -> (String, [String])
@@ -57,25 +58,26 @@ import Data.Type
 -- sig f : {f:Int} -> Int
 -- def f x@ = index 0 (un# x)
 -- @
-splitDefn :: SrcFile -> Stx String -> [Definition]
-splitDefn srcfile stx@(CotypeStx coT@(CoT obs)) =
+splitDefn :: SrcFile -> Expr -> [Definition]
+splitDefn srcfile (CotypeDecl coT@(CoT obs)) =
   concat [ splitDefn srcfile (defn ob i) | ob <- obs | i <- [0..] ]
   where var = "x"
 
-        pat = namePat var (mkPredPat constTrueStx)
+        pat = namePat var (mkPredPat constTrueE)
 
         body i =
-          AppStx
-          (appStx "index" (IntStx i))
-          (appStx "un#" (IdStx var))
+          AppE
+          (appE "index" (IntE i))
+          (appE "un#" (idE var))
 
         lambda name i =
           LambdaMacro [] (CondMacro [([pat], body i)] name)
 
         defn (name, t) i =
-          DefnStx (Just (ArrowT coT t)) NrDef name (lambda name i)
+          let str = QualName.fromQualName name in
+          FnDecl (Just (ArrowT coT t)) NrDef str (lambda str i)
 
-splitDefn srcfile stx@(DefnStx _ _ name _) =
+splitDefn srcfile expr@(FnDecl _ _ name _) =
     let
         srcfileName = SrcFile.name srcfile
         defName = srcfileName ++ "." ++ name
@@ -84,7 +86,7 @@ splitDefn srcfile stx@(DefnStx _ _ name _) =
     in
       (:[]) $ (Definition.initial defName) { Definition.unprefixedUses = srcfileName:unprefixed
                                            , Definition.prefixedUses = prefixed
-                                           , srcStx = Just stx }
+                                           , srcExpr = Just expr }
 
 -- splitDefn stx@(ModuleStx [] ns) =
 --     error "Reorderer.splitDefn(ModuleStx): not implemented for unnamed modules"

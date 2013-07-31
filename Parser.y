@@ -14,7 +14,7 @@ import Data.Exception
 import Data.Functor ((<$>))
 import Data.LexState
 import Data.SrcFile
-import Data.Stx
+import Data.Expr
 import Data.Token
 import Data.Type
 import Lexer
@@ -180,9 +180,9 @@ Defn:
                         (kw, name', body) = $2
                       in
                        checkSigDefName name name' >>
-                       (return $ DefnStx (Just ann) kw name body) }
+                       (return $ FnDecl (Just ann) kw name body) }
   | FnDefn         { let (kw, name, body) = $1 in
-                     DefnStx Nothing kw name body }
+                     FnDecl Nothing kw name body }
   | TypeDefn       { $1 }
 
 TypeAnn:
@@ -195,7 +195,7 @@ FnDefn:
   | def Name '=' Expr                { (Def, $2, $4) }
 
 TypeDefn:
-    type Cotype { CotypeStx $2 }
+    type Cotype { CotypeDecl $2 }
 
 DefnMatches:
     DefnMatches '|' PatList '=' Expr  { $1 ++ [($3, $5)] }
@@ -204,32 +204,32 @@ DefnMatches:
 Expr:
     SimpleExpr %prec below_app_prec { $1 }
 
-  | Expr SimpleExpr %prec app_prec  { AppStx $1 $2 }
+  | Expr SimpleExpr %prec app_prec  { AppE $1 $2 }
 
-  | Expr 'o' Expr   { binOpStx $2 $1 $3 }
+  | Expr 'o' Expr   { binOpE $2 $1 $3 }
 
-  | Expr '*' Expr   { binOpStx $2 $1 $3 }
-  | Expr '/' Expr   { binOpStx $2 $1 $3 }
+  | Expr '*' Expr   { binOpE $2 $1 $3 }
+  | Expr '/' Expr   { binOpE $2 $1 $3 }
 
-  | Expr '+' Expr   { binOpStx $2 $1 $3 }
-  | Expr '-' Expr   { binOpStx $2 $1 $3 }
+  | Expr '+' Expr   { binOpE $2 $1 $3 }
+  | Expr '-' Expr   { binOpE $2 $1 $3 }
 
-  | Expr '==' Expr  { binOpStx $2 $1 $3 }
-  | Expr '/=' Expr  { binOpStx $2 $1 $3 }
-  | Expr '<'  Expr  { binOpStx $2 $1 $3 }
-  | Expr '>'  Expr  { binOpStx $2 $1 $3 }
-  | Expr '<=' Expr  { binOpStx $2 $1 $3 }
-  | Expr '>=' Expr  { binOpStx $2 $1 $3 }
+  | Expr '==' Expr  { binOpE $2 $1 $3 }
+  | Expr '/=' Expr  { binOpE $2 $1 $3 }
+  | Expr '<'  Expr  { binOpE $2 $1 $3 }
+  | Expr '>'  Expr  { binOpE $2 $1 $3 }
+  | Expr '<=' Expr  { binOpE $2 $1 $3 }
+  | Expr '>=' Expr  { binOpE $2 $1 $3 }
 
-  | Expr '+>' Expr  { binOpStx $2 $1 $3 }
-  | Expr '<+' Expr  { binOpStx $2 $1 $3 }
+  | Expr '+>' Expr  { binOpE $2 $1 $3 }
+  | Expr '<+' Expr  { binOpE $2 $1 $3 }
 
-  | Expr '&&' Expr  { andStx $1 $3 }
-  | Expr '||' Expr  { orStx $1 $3 }
+  | Expr '&&' Expr  { andE $1 $3 }
+  | Expr '||' Expr  { orE $1 $3 }
 
-  | Expr quotedId Expr { binOpStx $2 $1 $3 }
+  | Expr quotedId Expr { binOpE $2 $1 $3 }
 
-  | Expr where '{' DefnList '}' { WhereStx $1 $4 }
+  | Expr where '{' DefnList '}' { WhereE $1 $4 }
 
   | Lambda          { $1 }
   | Merge           { $1 }
@@ -252,39 +252,39 @@ PatList:
   | Pat                 { [$1] }
 
 Merge:
-    '{' MergeObservations '}' { MergeStx (sortWith fst $2) }
+    '{' MergeObservations '}' { MergeE (sortWith fst $2) }
 
 MergeObservations:
     MergeObservations '&' QualName '=' Expr { $1 ++ [($3, $5)] }
   | QualName '=' Expr                       { [($1, $3)] }
 
 SimpleExpr:
-    QualName     { IdStx $1 }
+    QualName     { IdE $1 }
   | Constant     { $1 }
   | '(' Expr ')' { $2 }
 
 Constant:
-    character   { CharStx $1 }
-  | integer     { if $1 >= 0 then IntStx $1 else appStx "negInt" (IntStx (- $1)) }
-  | double      { if $1 >= 0 then DoubleStx $1 else appStx "negReal" (DoubleStx (- $1)) }
-  | '[' ExprList ']'   { SeqStx $2 }
-  | '['          ']'   { SeqStx [] }
-  | string             { stringStx $1 }
+    character        { CharE $1 }
+  | integer          { if $1 >= 0 then IntE $1 else appE "negInt" (IntE (- $1)) }
+  | double           { if $1 >= 0 then RealE $1 else appE "negReal" (RealE (- $1)) }
+  | '[' ExprList ']' { SeqE $2 }
+  | '['          ']' { SeqE [] }
+  | string           { stringE $1 }
 
 
 -- patterns
 
 TypePat:
-    id '@' typeId  { namePat $1 (mkPredPat (IdStx $3)) }
+    id '@' typeId  { namePat $1 (mkPredPat (idE $3)) }
 
 Pat:
-    '@ '         { mkPredPat constTrueStx }
-  | id '@ '      { namePat $1 (mkPredPat constTrueStx) }
+    '@ '         { mkPredPat constTrueE }
+  | id '@ '      { namePat $1 (mkPredPat constTrueE) }
   | PatRest      { $1 }
 
 PatNoSpace:
-    '@'         { mkPredPat constTrueStx }
-  | id '@'      { namePat $1 (mkPredPat constTrueStx) }
+    '@'         { mkPredPat constTrueE }
+  | id '@'      { namePat $1 (mkPredPat constTrueE) }
   | PatRest     { $1 }
 
 PatRest:
@@ -293,8 +293,8 @@ PatRest:
   | id '@' '(' Expr ')'  { namePat $1 (mkPredPat $4) }
 
 -- predicate patterns
-  | '@' QualName         { mkPredPat (IdStx $2) }
-  | id '@' QualName      { namePat $1 (mkPredPat (IdStx $3)) }
+  | '@' QualName         { mkPredPat (IdE $2) }
+  | id '@' QualName      { namePat $1 (mkPredPat (IdE $3)) }
 
 -- list patterns
   | ListPat              { $1 }
@@ -305,10 +305,10 @@ PatRest:
   | id '@' '(' CombPat ')' { namePat $1 $4 }
 
 CombPat:
-    Pat '+>' PatNoSpace { mkPat (IdStx "pal") [IdStx "hd", IdStx "tl"] [$1, $3] }
-  | Pat '<+' PatNoSpace { mkPat (IdStx "par") [IdStx "tlr", IdStx "hdr"] [$1, $3] }
-  | Pat '&&' PatNoSpace { mkPat (IdStx "pand") [IdStx "id", IdStx "id"] [$1, $3] }
-  | Pat '||' PatNoSpace { mkPat (IdStx "por") [IdStx "id", IdStx "id"] [$1, $3] }
+    Pat '+>' PatNoSpace { mkPat (idE "pal") [idE "hd", idE "tl"] [$1, $3] }
+  | Pat '<+' PatNoSpace { mkPat (idE "par") [idE "tlr", idE "hdr"] [$1, $3] }
+  | Pat '&&' PatNoSpace { mkPat (idE "pand") [idE "id", idE "id"] [$1, $3] }
+  | Pat '||' PatNoSpace { mkPat (idE "por") [idE "id", idE "id"] [$1, $3] }
 
 ListPat:
     '[' ExprPatList ']' { mkListPat $2 }
@@ -363,9 +363,9 @@ CotypeObservations:
 
 -- identifiers
 
-QualName:     
-    LongTypeId '.' Name { intercalate "." ($1 ++ [$3]) }
-  | Name                { $1 }
+QualName:
+    LongTypeId '.' Name { mkQualName ($1 ++ [$3]) }
+  | Name                { mkQualName [$1] }
 
 LongTypeId:
     LongTypeId '.' typeId { $1 ++ [$3] }
@@ -426,7 +426,7 @@ parsePrelude filename str =
     runParser parseSrcFile [] filename str
 
 
-parseRepl :: String -> String -> Either String (Stx String)
+parseRepl :: String -> String -> Either String Expr
 parseRepl filename str =
     evalStateT parseDefnOrExpr $ ParserM.initial $ lexState filename str
 }

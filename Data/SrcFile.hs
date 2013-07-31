@@ -8,7 +8,7 @@ import Data.Maybe (fromMaybe)
 
 import Data.Definition (Definition (symbol, typ, val))
 import qualified Data.Definition as Definition (name, initial, val, typ, symbol)
-import Data.Stx (Stx)
+import Data.Expr (Expr)
 import Data.Symbol (Symbol (..))
 import Data.Type (Type)
 import Monad.InterpreterM (Val)
@@ -26,7 +26,7 @@ data SrcFile
               , deps :: [String]
               , unprefixedUses :: [String]
               , prefixedUses :: [(String, String)]
-              , decls :: [Stx String]
+              , decls :: [Expr]
               , defs :: Map String Definition
               , defOrd :: [String] }
 
@@ -77,19 +77,19 @@ interactiveName :: String
 interactiveName = "Interactive"
 
 
-mkInteractiveSrcFile :: [SrcFile] -> [Stx String] -> SrcFile
-mkInteractiveSrcFile srcfiles stxs =
+mkInteractiveSrcFile :: [SrcFile] -> [Expr] -> SrcFile
+mkInteractiveSrcFile srcfiles exprs =
     let deps = map name srcfiles in
     (initial InteractiveT interactiveName deps) { unprefixedUses = deps
-                                                , decls = stxs }
+                                                , decls = exprs }
 
 
-mkParsedSrcFile :: String -> [(String, String)] -> [Stx String] -> SrcFile
-mkParsedSrcFile name uses stxs =
+mkParsedSrcFile :: String -> [(String, String)] -> [Expr] -> SrcFile
+mkParsedSrcFile name uses exprs =
   let (unprefixed, prefixed) = partition (null . snd) uses in
   (initial SrcT name []) { unprefixedUses = map fst unprefixed
                          , prefixedUses = prefixed
-                         , decls = stxs }
+                         , decls = exprs }
 
 
 addImplicitUnprefixedUses :: [String] -> SrcFile -> SrcFile

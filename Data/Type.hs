@@ -3,9 +3,11 @@ module Data.Type where
 import Control.Arrow (second)
 import Data.Functor ((<$>))
 import Data.List (intercalate, nub, sort)
-
 import Data.Map (Map)
 import qualified Data.Map as Map
+
+import Data.QualName (QualName)
+import qualified Data.QualName as QualName (fromQualName)
 
 
 data Type
@@ -19,7 +21,7 @@ data Type
 
     | DynT
     | ArrowT Type Type
-    | CoT [(String, Type)]
+    | CoT [(QualName, Type)]
     | EvarT String
     | ForallT String Type
     | TvarT String

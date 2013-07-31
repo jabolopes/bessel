@@ -18,12 +18,12 @@ import qualified Data.Env as Env (getBinds)
 import Data.Definition (Definition(..))
 import qualified Data.Definition as Definition
 import Data.Exception
+import Data.Expr
 import Data.FileSystem (FileSystem)
 import qualified Data.FileSystem as FileSystem
 import Data.Maybe
 import Data.SrcFile (SrcFile)
 import qualified Data.SrcFile as SrcFile hiding (unprefixedUses)
-import Data.Stx
 import Data.Symbol
 import Data.Type
 import Expander (expand, expandDefinition)
@@ -33,8 +33,7 @@ import Linker
 import Loader
 import Monad.InterpreterM
 import Parser
-import Printer.PrettyStx
--- edit: remove this hiding
+import Printer.PrettyExpr
 import Renamer (rename, renameDefinition)
 import Reorderer (reorder)
 import Typechecker
@@ -50,7 +49,7 @@ type ReplM a = StateT ReplState IO a
 
 doPutLine = False
 doPutTokens = True
-doPutParsedStx = True
+doPutParsedExpr = True
 doPutVal = True
 doPutValT = True
 doPutEnvironment = False
@@ -62,11 +61,11 @@ putLine str =
       putStrLn $ "> " ++ str
 
 
-putParsedStx :: Stx String -> IO ()
-putParsedStx stx =
-    when doPutParsedStx $ do
-      putStrLn "> Parsed stx"
-      prettyPrint stx
+putParsedExpr :: Expr -> IO ()
+putParsedExpr expr =
+    when doPutParsedExpr $ do
+      putStrLn "> Parsed expr"
+      prettyPrint expr
       putStrLn ""
       putStrLn ""
 
@@ -169,17 +168,17 @@ importFile fs filename =
        return ReplState { initialFs = fs, fs = fs'' }
 
 
-mkSnippet :: FileSystem -> Stx String -> Definition
-mkSnippet fs stx@(DefnStx _ _ name _) =
+mkSnippet :: FileSystem -> Expr -> Definition
+mkSnippet fs expr@(FnDecl _ _ name _) =
   let
     name' = SrcFile.interactiveName ++ "." ++ name
     unprefixed = map SrcFile.name (FileSystem.toAscList fs)
   in
     (Definition.initial name') { unprefixedUses = unprefixed
-                               , srcStx = Just stx }
+                               , srcExpr = Just expr }
 
-mkSnippet fs stx =
-  mkSnippet fs $ DefnStx Nothing NrDef "val" stx
+mkSnippet fs expr =
+  mkSnippet fs $ FnDecl Nothing NrDef "val" expr
 
 
 renameSnippet :: FileSystem -> Definition -> Either String Definition
@@ -189,9 +188,9 @@ renameSnippet fs = renameDefinition fs SrcFile.interactiveName
 runSnippetM :: String -> ReplM ()
 runSnippetM ln =
   do fs <- fs <$> get
-     let stx = parserEither (parseRepl SrcFile.interactiveName ln)
-     liftIO (putParsedStx stx)
-     let def = mkSnippet fs stx
+     let expr = parserEither (parseRepl SrcFile.interactiveName ln)
+     liftIO (putParsedExpr expr)
+     let def = mkSnippet fs expr
          expDef = expanderEither (expandDefinition fs def)
          renDef = renamerEither (renameSnippet fs expDef)
      typDef <- typecheckerEither (typecheckDefinitionM fs renDef)

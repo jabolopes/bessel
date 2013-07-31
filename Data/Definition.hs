@@ -1,36 +1,36 @@
 module Data.Definition where
 
-import Data.Stx (Stx)
+import Data.Expr (Expr)
 import Data.Symbol (Symbol)
 import Data.Type (Type)
 import Monad.InterpreterM (Val)
 
 
 data Definition
-     = Definition { name :: String
-                  , freeNames :: [String]
-                  , unprefixedUses :: [String]
-                  , prefixedUses :: [(String, String)]
-                  , symbol :: Maybe Symbol
-                  , typ :: Maybe Type
-                  , val :: Maybe Val
-                  , srcStx :: Maybe (Stx String)
-                  , expStx :: Maybe (Stx String)
-                  , renStx :: Maybe (Stx String)
-                  , lnkStx :: Maybe (Stx String) }
-     deriving (Show)
+  = Definition { name :: String
+               , freeNames :: [String]
+               , unprefixedUses :: [String]
+               , prefixedUses :: [(String, String)]
+               , symbol :: Maybe Symbol
+               , typ :: Maybe Type
+               , val :: Maybe Val
+               , srcExpr :: Maybe Expr
+               , expExpr :: Maybe Expr
+               , renExpr :: Maybe Expr
+               , lnkExpr :: Maybe Expr }
+    deriving (Show)
 
 
 initial :: String -> Definition
 initial name =
-    Definition { name = name
-               , freeNames = []
-               , unprefixedUses = []
-               , prefixedUses = []
-               , symbol = Nothing
-               , typ = Nothing
-               , val = Nothing
-               , srcStx = Nothing
-               , expStx = Nothing
-               , renStx = Nothing
-               , lnkStx = Nothing }
+  Definition { name = name
+             , freeNames = []
+             , unprefixedUses = []
+             , prefixedUses = []
+             , symbol = Nothing
+             , typ = Nothing
+             , val = Nothing
+             , srcExpr = Nothing
+             , expExpr = Nothing
+             , renExpr = Nothing
+             , lnkExpr = Nothing }
