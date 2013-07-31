@@ -34,168 +34,168 @@ use Core
 --           | @ = false
 
 
-sig id : a -> a
-def id x@ = x
+def id : a -> a
+  x@ = x
 
-sig const : a -> b -> a
-def const x@ @ = x
+def const : a -> b -> a
+  x@ @ = x
 
-sig not : Bool -> Bool
-def not @id = false
-      | @ = true
+def not : Bool -> Bool
+  @id = false
+| @ = true
 
-sig toBool : Dyn -> Bool
-def toBool x@isBool = x
+def toBool : Dyn -> Bool
+  x@isBool = x
 
-sig toInt : Dyn -> Int
-def toInt x@isInt = x
+def toInt : Dyn -> Int
+  x@isInt = x
 
-sig toReal : Dyn -> Real
-def toReal x@isReal = x
+def toReal : Dyn -> Real
+  x@isReal = x
 
-sig toChar : Dyn -> Char
-def toChar x@isChar = x
+def toChar : Dyn -> Char
+  x@isChar = x
 
-sig toSeq : Dyn -> [Dyn]
-def toSeq x@isSeq = x
+def toSeq : Dyn -> [Dyn]
+  x@isSeq = x
 
-sig ofInt : Int -> Dyn
-def ofInt x@isInt = x
+def ofInt : Int -> Dyn
+  x@isInt = x
 
-sig eq : Dyn -> Dyn -> Bool
-def eq x@isBool y@isBool = eqBool (toBool x) (toBool y)
-     | x@isInt  y@isInt  = eqInt  (toInt  x) (toInt  y)
-     | x@isReal y@isReal = eqReal (toReal x) (toReal y)
-     | x@isChar y@isChar = eqChar (toChar x) (toChar y)
-     | seq1@isSeq seq2@isSeq =
-         eqSeq (toSeq seq1) (toSeq seq2) where {
-           sig eqSeq : [Dyn] -> [Dyn] -> Bool
-           def eqSeq @[] @[] = true
-                   | (x@ +> xs@) (y@ +> ys@) = eq x y && eqSeq xs ys
-                   | @ @ = false
-         }
-     -- | x@isobj  y@isobj  = eqObj x y
-     | @ @ = false
+def eq : Dyn -> Dyn -> Bool
+  x@isBool y@isBool = eqBool (toBool x) (toBool y)
+| x@isInt  y@isInt  = eqInt  (toInt  x) (toInt  y)
+| x@isReal y@isReal = eqReal (toReal x) (toReal y)
+| x@isChar y@isChar = eqChar (toChar x) (toChar y)
+| seq1@isSeq seq2@isSeq =
+  eqSeq (toSeq seq1) (toSeq seq2) where {
+    def eqSeq : [Dyn] -> [Dyn] -> Bool
+      @[] @[] = true
+    | (x@ +> xs@) (y@ +> ys@) = eq x y && eqSeq xs ys
+    | @ @ = false
+  }
+-- | x@isobj  y@isobj  = eqObj x y
+| @ @ = false
 
-sig lt : Dyn -> Dyn -> Bool
-def lt x@isBool y@isBool = ltBool (toBool x) (toBool y)
-     | x@isInt  y@isInt  = ltInt  (toInt  x) (toInt  y)
-     | x@isInt  y@isReal = ltReal (mkReal x) (toReal y)
-     | x@isReal y@isInt  = ltReal (toReal x) (mkReal y)
-     | x@isReal y@isReal = ltReal (toReal x) (toReal y)
-     | x@isChar y@isChar = ltChar (toChar x) (toChar y)
-     | x@isSeq  y@isSeq  = ltSeq  (toSeq  x) (toSeq  y)
-     | @ @ = false
+def lt : Dyn -> Dyn -> Bool
+  x@isBool y@isBool = ltBool (toBool x) (toBool y)
+| x@isInt  y@isInt  = ltInt  (toInt  x) (toInt  y)
+| x@isInt  y@isReal = ltReal (mkReal x) (toReal y)
+| x@isReal y@isInt  = ltReal (toReal x) (mkReal y)
+| x@isReal y@isReal = ltReal (toReal x) (toReal y)
+| x@isChar y@isChar = ltChar (toChar x) (toChar y)
+| x@isSeq  y@isSeq  = ltSeq  (toSeq  x) (toSeq  y)
+| @ @ = false
 
-sig (==) : Dyn -> Dyn -> Bool
-def (==) = eq
+def (==) : Dyn -> Dyn -> Bool
+  = eq
 
-sig (/=) : Dyn -> Dyn -> Bool
-def (/=) x@ y@ = not (x == y)
+def (/=) : Dyn -> Dyn -> Bool
+  x@ y@ = not (x == y)
 
-sig (<) : Dyn -> Dyn -> Bool
-def (<) = lt
+def (<) : Dyn -> Dyn -> Bool
+  = lt
 
-sig (<=) : Dyn -> Dyn -> Bool
-def (<=) x@ y@ = x == y || x < y
+def (<=) : Dyn -> Dyn -> Bool
+  x@ y@ = x == y || x < y
 
-sig (>) : Dyn -> Dyn -> Bool
-def (>) x@ y@ = x /= y && not (x < y)
+def (>) : Dyn -> Dyn -> Bool
+  x@ y@ = x /= y && not (x < y)
 
-sig (>=) : Dyn -> Dyn -> Bool
-def (>=) x@ y@ = not (x < y)
+def (>=) : Dyn -> Dyn -> Bool
+  x@ y@ = not (x < y)
 
-sig isNum : Dyn -> Bool
-def isNum x@ = isInt x || isReal x
+def isNum : Dyn -> Bool
+  x@ = isInt x || isReal x
 
-sig isPos : Dyn -> Bool
-def isPos x@ = isNum x && x > 0
+def isPos : Dyn -> Bool
+  x@ = isNum x && x > 0
 
-sig isNeg : Dyn -> Bool
-def isNeg x@ = isNum x && x < 0
+def isNeg : Dyn -> Bool
+  x@ = isNum x && x < 0
 
-sig isZero : Int -> Bool
-def isZero x@ = x == 0
+def isZero : Int -> Bool
+  x@ = x == 0
 
-sig isNull : [a] -> Bool
-def isNull @[] = true
-         | @ = false
+def isNull : [a] -> Bool
+  @[] = true
+| @ = false
 
-sig isPair : [a] -> Bool
-def isPair [@,@] = true
-         | @ = false
+def isPair : [a] -> Bool
+  [@,@] = true
+| @ = false
 
-sig isString : [Dyn] -> Bool
-def isString x@ = isSeqOf isChar x
+def isString : [Dyn] -> Bool
+  x@ = isSeqOf isChar x
 
-sig add : Dyn -> Dyn -> Dyn
-def add x@isInt  y@isInt  = addInt (toInt x) (toInt y)
-      | x@isReal y@isReal = addReal (toReal x) (toReal y)
-      | x@isInt  y@isReal = addReal (mkReal x) (toReal y)
-      | x@isReal y@isInt  = addReal (toReal x) (mkReal y)
+def add : Dyn -> Dyn -> Dyn
+  x@isInt  y@isInt  = addInt (toInt x) (toInt y)
+| x@isReal y@isReal = addReal (toReal x) (toReal y)
+| x@isInt  y@isReal = addReal (mkReal x) (toReal y)
+| x@isReal y@isInt  = addReal (toReal x) (mkReal y)
 
-sig sub : Dyn -> Dyn -> Dyn
-def sub x@isInt  y@isInt  = subInt (toInt x) (toInt y)
-      | x@isReal y@isReal = subReal (toReal x) (toReal y)
-      | x@isInt  y@isReal = subReal (mkReal x) (toReal y)
-      | x@isReal y@isInt  = subReal (toReal x) (mkReal y)
+def sub : Dyn -> Dyn -> Dyn
+  x@isInt  y@isInt  = subInt (toInt x) (toInt y)
+| x@isReal y@isReal = subReal (toReal x) (toReal y)
+| x@isInt  y@isReal = subReal (mkReal x) (toReal y)
+| x@isReal y@isInt  = subReal (toReal x) (mkReal y)
 
-sig mul : Dyn -> Dyn -> Dyn
-def mul x@isInt  y@isInt  = mulInt (toInt x) (toInt y)
-      | x@isReal y@isReal = mulReal (toReal x) (toReal y)
-      | x@isInt  y@isReal = mulReal (mkReal x) (toReal y)
-      | x@isReal y@isInt  = mulReal (toReal x) (mkReal y)
+def mul : Dyn -> Dyn -> Dyn
+  x@isInt  y@isInt  = mulInt (toInt x) (toInt y)
+| x@isReal y@isReal = mulReal (toReal x) (toReal y)
+| x@isInt  y@isReal = mulReal (mkReal x) (toReal y)
+| x@isReal y@isInt  = mulReal (toReal x) (mkReal y)
 
-sig div : Dyn -> Dyn -> Dyn
-def div x@isInt  y@isInt  = divInt (toInt x) (toInt y)
-      | x@isReal y@isReal = divReal (toReal x) (toReal y)
-      | x@isInt  y@isReal = divReal (mkReal x) (toReal y)
-      | x@isReal y@isInt  = divReal (toReal x) (mkReal y)
+def div : Dyn -> Dyn -> Dyn
+  x@isInt  y@isInt  = divInt (toInt x) (toInt y)
+| x@isReal y@isReal = divReal (toReal x) (toReal y)
+| x@isInt  y@isReal = divReal (mkReal x) (toReal y)
+| x@isReal y@isInt  = divReal (toReal x) (mkReal y)
 
-sig (+) : Dyn -> Dyn -> Dyn
-def (+) = add
+def (+) : Dyn -> Dyn -> Dyn
+  = add
 
-sig (-) : Dyn -> Dyn -> Dyn
-def (-) = sub
+def (-) : Dyn -> Dyn -> Dyn
+  = sub
 
-sig (*) : Dyn -> Dyn -> Dyn
-def (*) = mul
+def (*) : Dyn -> Dyn -> Dyn
+  = mul
 
-sig (/) : Dyn -> Dyn -> Dyn
-def (/) = div
+def (/) : Dyn -> Dyn -> Dyn
+  = div
 
-sig abs : Dyn -> Dyn
-def abs x@isInt  = absInt (toInt x)
-      | x@isReal = absReal (toReal x)
+def abs : Dyn -> Dyn
+  x@isInt  = absInt  (toInt  x)
+| x@isReal = absReal (toReal x)
 
-sig floor : Dyn -> Int
-def floor x@isInt  = toInt x
-        | x@isReal = floorReal (toReal x)
+def floor : Dyn -> Int
+  x@isInt  = toInt x
+| x@isReal = floorReal (toReal x)
 
-sig ceiling : Dyn -> Int
-def ceiling x@isInt  = toInt x
-          | x@isReal = ceilingReal (toReal x)
+def ceiling : Dyn -> Int
+  x@isInt  = toInt x
+| x@isReal = ceilingReal (toReal x)
 
-sig neg : Dyn -> Dyn
-def neg x@isInt  = negInt (toInt x)
-      | x@isReal = negReal (toReal x)
+def neg : Dyn -> Dyn
+  x@isInt  = negInt (toInt x)
+| x@isReal = negReal (toReal x)
 
-sig rem : Int -> Int -> Int
-def rem x@ y@ = remInt x y
+def rem : Int -> Int -> Int
+  x@ y@ = remInt x y
 
-sig (+>) : a -> [a] -> [a]
-def (+>) = al
+def (+>) : a -> [a] -> [a]
+  = al
 
-sig (<+) : [a] -> a -> [a]
-def (<+) = ar
+def (<+) : [a] -> a -> [a]
+  = ar
 
-sig length : [a] -> Int
-def length @[] = 0
-         | (@ +> xs@) = length xs + 1
+def length : [a] -> Int
+  @[] = 0
+| (@ +> xs@) = length xs + 1
 
-sig reverse : [a] -> [a]
-def reverse @[] = []
-          | (x@ +> xs@) = ar (reverse xs) x
+def reverse : [a] -> [a]
+  @[] = []
+| (x@ +> xs@) = ar (reverse xs) x
 
 -- sig index : [a] -> Int -> a
 -- def index (x@ +> xs@) n@((==) 0 o ofInt) = x
@@ -205,17 +205,17 @@ def reverse @[] = []
 
 type {x : Int | y : Real}
 
-sig f : {x : Int | y : Real}
-def f = {x = 0 & y = 0.0}
+def f : {x : Int | y : Real}
+  = {x = 0 & y = 0.0}
 
-sig g : {x : Int | y : Real} -> Int
-def g v@ = x v
+def g : {x : Int | y : Real} -> Int
+  v@ = x v
 
 
 type {Ola.i : Int | Ola.j : Real}
 
-sig a : {Ola.i : Int | Ola.j : Real}
-def a = {Ola.i = 0 & Ola.j = 0.0}
+def a : {Ola.i : Int | Ola.j : Real}
+  = {Ola.i = 0 & Ola.j = 0.0}
 
-sig b : {Ola.i : Int | Ola.j : Real} -> Int
-def b v@ = Ola.i v
+def b : {Ola.i : Int | Ola.j : Real} -> Int
+  v@ = Ola.i v

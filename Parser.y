@@ -46,17 +46,6 @@ checkUseList uses =
   do let (unprefixed, prefixed) = partition (null . snd) uses
      checkUniqueImports (map fst unprefixed) prefixed
      checkUniqueQualifiers prefixed
-
-
-checkSigDefName :: String -> String -> ParserM ()
-checkSigDefName sigName defName
-  | sigName == defName =
-      return ()
-  | otherwise =
-      failM $ "Function names are not equal in" ++
-              "\n  sig " ++ sigName ++ " ..." ++
-              "\nand" ++
-              "\n  def " ++ defName ++ " ..."
 }
 
 %monad { ParserM }
@@ -92,7 +81,6 @@ checkSigDefName sigName defName
   as      { TokenAs }
   def     { TokenDef }
   me      { TokenMe }
-  sig     { TokenSig }
   type    { TokenType }
   use     { TokenUse }
   where   { TokenWhere }
@@ -175,24 +163,15 @@ DefnList:
   | Defn            { [$1] }
 
 Defn:
-    TypeAnn FnDefn {% let
-                        (name, ann) = $1
-                        (kw, name', body) = $2
-                      in
-                       checkSigDefName name name' >>
-                       (return $ FnDecl (Just ann) kw name body) }
-  | FnDefn         { let (kw, name, body) = $1 in
-                     FnDecl Nothing kw name body }
-  | TypeDefn       { $1 }
-
-TypeAnn:
-    sig Name ':' Type { ($2, $4) }
+    FnDefn   { let (ann, kw, name, body) = $1 in
+               FnDecl (Just ann) kw name body }
+  | TypeDefn { $1 }
 
 FnDefn:
-    def Name TypePatList DefnMatches { (Def, $2, LambdaMacro $3 (CondMacro $4 $2)) }
-  | def Name TypePatList '=' Expr    { (Def, $2, LambdaMacro $3 $5) }
-  | def Name DefnMatches             { (Def, $2, CondMacro $3 $2) }
-  | def Name '=' Expr                { (Def, $2, $4) }
+    def Name ':' Type TypePatList DefnMatches { ($4, Def, $2, LambdaMacro $5 (CondMacro $6 $2)) }
+  | def Name ':' Type TypePatList '=' Expr    { ($4, Def, $2, LambdaMacro $5 $7) }
+  | def Name ':' Type DefnMatches             { ($4, Def, $2, CondMacro $5 $2) }
+  | def Name ':' Type '=' Expr                { ($4, Def, $2, $6) }
 
 TypeDefn:
     type Cotype { CotypeDecl $2 }
