@@ -15,6 +15,7 @@ import Data.Functor ((<$>))
 import Data.LexState
 import Data.SrcFile
 import Data.Expr
+import Data.QualName (mkQualName)
 import Data.Token
 import Data.Type
 import Lexer

@@ -4,7 +4,6 @@ import Data.List (nub, sort)
 
 import Data.QualName
 import Data.Type
-import Utils
 
 
 type PatDefn = (String, [Expr])
@@ -66,11 +65,6 @@ namePat name (Pat pred defns) =
 data DefnKw
   = Def | NrDef
     deriving (Show)
-
-
-mkQualName :: [String] -> QualName
-mkQualName name =
-  QualName { fromQualName = flattenId name }
 
 
 type Observation = (String, Type)
