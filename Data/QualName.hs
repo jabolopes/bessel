@@ -3,4 +3,7 @@ module Data.QualName where
 
 newtype QualName
   = QualName { fromQualName :: String }
-    deriving (Eq, Ord, Show)
+    deriving (Eq, Ord)
+
+instance Show QualName where
+  show QualName { fromQualName = x } = x
