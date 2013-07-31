@@ -67,13 +67,13 @@ def eq : Dyn -> Dyn -> Bool
 | x@isInt  y@isInt  = eqInt  (toInt  x) (toInt  y)
 | x@isReal y@isReal = eqReal (toReal x) (toReal y)
 | x@isChar y@isChar = eqChar (toChar x) (toChar y)
-| seq1@isSeq seq2@isSeq =
-  eqSeq (toSeq seq1) (toSeq seq2) where {
-    def eqSeq : [Dyn] -> [Dyn] -> Bool
-      @[] @[] = true
-    | (x@ +> xs@) (y@ +> ys@) = eq x y && eqSeq xs ys
-    | @ @ = false
-  }
+| seq1@isSeq seq2@isSeq = eqSeq (toSeq seq1) (toSeq seq2)
+    where {
+      def eqSeq : [Dyn] -> [Dyn] -> Bool
+        @[] @[] = true
+      | (x@ +> xs@) (y@ +> ys@) = eq x y && eqSeq xs ys
+      | @ @ = false
+    }
 -- | x@isobj  y@isobj  = eqObj x y
 | @ @ = false
 
@@ -129,25 +129,25 @@ def isString : [Dyn] -> Bool
   x@ = isSeqOf isChar x
 
 def add : Dyn -> Dyn -> Dyn
-  x@isInt  y@isInt  = addInt (toInt x) (toInt y)
+  x@isInt  y@isInt  = addInt  (toInt  x) (toInt  y)
 | x@isReal y@isReal = addReal (toReal x) (toReal y)
 | x@isInt  y@isReal = addReal (mkReal x) (toReal y)
 | x@isReal y@isInt  = addReal (toReal x) (mkReal y)
 
 def sub : Dyn -> Dyn -> Dyn
-  x@isInt  y@isInt  = subInt (toInt x) (toInt y)
+  x@isInt  y@isInt  = subInt  (toInt  x) (toInt  y)
 | x@isReal y@isReal = subReal (toReal x) (toReal y)
 | x@isInt  y@isReal = subReal (mkReal x) (toReal y)
 | x@isReal y@isInt  = subReal (toReal x) (mkReal y)
 
 def mul : Dyn -> Dyn -> Dyn
-  x@isInt  y@isInt  = mulInt (toInt x) (toInt y)
+  x@isInt  y@isInt  = mulInt  (toInt  x) (toInt  y)
 | x@isReal y@isReal = mulReal (toReal x) (toReal y)
 | x@isInt  y@isReal = mulReal (mkReal x) (toReal y)
 | x@isReal y@isInt  = mulReal (toReal x) (mkReal y)
 
 def div : Dyn -> Dyn -> Dyn
-  x@isInt  y@isInt  = divInt (toInt x) (toInt y)
+  x@isInt  y@isInt  = divInt  (toInt  x) (toInt  y)
 | x@isReal y@isReal = divReal (toReal x) (toReal y)
 | x@isInt  y@isReal = divReal (mkReal x) (toReal y)
 | x@isReal y@isInt  = divReal (toReal x) (mkReal y)
@@ -177,7 +177,7 @@ def ceiling : Dyn -> Int
 | x@isReal = ceilingReal (toReal x)
 
 def neg : Dyn -> Dyn
-  x@isInt  = negInt (toInt x)
+  x@isInt  = negInt  (toInt  x)
 | x@isReal = negReal (toReal x)
 
 def rem : Int -> Int -> Int
