@@ -1,5 +1,7 @@
 module Data.FileSystem where
 
+import Prelude hiding (lookup)
+
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe
@@ -67,5 +69,6 @@ definition fs name =
 
 lookupDefinition :: FileSystem -> String -> Maybe Definition
 lookupDefinition fs name =
-    let srcfileName:_:_ = splitId name in
-    name `Map.lookup` SrcFile.defs (get fs srcfileName)
+  do let srcfileName:_:_ = splitId name
+     srcfile <- lookup fs srcfileName
+     name `Map.lookup` SrcFile.defs srcfile

@@ -257,6 +257,29 @@ showRenamedM showAll filename =
       filesM >>= liftIO . mapM_ prettyPrintSrcFile
 
 
+showDefinition :: Definition -> String
+showDefinition def =
+  name def ++ " (" ++
+  showSym def ++ ") :: " ++
+  showTyp def ++ " = " ++
+  showVal def ++ "\n\n" ++
+  showFreeNames def
+  where indent = (" " ++)
+        showSym = show . fromJust . Definition.symbol
+        showTyp = show . fromJust . Definition.typ
+        showVal = show . fromJust . Definition.val
+        showFreeNames = intercalate ", " . Definition.freeNames
+
+
+putDefinitionM :: Definition -> ReplM ()
+putDefinitionM def =
+  liftIO $ do
+    putStrLn (showDefinition def)
+    putStrLn ""
+    prettyPrint (fromJust (srcExpr def))
+    putStrLn ""
+
+
 data Flag
     = ShowAll
     | ShowBrief
@@ -271,6 +294,15 @@ options = [Option "a" [] (NoArg ShowAll) "Show all",
 
 
 runCommandM :: String -> [Flag] -> [String] -> ReplM ()
+runCommandM "def" opts (name:nonOpts) =
+  do fs <- fs <$> get
+     case FileSystem.lookupDefinition fs name of
+       Nothing -> liftIO $ putStrLn $ "definition " ++ show name ++ " does not exist"
+       Just def -> putDefinitionM def
+
+runCommandM "def" _ _ =
+  liftIO $ putStrLn $ ":def <name>"
+
 runCommandM "show" opts ("namespace":nonOpts) =
     let
         showAll = ShowAll `elem` opts
@@ -315,7 +347,7 @@ runCommandM "l" opts nonOpts =
     runCommandM "load" opts nonOpts
 
 runCommandM _ _ _ =
-    liftIO $ putStrLn ":show | :load"
+    liftIO $ putStrLn ":def | :show | :load"
 
 
 dispatchCommandM :: String -> ReplM ()
