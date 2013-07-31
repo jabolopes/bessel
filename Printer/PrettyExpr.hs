@@ -68,24 +68,22 @@ printExprM (AppE expr1 expr2) =
                      putPrinter ")"
 
 printExprM (CondMacro ms blame) =
-  withPrinterCol $ do
-    nlPrinter
-    putMatches ms
-    nlPrinter
-    putPrinter ("_ -> blame " ++ show blame)
-    where putMatches [] = return ()
-          putMatches [(pats, expr)] =
-              do printPatsM pats
-                 putPrinter " ("
-                 printExprM expr
-                 putPrinter ")"
-          putMatches ((pats, expr):ms) =
-              do printPatsM pats
-                 putPrinter " "
-                 printExprM expr
-                 putPrinter ")"
-                 nlPrinter
-                 putMatches ms
+  do putMatches ms
+     nlPrinter
+     putPrinter ("_ -> blame " ++ show blame)
+  where putMatches [] = return ()
+        putMatches [(pats, expr)] =
+          do printPatsM pats
+             putPrinter " ("
+             printExprM expr
+             putPrinter ")"
+        putMatches ((pats, expr):ms) =
+          do printPatsM pats
+             putPrinter " "
+             printExprM expr
+             putPrinter ")"
+             nlPrinter
+             putMatches ms
 
 printExprM (CondE ms blame) =
     do putPrinter "cond "
@@ -105,16 +103,16 @@ printExprM (CondE ms blame) =
                  putMatches ms
 
 printExprM (FnDecl ann kw name body) =
-    do putAnn ann
-       putPrinter $ kw' kw ++ " " ++ name ++ " = "
-       printExprM body
-    where kw' Def = "def"
-          kw' NrDef = "nrdef"
+    do putPrinter $ showKw kw ++ " " ++ name
+       putAnn ann
+       withPrinterCol $ do
+         nlPrinter
+         printExprM body
+    where showKw Def = "def"
+          showKw NrDef = "nrdef"
 
           putAnn Nothing = return ()
-          putAnn (Just t) =
-              do putPrinter $ "sig " ++ name ++ " : " ++ show t
-                 nlPrinter
+          putAnn (Just t) = putPrinter $ " : " ++ show t
 
 printExprM (LambdaMacro pats body) =
     do printPatsM pats
