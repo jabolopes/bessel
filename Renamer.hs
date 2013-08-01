@@ -198,7 +198,7 @@ renameM (CondE ms blame) =
                  return (expr1', expr2')
 
 renameM CotypeDecl {} =
-  error "Renaner.renameM(CotypeDecl): cotypes must be eliminated in reoderer"
+  error "Renaner.renameM(CotypeDecl): cotypes must be eliminated in reorderer"
 
 renameM (FnDecl ann Def name body) =
     if name `elem` freeVars body
