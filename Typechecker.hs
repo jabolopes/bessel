@@ -684,6 +684,12 @@ synthAbstrM ctx expr@(AppE fn arg) =
                (ctx'', arg') <- checkM ctx' arg argT
                return (ctx'', AppE fn' arg', rangeT)
 
+          synthApp t fn' ctx =
+            error $ "synthApp: unhandled case" ++
+                    "\n\n\t t = " ++ show t ++
+                    "\n\n\t fn' = " ++ show fn' ++
+                    "\n\n\t ctx = " ++ show ctx ++ "\n"
+
 -- ⇑Others
 synthAbstrM ctx (CondE ms blame) =
     do let (evarT, ctx') = genEvar ctx

@@ -12,9 +12,11 @@ import qualified Data.FileSystem as FileSystem
 import Data.SrcFile (SrcFileT(..), SrcFile(..))
 import qualified Data.SrcFile as SrcFile
 import Data.Expr
+import qualified Data.Expr as Expr (appE, freeVars, idE)
 import Data.QualName
 import qualified Data.QualName as QualName (fromQualName)
 import Data.Type
+import Renamer (renameDeclaration)
 
 
 data ExpanderState =
@@ -117,6 +119,82 @@ expandCondMacro ms blame =
 -- /cond macros
 
 
+-- fixpoint macros
+
+-- |
+-- @
+--   x@ = ... fn ...
+-- @
+--
+-- @
+--   fn@ x@ = ... fn ...
+-- @
+fixArgBody name body =
+  LambdaE name Nothing body
+
+
+-- |
+-- @
+-- def fn : ...
+--   x@ = ... fn ...
+-- @
+--
+-- @
+-- def fn : ...
+--   = fix# (gen#@ x@ = ... gen# ...)
+-- @
+fixDecl :: Expr -> Either String Expr
+fixDecl expr@(FnDecl t _ name body) =
+  do FnDecl _ _ name' body' <- renameDeclaration expr
+     let argBody = fixArgBody name' body'
+         declBody = Expr.appE "fix#" argBody
+     return $ FnDecl t NrDef name declBody
+
+-- |
+-- @
+-- a -> b
+-- @
+--
+-- @
+-- (a -> b) -> a -> b
+-- @
+fixArgT t@(ArrowT argT rangeT) =
+  Just $ ArrowT t $ ArrowT argT rangeT
+
+fixArgT t =
+  error $ "Expander.fixArgT: expected arrow type" ++
+          "\n\n\t t = " ++ show t ++ "\n"
+
+
+fixArgDecl defName defT argName body =
+  FnDecl (fixArgT defT) NrDef argName (fixArgBody defName body)
+
+
+-- |
+-- @
+-- def fn : a -> b
+--   x@ = ... fn ...
+-- @
+--
+-- @
+-- def fn : a -> b
+--   = fix# arg
+--   where {
+--     def arg : (a -> b) -> a -> b
+--       fn@ x@ = ... fn ...
+--   }
+-- @
+-- fixFn :: String -> Type -> String -> Expr -> Either String Expr
+-- fixFn defName defT argName body =
+--   do let argDecl = fixArgDecl defName defT argName body
+--      (arg, argName') <- renameDeclaration argDecl
+--      return $ FnDecl (Just defT) NrDef defName $ whereBody argName' arg
+--   where whereBody argName arg =
+--           WhereE (Expr.appE "fix#" (Expr.idE argName)) [arg]
+
+-- /fixpoint macros
+
+
 oneM :: Expr -> Expr
 oneM = id
 
@@ -155,8 +233,15 @@ expandM (CondE ms blame) =
 expandM CotypeDecl {} =
   error "Expander.expandM(CotypeDecl): cotypes must be eliminated in reorderer"
 
-expandM (FnDecl t kw name body) =
-    oneM . FnDecl t kw name <$> expandOneM body
+expandM expr@(FnDecl ann kw name body) =
+    do body' <- expandOneM body
+       if name `elem` Expr.freeVars body'
+       then
+         case fixDecl (FnDecl ann kw name body') of
+           Left err -> throwError err
+           Right expr -> returnOneM expr
+       else
+         returnOneM $ FnDecl ann NrDef name body'
 
 expandM (LambdaMacro typePats body) =
   oneM . lambdas typePats <$> expandOneM body

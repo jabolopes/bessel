@@ -488,6 +488,22 @@ unSharp :: Val -> Val
 unSharp (TypeVal val) = val
 
 
+-- | fixSharp : ((a -> b) -> a -> b) -> a -> b
+fixSharpT =
+  ForallT "a"
+   (ForallT "b"
+    (ArrowT
+     (ArrowT
+      (ArrowT (TvarT "a") (TvarT "b"))
+      (ArrowT (TvarT "a") (TvarT "b")))
+      (ArrowT (TvarT "a") (TvarT "b"))))
+fixSharp :: Val -> Val
+fixSharp (FnVal fn) = FnVal hof
+  where hof val =
+          do FnVal fn' <- fn (FnVal hof)
+             fn' val
+
+
 index :: Val -> Val
 index (IntVal i) = FnVal (return . hof)
     where hof (SeqVal vals) = vals !! i

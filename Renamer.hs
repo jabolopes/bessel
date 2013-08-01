@@ -18,9 +18,10 @@ import qualified Data.FrameTree as FrameTree (empty, rootId, getFrame, getLexica
 import Data.SrcFile (SrcFileT (..), SrcFile(..))
 import qualified Data.SrcFile as SrcFile (name, defsAsc, updateDefinitions)
 import Data.Expr (DefnKw(..), Expr(..))
-import qualified Data.Expr as Expr (freeVars, idE)
+import qualified Data.Expr as Expr (appE, freeVars, idE)
 import qualified Data.QualName as QualName (fromQualName)
 import Data.Symbol (Symbol (..))
+import Data.Type (Type(ArrowT))
 import Utils (rebaseName, flattenId, splitId)
 
 
@@ -28,7 +29,8 @@ data RenamerState =
     RenamerState { frameTree :: FrameTree
                  , nameCount :: Int
                  , typeCount :: Int
-                 , currentFrame :: Int }
+                 , currentFrame :: Int
+                 , existFreeVars :: Bool }
 
 
 initialRenamerState :: RenamerState
@@ -37,7 +39,8 @@ initialRenamerState =
     RenamerState { frameTree = frameTree
                  , nameCount = 0
                  , typeCount = 0
-                 , currentFrame = FrameTree.rootId frameTree }
+                 , currentFrame = FrameTree.rootId frameTree
+                 , existFreeVars = False }
 
 
 type RenamerM a = StateT RenamerState (Either String) a
@@ -169,13 +172,21 @@ renameOneM expr = head <$> renameM expr
 
 
 renameM :: Expr -> RenamerM [Expr]
-renameM expr@CharE {} = return [expr]
+renameM expr@(IdE name) =
+  do b <- existFreeVars <$> get
+     if b
+     then do
+       msym <- lookupSymbolM (QualName.fromQualName name)
+       case msym of
+         Just (FnSymbol sym) -> return $ (:[]) $ Expr.idE sym
+         _ -> return [expr]
+     else
+       (:[]) . Expr.idE <$> getFnSymbolM (QualName.fromQualName name)
+
 renameM expr@IntE {} = return [expr]
 renameM expr@RealE {} = return [expr]
+renameM expr@CharE {} = return [expr]
 renameM (SeqE exprs) = (:[]) . SeqE <$> mapM renameOneM exprs
-
-renameM (IdE name) =
-    (:[]) . Expr.idE <$> getFnSymbolM (QualName.fromQualName name)
 
 renameM (AppE expr1 expr2) =
     (:[]) <$> ((AppE <$> renameOneM expr1) `ap` renameOneM expr2)
@@ -252,6 +263,12 @@ lookupFreeVars fs unprefixed prefixed (name:names) =
          [] -> throwError $ "name " ++ show name ++ " is not defined"
          [def] -> (def:) <$> lookupFreeVars fs unprefixed prefixed names
          _ -> throwError $ "name " ++ show name ++ " is multiply defined"
+
+
+renameDeclaration :: Expr -> Either String Expr
+renameDeclaration expr@(FnDecl _ _ name _) =
+  let state = initialRenamerState { existFreeVars = True } in
+  fst <$> runStateT (renameOneM expr) state
 
 
 renameDefinitionM :: FileSystem -> Definition -> RenamerM Definition
