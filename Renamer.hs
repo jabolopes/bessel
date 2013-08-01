@@ -4,47 +4,40 @@ module Renamer where
 import Control.Monad.Error (throwError)
 import Control.Monad.State
 import Data.Functor ((<$>))
-import Data.List (intercalate, isPrefixOf, maximumBy, nub, sort)
-import Data.Map (Map)
-import qualified Data.Map as Map
-import Data.Maybe (catMaybes, mapMaybe)
-
-import Data.FileSystem (FileSystem)
-import qualified Data.FileSystem as FileSystem (add, get, lookupDefinition)
-import Data.Frame (Frame)
-import qualified Data.Frame as Frame (fid)
-import Data.FrameTree (FrameTree)
-import qualified Data.FrameTree as FrameTree
-import Data.SrcFile (SrcFileT (..), SrcFile(..))
-import qualified Data.SrcFile as SrcFile (name, defsAsc, symbols, addDefinitionSymbols, updateDefinitions)
-import Data.Expr
-import qualified Data.QualName as QualName (fromQualName)
-import Data.Symbol (Symbol (..))
-import qualified Data.Symbol as Symbol
-import Data.Tuple (swap)
-import Data.Type
-import Utils (rebaseName, flattenId, splitId)
+import Data.List (isPrefixOf)
+import Data.Maybe (mapMaybe)
 
 import Data.Definition (Definition(Definition, freeNames, expExpr, symbol, renExpr))
 import qualified Data.Definition as Definition
+import Data.FileSystem (FileSystem)
+import qualified Data.FileSystem as FileSystem (add, lookupDefinition)
+import Data.Frame (Frame)
+import qualified Data.Frame as Frame (fid)
+import Data.FrameTree (FrameTree)
+import qualified Data.FrameTree as FrameTree (empty, rootId, getFrame, getLexicalSymbol, addSymbol, addFrame)
+import Data.SrcFile (SrcFileT (..), SrcFile(..))
+import qualified Data.SrcFile as SrcFile (name, defsAsc, updateDefinitions)
+import Data.Expr (DefnKw(..), Expr(..))
+import qualified Data.Expr as Expr (freeVars, idE)
+import qualified Data.QualName as QualName (fromQualName)
+import Data.Symbol (Symbol (..))
+import Utils (rebaseName, flattenId, splitId)
 
 
 data RenamerState =
     RenamerState { frameTree :: FrameTree
                  , nameCount :: Int
                  , typeCount :: Int
-                 , currentFrame :: Int
-                 , currentNamespace :: String }
+                 , currentFrame :: Int }
 
 
-initialRenamerState :: String -> RenamerState
-initialRenamerState ns =
+initialRenamerState :: RenamerState
+initialRenamerState =
     let frameTree = FrameTree.empty in
     RenamerState { frameTree = frameTree
                  , nameCount = 0
                  , typeCount = 0
-                 , currentFrame = FrameTree.rootId frameTree
-                 , currentNamespace = ns }
+                 , currentFrame = FrameTree.rootId frameTree }
 
 
 type RenamerM a = StateT RenamerState (Either String) a
@@ -182,7 +175,7 @@ renameM expr@RealE {} = return [expr]
 renameM (SeqE exprs) = (:[]) . SeqE <$> mapM renameOneM exprs
 
 renameM (IdE name) =
-    (:[]) . idE <$> getFnSymbolM (QualName.fromQualName name)
+    (:[]) . Expr.idE <$> getFnSymbolM (QualName.fromQualName name)
 
 renameM (AppE expr1 expr2) =
     (:[]) <$> ((AppE <$> renameOneM expr1) `ap` renameOneM expr2)
@@ -201,7 +194,7 @@ renameM CotypeDecl {} =
   error "Renaner.renameM(CotypeDecl): cotypes must be eliminated in reorderer"
 
 renameM (FnDecl ann Def name body) =
-    if name `elem` freeVars body
+    if name `elem` Expr.freeVars body
     then do
       name' <- genNameM name
       addFnSymbolM name name'
@@ -265,7 +258,7 @@ renameDefinitionM :: FileSystem -> Definition -> RenamerM Definition
 renameDefinitionM fs def@Definition { expExpr = Just expr } =
     do let unprefixed = Definition.unprefixedUses def
            prefixed = Definition.prefixedUses def
-           names = freeVars expr
+           names = Expr.freeVars expr
        defs <- lookupFreeVars fs unprefixed prefixed names
        sequence_ [ addSymbolM name sym | name <- names | def <- defs, let Just sym = Definition.symbol def ]
        expr' <- renameOneM expr
@@ -277,7 +270,7 @@ renameDefinitionM fs def@Definition { expExpr = Just expr } =
 
 renameDefinition :: FileSystem -> String -> Definition -> Either String Definition
 renameDefinition fs ns def =
-  fst <$> runStateT (renameDefinitionM fs def) (initialRenamerState ns)
+  fst <$> runStateT (renameDefinitionM fs def) initialRenamerState
 
 
 renameDefinitions :: FileSystem -> SrcFile -> [Definition] -> Either String SrcFile
