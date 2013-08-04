@@ -199,6 +199,27 @@ arrowifyVar ctx var =
     (ctx { syms = syms1 ++ [a, a2, a1] ++ syms2 }, at)
 
 
+-- | Implements the following context transformation
+-- @
+-- Gamma [â]
+-- @
+--
+-- @
+-- Gamma [â1,â = [â1]]
+-- @
+seqifyVar :: Context -> String -> (Context, Type)
+seqifyVar ctx var =
+  let
+    (Context { syms = syms1 }, Context { syms = syms2 }) = splitContext ctx var
+    name1 = var ++ "1"
+    evar1 = EvarT name1
+    a1 = (name1, evar1)
+    at = SeqT evar1
+    a = (var, at)
+  in
+    (ctx { syms = syms1 ++ [a, a1] ++ syms2 }, at)
+
+
 occursContextT :: Context -> Type -> Type -> Bool
 occursContextT ctx t1 t2
     | t1 /= t2 && not (isForallT t1) && not (isForallT t2) && (isEvarT t1 || isEvarT t2) =
@@ -379,6 +400,26 @@ subT ctx t1@ArrowT {} t2@(EvarT var)
 
          let (ctx', _) = arrowifyVar ctx var
          subT ctx' t1 t2
+
+-- <EvarSeq
+subT ctx t1@(EvarT var) t2@SeqT {}
+  | isEmptyTypeContext ctx var =
+    do judgementM "<EvarSeq"
+                  ("ctx1," ++ var ++ "1," ++ var ++ "=[" ++ var ++ "1] " |- t1 <: t2 -| "ctx2")
+                  (gamma' "ctx1" [var] |- var <: t2 -| "ctx2")
+
+       let (ctx', _) = seqifyVar ctx var
+       subT ctx' t1 t2
+
+-- <SeqEvar
+subT ctx t1@SeqT {} t2@(EvarT var)
+  | isEmptyTypeContext ctx var =
+    do judgementM "<SeqEvar"
+                  ("ctx1," ++ var ++ "1," ++ var ++ "=[" ++ var ++ "1] " |- t1 <: t2 -| "ctx2")
+                  (gamma' "ctx1" [var] |- t1 <: var -| "ctx2")
+
+       let (ctx', _) = seqifyVar ctx var
+       subT ctx' t1 t2
 
 -- <ForallL
 subT ctx t1@(ForallT var _) t2 =
