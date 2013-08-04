@@ -195,7 +195,7 @@ def length : [a] -> Int
 
 def reverse : [a] -> [a]
   @[] = []
-| (x@ +> xs@) = ar (reverse xs) x
+| (x@ +> xs@) = reverse xs <+ x
 
 -- sig index : [a] -> Int -> a
 -- def index (x@ +> xs@) n@((==) 0 o ofInt) = x
@@ -203,28 +203,24 @@ def reverse : [a] -> [a]
 
 -- nrdef raise := \f@isfunc isfunc || (seqof isfunc && (¬ isnull)) -> lift f | f
 
--- type {x : Int | y : Real}
+type {x : Int | y : Real}
 
--- def f : {x : Int | y : Real}
---   = {x = 0 & y = 0.0}
+def f : {x : Int | y : Real}
+  = {x = 0 & y = 0.0}
 
--- def g : {x : Int | y : Real} -> Int
---   v@ = x v
-
-
--- type {Ola.i : Int | Ola.j : Real}
-
--- def a : {Ola.i : Int | Ola.j : Real}
---   = {Ola.i = 0 & Ola.j = 0.0}
-
--- def b : {Ola.i : Int | Ola.j : Real} -> Int
---   v@ = Ola.i v
+def g : {x : Int | y : Real} -> Int
+  v@ = x v
 
 
-def ola : Int -> Int
-  = fix# oi
-  where {
-    def oi : (Int -> Int) -> Int -> Int
-      fn@ x@isZero = 0
-    | fn@ x@       = addInt (fn (subInt x 1)) 2
-  }
+type {Ola.i : Int | Ola.j : Real}
+
+def a : {Ola.i : Int | Ola.j : Real}
+  = {Ola.i = 0 & Ola.j = 0.0}
+
+def b : {Ola.i : Int | Ola.j : Real} -> Int
+  v@ = Ola.i v
+
+
+def adeus : Int -> Int
+  x@isZero = 0
+| x@       = addInt (adeus (subInt x 1)) 2
