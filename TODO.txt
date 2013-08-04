@@ -1,3 +1,13 @@
+Repository with a score/rating system. Half the score is given by how
+many packages use your packages, and the other half is given by user
+rating/comments.
+
+
+Prelude can still be manually imported and will cause two Preludes to
+be imported. And the consequence is that symbols from Prelude will be
+multiply defined.
+
+
 LALR grammar rules really look like pattern matching... especially
 those $1, $2, and so on...
 
