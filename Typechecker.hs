@@ -243,7 +243,7 @@ consistentT ctx t1@(EvarT var1) t2@(EvarT var2)
           Right (ctx'', t2') = typeContext ctx' var2
       in
         case subT ctx'' t1' t2' of
-          Nothing -> let ctx''' = updateContext ctx' var2 DynT in
+          Nothing -> let ctx''' = updateContext ctx'' var2 DynT in
                      Just $ updateContext ctx''' var1 DynT
           x -> x
     where consistentLR ctx t1 t2 =
