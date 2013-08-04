@@ -46,6 +46,8 @@ evalM (AppE expr1 expr2) =
                       "\n\n\t expr2 = " ++ show expr2 ++
                       "\n\n\t -> val2 = " ++ show val2 ++ "\n"
 
+evalM (CastE _ expr) = evalM expr
+
 evalM (CondE ms blame) = evalMatches ms
     where evalMatches [] =
               error $ "Interpreter.evalM(CondE): non-exhaustive patterns in " ++ blame
