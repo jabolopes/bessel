@@ -104,7 +104,7 @@ data Expr
     -- info: observations (1st argument) are sorted in Parser
     | CotypeDecl Type
 
-    | FnDecl (Maybe Type) DefnKw String Expr
+    | FnDecl DefnKw String Expr
 
     | LambdaMacro [Pat] Expr
     | LambdaE String (Maybe String) Expr
@@ -275,10 +275,10 @@ freeVars' env fvars (CondE ms _) =
               in
                 loop env'' fvars'' exprs
 
-freeVars' env fvars (FnDecl _ Def name expr) =
+freeVars' env fvars (FnDecl Def name expr) =
     freeVars' (name:env) fvars expr
 
-freeVars' env fvars (FnDecl _ NrDef name expr) =
+freeVars' env fvars (FnDecl NrDef name expr) =
     let (env', fvars') = freeVars' env fvars expr in
     (name:env', fvars')
 

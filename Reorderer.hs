@@ -75,9 +75,9 @@ splitDefn srcfile (CotypeDecl coT@(CoT obs)) =
 
         defn (name, t) i =
           let str = QualName.fromQualName name in
-          FnDecl (Just (ArrowT coT t)) NrDef str (lambda str i)
+          FnDecl NrDef str (CastE (ArrowT coT t) (lambda str i))
 
-splitDefn srcfile expr@(FnDecl _ _ name _) =
+splitDefn srcfile expr@(FnDecl _ name _) =
     let
         srcfileName = SrcFile.name srcfile
         defName = srcfileName ++ "." ++ name

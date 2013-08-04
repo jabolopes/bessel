@@ -711,10 +711,10 @@ synthAbstrM ctx (FnDecl Def name body) =
     --    let bodyT' = rebuildForallT bodyT
     --    return (insertContext ctx' name bodyT', FnDecl Def name body', bodyT')
 
-synthAbstrM ctx (FnDecl ann@Nothing NrDef name body) =
+synthAbstrM ctx (FnDecl NrDef name body) =
     do (ctx', body', bodyT) <- synthM ctx body
        let bodyT' = rebuildForallT (substituteEvarTs ctx' bodyT)
-       return (insertContext ctx' name bodyT', FnDecl ann NrDef name body', bodyT')
+       return (insertContext ctx' name bodyT', FnDecl NrDef name body', bodyT')
 
 synthAbstrM ctx (MergeE obs) =
   do (ctx', exprs) <- synthObsM [] ctx obs
@@ -871,7 +871,7 @@ checkInstM ctx (FnDecl Def name body) t =
 
 -- edit: the type inserted in the context and the type checked against
 -- are not the same.  This needs testing.
-checkInstM ctx (FnDecl ann@(Just _) NrDef name body) t =
+checkInstM ctx (FnDecl NrDef name body) t =
     do (ctx', body') <- checkM ctx body t
        let bodyT = substituteEvarTs ctx' t
 
@@ -879,7 +879,7 @@ checkInstM ctx (FnDecl ann@(Just _) NrDef name body) t =
                   ("<=" ++ show bodyT)
                   ""
 
-       return (insertContext ctx' name bodyT, FnDecl ann NrDef name body')
+       return (insertContext ctx' name bodyT, FnDecl NrDef name body')
 
 checkInstM ctx (WhereE expr exprs) t =
     do ctx' <- typecheckWhereM ctx exprs
@@ -897,11 +897,6 @@ checkInstM ctx expr t =
 
 
 typecheckSubstitute :: Context -> Expr -> TypecheckerM (Context, Type)
-typecheckSubstitute ctx expr@(FnDecl (Just t) _ _ _) =
-    do (ctx', _) <- checkM ctx expr t
-       let !_ | debugT ("type before the final substitution: " ++ show t) = True
-       return (ctx', substituteEvarTs ctx' t)
-
 typecheckSubstitute ctx expr =
     do (ctx', _, t) <- synthM ctx expr
        let !_ | debugT ("type before the final substitution: " ++ show t) = True

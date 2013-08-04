@@ -52,7 +52,7 @@ genNameM name =
 mkPatDefns :: Expr -> [PatDefn] -> [Expr]
 mkPatDefns val = map (mkDefn `uncurry`)
     where mkDefn name mods =
-              FnDecl Nothing NrDef name (foldAppE val mods)
+              FnDecl NrDef name (foldAppE val mods)
 
 
 -- |
@@ -145,11 +145,11 @@ fixArgBody name body =
 --   = fix# (gen#@ x@ = ... gen# ...)
 -- @
 fixDecl :: Expr -> Either String Expr
-fixDecl expr@(FnDecl t _ name body) =
-  do FnDecl _ _ name' body' <- renameDeclaration expr
+fixDecl expr@(FnDecl _ name body) =
+  do FnDecl _ name' body' <- renameDeclaration expr
      let argBody = fixArgBody name' body'
          declBody = Expr.appE "fix#" argBody
-     return $ FnDecl t NrDef name declBody
+     return $ FnDecl NrDef name declBody
 
 -- |
 -- @
@@ -161,7 +161,7 @@ fixDecl expr@(FnDecl t _ name body) =
 -- @
 fixArgT :: Type -> Type
 fixArgT t@(ArrowT argT rangeT) =
-  Just $ ArrowT t $ ArrowT argT rangeT
+  ArrowT t $ ArrowT argT rangeT
 
 fixArgT t =
   error $ "Expander.fixArgT: expected arrow type" ++
@@ -170,6 +170,7 @@ fixArgT t =
 
 fixArgDecl :: String -> Type -> String -> Expr -> Expr
 fixArgDecl defName defT argName body =
+  FnDecl NrDef argName (CastE (fixArgT defT) (fixArgBody defName body))
 
 -- /fixpoint macros
 
@@ -214,15 +215,15 @@ expandM (CondE ms blame) =
 expandM CotypeDecl {} =
   error "Expander.expandM(CotypeDecl): cotypes must be eliminated in reorderer"
 
-expandM expr@(FnDecl ann kw name body) =
+expandM expr@(FnDecl kw name body) =
     do body' <- expandOneM body
        if name `elem` Expr.freeVars body'
        then
-         case fixDecl (FnDecl ann kw name body') of
+         case fixDecl (FnDecl kw name body') of
            Left err -> throwError err
            Right expr -> returnOneM expr
        else
-         returnOneM $ FnDecl ann NrDef name body'
+         returnOneM $ FnDecl NrDef name body'
 
 expandM (LambdaMacro typePats body) =
   oneM . lambdas typePats <$> expandOneM body

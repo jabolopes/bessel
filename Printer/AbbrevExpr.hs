@@ -33,7 +33,7 @@ showAbbrev (CondE ms blame) =
     intercalate " | " (map (showMatch . fst) ms)
     where showMatch expr = showVeryAbbrev expr ++ " -> ..."
 
-showAbbrev (FnDecl _ kw name body) =
+showAbbrev (FnDecl kw name body) =
     showKw kw ++ " " ++ name ++ " " ++ showVeryAbbrev body
     where showKw Def = "def"
           showKw NrDef = "nrdef"

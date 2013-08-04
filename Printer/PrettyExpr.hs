@@ -102,9 +102,8 @@ printExprM (CondE ms blame) =
                  nlPrinter
                  putMatches ms
 
-printExprM (FnDecl ann kw name body) =
+printExprM (FnDecl kw name body) =
     do putPrinter $ showKw kw ++ " " ++ name
-       putAnn ann
        withPrinterCol $ do
          nlPrinter
          putPrinter "= "

@@ -64,7 +64,7 @@ evalM CotypeDecl {} =
 evalM (FnDecl Def str body) =
   error "Interpreter.evalM(FnDecl Def ...): recursive functions must be eliminated in previous stages"
 
-evalM (FnDecl _ NrDef str body) =
+evalM (FnDecl NrDef str body) =
     do val <- evalM body
        addBindM str val
        return val

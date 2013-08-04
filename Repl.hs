@@ -169,7 +169,7 @@ importFile fs filename =
 
 
 mkSnippet :: FileSystem -> Expr -> Definition
-mkSnippet fs expr@(FnDecl _ _ name _) =
+mkSnippet fs expr@(FnDecl _ name _) =
   let
     name' = SrcFile.interactiveName ++ "." ++ name
     unprefixed = map SrcFile.name (FileSystem.toAscList fs)
@@ -178,7 +178,7 @@ mkSnippet fs expr@(FnDecl _ _ name _) =
                                , srcExpr = Just expr }
 
 mkSnippet fs expr =
-  mkSnippet fs $ FnDecl Nothing NrDef "val" expr
+  mkSnippet fs $ FnDecl NrDef "val" expr
 
 
 renameSnippet :: FileSystem -> Definition -> Either String Definition

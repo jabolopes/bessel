@@ -207,20 +207,20 @@ renameM (CondE ms blame) =
 renameM CotypeDecl {} =
   error "Renaner.renameM(CotypeDecl): cotypes must be eliminated in reorderer"
 
-renameM (FnDecl ann Def name body) =
+renameM (FnDecl Def name body) =
     if name `elem` Expr.freeVars body
     then do
       name' <- genNameM name
       addFnSymbolM name name'
-      (:[]) . FnDecl ann Def name' <$> renameOneM body
+      (:[]) . FnDecl Def name' <$> renameOneM body
     else
-        renameM (FnDecl ann NrDef name body)
+        renameM (FnDecl NrDef name body)
 
-renameM (FnDecl ann NrDef name body) =
+renameM (FnDecl NrDef name body) =
     do name' <- genNameM name
        body' <- renameOneM body
        addFnSymbolM name name'
-       return [FnDecl ann NrDef name' body']
+       return [FnDecl NrDef name' body']
 
 renameM LambdaMacro {} =
     error "Renamer.renameM(LambdaMacro): macros must be expanded in expander"
@@ -269,7 +269,7 @@ lookupFreeVars fs unprefixed prefixed (name:names) =
 
 
 renameDeclaration :: Expr -> Either String Expr
-renameDeclaration expr@(FnDecl _ _ name _) =
+renameDeclaration expr@(FnDecl _ name _) =
   let state = initialRenamerState { existFreeVars = True } in
   fst <$> runStateT (renameOneM expr) state
 
