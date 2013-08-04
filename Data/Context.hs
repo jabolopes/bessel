@@ -88,8 +88,8 @@ simpleSyms :: Context -> [(String, Type)]
 simpleSyms Context { syms } = syms
 
 
-isWellformed :: Context -> Type -> Type -> Bool
-isWellformed Context { syms } (EvarT var1) (EvarT var2) =
+isWellformed' :: Context -> String -> String -> Bool
+isWellformed' Context { syms } var1 var2 =
   let
     i1 = var1 `findT` syms
     i2 = var2 `findT` syms
@@ -97,4 +97,40 @@ isWellformed Context { syms } (EvarT var1) (EvarT var2) =
    i1 <= i2
   where findT name = findIndex (\(x, _) -> x == name)
 
-isWellformed _ _ _ = True
+
+-- @isWellFormed ctx t1 t2@ verifies that @t2@ is already in context
+-- (i.e., occurs before @t1@) in order for the assignment to @t1@ to
+-- be valid.
+isWellformed :: Context -> Type -> Type -> Bool
+isWellformed ctx (EvarT var1) (EvarT var2) =
+  isWellformed' ctx var1 var2
+
+isWellformed ctx (EvarT var1) (TvarT var2) =
+  isWellformed' ctx var1 var2
+
+-- edit: i'm not sure if this is necessary...
+-- isWellformed ctx (TvarT var1) (EvarT var2) =
+--   isWellformed' ctx var1 var2
+
+-- edit: simple types (BoolT, IntT, ...) should be in the
+-- environment...
+isWellformed _ _ BoolT   = True
+isWellformed _ _ IntT    = True
+isWellformed _ _ DoubleT = True
+isWellformed _ _ CharT   = True
+
+-- edit: i'm not sure if this is necessary...
+-- isWellformed ctx t1 (SeqT t2) =
+--   isWellformed ctx t1 t2
+
+isWellformed _ _ DynT    = True
+
+isWellformed _ t1@(EvarT _) t2 =
+  error $ "isWellformed: unhandled case" ++
+          "\n\n\t t1 = " ++ show t1 ++
+          "\n\n\t t2 = " ++ show t2 ++ "\n"
+
+isWellformed _ t1 t2 =
+  error $ "isWellformed: t1 must be an evar" ++
+          "\n\n\t t1 = " ++ show t1 ++
+          "\n\n\t t2 = " ++ show t2 ++ "\n"
