@@ -426,7 +426,7 @@ subT ctx t1 t2@(EvarT var)
     | isEmptyTypeContext ctx var && isAtomicT t1 && isWellformed ctx t2 t1 =
       do judgementM "<InstR"
                     ("ctx'" |- show t1 ++ " wf")
-                    ("ctx'," ++ var ++ ",ctx''" |- t1 <: var -| "ctx'," ++ var ++ "=" ++ show t1 ++ ",ctx''")
+                    ("ctx'," ++ var ++ ",ctx''" |- t1 <: t2 -| "ctx'," ++ var ++ "=" ++ show t1 ++ ",ctx''")
 
          return $ updateContext ctx var t1
 
@@ -435,7 +435,7 @@ subT ctx t1@(EvarT var) t2
     | isEmptyTypeContext ctx var && isAtomicT t2 && isWellformed ctx t1 t2 =
       do judgementM "<InstL"
                     ("ctx'" |- show t2 ++ " wf")
-                    ("ctx'," ++ var ++ ",ctx''" |- t2 <: var -| "ctx'," ++ var ++ "=" ++ show t2 ++ ",ctx''")
+                    ("ctx'," ++ var ++ ",ctx''" |- t1 <: t2 -| "ctx'," ++ var ++ "=" ++ show t2 ++ ",ctx''")
 
          return $ updateContext ctx var t2
 
