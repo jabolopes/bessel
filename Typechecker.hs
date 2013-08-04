@@ -705,10 +705,11 @@ synthAbstrM ctx (CondE ms blame) =
                  (ctx'', expr2') <- checkM ctx' expr2 evarT
                  synthMs evarT ctx'' ((expr1', expr2'):exprs) ms
 
-synthAbstrM ctx (FnDecl ann@Nothing Def name body) =
-    do (ctx', body', bodyT) <- synthM (insertContext ctx name DynT) body
-       let bodyT' = rebuildForallT bodyT
-       return (insertContext ctx' name bodyT', FnDecl ann Def name body', bodyT')
+synthAbstrM ctx (FnDecl Def name body) =
+  error "Typechecker.synthAbstrM(FnDecl Def ...): recursive functions must be eliminated in previous stages"
+    -- do (ctx', body', bodyT) <- synthM (insertContext ctx name DynT) body
+    --    let bodyT' = rebuildForallT bodyT
+    --    return (insertContext ctx' name bodyT', FnDecl Def name body', bodyT')
 
 synthAbstrM ctx (FnDecl ann@Nothing NrDef name body) =
     do (ctx', body', bodyT) <- synthM ctx body
@@ -857,14 +858,15 @@ checkInstM ctx expr@LambdaE {} (EvarT var)
         checkInstM ctx' expr existT
 
 -- ⇓Others
-checkInstM ctx (FnDecl ann@(Just _) Def name body) t =
-    do (ctx', body') <- checkM (insertContext ctx name t) body t
+checkInstM ctx (FnDecl Def name body) t =
+  error "Typechecker.checkInstM(FnDecl Def ...): recursive functions must be eliminated in previous stages"
+    -- do (ctx', body') <- checkM (insertContext ctx name t) body t
 
-       judgementM "<=Defn"
-                  ("<=" ++ show t)
-                  ""
+    --    judgementM "<=Defn"
+    --               ("<=" ++ show t)
+    --               ""
 
-       return (ctx', FnDecl ann Def name body')
+    --    return (ctx', FnDecl Def name body')
 
 
 -- edit: the type inserted in the context and the type checked against

@@ -1,4 +1,4 @@
-{-# LANGUAGE RecursiveDo, NamedFieldPuns #-}
+{-# LANGUAGE NamedFieldPuns #-}
 module Interpreter where
 
 import Control.Monad.State
@@ -61,10 +61,8 @@ evalM (CondE ms blame) = evalMatches ms
 evalM CotypeDecl {} =
   error "Interpreter.evalM(CotypeDecl): cotypes must be eliminated in reoderer"
 
-evalM (FnDecl _ Def str body) =
-    do rec addBindM str val
-           val <- evalM body
-       return val
+evalM (FnDecl Def str body) =
+  error "Interpreter.evalM(FnDecl Def ...): recursive functions must be eliminated in previous stages"
 
 evalM (FnDecl _ NrDef str body) =
     do val <- evalM body
