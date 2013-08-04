@@ -248,7 +248,7 @@ Constant:
   | integer          { if $1 >= 0 then IntE $1 else appE "negInt" (IntE (- $1)) }
   | double           { if $1 >= 0 then RealE $1 else appE "negReal" (RealE (- $1)) }
   | '[' ExprList ']' { SeqE $2 }
-  | '['          ']' { SeqE [] }
+  | '['          ']' { idE "null#" }
   | string           { stringE $1 }
 
 

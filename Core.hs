@@ -477,6 +477,10 @@ fnDesc = [
 
   ("un#", ArrowT DynT DynT, m unSharp),
 
+  ("fix#", fixSharpT, m fixSharp),
+
+  ("null#", nullSharpT, nullSharp),
+
   ("index", ArrowT IntT (ArrowT DynT DynT), m index)]
 
 
@@ -487,6 +491,13 @@ unSharp (TypeVal val) = val
 index :: Val -> Val
 index (IntVal i) = FnVal (return . hof)
     where hof (SeqVal vals) = vals !! i
+
+
+nullSharpT :: Type
+nullSharpT = ForallT "a" (SeqT (TvarT "a"))
+
+nullSharp :: Val
+nullSharp = SeqVal []
 
 
 srcfile :: SrcFile
