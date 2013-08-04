@@ -79,7 +79,7 @@ printExprM (CondMacro ms blame) =
              putPrinter ")"
         putMatches ((pats, expr):ms) =
           do printPatsM pats
-             putPrinter " "
+             putPrinter " ("
              printExprM expr
              putPrinter ")"
              nlPrinter
@@ -107,6 +107,7 @@ printExprM (FnDecl ann kw name body) =
        putAnn ann
        withPrinterCol $ do
          nlPrinter
+         putPrinter "= "
          printExprM body
     where showKw Def = "def"
           showKw NrDef = "nrdef"
