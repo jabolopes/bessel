@@ -368,7 +368,7 @@ subT ctx t1@(EvarT var) t2@ArrowT {}
          subT ctx' t1 t2
 
 -- <ArrowEvar
-subT ctx t1@(ArrowT _ _) t2@(EvarT var)
+subT ctx t1@ArrowT {} t2@(EvarT var)
   | isEmptyTypeContext ctx var =
       do judgementM "<ArrowEvar"
                     ("ctx1," ++ var ++ "1," ++ var ++ "2," ++ var ++ "=" ++ var ++ "1->" ++ var ++ "2 " |- t1 <: t2 -| "ctx2")
