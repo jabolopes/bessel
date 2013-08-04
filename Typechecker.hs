@@ -129,6 +129,10 @@ genEvar ctx =
 -- ('ForallT') by replacing the type variables in @t@ by existential
 -- variables ('EvarT').  The updated 'Context' and resulting 'Type'
 -- are returned.
+--
+-- Note that this function assumes that there is no evar previously
+-- defined with name '^var'.  This means that the forall type must be
+-- fresh.
 eliminateForalls :: Context -> Type -> (Context, Type)
 eliminateForalls ctx (ForallT var forallT) =
   let
@@ -171,6 +175,14 @@ substituteEvarTs ctx (ForallT vars t) = ForallT vars $ substituteEvarTs ctx t
 substituteEvarTs ctx t@(TvarT _) = t
 
 
+-- | Implements the following context transformation
+-- @
+-- Gamma [â]
+-- @
+--
+-- @
+-- Gamma [â1,â2,â = â1 -> â2]
+-- @
 arrowifyVar :: Context -> String -> (Context, Type)
 arrowifyVar ctx var =
   let
