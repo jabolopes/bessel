@@ -310,6 +310,9 @@ consistentT ctx t1 t2@(EvarT var)
 
 subT :: Context -> Type -> Type -> Maybe Context
 subT ctx t1 t2
+  | trace ("subT: " ++ show t1 ++ " <: " ++ show t2 ++ "\n\n\t ctx = " ++ show ctx ++ "\n") False = undefined
+
+subT ctx t1 t2
     | occursContextT ctx t1 t2 =
         throwTypecheckerException $ "occurs " ++ show t1 ++  " <: " ++ show t2
 
@@ -483,7 +486,10 @@ synthM ctx expr = synthCast . synthSubst <$> synthAbstrM ctx expr
 
           synthSubst val = val
 
-          synthCast (ctx', expr', t) = (ctx', CastE expr' t, t)
+          -- synthCast (ctx', expr', t) = (ctx', CastE expr' t, t)
+          synthCast (ctx, _, _)
+            | trace ("synthM: " ++ show ctx ++ "\n") False = undefined
+          synthCast val = val
 
 
 synthAbstrM :: Context -> Expr -> SynthM
@@ -695,7 +701,9 @@ checkM :: Context -> Expr -> Type -> CheckM
 
 --      checkInstM t' ctx' expr
 
-checkM t ctx expr = checkInstM t ctx expr
+checkM ctx _ _ | trace ("checkM: " ++ show ctx ++ "\n") False = undefined
+
+checkM ctx expr t = checkInstM ctx expr t
 
 
 checkInstM :: Context -> Expr -> Type -> CheckM
