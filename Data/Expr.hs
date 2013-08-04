@@ -79,7 +79,7 @@ data Expr
     | SeqE [Expr]
 
     | AppE Expr Expr
-    | CastE Expr Type
+    | CastE Type Expr
 
     -- |
     -- This construct is not available in the parser
@@ -147,7 +147,7 @@ isValueE RealE {} = True
 isValueE CharE {} = True
 isValueE SeqE {} = True
 isValueE LambdaE {} = True
-isValueE (CastE expr _) = isValueE expr
+isValueE (CastE _ expr) = isValueE expr
 isValueE _ = False
 
 
@@ -250,6 +250,9 @@ freeVars' env fvars (SeqE exprs) =
 freeVars' env fvars (AppE expr1 expr2) =
     let (env', fvars') = freeVars' env fvars expr1 in
     freeVars' env' fvars' expr2
+
+freeVars' env fvars (CastE _ expr) =
+  freeVars' env fvars expr
 
 freeVars' env fvars (CondMacro ms _) =
     loop env fvars ms

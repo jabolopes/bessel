@@ -220,6 +220,8 @@ expandM (SeqE exprs) = oneM . SeqE <$> mapM expandOneM exprs
 expandM (AppE expr1 expr2) =
     oneM <$> ((AppE <$> expandOneM expr1) `ap` expandOneM expr2)
 
+expandM (CastE typ expr) = CastE typ <$> expandOneM expr
+
 expandM (CondMacro ms blame) =
     expandCondMacro ms blame
 

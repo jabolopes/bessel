@@ -691,6 +691,10 @@ synthAbstrM ctx expr@(AppE fn arg) =
                     "\n\n\t ctx = " ++ show ctx ++ "\n"
 
 -- ⇑Others
+synthAbstrM ctx (CastE typ expr) =
+  do (ctx', expr') <- checkM ctx expr typ
+     return (ctx', CastE typ expr', typ)
+
 synthAbstrM ctx (CondE ms blame) =
     do let (evarT, ctx') = genEvar ctx
        (ctx'', ms') <- synthMs evarT ctx' [] ms

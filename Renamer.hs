@@ -191,6 +191,9 @@ renameM (SeqE exprs) = (:[]) . SeqE <$> mapM renameOneM exprs
 renameM (AppE expr1 expr2) =
     (:[]) <$> ((AppE <$> renameOneM expr1) `ap` renameOneM expr2)
 
+renameM (CastE typ expr) =
+  (:[]) <$> CastE typ <$> renameOneM expr
+
 renameM CondMacro {} =
     error "Renamer.renameM(CondMacro): macros must be expanded in expander"
 

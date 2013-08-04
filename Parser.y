@@ -169,10 +169,10 @@ Defn:
   | TypeDefn { $1 }
 
 FnDefn:
-    def Name ':' Type TypePatList DefnMatches { ($4, Def, $2, LambdaMacro $5 (CondMacro $6 $2)) }
-  | def Name ':' Type TypePatList '=' Expr    { ($4, Def, $2, LambdaMacro $5 $7) }
-  | def Name ':' Type DefnMatches             { ($4, Def, $2, CondMacro $5 $2) }
-  | def Name ':' Type '=' Expr                { ($4, Def, $2, $6) }
+    def Name ':' Type TypePatList DefnMatches { ($4, Def, $2, CastE $4 (LambdaMacro $5 (CondMacro $6 $2))) }
+  | def Name ':' Type TypePatList '=' Expr    { ($4, Def, $2, CastE $4 (LambdaMacro $5 $7)) }
+  | def Name ':' Type DefnMatches             { ($4, Def, $2, CastE $4 (CondMacro $5 $2)) }
+  | def Name ':' Type '=' Expr                { ($4, Def, $2, CastE $4 $6) }
 
 TypeDefn:
     type Cotype { CotypeDecl $2 }
