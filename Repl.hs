@@ -278,6 +278,9 @@ putDefinitionM def =
     putStrLn ""
     prettyPrint (fromJust (srcExpr def))
     putStrLn ""
+    putStrLn ""
+    prettyPrint (fromJust (expExpr def))
+    putStrLn ""
 
 
 data Flag
