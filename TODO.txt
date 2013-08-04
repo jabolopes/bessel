@@ -27,15 +27,14 @@ syn f : a -> b -> a
 Expander should run before Reorderer because a definition that expands
 can produce more than one definition.
 
+
 Base types should be looked up in the environment instead of being
-hardcoded in the parser.
+hardcoded in the parser. And base types should also be loaded in the
+typechecker's context.
 
 
-Unroll lambdas (anonymous functions) in 'Renamer'.
-
-
-Namespaces do not export modules, only toplevel functions: bug or
-feature?
+Unroll lambdas (anonymous functions) in 'Renamer'. There is an
+undefined for lambdas in renamer.
 
 
 Functions cannot be redefined in interactive.
@@ -54,17 +53,7 @@ Remove '@' in empty list pattern.
 Comments are broken.
 
 
-Typecheck 'CondStx'.
-
-
-Introduce and typecheck fixpoints
-
-
 Remove the benign shift/reduce conflicts.
-
-
-Move code in 'Macros' to 'Renamer' in order to take advantage of
-'genNameM'.
 
 
 Add lines in semantic errors.
@@ -93,22 +82,7 @@ Typechecker crashes when functions are applied with the wrong number
 of arguments.
 
 
-Standardize identifier names: qualified vs string
-
-
 Commands 'showRenamedM' and 'showModuleM' need refactoring.
-
-
-Rethink shadowing. Is this shadowing ?
-
-def f = ...
-
-module Ola where {
-  def f = ...
-}
-
-
-Names in CondMacro (I believe) are being renamed twice.
 
 
 Clean Core modules and the link stuff.
@@ -117,4 +91,7 @@ Clean Core modules and the link stuff.
 Rename 'flattenId' to 'joinId'.
 
 
-Redefinition of names is not being properly detected and reported.
+Definitions and shadowing:
+- redefinition of names is not being properly detected and reported
+- check shadowing
+- names in CondMacro (I believe) are being renamed twice
