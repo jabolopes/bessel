@@ -194,6 +194,7 @@ runSnippetM ln =
          expDef = expanderEither (expandDefinition fs def)
          renDef = renamerEither (renameSnippet fs expDef)
      typDef <- typecheckerEither (typecheckDefinitionM fs renDef)
+     -- edit: lazy evaluation problems with interpretDefinition
      let evalDef = interpretDefinition fs typDef
          interactive = FileSystem.get fs SrcFile.interactiveName
          interactive' = SrcFile.updateDefinitions interactive [evalDef]
