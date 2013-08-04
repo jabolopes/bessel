@@ -129,6 +129,7 @@ expandCondMacro ms blame =
 -- @
 --   fn@ x@ = ... fn ...
 -- @
+fixArgBody :: String -> Expr -> Expr
 fixArgBody name body =
   LambdaE name Nothing body
 
@@ -158,6 +159,7 @@ fixDecl expr@(FnDecl t _ name body) =
 -- @
 -- (a -> b) -> a -> b
 -- @
+fixArgT :: Type -> Type
 fixArgT t@(ArrowT argT rangeT) =
   Just $ ArrowT t $ ArrowT argT rangeT
 
@@ -166,31 +168,8 @@ fixArgT t =
           "\n\n\t t = " ++ show t ++ "\n"
 
 
+fixArgDecl :: String -> Type -> String -> Expr -> Expr
 fixArgDecl defName defT argName body =
-  FnDecl (fixArgT defT) NrDef argName (fixArgBody defName body)
-
-
--- |
--- @
--- def fn : a -> b
---   x@ = ... fn ...
--- @
---
--- @
--- def fn : a -> b
---   = fix# arg
---   where {
---     def arg : (a -> b) -> a -> b
---       fn@ x@ = ... fn ...
---   }
--- @
--- fixFn :: String -> Type -> String -> Expr -> Either String Expr
--- fixFn defName defT argName body =
---   do let argDecl = fixArgDecl defName defT argName body
---      (arg, argName') <- renameDeclaration argDecl
---      return $ FnDecl (Just defT) NrDef defName $ whereBody argName' arg
---   where whereBody argName arg =
---           WhereE (Expr.appE "fix#" (Expr.idE argName)) [arg]
 
 -- /fixpoint macros
 
