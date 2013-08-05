@@ -67,6 +67,10 @@ printExprM (AppE expr1 expr2) =
                      printExprM expr
                      putPrinter ")"
 
+printExprM (CastE typ expr) =
+  do putPrinter $ show typ ++ " : "
+     printExprM expr
+
 printExprM (CondMacro ms blame) =
   do putMatches ms
      nlPrinter
