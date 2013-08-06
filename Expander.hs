@@ -151,27 +151,6 @@ fixDecl expr@(FnDecl _ name body) =
          declBody = Expr.appE "fix#" argBody
      return $ FnDecl NrDef name declBody
 
--- |
--- @
--- a -> b
--- @
---
--- @
--- (a -> b) -> a -> b
--- @
-fixArgT :: Type -> Type
-fixArgT t@(ArrowT argT rangeT) =
-  ArrowT t $ ArrowT argT rangeT
-
-fixArgT t =
-  error $ "Expander.fixArgT: expected arrow type" ++
-          "\n\n\t t = " ++ show t ++ "\n"
-
-
-fixArgDecl :: String -> Type -> String -> Expr -> Expr
-fixArgDecl defName defT argName body =
-  FnDecl NrDef argName (CastE (fixArgT defT) (fixArgBody defName body))
-
 -- /fixpoint macros
 
 
