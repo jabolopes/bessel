@@ -30,7 +30,8 @@ can produce more than one definition.
 
 Base types should be looked up in the environment instead of being
 hardcoded in the parser. And base types should also be loaded in the
-typechecker's context.
+typechecker's context. And looking for base types "isFn" and "toFn" is
+definitely not the right thing to do.
 
 
 Unroll lambdas (anonymous functions) in 'Renamer'. There is an
@@ -41,8 +42,6 @@ Functions cannot be redefined in interactive.
 
 
 Add type annotations like so?
-
-  def f = x:Int (negInt x)
 
   def f = x:a (negInt x) -- polymorphic type
 
@@ -59,10 +58,6 @@ Remove the benign shift/reduce conflicts.
 Add lines in semantic errors.
 
 
-Fix 'lt' the same way 'eq' was fixed. Find a solution for 'eq' for
-user defined datatypes.
-
-
 Fix mutually recursive functions.
 
 
@@ -71,11 +66,6 @@ printer and 'showAbbrev' can be combined in a single monad.
 
 
 Add inductive and coinductive types :)
-
-
-Infer types from predicates, i.e., eliminate the following casts
-
-  def f x@isInt y@isInt = addInt (toInt x) (toInt y)
 
 
 Typechecker crashes when functions are applied with the wrong number
