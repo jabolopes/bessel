@@ -33,28 +33,15 @@ import System.IO.Unsafe
 
 
 debug :: Bool
-debug = True
+debug = False
 
 
 debugT :: String -> Bool
 debugT desc = (debug && trace desc True) || True
 
 
-debugConsistentT :: Bool
-debugConsistentT = True
-
-
-debugConsistentTT :: String -> Bool
-debugConsistentTT desc = (debugConsistentT && trace desc True) || True
-
-
-logT :: (Show a, Show a1) => String -> a -> a1 -> Bool
-logT desc t1 t2 =
-    debugConsistentTT $ desc ++ ": " ++ show t1 ++ " <: " ++ show t2
-
-
-judgement :: String -> String -> String -> ()
-judgement name str1 str2 =
+judgement' :: String -> String -> String -> ()
+judgement' name str1 str2 =
   unsafePerformIO $ do
     let l1 = length str1
         l2 = length str2
@@ -68,9 +55,17 @@ judgement name str1 str2 =
     return ()
 
 
+judgement :: String -> String -> String -> a -> a
+judgement name str1 str2 val
+  | debug =
+    let !() = judgement' name str1 str2 in val
+  | otherwise =
+    val
+
 judgementM :: Monad m => String -> String -> String -> m ()
 judgementM name str1 str2 =
-    let !val = judgement name str1 str2 in return val
+  let !() = judgement name str1 str2 () in
+  return ()
 
 
 -- edit: maybe make (String, a) into (a, a) or (a, b)
@@ -258,7 +253,7 @@ consJudgementDynM name evars t1 t2 =
 
 consistentT :: Context -> Type -> Type -> Maybe Context
 consistentT ctx t1@(EvarT var1) t2@(EvarT var2)
-  | not (isEmptyTypeContext ctx var1) && not (isEmptyTypeContext ctx var2) && logT "(~LR)" t1 t2 =
+  | not (isEmptyTypeContext ctx var1) && not (isEmptyTypeContext ctx var2) =
       let
           Right (ctx', t1') = typeContext ctx var1
           Right (ctx'', t2') = typeContext ctx' var2
@@ -330,8 +325,8 @@ consistentT ctx t1 t2@(EvarT var)
 
 
 subT :: Context -> Type -> Type -> Maybe Context
-subT ctx t1 t2
-  | trace ("subT: " ++ show t1 ++ " <: " ++ show t2 ++ "\n\n\t ctx = " ++ show ctx ++ "\n") False = undefined
+-- subT ctx t1 t2
+--   | trace ("subT: " ++ show t1 ++ " <: " ++ show t2 ++ "\n\n\t ctx = " ++ show ctx ++ "\n") False = undefined
 
 subT ctx t1 t2
     | occursContextT ctx t1 t2 =
@@ -347,7 +342,7 @@ subT ctx t1 t2
 
 -- <TupTup
 subT ctx t1@(TupT ts1) t2@(TupT ts2)
-    | length ts1 == length ts2 && logT "(tup ~ tup)" t1 t2 =
+    | length ts1 == length ts2 =
         subT' ctx ts1 ts2
     where subT' ctx [] [] = return ctx
 	  subT' ctx (t1:ts1) (t2:ts2) =
@@ -525,17 +520,16 @@ synthM ctx expr = synthCast . synthSubst <$> synthAbstrM ctx expr
     where -- ⇑Subst
           synthSubst (ctx', expr', t@(EvarT var))
               | not (isEmptyTypeContext ctx' var) =
-                  let
-                      t' = substituteEvarTs ctx' t
-                      !() = judgement "=>Subst"
-                                      ("ctx1 |- " ++ showAbbrev expr ++ " => " ++ show t ++ " -| ctx2")
-                                      ("ctx1 |- " ++ showAbbrev expr ++ " => " ++ show t' ++ " -| ctx2")
-                  in
-                    (ctx', expr', t')
+                  let t' = substituteEvarTs ctx' t in
+                  judgement "=>Subst"
+                            ("ctx1 |- " ++ showAbbrev expr ++ " => " ++ show t ++ " -| ctx2")
+                            ("ctx1 |- " ++ showAbbrev expr ++ " => " ++ show t' ++ " -| ctx2")
+                            $
+                  (ctx', expr', t')
 
           synthSubst val = val
 
-          synthCast (ctx', expr'@CastE {}, t) = (ctx', expr', t)
+          synthCast (ctx', expr'@CastE {}, t) = (ctx', expr', rebuildForallT t)
           synthCast (ctx', expr', t) = (ctx', CastE t expr', t)
           -- synthCast (ctx, _, _)
           --   | trace ("synthM: " ++ show ctx ++ "\n") False = undefined
@@ -773,7 +767,7 @@ checkM :: Context -> Expr -> Type -> CheckM
 
 --      checkInstM t' ctx' expr
 
-checkM ctx _ _ | trace ("checkM: " ++ show ctx ++ "\n") False = undefined
+-- checkM ctx _ _ | trace ("checkM: " ++ show ctx ++ "\n") False = undefined
 
 checkM ctx expr t = checkInstM ctx expr t
 
