@@ -311,7 +311,7 @@ runCommandM "def" opts (name:nonOpts) =
        Just def -> putDefinitionM def
 
 runCommandM "def" _ _ =
-  liftIO $ putStrLn $ ":def <name>"
+  liftIO (putStrLn ":def <name>")
 
 runCommandM "show" opts ("namespace":nonOpts) =
     let

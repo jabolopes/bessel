@@ -144,7 +144,7 @@ withScopeM m =
 
 -- lambda
 
-renameLambdaM :: String -> Maybe String -> Expr -> RenamerM (Expr)
+renameLambdaM :: String -> Maybe String -> Expr -> RenamerM Expr
 renameLambdaM arg ann body =
     do arg' <- genNameM arg
        LambdaE arg' ann <$>
@@ -153,11 +153,11 @@ renameLambdaM arg ann body =
                withScopeM (renameOneM body))
 
 
-renameUnannotatedLambdaM :: String -> Expr -> RenamerM (Expr)
+renameUnannotatedLambdaM :: String -> Expr -> RenamerM Expr
 renameUnannotatedLambdaM arg = renameLambdaM arg Nothing
 
 
-renameAnnotatedLambdaM :: String -> String -> Expr -> RenamerM (Expr)
+renameAnnotatedLambdaM :: String -> String -> Expr -> RenamerM Expr
 renameAnnotatedLambdaM arg ann body = undefined
 -- edit: remove undefined
 -- renameAnnotatedLambdaM arg ann body =
@@ -167,7 +167,7 @@ renameAnnotatedLambdaM arg ann body = undefined
 -- /lambda
 
 
-renameOneM :: Expr -> RenamerM (Expr)
+renameOneM :: Expr -> RenamerM Expr
 renameOneM expr = head <$> renameM expr
 
 
