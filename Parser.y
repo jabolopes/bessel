@@ -60,7 +60,6 @@ checkUseList uses =
 
 %token
   -- punctuation
-  '&'     { TokenAmpersand }
   '->'    { TokenArrow }
   '@'     { TokenAt }
   '@ '    { TokenAtSpace }
@@ -223,7 +222,7 @@ Merge:
     '{' MergeObservations '}' { MergeE (sortWith fst $2) }
 
 MergeObservations:
-    MergeObservations '&' QualName '=' Expr { $1 ++ [($3, $5)] }
+    MergeObservations '|' QualName '=' Expr { $1 ++ [($3, $5)] }
   | QualName '=' Expr                       { [($1, $3)] }
 
 SimpleExpr:

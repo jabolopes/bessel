@@ -137,7 +137,7 @@ printExprM (MergeE vals) =
               do printNameM name
                  putPrinter " = "
                  printExprM expr
-                 putPrinter ", "
+                 putPrinter " | "
                  loop vals
 
 printExprM (WhereE expr exprs) =

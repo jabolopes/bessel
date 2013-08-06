@@ -2,8 +2,7 @@ module Data.Token where
 
 data Token
      -- punctuation
-     = TokenAmpersand
-     | TokenArrow
+     = TokenArrow
      | TokenAt
      | TokenAtSpace
      | TokenBar

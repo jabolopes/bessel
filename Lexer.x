@@ -21,7 +21,7 @@ $letter       = [a-zA-Z]
 @symbol = "\\" | "!" | "#" | "$" | "%"
         | "/"  | "'" | "?" | "«" | "»"
 	| "+"  | "*" | "´" | "º" | "ª"
-	| "~"  | "^" | ";" | "-"
+	| "~"  | "^" | ";" | "-" | "&"
 
 @id_char = $letter | $digit | @symbol
 
@@ -42,7 +42,6 @@ tokens :-
   @comment            ;
 
   -- punctuation
-  "&"                 { \_ -> TokenAmpersand }
   "->"                { \_ -> TokenArrow }
   "@ "                { \_ -> TokenAtSpace }
   "@"                 { \_ -> TokenAt }

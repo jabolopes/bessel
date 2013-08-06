@@ -37,7 +37,11 @@ instance Show Type where
     show DynT = "Dyn"
     show (ArrowT t1@(ArrowT _ _) t2) = "(" ++ show t1 ++ ") -> " ++ show t2
     show (ArrowT t1 t2) = show t1 ++ " -> " ++ show t2
-    show (CoT ts) = "{" ++ intercalate ", " (map show ts) ++ "}"
+
+    show (CoT ts) = "{" ++ intercalate " | " (map showOb ts) ++ "}"
+      where showOb (name, t) =
+              show name ++ " : " ++ show t
+
     show (EvarT str) = str
     show (ForallT var t@(ForallT _ _)) = "forall " ++ var ++ showForall t
       where showForall (ForallT var t) = "," ++ var ++ showForall t
