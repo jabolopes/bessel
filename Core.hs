@@ -159,14 +159,26 @@ ltSeq (SeqVal vals1) = FnVal ltSeqHof
 
 -- arithmetic functions
 
+mkBool :: Val -> Val
+mkBool val@BoolVal {} = val
+
+
 mkInt :: Val -> Val
-mkInt val@(IntVal _) = val
+mkInt val@IntVal {} = val
 mkInt (DoubleVal d) = IntVal (floor d)
 
 
 mkReal :: Val -> Val
 mkReal (IntVal i) = DoubleVal (fromIntegral i)
-mkReal val@(DoubleVal _) = val
+mkReal val@DoubleVal {} = val
+
+
+mkChar :: Val -> Val
+mkChar val@CharVal {} = val
+
+
+mkSeq :: Val -> Val
+mkSeq val@SeqVal {} = val
 
 
 addInt :: Val -> Val
@@ -432,8 +444,11 @@ fnDesc = [
   ("ltChar", ArrowT CharT (ArrowT CharT BoolT), m ltChar),
   ("ltSeq", ArrowT DynT (ArrowT DynT BoolT), m ltSeq),
   -- arithmetic functions
+  ("mkBool", ArrowT DynT BoolT, m mkBool),
   ("mkInt", ArrowT DynT IntT, m mkInt),
   ("mkReal", ArrowT DynT DoubleT, m mkReal),
+  ("mkChar", ArrowT DynT CharT, m mkChar),
+  ("mkSeq", ArrowT DynT (SeqT DynT), m mkSeq),
   ("addInt", ArrowT IntT (ArrowT IntT IntT), m addInt),
   ("addReal", ArrowT DoubleT (ArrowT DoubleT DoubleT), m addReal),
   ("subInt", ArrowT IntT (ArrowT IntT IntT), m subInt),

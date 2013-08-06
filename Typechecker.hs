@@ -505,11 +505,19 @@ type SynthM = TypecheckerM (Context, Expr, Type)
 type CheckM = TypecheckerM (Context, Expr)
 
 
-typecheckWhereM :: Context -> [Expr] -> TypecheckerM Context
-typecheckWhereM ctx [] = return ctx
-typecheckWhereM ctx (expr:exprs) =
-    do (ctx', _) <- typecheckSubstitute ctx expr
-       typecheckWhereM ctx' exprs
+synthVals
+  :: Context
+  -> (Context
+  -> a
+  -> TypecheckerM (Context, a, Type))
+  -> [a]
+  -> TypecheckerM (Context, [a], [Type])
+synthVals ctx m vals = synthVals' vals ctx [] []
+  where synthVals' [] ctx exprs ts =
+          return (ctx, reverse exprs, reverse ts)
+        synthVals' (x:xs) ctx exprs ts =
+          do (ctx', expr, t) <- m ctx x
+             synthVals' xs ctx' (expr:exprs) (t:ts)
 
 
 synthM :: Context -> Expr -> SynthM
@@ -695,16 +703,22 @@ synthAbstrM ctx (CastE typ expr) =
   do (ctx', expr') <- checkM ctx expr typ
      return (ctx', CastE typ expr', typ)
 
+-- edit: this is untested
 synthAbstrM ctx (CondE ms blame) =
-    do let (evarT, ctx') = genEvar ctx
-       (ctx'', ms') <- synthMs evarT ctx' [] ms
-       return (ctx'', CondE ms' blame, evarT)
-    where synthMs _ ctx exprs [] = return (ctx, reverse exprs)
-          synthMs evarT ctx exprs ((expr1, expr2):ms) =
+    do (ctx', ms', ts) <- synthMs ms ctx [] []
+       case consistentTs ctx' (head ts) (tail ts) of
+         Just (ctx'', t) -> return (ctx'', CondE ms' blame, t)
+    where synthMs [] ctx vals ts = return (ctx, reverse vals, reverse ts)
+          synthMs ((expr1, expr2):ms) ctx vals ts =
               do (ctx', expr1') <- checkM ctx expr1 BoolT
-                 (ctx'', expr2') <- checkM ctx' expr2 evarT
-                 synthMs evarT ctx'' ((expr1', expr2'):exprs) ms
+                 (ctx'', expr2', t) <- synthM ctx' expr2
+                 synthMs ms ctx'' ((expr1', expr2'):vals) (t:ts)
 
+          consistentTs ctx t1 [] = return (ctx, t1)
+          consistentTs ctx t1 (t2:ts) =
+            do ctx' <- subT ctx t1 t2
+               consistentTs ctx' t1 ts
+            
 synthAbstrM ctx (FnDecl Def name body) =
   error "Typechecker.synthAbstrM(FnDecl Def ...): recursive functions must be eliminated in previous stages"
     -- do (ctx', body', bodyT) <- synthM (insertContext ctx name DynT) body
@@ -727,8 +741,9 @@ synthAbstrM ctx (MergeE obs) =
              synthObsM ((name, expr', t):exprs) ctx' obs
 
 synthAbstrM ctx (WhereE expr exprs) =
-    do ctx' <- typecheckWhereM ctx exprs
-       synthM ctx' expr
+    do (ctx', exprs', _) <- synthVals ctx synthM exprs
+       (ctx'', expr', t) <- synthM ctx' expr
+       return (ctx'', WhereE expr' exprs', t)
 
 synthAbstrM _ expr =
     Left $ "\n\n\tsynthAbstrM: unhandled case" ++
@@ -858,6 +873,17 @@ checkInstM ctx expr@LambdaE {} (EvarT var)
         checkInstM ctx' expr existT
 
 -- ⇓Others
+checkInstM ctx (CondE ms blame) t =
+  do judgementM "<=Cond" "" ""
+
+     (ctx', ms') <- checkMs ms ctx []
+     return (ctx', CondE ms' blame)
+  where checkMs [] ctx vals = return (ctx, reverse vals)
+        checkMs ((expr1, expr2):ms) ctx vals =
+          do (ctx', expr1') <- checkM ctx expr1 BoolT
+             (ctx'', expr2') <- checkM ctx' expr2 t
+             checkMs ms ctx'' ((expr1', expr2'):vals)
+  
 checkInstM ctx (FnDecl Def name body) t =
   error "Typechecker.checkInstM(FnDecl Def ...): recursive functions must be eliminated in previous stages"
     -- do (ctx', body') <- checkM (insertContext ctx name t) body t
@@ -882,8 +908,9 @@ checkInstM ctx (FnDecl NrDef name body) t =
        return (insertContext ctx' name bodyT, FnDecl NrDef name body')
 
 checkInstM ctx (WhereE expr exprs) t =
-    do ctx' <- typecheckWhereM ctx exprs
-       checkM ctx' expr t
+    do (ctx', exprs', _) <- synthVals ctx synthM exprs
+       (ctx'', expr') <- checkM ctx' expr t
+       return (ctx'', WhereE expr' exprs')
 
 -- <=Sub
 checkInstM ctx expr t =

@@ -45,22 +45,19 @@ def not : Bool -> Bool
 | @ = true
 
 def toBool : Dyn -> Bool
-  x@isBool = x
+  x@isBool = mkBool x
 
 def toInt : Dyn -> Int
-  x@isInt = x
+  x@isInt = mkInt x
 
 def toReal : Dyn -> Real
-  x@isReal = x
+  x@isReal = mkReal x
 
 def toChar : Dyn -> Char
-  x@isChar = x
+  x@isChar = mkChar x
 
 def toSeq : Dyn -> [Dyn]
-  x@isSeq = x
-
-def ofInt : Int -> Dyn
-  x@isInt = x
+  x@isSeq = mkSeq x
 
 def eq : Dyn -> Dyn -> Bool
   x@isBool y@isBool = eqBool (toBool x) (toBool y)
@@ -80,8 +77,8 @@ def eq : Dyn -> Dyn -> Bool
 def lt : Dyn -> Dyn -> Bool
   x@isBool y@isBool = ltBool (toBool x) (toBool y)
 | x@isInt  y@isInt  = ltInt  (toInt  x) (toInt  y)
-| x@isInt  y@isReal = ltReal (mkReal x) (toReal y)
-| x@isReal y@isInt  = ltReal (toReal x) (mkReal y)
+| x@isInt  y@isReal = ltReal (toReal x) (toReal y)
+| x@isReal y@isInt  = ltReal (toReal x) (toReal y)
 | x@isReal y@isReal = ltReal (toReal x) (toReal y)
 | x@isChar y@isChar = ltChar (toChar x) (toChar y)
 | x@isSeq  y@isSeq  = ltSeq  (toSeq  x) (toSeq  y)
@@ -131,26 +128,26 @@ def isString : [Dyn] -> Bool
 def add : Dyn -> Dyn -> Dyn
   x@isInt  y@isInt  = addInt  (toInt  x) (toInt  y)
 | x@isReal y@isReal = addReal (toReal x) (toReal y)
-| x@isInt  y@isReal = addReal (mkReal x) (toReal y)
-| x@isReal y@isInt  = addReal (toReal x) (mkReal y)
+| x@isInt  y@isReal = addReal (toReal x) (toReal y)
+| x@isReal y@isInt  = addReal (toReal x) (toReal y)
 
 def sub : Dyn -> Dyn -> Dyn
   x@isInt  y@isInt  = subInt  (toInt  x) (toInt  y)
 | x@isReal y@isReal = subReal (toReal x) (toReal y)
-| x@isInt  y@isReal = subReal (mkReal x) (toReal y)
-| x@isReal y@isInt  = subReal (toReal x) (mkReal y)
+| x@isInt  y@isReal = subReal (toReal x) (toReal y)
+| x@isReal y@isInt  = subReal (toReal x) (toReal y)
 
 def mul : Dyn -> Dyn -> Dyn
   x@isInt  y@isInt  = mulInt  (toInt  x) (toInt  y)
 | x@isReal y@isReal = mulReal (toReal x) (toReal y)
-| x@isInt  y@isReal = mulReal (mkReal x) (toReal y)
-| x@isReal y@isInt  = mulReal (toReal x) (mkReal y)
+| x@isInt  y@isReal = mulReal (toReal x) (toReal y)
+| x@isReal y@isInt  = mulReal (toReal x) (toReal y)
 
 def div : Dyn -> Dyn -> Dyn
   x@isInt  y@isInt  = divInt  (toInt  x) (toInt  y)
 | x@isReal y@isReal = divReal (toReal x) (toReal y)
-| x@isInt  y@isReal = divReal (mkReal x) (toReal y)
-| x@isReal y@isInt  = divReal (toReal x) (mkReal y)
+| x@isInt  y@isReal = divReal (toReal x) (toReal y)
+| x@isReal y@isInt  = divReal (toReal x) (toReal y)
 
 def (+) : Dyn -> Dyn -> Dyn
   = add
@@ -191,7 +188,7 @@ def (<+) : [a] -> a -> [a]
 
 def length : [a] -> Int
   @[] = 0
-| (@ +> xs@) = length xs + 1
+| (@ +> xs@) = toInt (length xs + 1)
 
 def reverse : [a] -> [a]
   @[] = []
@@ -203,22 +200,22 @@ def reverse : [a] -> [a]
 
 -- nrdef raise := \f@isfunc isfunc || (seqof isfunc && (¬ isnull)) -> lift f | f
 
-type {x : Int | y : Real}
+-- type {x : Int | y : Real}
 
-def f : {x : Int | y : Real}
-  = {x = 0 & y = 0.0}
+-- def f : {x : Int | y : Real}
+--   = {x = 0 & y = 0.0}
 
-def g : {x : Int | y : Real} -> Int
-  v@ = x v
+-- def g : {x : Int | y : Real} -> Int
+--   v@ = x v
 
 
-type {Ola.i : Int | Ola.j : Real}
+-- type {Ola.i : Int | Ola.j : Real}
 
-def a : {Ola.i : Int | Ola.j : Real}
-  = {Ola.i = 0 & Ola.j = 0.0}
+-- def a : {Ola.i : Int | Ola.j : Real}
+--   = {Ola.i = 0 & Ola.j = 0.0}
 
-def b : {Ola.i : Int | Ola.j : Real} -> Int
-  v@ = Ola.i v
+-- def b : {Ola.i : Int | Ola.j : Real} -> Int
+--   v@ = Ola.i v
 
 
 def adeus : Int -> Int
