@@ -853,7 +853,7 @@ checkInstM ctx expr@SeqE {} t@DynT =
 -- ⇓LambdaArrow
 checkInstM ctx expr@(LambdaE arg Nothing body) t@(ArrowT argT rangeT) =
     do judgementM "<=LambdaArrow"
-                  ("ctx1," ++ arg ++ ":" ++ show argT |- body <= rangeT -| "ctx2'," ++ arg ++ ":" ++ show argT ++ "ctx2''")
+                  ("ctx1," ++ arg ++ ":" ++ show argT |- body <= rangeT -| "ctx2'," ++ arg ++ ":" ++ show argT ++ ",ctx2''")
                   ("ctx1" |- expr <= t -| "ctx2'")
 
        (ctx', body') <- checkM (insertContext ctx arg argT) body rangeT
