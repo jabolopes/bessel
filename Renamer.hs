@@ -222,9 +222,6 @@ renameM (FnDecl NrDef name body) =
        addFnSymbolM name name'
        return [FnDecl NrDef name' body']
 
-renameM LambdaMacro {} =
-    error "Renamer.renameM(LambdaMacro): macros must be expanded in expander"
-
 renameM (LambdaE arg Nothing body) =
     (:[]) <$> renameUnannotatedLambdaM arg body
 

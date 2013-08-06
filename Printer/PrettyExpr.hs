@@ -118,11 +118,6 @@ printExprM (FnDecl kw name body) =
           putAnn Nothing = return ()
           putAnn (Just t) = putPrinter $ " : " ++ show t
 
-printExprM (LambdaMacro pats body) =
-    do printPatsM pats
-       putPrinter " = "
-       printExprM body
-
 printExprM (LambdaE str t body) =
     do putPrinter $ "\\" ++ str ++ putT t ++ " -> "
        withPrinterCol $ printExprM body

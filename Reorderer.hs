@@ -71,7 +71,7 @@ splitDefn srcfile (CotypeDecl coT@(CoT obs)) =
           (appE "un#" (idE var))
 
         lambda name i =
-          LambdaMacro [] (CondMacro [([pat], body i)] name)
+          CondMacro [([pat], body i)] name
 
         defn (name, t) i =
           let str = QualName.fromQualName name in

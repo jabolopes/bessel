@@ -130,7 +130,6 @@ data Expr
 
     | FnDecl DefnKw String Expr
 
-    | LambdaMacro [Pat] Expr
     | LambdaE String (Maybe String) Expr
 
     -- info: initialization vals (1st argument) are sorted in Parser
@@ -305,9 +304,6 @@ freeVars' env fvars (FnDecl Def name expr) =
 freeVars' env fvars (FnDecl NrDef name expr) =
     let (env', fvars') = freeVars' env fvars expr in
     (name:env', fvars')
-
-freeVars' _ _ LambdaMacro {} =
-    error "freeVars'(LambdaMacro): not implemented"
 
 freeVars' env fvars (LambdaE arg _ body) =
     freeVars' (arg:env) fvars body

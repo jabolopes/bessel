@@ -225,16 +225,6 @@ expandM expr@(FnDecl kw name body) =
        else
          returnOneM $ FnDecl NrDef name body'
 
-expandM (LambdaMacro typePats body) =
-  oneM . lambdas typePats <$> expandOneM body
-  where lambdas [] body = body
-        lambdas (pat:pats) body =
-          let
-            arg = fst (head (patDefns pat))
-            IdE ann = patPred pat
-          in
-            LambdaE arg (Just (QualName.fromQualName ann)) (lambdas pats body)
-
 expandM (LambdaE arg ann body) =
   oneM . LambdaE arg ann <$> expandOneM body
 
