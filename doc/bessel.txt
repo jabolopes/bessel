@@ -1,45 +1,75 @@
 Simple patterns
 
-Simple patterns are defined by an optional binder followed by a type,
-an expression, or a predicate. Simple patterns always have '@'.
+Simple patterns are defined by an optional binder followed by a type
+or an expression. Simple patterns always have '@'.
 
 
 Type patterns
 
-  Type patterns always have an '@' followed by a type.
+  Type patterns always have an '@' followed by a monotype.
 
   id '@' Type
      '@' Type
 
   x@Int
-  x@Double
+    guard: isInt
+    binds: x = toInt
+
+  x@Real
+    guard: isReal
+    binds: x = toReal
+
+  x@[Int]
+    guard:  isSeq isInt
+    binds: x = toSeq toInt
+
+   @Int
+     guard: isInt
+     no binds
+
+   ...
 
 
 Expression patterns
-  Predicate patterns always have '@' followed by an expression.
+
+  Predicate patterns always have '@' followed by an expression.  This
+  expression can be either a qualified name denoting a predicate, or a
+  complex expression with predicate type.
 
   id '@' '(' Expr ')
      '@' '(' Expr ')'
-
-  x@(isInt x)
-  y@(isReal y && isPos y)
-
-
-Predicate patterns
-
-  Predicate patterns always have '@' followed by a predicate.
-
   id '@' QualName
      '@' QualName
   id '@'
      '@'
 
-  x@isInt	equivalent to x@(isInt x)
-  y@isReal	equivalent to y@(isReal y)
-   @isBool	equivalent to v#@(isBool v#)
-  x@		equivalent to x@(const true x)
-   @		equivalent to v#@(const true v#)
+  x@(y@ (y > 0))
+    guard: y@ (y > 0)
+    binds: x = id
 
+   @(y@ (y > 0))
+    guard: y@ (y > 0)
+    no binds
+
+  x@isInt
+    guard: isInt
+    binds: x = id
+
+  y@isReal
+    guard: isReal
+    binds: x = id
+
+   @isBool
+    guard: isBool
+    no binds
+
+  x@
+    guard: const true
+    binds: x = id
+
+   @
+    guard: const true
+    binds: no binds
 
 
 Complex patterns
