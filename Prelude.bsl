@@ -70,14 +70,13 @@ def eq : Dyn -> Dyn -> Bool
 | x@Int  y@Int  = eqInt x y
 | x@Real y@Real = eqReal x y
 | x@Char y@Char = eqChar x y
-| seq1@[Dyn] seq2@[Dyn] = eqSeq seq1 seq2
+| x@[Dyn] y@[Dyn] = eqSeq x y
     where {
       def eqSeq : [Dyn] -> [Dyn] -> Bool
         @[] @[] = true
-      | (x@ +> xs@) (y@ +> ys@) = eq x y && eqSeq xs ys
+      | (z@ +> zs@) (w@ +> ws@) = eq z w && eqSeq zs ws
       | @ @ = false
     }
--- | x@isobj  y@isobj  = eqObj x y
 | @ @ = false
 
 def lt : Dyn -> Dyn -> Bool
@@ -88,6 +87,12 @@ def lt : Dyn -> Dyn -> Bool
 | x@Real y@Real = ltReal x y
 | x@Char y@Char = ltChar x y
 | x@[Dyn] y@[Dyn] = ltSeq x y
+    where {
+      def ltSeq : [Dyn] -> [Dyn] -> Bool
+        @[] @[] = true
+      | (z@ +> zs@) (w@ +> ws@) = lt z w && ltSeq zs ws
+      | @ @ = false
+    }
 | @ @ = false
 
 def (==) : Dyn -> Dyn -> Bool
