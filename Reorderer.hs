@@ -12,6 +12,7 @@ import qualified Data.Definition as Definition (initial, prefixedUses, unprefixe
 import Data.SrcFile (SrcFileT(..), SrcFile(..))
 import qualified Data.SrcFile as SrcFile (addDefinitions, name, prefixedUses, decls, unprefixedUses)
 import Data.Expr
+import qualified Data.Expr as Expr
 import Data.QualName (QualName)
 import qualified Data.QualName as QualName (fromQualName)
 import Data.Type
@@ -65,17 +66,22 @@ splitDefn srcfile (CotypeDecl coT@(CoT obs)) =
 
         pat = namePat var (mkPredPat constTrueE)
 
-        body i =
+        body toFn i =
           AppE
-          (appE "index" (IntE i))
-          (appE "un#" (idE var))
+          toFn
+          (AppE
+           (appE "index" (IntE i))
+           (appE "un#" (idE var)))
 
-        lambda name i =
-          CondMacro [([pat], body i)] name
+        lambda toFn name i =
+          CondMacro [([pat], body toFn i)] name
 
         defn (name, t) i =
-          let str = QualName.fromQualName name in
-          FnDecl NrDef str (CastE (ArrowT coT t) (lambda str i))
+          let
+            str = QualName.fromQualName name
+            toFn = snd (Expr.typeFns t)
+          in
+          FnDecl NrDef str (CastE (ArrowT coT t) (lambda toFn str i))
 
 splitDefn srcfile expr@(FnDecl _ name _) =
     let

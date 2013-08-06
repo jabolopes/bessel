@@ -215,19 +215,19 @@ def map : (a -> b) -> [a] -> [b]
 
 -- nrdef raise := \f@isfunc isfunc || (seqof isfunc && (¬ isnull)) -> lift f | f
 
--- type {x : Int | y : Real}
+type {x : Int | y : Real}
 
--- def f : {x : Int | y : Real}
---   = {x = 0 & y = 0.0}
+def f : {x : Int | y : Real}
+  = {x = 0 | y = 0.0}
 
--- def g : {x : Int | y : Real} -> Int
---   v@ = x v
+def g : {x : Int | y : Real} -> Int
+  v@ = x v
 
 
--- type {Ola.i : Int | Ola.j : Real}
+type {Ola.i : Int | Ola.j : Real}
 
--- def a : {Ola.i : Int | Ola.j : Real}
---   = {Ola.i = 0 & Ola.j = 0.0}
+def a : {Ola.i : Int | Ola.j : Real}
+  = {Ola.i = 0 | Ola.j = 0.0}
 
--- def b : {Ola.i : Int | Ola.j : Real} -> Int
---   v@ = Ola.i v
+def b : {Ola.i : Int | Ola.j : Real} -> Int
+  v@ = Ola.i v
