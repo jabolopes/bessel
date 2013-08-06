@@ -6,38 +6,31 @@ import Prelude hiding (lex)
 import Control.Monad.State
 import Data.Char (isSpace)
 import Data.Functor ((<$>))
-import Data.List (intercalate, isPrefixOf, nub)
-import Data.Map (Map)
-import qualified Data.Map as Map (elems, null, union)
+import Data.List (intercalate)
+import qualified Data.Map as Map (elems, null)
 import System.Console.GetOpt (OptDescr(..), ArgDescr(..), ArgOrder(..), getOpt)
 import System.Console.Readline
 import System.IO.Error
 
-import Config
-import qualified Data.Env as Env (getBinds)
 import Data.Definition (Definition(..))
-import qualified Data.Definition as Definition
+import qualified Data.Definition as Definition (initial, val, typ, symbol, freeNames)
 import Data.Exception
-import Data.Expr
+import Data.Expr (DefnKw(..), Expr(..))
 import Data.FileSystem (FileSystem)
 import qualified Data.FileSystem as FileSystem
-import Data.Maybe
+import Data.Maybe (fromJust)
 import Data.SrcFile (SrcFile)
 import qualified Data.SrcFile as SrcFile hiding (unprefixedUses)
-import Data.Symbol
-import Data.Type
 import Expander (expand, expandDefinition)
-import Interpreter
-import Lexer
-import Linker
-import Loader
-import Monad.InterpreterM
-import Parser
-import Printer.PrettyExpr
+import Interpreter (interpret, interpretDefinition)
+import Lexer (lexTokens)
+import Loader (preload, readFileM)
+import Parser (parseRepl)
+import Printer.PrettyExpr (prettyPrintSrcFile, prettyPrint)
 import Renamer (rename, renameDefinition)
 import Reorderer (reorder)
-import Typechecker
-import Utils
+import Typechecker (typecheck, typecheckDefinitionM)
+import Utils (split)
 
 
 data ReplState =
@@ -47,27 +40,12 @@ data ReplState =
 type ReplM a = StateT ReplState IO a
 
 
-doPutLine = False
-doPutTokens = True
-doPutParsedExpr = True
+doPutVal :: Bool
 doPutVal = True
+
+
+doPutValT :: Bool
 doPutValT = True
-doPutEnvironment = False
-
-
-putLine :: String -> IO ()
-putLine str =
-    when doPutLine $
-      putStrLn $ "> " ++ str
-
-
-putParsedExpr :: Expr -> IO ()
-putParsedExpr expr =
-    when doPutParsedExpr $ do
-      putStrLn "> Parsed expr"
-      prettyPrint expr
-      putStrLn ""
-      putStrLn ""
 
 
 putVal :: Show a => a -> IO ()
@@ -78,16 +56,7 @@ putVal val =
 putValT :: (Show a, Show b) => a -> b -> IO ()
 putValT val t =
   when doPutValT $
-    putStrLn $ show val ++ " :: " ++ show t
-
-
-putEnvironment :: Show a => a -> IO ()
-putEnvironment env =
-  when doPutEnvironment $ do
-    putStrLn ""
-    putStrLn "Environment"
-    print env
-    putStrLn ""
+    putStrLn $ show t ++ " : " ++ show val
 
 
 parserEither :: Either String a -> a
@@ -110,7 +79,7 @@ typecheckerEither x = return $ either throwTypecheckerException id x
 stageFiles :: [SrcFile] -> IO FileSystem
 stageFiles srcfiles =
     do liftIO $ putStrLn $ "Staging " ++ show n ++ " namespaces"
-       link =<< loop FileSystem.empty srcfiles [1..]
+       loop FileSystem.empty srcfiles [1..]
     where n = length srcfiles
 
           putHeader i =
@@ -129,12 +98,6 @@ stageFiles srcfiles =
           interpretFile fs srcfile =
               let srcfile' = interpret fs srcfile in
               (FileSystem.add fs srcfile', srcfile')
-
-          link fs =
-              do let srcfiles' = map (FileSystem.get fs . SrcFile.name) srcfiles
-                     fs' = FileSystem.initial (linkSrcFiles srcfiles')
-                 putStrLn "linked"
-                 return fs'
 
           loop fs [] _ = return fs
           loop fs (srcs:srcss) (i:is) =
@@ -189,7 +152,6 @@ runSnippetM :: String -> ReplM ()
 runSnippetM ln =
   do fs <- fs <$> get
      let expr = parserEither (parseRepl SrcFile.interactiveName ln)
-     liftIO (putParsedExpr expr)
      let def = mkSnippet fs expr
          expDef = expanderEither (expandDefinition fs def)
          renDef = renamerEither (renameSnippet fs expDef)
@@ -370,9 +332,7 @@ dispatchCommandM ln =
 
 promptM :: String -> ReplM ()
 promptM ln =
-    do liftIO $ do
-         addHistory ln
-         putLine ln
+    do liftIO (addHistory ln)
        process ln
     where process (':':ln) = dispatchCommandM ln
           process ln = runSnippetM ln
