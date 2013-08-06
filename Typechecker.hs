@@ -535,10 +535,11 @@ synthM ctx expr = synthCast . synthSubst <$> synthAbstrM ctx expr
 
           synthSubst val = val
 
-          -- synthCast (ctx', expr', t) = (ctx', CastE expr' t, t)
-          synthCast (ctx, _, _)
-            | trace ("synthM: " ++ show ctx ++ "\n") False = undefined
-          synthCast val = val
+          synthCast (ctx', expr'@CastE {}, t) = (ctx', expr', t)
+          synthCast (ctx', expr', t) = (ctx', CastE t expr', t)
+          -- synthCast (ctx, _, _)
+          --   | trace ("synthM: " ++ show ctx ++ "\n") False = undefined
+          -- synthCast val = val
 
 
 synthAbstrM :: Context -> Expr -> SynthM
@@ -927,19 +928,19 @@ checkInstM ctx expr t =
        (,expr') <$> subM ctx' t' t
 
 
-typecheckSubstitute :: Context -> Expr -> TypecheckerM (Context, Type)
+typecheckSubstitute :: Context -> Expr -> TypecheckerM (Context, Expr, Type)
 typecheckSubstitute ctx expr =
-    do (ctx', _, t) <- synthM ctx expr
+    do (ctx', expr', t) <- synthM ctx expr
        let !_ | debugT ("type before the final substitution: " ++ show t) = True
-       return (ctx', substituteEvarTs ctx' t)
+       return (ctx', expr', substituteEvarTs ctx' t)
 
 
 typecheckDefinitionM :: FileSystem -> Definition -> TypecheckerM Definition
 typecheckDefinitionM fs def@Definition { renExpr = Just expr } =
     do let defs = map (FileSystem.definition fs) (freeNames def)
            typs = [ (sym, fromJust (Definition.typ def)) | def <- defs, let Just (FnSymbol sym) = Definition.symbol def ]
-       t <- snd <$> typecheckSubstitute (nothingSyms $ Map.fromList typs) expr
-       return def { typ = Just t }
+       (_, expr', t) <- typecheckSubstitute (nothingSyms $ Map.fromList typs) expr
+       return def { typ = Just t, typExpr = Just expr' }
 
 
 typecheckDefinitionsM :: FileSystem -> SrcFile -> [Definition] -> TypecheckerM SrcFile

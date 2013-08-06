@@ -282,6 +282,12 @@ putDefinitionM def =
     putStrLn ""
     prettyPrint (fromJust (expExpr def))
     putStrLn ""
+    putStrLn ""
+    prettyPrint (fromJust (renExpr def))
+    putStrLn ""
+    putStrLn ""
+    prettyPrint (fromJust (typExpr def))
+    putStrLn ""
 
 
 data Flag

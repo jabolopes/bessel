@@ -17,7 +17,7 @@ data Definition
                , srcExpr :: Maybe Expr
                , expExpr :: Maybe Expr
                , renExpr :: Maybe Expr
-               , lnkExpr :: Maybe Expr }
+               , typExpr :: Maybe Expr }
     deriving (Show)
 
 
@@ -33,4 +33,4 @@ initial name =
              , srcExpr = Nothing
              , expExpr = Nothing
              , renExpr = Nothing
-             , lnkExpr = Nothing }
+             , typExpr = Nothing }
