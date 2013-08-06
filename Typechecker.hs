@@ -700,7 +700,11 @@ synthAbstrM ctx expr@(AppE fn arg) =
 
 -- ⇑Others
 synthAbstrM ctx (CastE typ expr) =
-  do (ctx', expr') <- checkM ctx expr typ
+  do judgementM "=>Cast"
+                ("ctx1" |- expr <= typ -| "ctx2")
+                ("ctx1" |- expr `synth` typ -| "ctx2")
+     
+     (ctx', expr') <- checkM ctx expr typ
      return (ctx', CastE typ expr', typ)
 
 -- edit: this is untested
