@@ -178,7 +178,8 @@ mkChar val@CharVal {} = val
 
 
 mkSeq :: Val -> Val
-mkSeq val@SeqVal {} = val
+mkSeq (FnVal fn) = FnVal hof
+  where hof (SeqVal vals) = SeqVal <$> mapM fn vals
 
 
 addInt :: Val -> Val
@@ -431,8 +432,7 @@ fnDesc = [
   ("isChar", predT, m isChar),
   ("isFn", predT, m isFn),
   ("isObj", predT, m isObj),
-  ("isSeq", predT, m isSeq),
-  ("isSeqOf", ArrowT predT predT, m isSeqOf),
+  ("isSeq", ArrowT predT predT, m isSeqOf),
   -- comparison functions
   ("eqBool", ArrowT BoolT (ArrowT BoolT BoolT), m eqBool),
   ("eqInt", ArrowT IntT (ArrowT IntT BoolT), m eqInt),
@@ -448,7 +448,12 @@ fnDesc = [
   ("mkInt", ArrowT DynT IntT, m mkInt),
   ("mkReal", ArrowT DynT DoubleT, m mkReal),
   ("mkChar", ArrowT DynT CharT, m mkChar),
-  ("mkSeq", ArrowT DynT (SeqT DynT), m mkSeq),
+
+  ("mkSeq", ForallT "a"
+            (ArrowT
+             (ArrowT DynT (TvarT "a"))
+             (ArrowT DynT (SeqT (TvarT "a")))), m mkSeq),
+
   ("addInt", ArrowT IntT (ArrowT IntT IntT), m addInt),
   ("addReal", ArrowT DoubleT (ArrowT DoubleT DoubleT), m addReal),
   ("subInt", ArrowT IntT (ArrowT IntT IntT), m subInt),

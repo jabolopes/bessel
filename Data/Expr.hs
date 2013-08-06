@@ -62,6 +62,30 @@ namePat name (Pat pred defns) =
     Pat pred $ (name, []):defns
 
 
+typeFns :: Type -> (Expr, Expr)
+typeFns BoolT = (idE "isBool", idE "toBool")
+typeFns IntT = (idE "isInt", idE "toInt")
+typeFns DoubleT = (idE "isReal", idE "toReal")
+typeFns CharT = (idE "isChar", idE "toChar")
+typeFns (SeqT seqT) =
+  let (isSeqT, toSeqT) = typeFns seqT in
+  (appE "isSeq" isSeqT, appE "toSeq" toSeqT)
+
+typeFns DynT = (idE "isDyn", idE "toDyn")
+
+
+mkTypePat :: Type -> Pat
+mkTypePat typ =
+  let isFn = fst (typeFns typ) in
+  mkPredPat isFn
+
+
+nameTypePat :: String -> Type -> Pat
+nameTypePat name typ =
+  let toFn = snd (typeFns typ) in
+  (mkTypePat typ) { patDefns = [(name, [toFn])] }
+
+
 data DefnKw
   = Def | NrDef
     deriving (Show)

@@ -168,9 +168,7 @@ Defn:
   | TypeDefn { $1 }
 
 FnDefn:
-    def Name ':' Type TypePatList DefnMatches { FnDecl Def $2 (CastE $4 (LambdaMacro $5 (CondMacro $6 $2))) }
-  | def Name ':' Type TypePatList '=' Expr    { FnDecl Def $2 (CastE $4 (LambdaMacro $5 $7)) }
-  | def Name ':' Type DefnMatches             { FnDecl Def $2 (CastE $4 (CondMacro $5 $2)) }
+    def Name ':' Type DefnMatches             { FnDecl Def $2 (CastE $4 (CondMacro $5 $2)) }
   | def Name ':' Type '=' Expr                { FnDecl Def $2 (CastE $4 $6) }
 
 TypeDefn:
@@ -210,21 +208,12 @@ Expr:
 
   | Expr where '{' DefnList '}' { WhereE $1 $4 }
 
-  | Lambda          { $1 }
+  | Lambda          { CondMacro $1 "lambda" }
   | Merge           { $1 }
 
 Lambda:
-    TypePatList LambdaMatches { LambdaMacro $1 (CondMacro $2 "lambda") }
-  | TypePatList SimpleExpr    { LambdaMacro $1 $2 }
-  | LambdaMatches             { CondMacro $1 "lambda" }
-
-LambdaMatches:
-    LambdaMatches '|' PatList SimpleExpr { $1 ++ [($3, $4)] }
-  | PatList SimpleExpr                   { [($1, $2)] }
-
-TypePatList:
-    TypePatList TypePat { $1 ++ [$2] }
-  | TypePat             { [$1] }
+    Lambda '|' PatList SimpleExpr { $1 ++ [($3, $4)] }
+  | PatList SimpleExpr            { [($1, $2)] }
 
 PatList:
     PatList Pat         { $1 ++ [$2] }
@@ -253,35 +242,34 @@ Constant:
 
 -- patterns
 
-TypePat:
-    id '@' typeId  { namePat $1 (mkPredPat (idE $3)) }
-
 Pat:
-    '@ '         { mkPredPat constTrueE }
-  | id '@ '      { namePat $1 (mkPredPat constTrueE) }
-  | PatRest      { $1 }
+    id '@ ' { namePat $1 (mkPredPat constTrueE) }
+  |    '@ ' { mkPredPat constTrueE }
+  | PatRest { $1 }
 
 PatNoSpace:
-    '@'         { mkPredPat constTrueE }
-  | id '@'      { namePat $1 (mkPredPat constTrueE) }
-  | PatRest     { $1 }
+    id '@'  { namePat $1 (mkPredPat constTrueE) }
+  |    '@'  { mkPredPat constTrueE }
+  | PatRest { $1 }
 
 PatRest:
--- expression patterns
-    '@' '(' Expr ')'     { mkPredPat $3 }
-  | id '@' '(' Expr ')'  { namePat $1 (mkPredPat $4) }
+-- type patterns
+    id '@' Monotype        { nameTypePat $1 $3 }
+  |    '@' Monotype        { mkTypePat $2 }
 
--- predicate patterns
-  | '@' QualName         { mkPredPat (IdE $2) }
-  | id '@' QualName      { namePat $1 (mkPredPat (IdE $3)) }
+-- expression patterns
+  | id '@' '(' Expr ')'    { namePat $1 (mkPredPat $4) }
+  |    '@' '(' Expr ')'    { mkPredPat $3 }
+  | id '@' QualName        { namePat $1 (mkPredPat (IdE $3)) }
+  |    '@' QualName        { mkPredPat (IdE $2) }
 
 -- list patterns
-  | ListPat              { $1 }
-  | id '@' ListPat       { namePat $1 $3 }
+  | id '@' ListPat         { namePat $1 $3 }
+  |        ListPat         { $1 }
 
 -- combined patterns
-  | '(' CombPat ')'        { $2 }
   | id '@' '(' CombPat ')' { namePat $1 $4 }
+  |        '(' CombPat ')' { $2 }
 
 CombPat:
     Pat '+>' PatNoSpace { mkPat (idE "pal") [idE "hd", idE "tl"] [$1, $3] }
@@ -311,6 +299,23 @@ ExprList:
 
 
 -- types
+
+Monotype:
+    Monotype '->' Monotype { ArrowT $1 $3 }
+  | '(' MonotypeList ')'   { TupT $2 }
+  | '[' Monotype ']'       { SeqT $2 }
+  | typeId                 { case $1 of
+                               "Bool" -> BoolT
+                               "Int" -> IntT
+                               "Real" -> DoubleT
+                               "Char" -> CharT
+                               "Dyn" -> DynT }
+  | '(' Monotype ')'       { $2 }
+
+MonotypeList:
+    MonotypeList ',' Monotype { $1 ++ [$3] }
+  | Monotype ',' Monotype     { [$1, $3] }
+
 
 Type:
     TypeAux { rebuildForallT $1 }

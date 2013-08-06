@@ -44,6 +44,12 @@ def not : Bool -> Bool
   @id = false
 | @ = true
 
+def isDyn : Dyn -> Bool
+  = const true
+
+def toDyn : Dyn -> Dyn
+  = id
+
 def toBool : Dyn -> Bool
   x@isBool = mkBool x
 
@@ -56,15 +62,15 @@ def toReal : Dyn -> Real
 def toChar : Dyn -> Char
   x@isChar = mkChar x
 
-def toSeq : Dyn -> [Dyn]
-  x@isSeq = mkSeq x
+def toSeq : (Dyn -> a) -> Dyn -> [a]
+  fn@ x@(isSeq (const true)) = mkSeq fn x
 
 def eq : Dyn -> Dyn -> Bool
-  x@isBool y@isBool = eqBool (toBool x) (toBool y)
-| x@isInt  y@isInt  = eqInt  (toInt  x) (toInt  y)
-| x@isReal y@isReal = eqReal (toReal x) (toReal y)
-| x@isChar y@isChar = eqChar (toChar x) (toChar y)
-| seq1@isSeq seq2@isSeq = eqSeq (toSeq seq1) (toSeq seq2)
+  x@Bool y@Bool = eqBool x y
+| x@Int  y@Int  = eqInt x y
+| x@Real y@Real = eqReal x y
+| x@Char y@Char = eqChar x y
+| seq1@[Dyn] seq2@[Dyn] = eqSeq seq1 seq2
     where {
       def eqSeq : [Dyn] -> [Dyn] -> Bool
         @[] @[] = true
@@ -75,13 +81,13 @@ def eq : Dyn -> Dyn -> Bool
 | @ @ = false
 
 def lt : Dyn -> Dyn -> Bool
-  x@isBool y@isBool = ltBool (toBool x) (toBool y)
-| x@isInt  y@isInt  = ltInt  (toInt  x) (toInt  y)
-| x@isInt  y@isReal = ltReal (toReal x) (toReal y)
-| x@isReal y@isInt  = ltReal (toReal x) (toReal y)
-| x@isReal y@isReal = ltReal (toReal x) (toReal y)
-| x@isChar y@isChar = ltChar (toChar x) (toChar y)
-| x@isSeq  y@isSeq  = ltSeq  (toSeq  x) (toSeq  y)
+  x@Bool y@Bool = ltBool x y
+| x@Int  y@Int  = ltInt x y
+| x@Int  y@Real = ltReal (toReal x) y
+| x@Real y@Int  = ltReal x (toReal y)
+| x@Real y@Real = ltReal x y
+| x@Char y@Char = ltChar x y
+| x@[Dyn] y@[Dyn] = ltSeq x y
 | @ @ = false
 
 def (==) : Dyn -> Dyn -> Bool
@@ -123,7 +129,8 @@ def isPair : [a] -> Bool
 | @ = false
 
 def isString : [Dyn] -> Bool
-  x@ = isSeqOf isChar x
+  x@[Char] = true
+|  @ = false
 
 def add : Dyn -> Dyn -> Dyn
   x@isInt  y@isInt  = addInt  (toInt  x) (toInt  y)
@@ -161,21 +168,25 @@ def (*) : Dyn -> Dyn -> Dyn
 def (/) : Dyn -> Dyn -> Dyn
   = div
 
+-- def abs : Dyn -> Dyn
+--   x@isInt  = absInt  (toInt  x)
+-- | x@isReal = absReal (toReal x)
+
 def abs : Dyn -> Dyn
-  x@isInt  = absInt  (toInt  x)
-| x@isReal = absReal (toReal x)
+  x@Int  = absInt x
+| x@Real = absReal x
 
 def floor : Dyn -> Int
-  x@isInt  = toInt x
-| x@isReal = floorReal (toReal x)
+  x@Int  = x
+| x@Real = floorReal x
 
 def ceiling : Dyn -> Int
-  x@isInt  = toInt x
-| x@isReal = ceilingReal (toReal x)
+  x@Int  = x
+| x@Real = ceilingReal x
 
 def neg : Dyn -> Dyn
-  x@isInt  = negInt  (toInt  x)
-| x@isReal = negReal (toReal x)
+  x@Int  = negInt x
+| x@Real = negReal x
 
 def rem : Int -> Int -> Int
   x@ y@ = remInt x y
@@ -193,6 +204,10 @@ def length : [a] -> Int
 def reverse : [a] -> [a]
   @[] = []
 | (x@ +> xs@) = reverse xs <+ x
+
+def map : (a -> b) -> [a] -> [b]
+  fn@ @[] = []
+| fn@ (x@ +> xs@) = fn x +> map fn xs
 
 -- sig index : [a] -> Int -> a
 -- def index (x@ +> xs@) n@((==) 0 o ofInt) = x
@@ -216,8 +231,3 @@ def reverse : [a] -> [a]
 
 -- def b : {Ola.i : Int | Ola.j : Real} -> Int
 --   v@ = Ola.i v
-
-
-def adeus : Int -> Int
-  x@isZero = 0
-| x@       = addInt (adeus (subInt x 1)) 2
