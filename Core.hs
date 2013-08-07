@@ -305,8 +305,8 @@ pand (SeqVal vals) =
     where andHof _ [] = return true
           andHof val [FnVal fn] = fn val
           andHof val (FnVal fn:vals) =
-              do val <- fn val
-                 if isFalseVal val
+              do val' <- fn val
+                 if isFalseVal val'
                    then return false
                    else andHof val vals
 
@@ -318,8 +318,8 @@ por (SeqVal vals) =
     where orHof _ [] = return false
           orHof val [FnVal fn] = fn val
           orHof val (FnVal fn:vals) =
-              do val <- fn val
-                 if isFalseVal val
+              do val' <- fn val
+                 if isFalseVal val'
                    then orHof val vals
                    else return true
 
