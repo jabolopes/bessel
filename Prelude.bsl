@@ -138,28 +138,28 @@ def isString : [Dyn] -> Bool
 |  @ = false
 
 def add : Dyn -> Dyn -> Dyn
-  x@isInt  y@isInt  = addInt  (toInt  x) (toInt  y)
-| x@isReal y@isReal = addReal (toReal x) (toReal y)
-| x@isInt  y@isReal = addReal (toReal x) (toReal y)
-| x@isReal y@isInt  = addReal (toReal x) (toReal y)
+  x@Int  y@Int  = addInt x y
+| x@Real y@Real = addReal x y
+| x@Int  y@Real = addReal (toReal x) y
+| x@Real y@Int  = addReal x (toReal y)
 
 def sub : Dyn -> Dyn -> Dyn
-  x@isInt  y@isInt  = subInt  (toInt  x) (toInt  y)
-| x@isReal y@isReal = subReal (toReal x) (toReal y)
-| x@isInt  y@isReal = subReal (toReal x) (toReal y)
-| x@isReal y@isInt  = subReal (toReal x) (toReal y)
+  x@Int  y@Int  = subInt x y
+| x@Real y@Real = subReal x y
+| x@Int  y@Real = subReal (toReal x) y
+| x@Real y@Int  = subReal x (toReal y)
 
 def mul : Dyn -> Dyn -> Dyn
-  x@isInt  y@isInt  = mulInt  (toInt  x) (toInt  y)
-| x@isReal y@isReal = mulReal (toReal x) (toReal y)
-| x@isInt  y@isReal = mulReal (toReal x) (toReal y)
-| x@isReal y@isInt  = mulReal (toReal x) (toReal y)
+  x@Int  y@Int  = mulInt x y
+| x@Real y@Real = mulReal x y
+| x@Int  y@Real = mulReal (toReal x) y
+| x@Real y@Int  = mulReal x (toReal y)
 
 def div : Dyn -> Dyn -> Dyn
-  x@isInt  y@isInt  = divInt  (toInt  x) (toInt  y)
-| x@isReal y@isReal = divReal (toReal x) (toReal y)
-| x@isInt  y@isReal = divReal (toReal x) (toReal y)
-| x@isReal y@isInt  = divReal (toReal x) (toReal y)
+  x@Int  y@Int  = divInt x y
+| x@Real y@Real = divReal x y
+| x@Int  y@Real = divReal (toReal x) y
+| x@Real y@Int  = divReal x (toReal y)
 
 def (+) : Dyn -> Dyn -> Dyn
   = add
