@@ -167,8 +167,8 @@ Defn:
   | TypeDefn { $1 }
 
 FnDefn:
-    def Name ':' Type DefnMatches             { FnDecl Def $2 (CastE $4 (CondMacro $5 $2)) }
-  | def Name ':' Type '=' Expr                { FnDecl Def $2 (CastE $4 $6) }
+    def Name ':' Type DefnMatches { FnDecl Def $2 (CastE $4 (CondMacro $5 $2)) }
+  | def Name ':' Type '=' Expr    { FnDecl Def $2 (CastE $4 $6) }
 
 TypeDefn:
     type Cotype { CotypeDecl $2 }
