@@ -27,7 +27,7 @@ $letter       = [a-zA-Z]
 
 @whitespace = [\ \t\n\r]
 @comment    = ("|-"([^\*]|[\r\n]|(\*+([^\|\/]|[\r\n])))*"-|")
-            | ("-- ".*)
+            | ("--".*)
 
 @character  = "'" ($letter | $digit) "'"
 @integer    = ("-")?$digit+
