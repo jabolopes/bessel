@@ -54,16 +54,11 @@ isObj _ = false
 
 
 isSeq :: Val -> Val
-isSeq SeqVal {} = true
-isSeq _ = false
-
-
-isSeqOf :: Val -> Val
-isSeqOf (FnVal fn) = FnVal hof
-    where hof (SeqVal vals) =
-              do b <- all isNotFalseVal <$> mapM fn vals
-                 return $ if b then true else false
-          hof _ = return false
+isSeq (FnVal fn) = FnVal hof
+  where hof (SeqVal vals) =
+            do b <- all isNotFalseVal <$> mapM fn vals
+               return $ if b then true else false
+        hof _ = return false
 
 
 -- comparison functions
@@ -432,7 +427,7 @@ fnDesc = [
   ("isChar", predT, m isChar),
   ("isFn", predT, m isFn),
   ("isObj", predT, m isObj),
-  ("isSeq", ArrowT predT predT, m isSeqOf),
+  ("isSeq", ArrowT predT predT, m isSeq),
   -- comparison functions
   ("eqBool", ArrowT BoolT (ArrowT BoolT BoolT), m eqBool),
   ("eqInt", ArrowT IntT (ArrowT IntT BoolT), m eqInt),
