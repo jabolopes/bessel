@@ -82,8 +82,8 @@ def eq : Dyn -> Dyn -> Bool
 def lt : Dyn -> Dyn -> Bool
   x@Bool y@Bool = ltBool x y
 | x@Int  y@Int  = ltInt x y
-| x@Int  y@Real = ltReal (toReal x) y
-| x@Real y@Int  = ltReal x (toReal y)
+| x@Int  y@Real = ltReal (mkReal x) y
+| x@Real y@Int  = ltReal x (mkReal y)
 | x@Real y@Real = ltReal x y
 | x@Char y@Char = ltChar x y
 | x@[Dyn] y@[Dyn] = ltSeq x y
@@ -140,26 +140,26 @@ def isString : [Dyn] -> Bool
 def add : Dyn -> Dyn -> Dyn
   x@Int  y@Int  = addInt x y
 | x@Real y@Real = addReal x y
-| x@Int  y@Real = addReal (toReal x) y
-| x@Real y@Int  = addReal x (toReal y)
+| x@Int  y@Real = addReal (mkReal x) y
+| x@Real y@Int  = addReal x (mkReal y)
 
 def sub : Dyn -> Dyn -> Dyn
   x@Int  y@Int  = subInt x y
 | x@Real y@Real = subReal x y
-| x@Int  y@Real = subReal (toReal x) y
-| x@Real y@Int  = subReal x (toReal y)
+| x@Int  y@Real = subReal (mkReal x) y
+| x@Real y@Int  = subReal x (mkReal y)
 
 def mul : Dyn -> Dyn -> Dyn
   x@Int  y@Int  = mulInt x y
 | x@Real y@Real = mulReal x y
-| x@Int  y@Real = mulReal (toReal x) y
-| x@Real y@Int  = mulReal x (toReal y)
+| x@Int  y@Real = mulReal (mkReal x) y
+| x@Real y@Int  = mulReal x (mkReal y)
 
 def div : Dyn -> Dyn -> Dyn
   x@Int  y@Int  = divInt x y
 | x@Real y@Real = divReal x y
-| x@Int  y@Real = divReal (toReal x) y
-| x@Real y@Int  = divReal x (toReal y)
+| x@Int  y@Real = divReal (mkReal x) y
+| x@Real y@Int  = divReal x (mkReal y)
 
 def (+) : Dyn -> Dyn -> Dyn
   = add
