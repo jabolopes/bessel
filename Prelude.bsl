@@ -173,10 +173,6 @@ def (*) : Dyn -> Dyn -> Dyn
 def (/) : Dyn -> Dyn -> Dyn
   = div
 
--- def abs : Dyn -> Dyn
---   x@isInt  = absInt  (toInt  x)
--- | x@isReal = absReal (toReal x)
-
 def abs : Dyn -> Dyn
   x@Int  = absInt x
 | x@Real = absReal x
