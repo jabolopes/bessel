@@ -20,8 +20,16 @@ Type patterns
     binds: x = toReal
 
   x@[Int]
-    guard:  isSeq isInt
+    guard: isSeq isInt
     binds: x = toSeq toInt
+
+  x@(Int & Real)
+    guard: isAnd [isInt, isReal]
+    binds: x = toAnd [toInt, toReal]
+
+  x@(Int -> Int)
+    guard:
+    binds: x =
 
    @Int
      guard: isInt

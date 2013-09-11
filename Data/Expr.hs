@@ -57,6 +57,13 @@ mkListPat pats =
         listRef i = idE "tl":listRef (i - 1)
 
 
+mkAndPat :: [Pat] -> Pat
+mkAndPat pats =
+  mkGeneralPat (idE "isAnd") (map andRef [1..length pats]) pats
+  where andRef 1 = [idE "hd", idE "un#"]
+        andRef i = idE "tl":andRef (i - 1)
+
+
 namePat :: String -> Pat -> Pat
 namePat name (Pat pred defns) =
     Pat pred $ (name, []):defns
@@ -72,6 +79,10 @@ typeFns (SeqT seqT) =
   (appE "isSeq" isSeqT, appE "toSeq" toSeqT)
 
 typeFns DynT = (idE "isDyn", idE "toDyn")
+
+typeFns (OrT orTs) =
+  let (isFns, toFns) = unzip $ map typeFns orTs in
+  (appE "por" (SeqE isFns), undefined)
 
 
 mkTypePat :: Type -> Pat

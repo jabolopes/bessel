@@ -12,7 +12,7 @@ data Definition
                , unprefixedUses :: [String]
                , prefixedUses :: [(String, String)]
                , symbol :: Maybe Symbol
-               , typ :: Maybe Type
+               , typ :: Either String Type
                , val :: Maybe Val
                , srcExpr :: Maybe Expr
                , expExpr :: Maybe Expr
@@ -28,7 +28,7 @@ initial name =
              , unprefixedUses = []
              , prefixedUses = []
              , symbol = Nothing
-             , typ = Nothing
+             , typ = Left ""
              , val = Nothing
              , srcExpr = Nothing
              , expExpr = Nothing

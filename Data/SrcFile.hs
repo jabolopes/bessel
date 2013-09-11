@@ -67,8 +67,8 @@ mkCoreSrcFile srcfileName deps typeDesc fnDesc =
           
           defs =
             let
-                typs = [ (Definition.initial (defName x)) { symbol = Just (TypeSymbol i), typ = Just y } | (x, y) <- typeDesc | i <- [0..] ]
-                fns = [ (Definition.initial (defName x)) { symbol = Just (fnSymbol x), typ = Just y, val = Just z } | (x, y, z) <- fnDesc ]
+                typs = [ (Definition.initial (defName x)) { symbol = Just (TypeSymbol i), typ = Right y } | (x, y) <- typeDesc | i <- [0..] ]
+                fns = [ (Definition.initial (defName x)) { symbol = Just (fnSymbol x), typ = Right y, val = Just z } | (x, y, z) <- fnDesc ]
             in
               typs ++ fns
 
@@ -134,7 +134,7 @@ addDefinitionTypes srcfile ts =
               let
                   def = case Map.lookup name defs of
                           Nothing -> error $ "SrcFile.addDefinitionTypes: definition " ++ show name ++ " is not defined"
-                          Just def -> def { typ = Just t }
+                          Just def -> def { typ = Right t }
                   defs' = Map.insert name def defs
               in
                 loop defs' ts

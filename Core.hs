@@ -490,11 +490,20 @@ fnDesc = [
   -- misc
   ("signal", ForallT "a" (ArrowT (TvarT "a") (ForallT "b" (TvarT "b"))), m signal),
 
-  ("un#", ArrowT DynT DynT, m unSharp),
+  ("un#", ForallT "a" (ForallT "b" (ArrowT (TvarT "a") (TvarT "b"))), m unSharp),
 
   ("fix#", fixSharpT, m fixSharp),
 
   ("null#", nullSharpT, nullSharp),
+
+  -- and types
+  ("isAnd", ArrowT (SeqT predT) predT, m isAnd),
+
+  ("andLeft", ForallT "a"
+              (ForallT "b"
+               (ArrowT (TvarT "a")
+                (ArrowT (TvarT "b")
+                 (AndT (TvarT "a") (TvarT "b"))))), m andLeft),
 
   ("index", ArrowT IntT (ArrowT DynT DynT), m index)]
 
@@ -519,17 +528,34 @@ fixSharp (FnVal fn) = FnVal hof
              fn' val
 
 
-index :: Val -> Val
-index (IntVal i) = FnVal (return . hof)
-    where hof (SeqVal vals) = vals !! i
-
-
 nullSharpT :: Type
 nullSharpT = ForallT "a" (SeqT (TvarT "a"))
 
 nullSharp :: Val
 nullSharp = SeqVal []
 
+
+index :: Val -> Val
+index (IntVal i) = FnVal (return . hof)
+    where hof (SeqVal vals) = vals !! i
+
+
+-- and types
+
+isAnd :: Val -> Val
+isAnd (SeqVal [FnVal hdFn, FnVal tlFn]) = FnVal hof
+  where hof (TypeVal (SeqVal (val:vals))) =
+          do val' <- hdFn val
+             if isFalseVal val'
+             then return false
+             else tlFn (TypeVal (SeqVal vals))
+
+andLeft :: Val -> Val
+andLeft val1 = FnVal (return . hof)
+  where hof (TypeVal (SeqVal vals)) =
+          TypeVal $ SeqVal $ val1:vals
+        hof val2 =
+          TypeVal $ SeqVal $ [val1, val2]
 
 srcfile :: SrcFile
 srcfile = mkCoreSrcFile "Core" [] typeDesc fnDesc

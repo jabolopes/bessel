@@ -155,15 +155,17 @@ runSnippetM ln =
      let def = mkSnippet fs expr
          expDef = expanderEither (expandDefinition fs def)
          renDef = renamerEither (renameSnippet fs expDef)
-     typDef <- typecheckerEither (typecheckDefinitionM fs renDef)
-     -- edit: lazy evaluation problems with interpretDefinition
-     let evalDef = interpretDefinition fs typDef
-         interactive = FileSystem.get fs SrcFile.interactiveName
-         interactive' = SrcFile.updateDefinitions interactive [evalDef]
-     modify $ \s -> s { fs = FileSystem.add fs interactive' }
-     liftIO $ putValM (Definition.typ evalDef) (Definition.val evalDef)
-  where putValM Nothing val = putVal val
-        putValM (Just t) (Just val) = putValT val t
+     case typecheckerEither (typecheckDefinitionM fs renDef) of
+       Left err -> liftIO $ putStrLn err
+       Right typDef -> do
+         -- edit: lazy evaluation problems with interpretDefinition
+         let evalDef = interpretDefinition fs typDef
+             interactive = FileSystem.get fs SrcFile.interactiveName
+             interactive' = SrcFile.updateDefinitions interactive [evalDef]
+         modify $ \s -> s { fs = FileSystem.add fs interactive' }
+         liftIO $ putValM (Definition.typ evalDef) (Definition.val evalDef)
+  where putValM (Left _) val = putVal val
+        putValM (Right t) (Just val) = putValT val t
 
 
 showModuleM :: Bool -> Bool -> Bool -> String -> ReplM ()
@@ -222,15 +224,25 @@ showRenamedM showAll filename =
 
 showDefinition :: Definition -> String
 showDefinition def =
-  name def ++ " (" ++
-  showSym def ++ ") :: " ++
-  showTyp def ++ " = " ++
-  showVal def ++ "\n\n" ++
-  showFreeNames def
-  where indent = (" " ++)
-        showSym = show . fromJust . Definition.symbol
-        showTyp = show . fromJust . Definition.typ
-        showVal = show . fromJust . Definition.val
+  intercalate " " [name def,
+                   showSym def,
+                   showTyp def,
+                   showVal def] ++ "\n\n" ++ showFreeNames def
+  where showSym def =
+          case Definition.symbol def of
+            Just sym -> "(" ++ show sym ++ ")"
+            _ -> ""
+
+        showTyp def =
+          case Definition.typ def of
+            Right typ -> ":: " ++ show typ
+            _ -> ":: ?"
+
+        showVal def =
+          case Definition.val def of
+            Just val -> "= " ++ show val
+            _ -> ""
+
         showFreeNames = intercalate ", " . Definition.freeNames
 
 
@@ -248,9 +260,15 @@ putDefinitionM def =
     prettyPrint (fromJust (renExpr def))
     putStrLn ""
     putStrLn ""
-    prettyPrint (fromJust (typExpr def))
+    putTypExpr def
     putStrLn ""
-
+  where putTypExpr def =
+          case typExpr def of
+            Just expr -> prettyPrint expr
+            _ -> do putStrLn "Failed to typecheck definition or evaluate typechecked expression"
+                    case Definition.typ def of
+                      Left err -> putStrLn err
+                      Right typ -> putStrLn (show typ)
 
 data Flag
     = ShowAll

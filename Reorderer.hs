@@ -83,6 +83,10 @@ splitDefn srcfile (CotypeDecl coT@(CoT obs)) =
           in
           FnDecl NrDef str (CastE (ArrowT coT t) (lambda toFn str i))
 
+splitDefn srcfile (CotypeDecl orT@(OrT orTs)) =
+  undefined
+  where 
+
 splitDefn srcfile expr@(FnDecl _ name _) =
     let
         srcfileName = SrcFile.name srcfile

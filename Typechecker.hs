@@ -153,6 +153,9 @@ substituteEvarTs ctx (TupT ts) = TupT $ map (substituteEvarTs ctx) ts
 substituteEvarTs ctx (SeqT t) = SeqT $ substituteEvarTs ctx t
 substituteEvarTs ctx t@DynT = t
 
+substituteEvarTs ctx (AndT t1 t2) =
+  AndT (substituteEvarTs ctx t1) (substituteEvarTs ctx t2)
+
 substituteEvarTs ctx (ArrowT t1 t2) =
   ArrowT (substituteEvarTs ctx t1) (substituteEvarTs ctx t2)
 
@@ -166,6 +169,7 @@ substituteEvarTs ctx t@(EvarT var) =
     Just (EvarT var') | var == var' -> t
     Just t' -> substituteEvarTs ctx t'
 
+substituteEvarTs ctx (OrT ts) = OrT $ map (substituteEvarTs ctx) ts
 substituteEvarTs ctx (ForallT vars t) = ForallT vars $ substituteEvarTs ctx t
 substituteEvarTs ctx t@(TvarT _) = t
 
@@ -213,6 +217,29 @@ seqifyVar ctx var =
     a = (var, at)
   in
     (ctx { syms = syms1 ++ [a, a1] ++ syms2 }, at)
+
+-- | Implements the following context transformation
+-- @
+-- Gamma [â]
+-- @
+--
+-- @
+-- Gamma [â1,â2,â = â1 & â2]
+-- @
+andifyVar :: Context -> String -> (Context, Type)
+andifyVar ctx var =
+  let
+    (Context { syms = syms1 }, Context { syms = syms2 }) = splitContext ctx var
+    name1 = var ++ "1"
+    name2 = var ++ "2"
+    evar1 = EvarT name1
+    evar2 = EvarT name2
+    a1 = (name1, evar1)
+    a2 = (name2, evar2)
+    at = AndT evar1 evar2
+    a = (var, at)
+  in
+    (ctx { syms = syms1 ++ [a, a1, a2] ++ syms2 }, at)
 
 
 occursContextT :: Context -> Type -> Type -> Bool
@@ -366,6 +393,35 @@ subT ctx t1@(SeqT seqT1) t2@(SeqT seqT2) =
                    ("ctx1" |- t1 <: t2 -| "ctx2")
 
         subT ctx seqT1 seqT2
+
+-- <And
+subT ctx t1@(AndT a1 a2) t2@(AndT b1 b2) =
+    do judgementM "<And"
+                  ("ctx1" |- a1 <: b1 -| "ctx2" ++ "  " ++ "ctx2" |- a2 <: b2 -| "ctx3")
+                  ("ctx1" |- t1 <: t2 -| "ctx3")
+
+       ctx' <- subT ctx a1 b1
+       subT ctx' a2 b2
+
+-- <EvarAnd
+subT ctx t1@(EvarT var) t2@AndT {}
+  | isEmptyTypeContext ctx var =
+    do judgementM "<EvarAnd"
+                  ("ctx1," ++ var ++ "1," ++ var ++ "2," ++ var ++ "=" ++ var ++ "1 & " ++ var ++ "2" |- t1 <: t2 -| "ctx2")
+                  (gamma' "ctx1" [var] |- var <: t2 -| "ctx2")
+
+       let (ctx', _) = andifyVar ctx var
+       subT ctx' t1 t2
+
+-- <AndEvar
+subT ctx t1@AndT {} t2@(EvarT var)
+  | isEmptyTypeContext ctx var =
+    do judgementM "<AndEvar"
+                  ("ctx1," ++ var ++ "1," ++ var ++ "2," ++ var ++ "=" ++ var ++ "1 & " ++ var ++ "2" |- t1 <: t2 -| "ctx2")
+                  (gamma' "ctx1" [var] |- t1 <: var -| "ctx2")
+
+       let (ctx', _) = andifyVar ctx var
+       subT ctx' t1 t2
 
 -- <Arrow
 subT ctx t1@(ArrowT argT1 rangeT1) t2@(ArrowT argT2 rangeT2) =
@@ -928,13 +984,16 @@ typecheckSubstitute ctx expr =
        let !_ | debugT ("type before the final substitution: " ++ show t) = True
        return (ctx', expr', substituteEvarTs ctx' t)
 
+-- edit: to remove
+fromRight (Right x) = x
 
 typecheckDefinitionM :: FileSystem -> Definition -> TypecheckerM Definition
 typecheckDefinitionM fs def@Definition { renExpr = Just expr } =
     do let defs = map (FileSystem.definition fs) (freeNames def)
-           typs = [ (sym, fromJust (Definition.typ def)) | def <- defs, let Just (FnSymbol sym) = Definition.symbol def ]
-       (_, expr', t) <- typecheckSubstitute (nothingSyms $ Map.fromList typs) expr
-       return def { typ = Just t, typExpr = Just expr' }
+           typs = [ (sym, fromRight (Definition.typ def)) | def <- defs, let Just (FnSymbol sym) = Definition.symbol def ]
+       case typecheckSubstitute (nothingSyms $ Map.fromList typs) expr of
+         Left err -> return def { typ = Left err }
+         Right (_, expr', t) -> return def { typ = Right t, typExpr = Just expr' }
 
 
 typecheckDefinitionsM :: FileSystem -> SrcFile -> [Definition] -> TypecheckerM SrcFile

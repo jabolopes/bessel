@@ -19,11 +19,13 @@ data Type
     | TupT [Type]
     | SeqT Type
 
+    | AndT Type Type
     | DynT
     | ArrowT Type Type
     | CoT [(QualName, Type)]
     | EvarT String
     | ForallT String Type
+    | OrT [Type]
     | TvarT String
       deriving (Eq)
 
@@ -34,6 +36,8 @@ instance Show Type where
     show CharT = "Char"
     show (TupT ts) = "[|" ++ intercalate ", " (map show ts) ++ "|]"
     show (SeqT t) = "[" ++ show t ++ "]"
+    show (AndT t1@(AndT _ _) t2) = "(" ++ show t1 ++ ") & " ++ show t2
+    show (AndT t1 t2) = show t1 ++ " & " ++ show t2
     show DynT = "Dyn"
     show (ArrowT t1@(ArrowT _ _) t2) = "(" ++ show t1 ++ ") -> " ++ show t2
     show (ArrowT t1 t2) = show t1 ++ " -> " ++ show t2
@@ -47,6 +51,9 @@ instance Show Type where
       where showForall (ForallT var t) = "," ++ var ++ showForall t
             showForall t = ". " ++ show t
     show (ForallT var t) = "forall " ++ var ++ ". " ++ show t
+
+    show (OrT ts) = "{" ++ intercalate " | " (map show ts) ++ "}"
+
     show (TvarT str) = str
 
 
@@ -85,6 +92,13 @@ freshForallT count t =
 
           freshForallT' state t@DynT = (state, t)
 
+          freshForallT' state (AndT t1 t2) =
+            let
+              (state', t1')  = freshForallT' state t1
+              (state'', t2') = freshForallT' state' t2
+            in
+              (state'', AndT t1' t2')
+
           freshForallT' state (ArrowT t1 t2) =
               let
                   (state', t1') = freshForallT' state t1
@@ -109,6 +123,12 @@ freshForallT count t =
                   (state', forallT') = freshForallT' (vars', n') forallT
               in
                 (state', ForallT var' forallT')
+
+          freshForallT' state (OrT orTs) = loop state [] orTs
+              where loop state orTs [] = (state, OrT (reverse orTs))
+                    loop state orTs (t:ts) =
+                        let (state', t') = freshForallT' state t in
+                        loop state' (t':orTs) ts
 
           freshForallT' state@(vars, _) t@(TvarT var) =
               case Map.lookup var vars of
@@ -167,6 +187,9 @@ freeTvarsT t = nub $ sort $ freeTvars [] t
 
           freeTvars _ DynT = []
 
+          freeTvars vars (AndT t1 t2) =
+              freeTvars vars t1 ++ freeTvars vars t2
+
           freeTvars vars (ArrowT argT rangeT) =
               freeTvars vars argT ++ freeTvars vars rangeT
 
@@ -177,6 +200,9 @@ freeTvarsT t = nub $ sort $ freeTvars [] t
 
           freeTvars vars (ForallT var forallT) =
               freeTvars (var:vars) forallT
+
+          freeTvars vars (OrT orTs) =
+              concatMap (freeTvars vars) orTs
 
           freeTvars vars (TvarT var)
               | var `elem` vars = []
@@ -221,6 +247,9 @@ substituteTvarT t var (TupT ts) = TupT $ map (substituteTvarT t var) ts
 substituteTvarT t var (SeqT seqT) = SeqT $ substituteTvarT t var seqT
 substituteTvarT t var DynT = DynT
 
+substituteTvarT t var (AndT fnT argT) =
+  AndT (substituteTvarT t var fnT) (substituteTvarT t var argT)
+
 substituteTvarT t var (ArrowT fnT argT) =
   ArrowT (substituteTvarT t var fnT) (substituteTvarT t var argT)
 
@@ -245,6 +274,9 @@ generalizeEvarsT (TupT ts) = TupT (map generalizeEvarsT ts)
 generalizeEvarsT (SeqT seqT) = SeqT (generalizeEvarsT seqT)
 generalizeEvarsT t@DynT = t
 
+generalizeEvarsT (AndT t1 t2) =
+    AndT (generalizeEvarsT t1) (generalizeEvarsT t2)
+
 generalizeEvarsT (ArrowT fnT argT) =
     ArrowT (generalizeEvarsT fnT) (generalizeEvarsT argT)
 
@@ -253,6 +285,7 @@ generalizeEvarsT (CoT coTs) = CoT $ map (second generalizeEvarsT) coTs
 generalizeEvarsT (EvarT ('^':var2)) = TvarT (var2 ++ "1")
 
 generalizeEvarsT (ForallT vars forallT) = ForallT vars (generalizeEvarsT forallT)
+generalizeEvarsT (OrT orTs) = OrT (map generalizeEvarsT orTs)
 generalizeEvarsT t@(TvarT _) = t
 
 

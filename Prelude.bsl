@@ -216,19 +216,127 @@ def map : (a -> b) -> [a] -> [b]
 
 -- nrdef raise := \f@isfunc isfunc || (seqof isfunc && (¬ isnull)) -> lift f | f
 
-type {x : Int | y : Real}
 
-def f : {x : Int | y : Real}
-  = {x = 0 | y = 0.0}
+-- type {x : Int | y : Real}
 
-def g : {x : Int | y : Real} -> Int
-  v@ = x v
+-- def f : {x : Int | y : Real}
+--   = {x = 0 | y = 0.0}
+
+-- def g : {x : Int | y : Real} -> Int
+--   v@ = x v
 
 
-type {Ola.i : Int | Ola.j : Real}
+-- def h : [a] -> Int
+--   [x@,y@,z@] = 0
 
-def a : {Ola.i : Int | Ola.j : Real}
-  = {Ola.i = 0 | Ola.j = 0.0}
+-- def i : [a] -> Int
+--   (x@ & (y@ & z@)) = 0
 
-def b : {Ola.i : Int | Ola.j : Real} -> Int
-  v@ = Ola.i v
+-- def j : {x : Int} & a -> {x : Int} & a
+--   ({x@} & y@) = {x = x + 1} & y
+
+
+def x : Int & Int -> Int
+  (a@ & b@) = a
+
+def ola : Int & Int & Int
+  = andLeft 1 (andLeft 2 3)
+
+def fst : a & b -> a
+  (x@ & y@) = x
+| (x@ & (y@ & z@)) = x
+
+--
+-- def f : Dyn -> ...
+--   x@(@isInt || @isReal) = g x
+
+--
+-- def f : Dyn -> ...
+--   (x@isInt || y@isReal) = g x y
+
+--
+-- def f : Dyn -> ...
+--   x@(@Int || @Real) = g x
+
+--
+-- def f : Dyn -> ...
+--   (x@Int || y@Real) = g x y
+
+--
+-- def f : Dyn -> ...
+--   x@Int = g x
+--   x@Real = g x
+
+--
+-- def f : {Int | Real} -> ...
+--   x@Int = g x
+--   x@Real = g x
+
+--
+-- def f : {int Int | real Real} -> ...
+--   (int x) = g x
+--   (real x) = g x
+
+--
+-- type Num = {int Int | real Real}
+
+-- int : Int -> Num
+-- real : Int -> Num
+
+-- def isNum : Dyn -> Bool
+--   = isOr [isInt, isReal]
+
+-- def toNum : Dyn -> {int Int | real Real}
+--   x@Int  = int x
+--   x@Real = real x
+
+-- def f : Num -> ...
+--   (int x) = g x
+--   (real x) = g x
+
+
+
+
+--
+-- def f : Dyn -> Bool
+--   x@(@isInt & @isReal) = true
+
+--
+-- def f : Dyn -> ...
+--   x@isInt & y@isReal = g x y
+
+--
+-- def f : Dyn -> ...
+--   x@(@Int & y@Real) = g x
+
+--
+-- def f : Dyn -> ...
+--   x@Int & y@Real = g x y
+
+--
+-- def f : {Int & Real} -> ...
+--   x@ & y@ = g x y
+
+--
+-- def f : {fst Int & snd Real} -> ...
+--   (fst x) & (snd y) = g x y
+
+--
+-- type Coord = {fst Int & snd Real}
+
+-- fst : Coord -> Int
+-- snd : Coord -> Real
+
+-- def f : Coord -> ...
+--   (fst x) & (snd y) = g x y
+
+
+
+-- type {Ola.i : Int | Ola.j : Real}
+
+-- def a : {Ola.i : Int | Ola.j : Real}
+--   = {Ola.i = 0 | Ola.j = 0.0}
+
+-- def b : {Ola.i : Int | Ola.j : Real} -> Int
+--   v@ = Ola.i v
+
