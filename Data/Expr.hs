@@ -6,7 +6,7 @@ import Data.QualName
 import Data.Type
 
 
-type PatDefn = (String, [Expr])
+type PatDefn = (String, Maybe Type, [Expr])
 
 
 data Pat
@@ -23,8 +23,8 @@ mkGeneralPat pred mods pats =
               AppE pred $ SeqE $ map patPred pats
 
           modDefns _ [] = []
-          modDefns mod ((str, mod'):defns) =
-              (str, mod' ++ mod):modDefns mod defns
+          modDefns mod ((str, t, mod'):defns) =
+              (str, t, mod' ++ mod):modDefns mod defns
 
           modPats [] [] = []    
           modPats (mod:mods) (Pat _ defns:pats) =
@@ -66,7 +66,8 @@ mkAndPat pats =
 
 namePat :: String -> Pat -> Pat
 namePat name (Pat pred defns) =
-    Pat pred $ (name, []):defns
+    Pat { patPred = pred
+        , patDefns = (name, Nothing, []):defns }
 
 
 typeFns :: Type -> (Expr, Expr)
@@ -94,7 +95,7 @@ mkTypePat typ =
 nameTypePat :: String -> Type -> Pat
 nameTypePat name typ =
   let toFn = snd (typeFns typ) in
-  (mkTypePat typ) { patDefns = [(name, [toFn])] }
+  (mkTypePat typ) { patDefns = [(name, Just typ, [toFn])] }
 
 
 data DefnKw
@@ -256,8 +257,10 @@ freeVarsList env fvars (x:xs) =
 
 freeVarsPat :: [String] -> [String] -> Pat -> ([String], [String])
 freeVarsPat env fvars pat =
-    let (env', fvars') = freeVars' env fvars (patPred pat) in
-    freeVarsList (env' ++ map fst (patDefns pat)) fvars' (concatMap snd (patDefns pat))
+  let (env', fvars') = freeVars' env fvars (patPred pat) in
+  freeVarsList (env' ++ map patName (patDefns pat)) fvars' (concatMap patExprs (patDefns pat))
+  where patName (x, _, _) = x
+        patExprs (_, _, x) = x
 
 
 freeVarsPats :: [String] -> [String] -> [Pat] -> ([String], [String])

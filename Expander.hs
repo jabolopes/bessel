@@ -50,9 +50,12 @@ genNameM name =
 -- def y = hd (tl xs)
 -- @
 mkPatDefns :: Expr -> [PatDefn] -> [Expr]
-mkPatDefns val = map (mkDefn `uncurry`)
-  where mkDefn name mods =
+mkPatDefns val = map mkDefn
+  where mkDefn (name, Nothing, mods) =
           FnDecl NrDef name (foldAppE val mods)
+
+        mkDefn (name, Just t, mods) =
+          FnDecl NrDef name (CastE t (foldAppE val mods))
 
 
 -- |

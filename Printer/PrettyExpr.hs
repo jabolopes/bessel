@@ -20,7 +20,7 @@ printNameM name =
 printPatM pat =
   do case patDefns pat of
        [] -> return ()
-       (arg, _):_ -> putPrinter arg
+       (arg, _, _):_ -> putPrinter arg
      putPrinter "@("
      printExprM (patPred pat)
      putPrinter ")"
