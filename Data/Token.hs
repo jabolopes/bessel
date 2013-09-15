@@ -2,8 +2,7 @@ module Data.Token where
 
 data Token
      -- punctuation
-     = TokenAmpersand
-     | TokenArrow
+     = TokenArrow
      | TokenAt
      | TokenAtSpace
      | TokenBar
@@ -35,6 +34,8 @@ data Token
      | TokenString String
 
      -- operators
+     | TokenAmpersand String
+
      | TokenComposition String
 
      | TokenMult String

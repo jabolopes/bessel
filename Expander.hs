@@ -46,13 +46,13 @@ genNameM name =
 -- @
 --
 -- @
--- def x = head xs
--- def y = head (tail xs)
+-- def x = hd xs
+-- def y = hd (tl xs)
 -- @
 mkPatDefns :: Expr -> [PatDefn] -> [Expr]
 mkPatDefns val = map (mkDefn `uncurry`)
-    where mkDefn name mods =
-              FnDecl NrDef name (foldAppE val mods)
+  where mkDefn name mods =
+          FnDecl NrDef name (foldAppE val mods)
 
 
 -- |

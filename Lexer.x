@@ -42,7 +42,6 @@ tokens :-
   @comment            ;
 
   -- punctuation
-  "&"                 { \_ -> TokenAmpersand }
   "->"                { \_ -> TokenArrow }
   "@ "                { \_ -> TokenAtSpace }
   "@"                 { \_ -> TokenAt }
@@ -75,6 +74,8 @@ tokens :-
   @string             { \s -> TokenString (init (tail s)) }
 
   -- operators
+  "&"                 { \s -> TokenAmpersand s }
+
   "o"                 { \s -> TokenComposition s }
 
   "*" (@id_char)*     { \s -> TokenMult s }

@@ -146,6 +146,8 @@ data Expr
     -- info: initialization vals (1st argument) are sorted in Parser
     | MergeE [(QualName, Expr)]
 
+    | TypeE Type
+
     | WhereE Expr [Expr]
       deriving (Show)
 
@@ -325,6 +327,8 @@ freeVars' env fvars (MergeE vals) =
           loop env fvars ((_, expr):vals) =
               let (env', fvars') = freeVars' env fvars expr in
               loop env' fvars' vals
+
+freeVars' env fvars TypeE {} = (env, fvars)
 
 freeVars' env fvars (WhereE expr exprs) =
     let (env', fvars') = loop env fvars exprs in

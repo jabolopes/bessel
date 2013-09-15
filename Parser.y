@@ -60,7 +60,6 @@ checkUseList uses =
 
 %token
   -- punctuation
-  '&'     { TokenAmpersand }
   '->'    { TokenArrow }
   '@'     { TokenAt }
   '@ '    { TokenAtSpace }
@@ -93,6 +92,8 @@ checkUseList uses =
   string    { TokenString $$ }
 
   -- operators
+  '&'     { TokenAmpersand $$ }
+
   'o'     { TokenComposition $$ }
 
   '*'     { TokenMult $$ }
@@ -314,7 +315,7 @@ Monotype:
   | Monotype '->' Monotype { ArrowT $1 $3 }
   | '(' MonotypeList ')'   { TupT $2 }
   | '[' Monotype ']'       { SeqT $2 }
-  | TypeId	 	   { $1 }
+  | TypeId                { $1 }
   | '(' Monotype ')'       { $2 }
 
 MonotypeList:
@@ -323,11 +324,11 @@ MonotypeList:
 
 TypeId:
     typeId { case $1 of
-    	       "Bool" -> BoolT
-	       "Int" -> IntT
-	       "Real" -> DoubleT
-	       "Char" -> CharT
-	       "Dyn" -> DynT }
+               "Bool" -> BoolT
+               "Int" -> IntT
+               "Real" -> DoubleT
+               "Char" -> CharT
+               "Dyn" -> DynT }
 
 Type:
     TypeAux { rebuildForallT $1 }
@@ -338,8 +339,8 @@ TypeAux:
   | '(' TypeList ')'     { TupT $2 }
   | '[' TypeAux ']'      { SeqT $2 }
   | Cotype               { $1 }
-  | OrType		 { $1 }
-  | TypeId		 { $1 }
+  | OrType               { $1 }
+  | TypeId               { $1 }
   | id                   { TvarT $1 }
   | '(' TypeAux ')'      { $2 }
 

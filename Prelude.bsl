@@ -51,19 +51,31 @@ def toDyn : Dyn -> Dyn
   = id
 
 def toBool : Dyn -> Bool
-  x@isBool = mkBool x
+  x@isBool = cast# x
 
 def toInt : Dyn -> Int
-  x@isInt = mkInt x
+  x@isInt = cast# x
 
 def toReal : Dyn -> Real
-  x@isReal = mkReal x
+  x@isReal = cast# x
 
 def toChar : Dyn -> Char
-  x@isChar = mkChar x
+  x@isChar = cast# x
 
 def toSeq : (Dyn -> a) -> Dyn -> [a]
   fn@ x@(isSeq (const true)) = mkSeq fn x
+
+def toAnd : ((Dyn -> a) & (Dyn -> b)) -> Dyn -> a & b
+  fns@ x@(isAnd [const true, const true]) = cast# x
+
+-- def is Int : Dyn -> Bool
+--   = isInt
+
+-- def is [A@is] : Dyn -> Bool
+--   = isSeq (is A)
+
+-- def is @(a & b) : Dyn -> Bool
+--   = isAnd (mkAnd (is a) (is b))
 
 def eq : Dyn -> Dyn -> Bool
   x@Bool y@Bool = eqBool x y
@@ -236,15 +248,15 @@ def map : (a -> b) -> [a] -> [b]
 --   ({x@} & y@) = {x = x + 1} & y
 
 
-def x : Int & Int -> Int
-  (a@ & b@) = a
+-- def x : Int & Int -> Int
+--   (a@ & b@) = a
 
-def ola : Int & Int & Int
-  = andLeft 1 (andLeft 2 3)
+-- def ola : Int & Int & Int
+--   = andLeft 1 (andLeft 2 3)
 
-def fst : a & b -> a
-  (x@ & y@) = x
-| (x@ & (y@ & z@)) = x
+-- def fst : a & b -> a
+--   (x@ & y@) = x
+-- | (x@ & (y@ & z@)) = x
 
 --
 -- def f : Dyn -> ...

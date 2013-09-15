@@ -497,13 +497,17 @@ fnDesc = [
   ("null#", nullSharpT, nullSharp),
 
   -- and types
+  ("cast#", ForallT "a"
+            (ForallT "b"
+             (ArrowT (TvarT "a") (TvarT "b"))), m castSharp),
+
   ("isAnd", ArrowT (SeqT predT) predT, m isAnd),
 
-  ("andLeft", ForallT "a"
-              (ForallT "b"
-               (ArrowT (TvarT "a")
-                (ArrowT (TvarT "b")
-                 (AndT (TvarT "a") (TvarT "b"))))), m andLeft),
+  ("mkAnd", ForallT "a"
+            (ForallT "b"
+             (ArrowT (TvarT "a")
+              (ArrowT (TvarT "b")
+               (AndT (TvarT "a") (TvarT "b"))))), m mkAnd),
 
   ("index", ArrowT IntT (ArrowT DynT DynT), m index)]
 
@@ -540,7 +544,17 @@ index (IntVal i) = FnVal (return . hof)
     where hof (SeqVal vals) = vals !! i
 
 
+castSharp :: Val -> Val
+castSharp = id
+
 -- and types
+
+mkAnd :: Val -> Val
+mkAnd val1 = FnVal (return . hof)
+  where hof (TypeVal (SeqVal vals)) =
+          TypeVal $ SeqVal $ val1:vals
+        hof val2 =
+          TypeVal $ SeqVal $ [val1, val2]
 
 isAnd :: Val -> Val
 isAnd (SeqVal [FnVal hdFn, FnVal tlFn]) = FnVal hof
@@ -549,13 +563,6 @@ isAnd (SeqVal [FnVal hdFn, FnVal tlFn]) = FnVal hof
              if isFalseVal val'
              then return false
              else tlFn (TypeVal (SeqVal vals))
-
-andLeft :: Val -> Val
-andLeft val1 = FnVal (return . hof)
-  where hof (TypeVal (SeqVal vals)) =
-          TypeVal $ SeqVal $ val1:vals
-        hof val2 =
-          TypeVal $ SeqVal $ [val1, val2]
 
 srcfile :: SrcFile
 srcfile = mkCoreSrcFile "Core" [] typeDesc fnDesc
