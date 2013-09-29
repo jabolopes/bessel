@@ -49,7 +49,14 @@ lookupContext :: Context -> String -> Maybe Type
 lookupContext Context { syms } name = lookup name syms
 
 
+freshType :: Context -> Type -> (Context, Type)
+freshType ctx@Context { count } typ =
+  let (count', typ') = freshForallT count typ in
+  (ctx { count = count' }, typ')
+
+
 -- edit: needed a 'freshForallT' in all calls to 'typeContext'?
+-- edit: reuse function 'freshType' ?
 typeContext :: Context -> String -> Either String (Context, Type)
 typeContext ctx@Context { count } name =
     do (count', t') <- freshForallT count <$> t
@@ -57,7 +64,6 @@ typeContext ctx@Context { count } name =
     where t = case lookupContext ctx name of
                 Nothing -> Left $ "\n\n\ttypeContext: name " ++ show name ++ " not bound\n"
                 Just t -> Right t
-
 
 isEmptyTypeContext :: Context -> String -> Bool
 isEmptyTypeContext ctx name =
