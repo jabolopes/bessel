@@ -144,7 +144,7 @@ eliminateForalls ctx (ForallT var forallT) =
       var' = '^':var
       existT = EvarT var'
       ctx' = insertContext ctx var' existT
-      forallT' = substituteTvarT existT var forallT
+      forallT' = substituteVarT existT var forallT
   in
     eliminateForalls ctx' forallT'
 
@@ -181,7 +181,7 @@ substituteEvarTs ctx t@(EvarT var) =
 
 substituteEvarTs ctx (OrT ts) = OrT $ map (substituteEvarTs ctx) ts
 substituteEvarTs ctx (ForallT vars t) = ForallT vars $ substituteEvarTs ctx t
-substituteEvarTs ctx t@(TvarT _) = t
+substituteEvarTs ctx t@(VarT _) = t
 
 
 -- | Implements the following context transformation
@@ -541,7 +541,7 @@ subT ctx t1 t2@(ForallT var forallT) =
                 ("ctx1," ++ var |- t1 <: forallT -| "ctx2'," ++ var ++ ",ctx2''")
                 ("ctx1" |- t1 <: t2 -| "ctx2'")
 
-     let ctx' = insertContext ctx var (TvarT var)
+     let ctx' = insertContext ctx var (VarT var)
      ctx'' <- subT ctx' t1 forallT
      return $ dropContext ctx'' var
 
@@ -903,7 +903,7 @@ checkInstM ctx expr t@(ForallT var forallT) | isValueE expr =
                 ("ctx1," ++ var |- expr <= forallT -| "ctx2'," ++ var ++ ",ctx2''")
                 ("ctx1" |- expr <= t -| "ctx2'")
 
-     let ctx' = insertContext ctx var (TvarT var)
+     let ctx' = insertContext ctx var (VarT var)
      (ctx'', expr') <- checkM ctx' expr forallT
      return (dropContext ctx'' var, expr')
 

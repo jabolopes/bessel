@@ -26,7 +26,7 @@ data Type
     | EvarT String
     | ForallT String Type
     | OrT [Type]
-    | TvarT String
+    | VarT String
       deriving (Eq)
 
 instance Show Type where
@@ -54,7 +54,7 @@ instance Show Type where
 
     show (OrT ts) = "{" ++ intercalate " | " (map show ts) ++ "}"
 
-    show (TvarT str) = str
+    show (VarT str) = str
 
 
 isEvarT :: Type -> Bool
@@ -130,10 +130,10 @@ freshForallT count t =
                         let (state', t') = freshForallT' state t in
                         loop state' (t':orTs) ts
 
-          freshForallT' state@(vars, _) t@(TvarT var) =
+          freshForallT' state@(vars, _) t@(VarT var) =
               case Map.lookup var vars of
                 Nothing -> (state, t)
-                Just var' -> (state, TvarT var')
+                Just var' -> (state, VarT var')
 
 
 kickForalls :: Type -> Type
@@ -169,7 +169,7 @@ kickForalls t =
           kick vars (ForallT var forallT) =
               kick (var:vars) forallT
 
-          kick vars t@(TvarT _) = (vars, t)
+          kick vars t@(VarT _) = (vars, t)
 
 
 freeTvarsT :: Type -> [String]
@@ -204,7 +204,7 @@ freeTvarsT t = nub $ sort $ freeTvars [] t
           freeTvars vars (OrT orTs) =
               concatMap (freeTvars vars) orTs
 
-          freeTvars vars (TvarT var)
+          freeTvars vars (VarT var)
               | var `elem` vars = []
               | otherwise = [var]
 
@@ -224,7 +224,7 @@ freeTvarsT t = nub $ sort $ freeTvars [] t
 
 --           freeEvars (EvarT var) = [var]
 --           freeEvars (ForallT _ forallT) = freeEvars forallT
---           freeEvars (TvarT var) = []
+--           freeEvars (VarT var) = []
 
 
 -- 'occursT' @t1 t2@: does @t1@ occur in @t2@?
@@ -236,35 +236,35 @@ occursT t (ForallT _ forallT) = occursT t forallT
 occursT _ _ = False
 
 
--- 'substituteTvarT' @t1 var t2@ replaces type variables
+-- 'substituteVarT' @t1 var t2@ replaces type variables
 -- named @var@ that occur in @t2@ with @t1@.
-substituteTvarT :: Type -> String -> Type -> Type
-substituteTvarT _ _ BoolT = BoolT
-substituteTvarT _ _ IntT = IntT
-substituteTvarT _ _ DoubleT = DoubleT
-substituteTvarT _ _ CharT = CharT
-substituteTvarT t var (TupT ts) = TupT $ map (substituteTvarT t var) ts
-substituteTvarT t var (SeqT seqT) = SeqT $ substituteTvarT t var seqT
-substituteTvarT t var DynT = DynT
+substituteVarT :: Type -> String -> Type -> Type
+substituteVarT _ _ BoolT = BoolT
+substituteVarT _ _ IntT = IntT
+substituteVarT _ _ DoubleT = DoubleT
+substituteVarT _ _ CharT = CharT
+substituteVarT t var (TupT ts) = TupT $ map (substituteVarT t var) ts
+substituteVarT t var (SeqT seqT) = SeqT $ substituteVarT t var seqT
+substituteVarT t var DynT = DynT
 
-substituteTvarT t var (AndT fnT argT) =
-  AndT (substituteTvarT t var fnT) (substituteTvarT t var argT)
+substituteVarT t var (AndT fnT argT) =
+  AndT (substituteVarT t var fnT) (substituteVarT t var argT)
 
-substituteTvarT t var (ArrowT fnT argT) =
-  ArrowT (substituteTvarT t var fnT) (substituteTvarT t var argT)
+substituteVarT t var (ArrowT fnT argT) =
+  ArrowT (substituteVarT t var fnT) (substituteVarT t var argT)
 
-substituteTvarT _ _ t@(EvarT _) = t
+substituteVarT _ _ t@(EvarT _) = t
 
-substituteTvarT t var (ForallT vars forallT) =
-  ForallT vars $ substituteTvarT t var forallT
+substituteVarT t var (ForallT vars forallT) =
+  ForallT vars $ substituteVarT t var forallT
 
-substituteTvarT t var1 tvarT@(TvarT var2)
+substituteVarT t var1 tvarT@(VarT var2)
   | var1 == var2 = t
   | otherwise = tvarT
 
 
 -- 'generalizeEvarsT' @t@ replaces existential variables ('EvarT')
--- that occur in @t@ with universally quantified variables ('TvarT')
+-- that occur in @t@ with universally quantified variables ('VarT')
 generalizeEvarsT :: Type -> Type
 generalizeEvarsT t@BoolT = t
 generalizeEvarsT t@IntT = t
@@ -282,11 +282,11 @@ generalizeEvarsT (ArrowT fnT argT) =
 
 generalizeEvarsT (CoT coTs) = CoT $ map (second generalizeEvarsT) coTs
 
-generalizeEvarsT (EvarT ('^':var2)) = TvarT (var2 ++ "1")
+generalizeEvarsT (EvarT ('^':var2)) = VarT (var2 ++ "1")
 
 generalizeEvarsT (ForallT vars forallT) = ForallT vars (generalizeEvarsT forallT)
 generalizeEvarsT (OrT orTs) = OrT (map generalizeEvarsT orTs)
-generalizeEvarsT t@(TvarT _) = t
+generalizeEvarsT t@(VarT _) = t
 
 
 -- 'rebuildForallT' @t@ produces a new 'Type' by introducing forall

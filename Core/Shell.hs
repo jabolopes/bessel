@@ -29,7 +29,7 @@ fnDesc :: FnDesc
 fnDesc = [("shell", ForallT "a"
                       (ArrowT (SeqT CharT)
                        (ArrowT (SeqT CharT)
-                        (ArrowT (TvarT "a") (SeqT CharT)))), m shell)]
+                        (ArrowT (VarT "a") (SeqT CharT)))), m shell)]
 
 
 srcfile :: SrcFile

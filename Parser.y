@@ -341,7 +341,7 @@ TypeAux:
   | Cotype               { $1 }
   | OrType               { $1 }
   | TypeId               { $1 }
-  | id                   { TvarT $1 }
+  | id                   { VarT $1 }
   | '(' TypeAux ')'      { $2 }
 
 TypeList:

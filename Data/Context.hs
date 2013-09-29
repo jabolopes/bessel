@@ -111,11 +111,11 @@ isWellformed :: Context -> Type -> Type -> Bool
 isWellformed ctx (EvarT var1) (EvarT var2) =
   isWellformed' ctx var1 var2
 
-isWellformed ctx (EvarT var1) (TvarT var2) =
+isWellformed ctx (EvarT var1) (VarT var2) =
   isWellformed' ctx var1 var2
 
 -- edit: i'm not sure if this is necessary...
--- isWellformed ctx (TvarT var1) (EvarT var2) =
+-- isWellformed ctx (VarT var1) (EvarT var2) =
 --   isWellformed' ctx var1 var2
 
 -- edit: simple types (BoolT, IntT, ...) should be in the

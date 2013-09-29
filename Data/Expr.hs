@@ -78,7 +78,7 @@ listPatType :: Char -> [Type] -> [Pat] -> Type
 listPatType c ts [] = rebuildForallT (TupT (reverse ts))
 listPatType c ts (pat:pats) =
   case patType pat of
-    Nothing -> listPatType (succ c) (TvarT [c]:ts) pats
+    Nothing -> listPatType (succ c) (VarT [c]:ts) pats
     Just t -> listPatType c (t:ts) pats
 
 
@@ -93,7 +93,7 @@ listPatType c ts (pat:pats) =
 mkListPat :: [Pat] -> Pat
 mkListPat [] =
   Pat { patPred = appE "plist" (SeqE [])
-      , patType = Just $ ForallT "a" $ SeqT $ TvarT "a"
+      , patType = Just $ ForallT "a" $ SeqT $ VarT "a"
       , patDefns = [] }
 
 -- edit: 'DynT' should be 'SeqT' or 'ConT "Seq"'
@@ -110,7 +110,7 @@ combPatType :: ([Type] -> Type) -> Char -> [Type] -> [Pat] -> Type
 combPatType typ c ts [] = rebuildForallT (typ (reverse ts))
 combPatType typ c ts (pat:pats) =
   case patType pat of
-    Nothing -> combPatType typ (succ c) (TvarT [c]:ts) pats
+    Nothing -> combPatType typ (succ c) (VarT [c]:ts) pats
     Just t -> combPatType typ c (t:ts) pats
 
 
@@ -251,7 +251,7 @@ binOpE op expr = AppE (appE op expr)
 
 constE :: Expr -> Expr
 constE = LambdaE "_" Nothing
--- edit: maybe it should be TvarT or Evar instead of Nothing?
+-- edit: maybe it should be VarT or Evar instead of Nothing?
 
 
 constTrueE :: Expr

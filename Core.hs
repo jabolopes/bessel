@@ -446,8 +446,8 @@ fnDesc = [
 
   ("mkSeq", ForallT "a"
             (ArrowT
-             (ArrowT DynT (TvarT "a"))
-             (ArrowT DynT (SeqT (TvarT "a")))), m mkSeq),
+             (ArrowT DynT (VarT "a"))
+             (ArrowT DynT (SeqT (VarT "a")))), m mkSeq),
 
   ("addInt", ArrowT IntT (ArrowT IntT IntT), m addInt),
   ("addReal", ArrowT DoubleT (ArrowT DoubleT DoubleT), m addReal),
@@ -469,28 +469,28 @@ fnDesc = [
   ("o", ForallT "a"
          (ForallT "b"
           (ForallT "c"
-           (ArrowT (ArrowT (TvarT "b") (TvarT "c"))
-            (ArrowT (ArrowT (TvarT "a") (TvarT "b"))
-             (ArrowT (TvarT "a") (TvarT "c")))))), m o),
+           (ArrowT (ArrowT (VarT "b") (VarT "c"))
+            (ArrowT (ArrowT (VarT "a") (VarT "b"))
+             (ArrowT (VarT "a") (VarT "c")))))), m o),
   -- predicate combining forms
   ("plist", ArrowT (SeqT predT) predT, m plist),
   ("pand", ArrowT (SeqT predT) predT, m pand),
   ("por", ArrowT (SeqT predT) predT, m por),
   ("pal", ArrowT (TupT [predT, predT]) listPredT, m pal),
   ("par", ArrowT (TupT [predT, predT]) listPredT, m par),
-  ("al", ForallT "a" (ArrowT (TvarT "a") (ArrowT (SeqT (TvarT "a")) (SeqT (TvarT "a")))), m al),
-  ("ar", ForallT "a" (ArrowT (SeqT (TvarT "a")) (ArrowT (TvarT "a") (SeqT (TvarT "a")))), m ar),
+  ("al", ForallT "a" (ArrowT (VarT "a") (ArrowT (SeqT (VarT "a")) (SeqT (VarT "a")))), m al),
+  ("ar", ForallT "a" (ArrowT (SeqT (VarT "a")) (ArrowT (VarT "a") (SeqT (VarT "a")))), m ar),
   ("concat", ArrowT (SeqT (SeqT DynT)) (SeqT DynT), m concat),
-  ("hd", ForallT "a" (ArrowT (SeqT (TvarT "a")) (TvarT "a")), m hd),
-  ("tl", ForallT "a" (ArrowT (SeqT (TvarT "a")) (SeqT (TvarT "a"))), m tl),
-  ("hdr", ForallT "a" (ArrowT (SeqT (TvarT "a")) (TvarT "a")), m hdr),
-  ("tlr", ForallT "a" (ArrowT (SeqT (TvarT "a")) (SeqT (TvarT "a"))), m tlr),
+  ("hd", ForallT "a" (ArrowT (SeqT (VarT "a")) (VarT "a")), m hd),
+  ("tl", ForallT "a" (ArrowT (SeqT (VarT "a")) (SeqT (VarT "a"))), m tl),
+  ("hdr", ForallT "a" (ArrowT (SeqT (VarT "a")) (VarT "a")), m hdr),
+  ("tlr", ForallT "a" (ArrowT (SeqT (VarT "a")) (SeqT (VarT "a"))), m tlr),
   -- io
   ("out", ArrowT (SeqT (SeqT CharT)) (SeqT (SeqT CharT)), m out),
   -- misc
-  ("signal", ForallT "a" (ArrowT (TvarT "a") (ForallT "b" (TvarT "b"))), m signal),
+  ("signal", ForallT "a" (ArrowT (VarT "a") (ForallT "b" (VarT "b"))), m signal),
 
-  ("un#", ForallT "a" (ForallT "b" (ArrowT (TvarT "a") (TvarT "b"))), m unSharp),
+  ("un#", ForallT "a" (ForallT "b" (ArrowT (VarT "a") (VarT "b"))), m unSharp),
 
   ("fix#", fixSharpT, m fixSharp),
 
@@ -499,15 +499,15 @@ fnDesc = [
   -- and types
   ("cast#", ForallT "a"
             (ForallT "b"
-             (ArrowT (TvarT "a") (TvarT "b"))), m castSharp),
+             (ArrowT (VarT "a") (VarT "b"))), m castSharp),
 
   ("isAnd", ArrowT (SeqT predT) predT, m isAnd),
 
   ("mkAnd", ForallT "a"
             (ForallT "b"
-             (ArrowT (TvarT "a")
-              (ArrowT (TvarT "b")
-               (AndT (TvarT "a") (TvarT "b"))))), m mkAnd),
+             (ArrowT (VarT "a")
+              (ArrowT (VarT "b")
+               (AndT (VarT "a") (VarT "b"))))), m mkAnd),
 
   ("index", ArrowT IntT (ArrowT DynT DynT), m index)]
 
@@ -522,9 +522,9 @@ fixSharpT =
    (ForallT "b"
     (ArrowT
      (ArrowT
-      (ArrowT (TvarT "a") (TvarT "b"))
-      (ArrowT (TvarT "a") (TvarT "b")))
-      (ArrowT (TvarT "a") (TvarT "b"))))
+      (ArrowT (VarT "a") (VarT "b"))
+      (ArrowT (VarT "a") (VarT "b")))
+      (ArrowT (VarT "a") (VarT "b"))))
 fixSharp :: Val -> Val
 fixSharp (FnVal fn) = FnVal hof
   where hof val =
@@ -533,7 +533,7 @@ fixSharp (FnVal fn) = FnVal hof
 
 
 nullSharpT :: Type
-nullSharpT = ForallT "a" (SeqT (TvarT "a"))
+nullSharpT = ForallT "a" (SeqT (VarT "a"))
 
 nullSharp :: Val
 nullSharp = SeqVal []
