@@ -13,7 +13,7 @@ import System.Console.Readline
 import System.IO.Error
 
 import Data.Definition (Definition(..))
-import qualified Data.Definition as Definition (initial, val, typ, symbol, freeNames)
+import qualified Data.Definition as Definition (initial, name, val, typ, symbol, freeNames)
 import Data.Exception
 import Data.Expr (DefnKw(..), Expr(..))
 import Data.FileSystem (FileSystem)
@@ -78,7 +78,7 @@ typecheckerEither x = return $ either throwTypecheckerException id x
 
 stageFiles :: [SrcFile] -> IO FileSystem
 stageFiles srcfiles =
-    do liftIO $ putStrLn $ "Staging " ++ show n ++ " namespaces"
+    do putStrLn $ "Staging " ++ show n ++ " modules"
        loop FileSystem.empty srcfiles [1..]
     where n = length srcfiles
 
@@ -168,8 +168,8 @@ runSnippetM ln =
         putValM (Right t) (Just val) = putValT val t
 
 
-showModuleM :: Bool -> Bool -> Bool -> String -> ReplM ()
-showModuleM showAll showBrief showOrd filename =
+showModuleM :: Bool -> Bool -> Bool -> Bool -> String -> ReplM ()
+showModuleM showAll showBrief showOrd showTyp filename =
     let
         filesM
             | showAll = FileSystem.toAscList . fs <$> get
@@ -177,8 +177,8 @@ showModuleM showAll showBrief showOrd filename =
                 do fs <- fs <$> get
                    case FileSystem.lookup fs filename of
                      Nothing -> do liftIO $ do
-                                     putStrLn $ "namespace " ++ show filename ++ " has not been staged"
-                                     putStrLn $ "staged namespaces are " ++ intercalate ", " (map SrcFile.name (FileSystem.toAscList fs))
+                                     putStrLn $ "module " ++ show filename ++ " has not been staged"
+                                     putStrLn $ "staged modules are " ++ intercalate ", " (map SrcFile.name (FileSystem.toAscList fs))
                                    return []
                      Just srcfile -> return [srcfile]
     in
@@ -189,8 +189,17 @@ showModuleM showAll showBrief showOrd filename =
 
           showDefns srcfile
               | Map.null (SrcFile.defs srcfile) = "\n no definitions"
-              | showOrd = "\n " ++ intercalate "\n " (map show . SrcFile.defsAsc $ srcfile)
-              | otherwise = "\n " ++ intercalate "\n " (map show . Map.elems . SrcFile.defs $ srcfile)
+              | otherwise = "\n " ++ intercalate "\n " (map showDefn defns)
+            where showType (Left err) = err
+                  showType (Right typ) = show typ
+
+                  showDefn defn
+                    | showTyp = Definition.name defn ++ " :: " ++ showType (Definition.typ defn)
+                    | otherwise = show defn
+                  
+                  defns
+                    | showOrd = SrcFile.defsAsc $ srcfile
+                    | otherwise = Map.elems . SrcFile.defs $ srcfile
 
           showSrcFile srcfile =
               let str = SrcFile.name srcfile ++ " (" ++ show (SrcFile.t srcfile) ++ ")" ++ showDeps srcfile in
@@ -214,8 +223,8 @@ showRenamedM showAll filename =
                 do fs <- fs <$> get
                    case FileSystem.lookup fs filename of
                      Nothing -> do liftIO $ do
-                                     putStrLn $ "namespace " ++ show filename ++ " has not been staged"
-                                     putStrLn $ "staged namespaces are " ++ intercalate ", " (map SrcFile.name (FileSystem.toAscList fs))
+                                     putStrLn $ "module " ++ show filename ++ " has not been staged"
+                                     putStrLn $ "staged modules are " ++ intercalate ", " (map SrcFile.name (FileSystem.toAscList fs))
                                    return []
                      Just srcfile -> return [srcfile]
     in
@@ -274,13 +283,15 @@ data Flag
     = ShowAll
     | ShowBrief
     | ShowOrd
+    | ShowTyp
       deriving (Eq, Show)
 
 
 options :: [OptDescr Flag]
 options = [Option "a" [] (NoArg ShowAll) "Show all",
            Option "b" [] (NoArg ShowBrief) "Show brief",
-           Option "o" [] (NoArg ShowOrd) "Show in order"]
+           Option "o" [] (NoArg ShowOrd) "Show in order",
+           Option "t" [] (NoArg ShowTyp) "Show types only"]
 
 
 runCommandM :: String -> [Flag] -> [String] -> ReplM ()
@@ -293,21 +304,22 @@ runCommandM "def" opts (name:nonOpts) =
 runCommandM "def" _ _ =
   liftIO (putStrLn ":def <name>")
 
-runCommandM "show" opts ("namespace":nonOpts) =
+runCommandM "show" opts ("me":nonOpts) =
     let
         showAll = ShowAll `elem` opts
         showBrief = ShowBrief `elem` opts
         showOrd = ShowOrd `elem` opts
+        showTyp = ShowTyp `elem` opts
         filename | null nonOpts = ""
                  | otherwise = last nonOpts
     in
       if not showAll && null filename then
-          liftIO $ putStrLn ":show namespace [-b] [-o] [-a | <namespace>]"
+          liftIO $ putStrLn ":show me [-b] [-o] [-a | <me>]"
       else
-          showModuleM showAll showBrief showOrd filename
+          showModuleM showAll showBrief showOrd showTyp filename
 
 runCommandM "show" _ ["tokens"] =
-    liftIO $ putStrLn ":show tokens <namespace>"
+    liftIO $ putStrLn ":show tokens <me>"
 
 runCommandM "show" _ ("tokens":nonOpts) =
     showTokensM $ last nonOpts
@@ -319,15 +331,15 @@ runCommandM "show" opts ("renamed":nonOpts) =
                  | otherwise = last nonOpts
     in
       if not showAll && null filename then
-          liftIO $ putStrLn ":show renamed [-a | <namespace>]"
+          liftIO $ putStrLn ":show renamed [-a | <me>]"
       else
           showRenamedM showAll filename
 
 runCommandM "show" _ _ =
-    liftIO $ putStrLn ":show [ namespace | tokens | renamed ]"
+    liftIO $ putStrLn ":show [ me | tokens | renamed ]"
 
 runCommandM "load" _ [] =
-    liftIO $ putStrLn ":load [ <namespace> | <file/namespace> ]"
+    liftIO $ putStrLn ":load [ <me> | <file/me> ]"
 
 runCommandM "load" _ nonOpts =
     do fs <- initialFs <$> get

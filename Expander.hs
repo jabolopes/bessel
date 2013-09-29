@@ -49,13 +49,22 @@ genNameM name =
 -- def x = hd xs
 -- def y = hd (tl xs)
 -- @
-mkPatDefns :: Expr -> [PatDefn] -> [Expr]
-mkPatDefns val = map mkDefn
+--
+-- @
+-- xs@[x@Int, y@Real]
+-- @
+--
+-- @
+-- def x : Int = cast# (hd xs)
+-- def y : Real = cast# (hd xs)
+-- @
+mkBinderDefns :: Expr -> [PatDefn] -> [Expr]
+mkBinderDefns val = map mkDefn
   where mkDefn (name, Nothing, mods) =
           FnDecl NrDef name (foldAppE val mods)
 
         mkDefn (name, Just t, mods) =
-          FnDecl NrDef name (CastE t (foldAppE val mods))
+          FnDecl NrDef name (CastE t (foldAppE (appE "cast#" val) mods))
 
 
 -- |
@@ -69,14 +78,16 @@ mkPatDefns val = map mkDefn
 -- @
 lambdaBody :: [String] -> [Pat] -> Expr -> Expr
 lambdaBody args pats body =
-    let
-        defns = [ (arg, patDefns pat) | arg <- args | pat <- pats ]
-        defns' = concat [ mkPatDefns (idE arg) patDefns | (arg, patDefns) <- defns ]
-    in
-      if null defns' then
-          body
-      else
-          WhereE body defns'
+  let
+    defns = [ (arg, patType pat, patDefns pat) | arg <- args | pat <- pats ]
+    defns' = concat [ mkBinderDefns (castVal typ arg) defns | (arg, typ, defns) <- defns ]
+  in
+    if null defns' then
+      body
+    else
+      WhereE body defns'
+  where castVal Nothing arg = idE arg
+        castVal (Just typ) arg = CastE typ (appE "cast#" (idE arg))
 
 
 -- |

@@ -246,21 +246,21 @@ Constant:
 -- patterns
 
 Pat:
-    id '@ ' { namePat $1 (mkPredPat constTrueE) }
-  |    '@ ' { mkPredPat constTrueE }
+    id '@ ' { namePat $1 mkAllPat }
+  |    '@ ' { mkAllPat }
   | PatRest { $1 }
 
 PatNoSpace:
-    id '@'  { namePat $1 (mkPredPat constTrueE) }
-  |    '@'  { mkPredPat constTrueE }
+    id '@'  { namePat $1 mkAllPat }
+  |    '@'  { mkAllPat }
   | PatRest { $1 }
 
 PatRest:
 -- type patterns
-    id '@' PatType         { nameTypePat $1 $3 }
+    id '@' PatType         { namePat $1 (mkTypePat $3) }
   |    '@' PatType         { mkTypePat $2 }
 
--- expression patterns
+-- predicate patterns
   | id '@' '(' Expr ')'    { namePat $1 (mkPredPat $4) }
   |    '@' '(' Expr ')'    { mkPredPat $3 }
   | id '@' QualName        { namePat $1 (mkPredPat (IdE $3)) }
@@ -281,10 +281,10 @@ PatType:
   | '(' Monotype ')'     { $2 }
 
 CombPat:
-    Pat '+>' PatNoSpace { mkPat (idE "pal") [idE "hd", idE "tl"] [$1, $3] }
-  | Pat '<+' PatNoSpace { mkPat (idE "par") [idE "tlr", idE "hdr"] [$1, $3] }
-  | Pat '&&' PatNoSpace { mkPat (idE "pand") [idE "id", idE "id"] [$1, $3] }
-  | Pat '||' PatNoSpace { mkPat (idE "por") [idE "id", idE "id"] [$1, $3] }
+    Pat '+>' PatNoSpace { mkCombPat (idE "pal") TupT [idE "hd", idE "tl"] [$1, $3] }
+  | Pat '<+' PatNoSpace { mkCombPat (idE "par") TupT [idE "tlr", idE "hdr"] [$1, $3] }
+--  | Pat '&&' PatNoSpace { mkCombPat (idE "pand") DynT [idE "id", idE "id"] [$1, $3] }
+--  | Pat '||' PatNoSpace { mkCombPat (idE "por") DynT [idE "id", idE "id"] [$1, $3] }
   | Pat '&'  PatNoSpace { mkAndPat [$1, $3] }
 
 ListPat:

@@ -38,7 +38,7 @@ Type patterns
    ...
 
 
-Expression patterns
+Predicate patterns
 
   Predicate patterns always have '@' followed by an expression.  This
   expression can be either a qualified name denoting a predicate, or a

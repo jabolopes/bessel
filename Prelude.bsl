@@ -352,3 +352,6 @@ def map : (a -> b) -> [a] -> [b]
 -- def b : {Ola.i : Int | Ola.j : Real} -> Int
 --   v@ = Ola.i v
 
+
+def adeus : Dyn -> Int
+ l@[x@Int, y@, isInt] = 0

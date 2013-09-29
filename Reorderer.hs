@@ -66,26 +66,22 @@ splitDefn srcfile (CotypeDecl coT@(CoT obs)) =
 
         pat = namePat var (mkPredPat constTrueE)
 
-        body toFn i =
-          AppE
-          toFn
-          (AppE
-           (appE "index" (IntE i))
-           (appE "un#" (idE var)))
+        body t i =
+          CastE t $
+            appE "cast#" $
+              AppE
+                (appE "index" (IntE i))
+                (appE "un#" (idE var))
 
-        lambda toFn name i =
-          CondMacro [([pat], body toFn i)] name
+        lambda t name i =
+          CondMacro [([pat], body t i)] name
 
         defn (name, t) i =
-          let
-            str = QualName.fromQualName name
-            toFn = snd (Expr.typeFns t)
-          in
-          FnDecl NrDef str (CastE (ArrowT coT t) (lambda toFn str i))
+          let str = QualName.fromQualName name in
+          FnDecl NrDef str (CastE (ArrowT coT t) (lambda t str i))
 
 splitDefn srcfile (CotypeDecl orT@(OrT orTs)) =
   undefined
-  where 
 
 splitDefn srcfile expr@(FnDecl _ name _) =
     let
