@@ -42,11 +42,9 @@ tokens :-
   @comment            ;
 
   -- punctuation
-  "->"                { \_ -> TokenArrow }
   "@ "                { \_ -> TokenAtSpace }
   "@"                 { \_ -> TokenAt }
   "|"                 { \_ -> TokenBar }
-  ":"                 { \_ -> TokenColon }
   ","                 { \_ -> TokenComma }
   "."                 { \_ -> TokenDot }
   "="                 { \_ -> TokenEquiv }
@@ -63,7 +61,6 @@ tokens :-
   "as"                { \_ -> TokenAs }
   "def"               { \_ -> TokenDef }
   "me"                { \_ -> TokenMe }
-  "type"              { \_ -> TokenType }
   "use"               { \_ -> TokenUse }
   "where"             { \_ -> TokenWhere }
 
@@ -108,7 +105,7 @@ lex state@LexState { endLine = n, input } = lex' n input
   where lex' n input@(_, _, str) =
           case alexScan input 0 of
             AlexEOF -> (TokenEOF, state { beginLine = n, endLine = n, input = input })
-            AlexError _ -> throwLexerException str
+            AlexError _ -> throwLexerException n str
             AlexSkip  input' len -> lex' (line n (take len str)) input'
             AlexToken input' len action ->
               (action (take len str), state { beginLine = n,

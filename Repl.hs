@@ -13,7 +13,7 @@ import System.Console.Readline
 import System.IO.Error
 
 import Data.Definition (Definition(..))
-import qualified Data.Definition as Definition (initial, name, val, typ, symbol, freeNames)
+import qualified Data.Definition as Definition (initial, name, val, symbol, freeNames)
 import Data.Exception
 import Data.Expr (DefnKw(..), Expr(..))
 import Data.FileSystem (FileSystem)
@@ -29,7 +29,6 @@ import Parser (parseRepl)
 import Printer.PrettyExpr (prettyPrintSrcFile, prettyPrint)
 import Renamer (rename, renameDefinition)
 import Reorderer (reorder)
-import Typechecker (typecheck, typecheckDefinitionM)
 import Utils (split)
 
 
@@ -48,15 +47,9 @@ doPutValT :: Bool
 doPutValT = True
 
 
-putVal :: Show a => a -> IO ()
-putVal val =
-  when doPutVal (print val)
-
-
-putValT :: (Show a, Show b) => a -> b -> IO ()
-putValT val t =
-  when doPutValT $
-    putStrLn $ show t ++ " : " ++ show val
+putVal :: Show a => Maybe a -> IO ()
+putVal Nothing = putStrLn "Repl.putVal: failed to put value"
+putVal (Just val) = when doPutVal (print val)
 
 
 parserEither :: Either String a -> a
@@ -92,9 +85,6 @@ stageFiles srcfiles =
           expandFile fs = updateFs fs . expanderEither . expand fs
           renameFile fs = updateFs fs . renamerEither . rename fs
 
-          typecheckFile fs srcfile =
-              updateFs fs <$> typecheckerEither (typecheck fs srcfile)
-
           interpretFile fs srcfile =
               let srcfile' = interpret fs srcfile in
               (FileSystem.add fs srcfile', srcfile')
@@ -113,10 +103,7 @@ stageFiles srcfiles =
                  let (renfs, rens) = renameFile expfs exps
                  putStr "renamed, "
 
-                 (typfs, typs) <- typecheckFile renfs rens
-                 putStr "typechecked, "
-
-                 let (evalfs, evals) = interpretFile typfs typs
+                 let (evalfs, evals) = interpretFile renfs rens
                  putStrLn "evaluated"
 
                  loop evalfs srcss is
@@ -155,17 +142,11 @@ runSnippetM ln =
      let def = mkSnippet fs expr
          expDef = expanderEither (expandDefinition fs def)
          renDef = renamerEither (renameSnippet fs expDef)
-     case typecheckerEither (typecheckDefinitionM fs renDef) of
-       Left err -> liftIO $ putStrLn err
-       Right typDef -> do
-         -- edit: lazy evaluation problems with interpretDefinition
-         let evalDef = interpretDefinition fs typDef
-             interactive = FileSystem.get fs SrcFile.interactiveName
-             interactive' = SrcFile.updateDefinitions interactive [evalDef]
-         modify $ \s -> s { fs = FileSystem.add fs interactive' }
-         liftIO $ putValM (Definition.typ evalDef) (Definition.val evalDef)
-  where putValM (Left _) val = putVal val
-        putValM (Right t) (Just val) = putValT val t
+         evalDef = interpretDefinition fs renDef
+         interactive = FileSystem.get fs SrcFile.interactiveName
+         interactive' = SrcFile.updateDefinitions interactive [evalDef]
+     modify $ \s -> s { fs = FileSystem.add fs interactive' }
+     liftIO $ putVal (Definition.val evalDef)
 
 
 showModuleM :: Bool -> Bool -> Bool -> Bool -> String -> ReplM ()
@@ -189,13 +170,9 @@ showModuleM showAll showBrief showOrd showTyp filename =
 
           showDefns srcfile
               | Map.null (SrcFile.defs srcfile) = "\n no definitions"
-              | otherwise = "\n " ++ intercalate "\n " (map showDefn defns)
+              | otherwise = "\n " ++ intercalate "\n " (map show defns)
             where showType (Left err) = err
                   showType (Right typ) = show typ
-
-                  showDefn defn
-                    | showTyp = Definition.name defn ++ " :: " ++ showType (Definition.typ defn)
-                    | otherwise = show defn
                   
                   defns
                     | showOrd = SrcFile.defsAsc $ srcfile
@@ -235,17 +212,11 @@ showDefinition :: Definition -> String
 showDefinition def =
   intercalate " " [name def,
                    showSym def,
-                   showTyp def,
                    showVal def] ++ "\n\n" ++ showFreeNames def
   where showSym def =
           case Definition.symbol def of
             Just sym -> "(" ++ show sym ++ ")"
             _ -> ""
-
-        showTyp def =
-          case Definition.typ def of
-            Right typ -> ":: " ++ show typ
-            _ -> ":: ?"
 
         showVal def =
           case Definition.val def of
@@ -268,16 +239,7 @@ putDefinitionM def =
     putStrLn ""
     prettyPrint (fromJust (renExpr def))
     putStrLn ""
-    putStrLn ""
-    putTypExpr def
-    putStrLn ""
-  where putTypExpr def =
-          case typExpr def of
-            Just expr -> prettyPrint expr
-            _ -> do putStrLn "Failed to typecheck definition or evaluate typechecked expression"
-                    case Definition.typ def of
-                      Left err -> putStrLn err
-                      Right typ -> putStrLn (show typ)
+
 
 data Flag
     = ShowAll

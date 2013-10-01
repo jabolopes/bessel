@@ -46,8 +46,6 @@ evalM (AppE expr1 expr2) =
                       "\n\n\t expr2 = " ++ show expr2 ++
                       "\n\n\t -> val2 = " ++ show val2 ++ "\n"
 
-evalM (CastE _ expr) = evalM expr
-
 evalM (CondE ms blame) = evalMatches ms
     where evalMatches [] =
               error $ "Interpreter.evalM(CondE): non-exhaustive patterns in " ++ blame
@@ -57,9 +55,6 @@ evalM (CondE ms blame) = evalMatches ms
                  case pred' of
                    BoolVal False -> evalMatches ms
                    _ -> evalM val
-
-evalM CotypeDecl {} =
-  error "Interpreter.evalM(CotypeDecl): cotypes must be eliminated in reoderer"
 
 evalM (FnDecl Def str body) =
   error "Interpreter.evalM(FnDecl Def ...): recursive functions must be eliminated in previous stages"

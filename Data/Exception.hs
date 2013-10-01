@@ -37,8 +37,13 @@ throwInterpreterException :: String -> a
 throwInterpreterException = throw . InterpreterException
 
 
-throwLexerException :: String -> a
-throwLexerException = throw . LexerException
+-- | 'throwLexerException line str' throws a lexical exception where
+-- @line@ is the line number and 'str' is the 'String' containing the
+-- source program.
+throwLexerException :: Int -> String -> a
+throwLexerException n str =
+  throw . LexerException $ "line " ++ show n ++ ": " ++
+                           "\n\n\t " ++ (head . lines $ str)
 
 
 throwParserException :: String -> a

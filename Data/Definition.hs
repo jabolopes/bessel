@@ -2,7 +2,6 @@ module Data.Definition where
 
 import Data.Expr (Expr)
 import Data.Symbol (Symbol)
-import Data.Type (Type)
 import Monad.InterpreterM (Val)
 
 
@@ -12,12 +11,10 @@ data Definition
                , unprefixedUses :: [String]
                , prefixedUses :: [(String, String)]
                , symbol :: Maybe Symbol
-               , typ :: Either String Type
                , val :: Maybe Val
                , srcExpr :: Maybe Expr
                , expExpr :: Maybe Expr
-               , renExpr :: Maybe Expr
-               , typExpr :: Maybe Expr }
+               , renExpr :: Maybe Expr }
     deriving (Show)
 
 
@@ -28,9 +25,7 @@ initial name =
              , unprefixedUses = []
              , prefixedUses = []
              , symbol = Nothing
-             , typ = Left ""
              , val = Nothing
              , srcExpr = Nothing
              , expExpr = Nothing
-             , renExpr = Nothing
-             , typExpr = Nothing }
+             , renExpr = Nothing }

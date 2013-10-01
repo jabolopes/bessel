@@ -15,7 +15,6 @@ import Data.Expr
 import qualified Data.Expr as Expr (appE, freeVars, idE)
 import Data.QualName
 import qualified Data.QualName as QualName (fromQualName)
-import Data.Type
 import Renamer (renameDeclaration)
 
 
@@ -60,12 +59,8 @@ genNameM name =
 -- @
 mkBinderDefns :: Expr -> [PatDefn] -> [Expr]
 mkBinderDefns val = map mkDefn
-  where mkDefn (name, Nothing, mods) =
+  where mkDefn (name, mods) =
           FnDecl NrDef name (foldAppE val mods)
-
-        mkDefn (name, Just t, mods) =
-          FnDecl NrDef name (CastE t (foldAppE (appE "cast#" val) mods))
-
 
 -- |
 -- @
@@ -79,16 +74,13 @@ mkBinderDefns val = map mkDefn
 lambdaBody :: [String] -> [Pat] -> Expr -> Expr
 lambdaBody args pats body =
   let
-    defns = [ (arg, patType pat, patDefns pat) | arg <- args | pat <- pats ]
-    defns' = concat [ mkBinderDefns (castVal typ arg) defns | (arg, typ, defns) <- defns ]
+    defns = [ (arg, patDefns pat) | arg <- args | pat <- pats ]
+    defns' = concat [ mkBinderDefns (idE arg) defns | (arg, defns) <- defns ]
   in
     if null defns' then
       body
     else
       WhereE body defns'
-  where castVal Nothing arg = idE arg
-        castVal (Just typ) arg = CastE typ (appE "cast#" (idE arg))
-
 
 -- |
 -- @
@@ -193,8 +185,6 @@ expandM (SeqE exprs) = oneM . SeqE <$> mapM expandOneM exprs
 expandM (AppE expr1 expr2) =
     oneM <$> ((AppE <$> expandOneM expr1) `ap` expandOneM expr2)
 
-expandM (CastE typ expr) = CastE typ <$> expandOneM expr
-
 expandM (CondMacro ms blame) =
     expandCondMacro ms blame
 
@@ -204,9 +194,6 @@ expandM (CondE ms blame) =
               do expr1' <- expandOneM expr1
                  expr2' <- expandOneM expr2
                  return (expr1', expr2')
-
-expandM CotypeDecl {} =
-  error "Expander.expandM(CotypeDecl): cotypes must be eliminated in reorderer"
 
 expandM expr@(FnDecl kw name body) =
     do body' <- expandOneM body

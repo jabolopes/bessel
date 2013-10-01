@@ -21,7 +21,6 @@ import Data.Expr (DefnKw(..), Expr(..))
 import qualified Data.Expr as Expr (appE, freeVars, idE)
 import qualified Data.QualName as QualName (fromQualName)
 import Data.Symbol (Symbol (..))
-import Data.Type (Type(ArrowT))
 import Utils (rebaseName, flattenId, splitId)
 
 
@@ -191,9 +190,6 @@ renameM (SeqE exprs) = (:[]) . SeqE <$> mapM renameOneM exprs
 renameM (AppE expr1 expr2) =
     (:[]) <$> ((AppE <$> renameOneM expr1) `ap` renameOneM expr2)
 
-renameM (CastE typ expr) =
-  (:[]) <$> CastE typ <$> renameOneM expr
-
 renameM CondMacro {} =
     error "Renamer.renameM(CondMacro): macros must be expanded in expander"
 
@@ -203,9 +199,6 @@ renameM (CondE ms blame) =
               do expr1' <- renameOneM expr1
                  expr2' <- renameOneM expr2
                  return (expr1', expr2')
-
-renameM CotypeDecl {} =
-  error "Renaner.renameM(CotypeDecl): cotypes must be eliminated in reorderer"
 
 renameM (FnDecl Def name body) =
     if name `elem` Expr.freeVars body

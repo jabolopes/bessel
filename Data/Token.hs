@@ -2,11 +2,9 @@ module Data.Token where
 
 data Token
      -- punctuation
-     = TokenArrow
-     | TokenAt
+     = TokenAt
      | TokenAtSpace
      | TokenBar
-     | TokenColon
      | TokenComma
      | TokenDot
      | TokenEquiv
@@ -23,7 +21,6 @@ data Token
      | TokenAs
      | TokenDef
      | TokenMe
-     | TokenType
      | TokenUse
      | TokenWhere
 

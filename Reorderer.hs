@@ -15,7 +15,6 @@ import Data.Expr
 import qualified Data.Expr as Expr
 import Data.QualName (QualName)
 import qualified Data.QualName as QualName (fromQualName)
-import Data.Type
 import Utils (flattenId)
 
 
@@ -49,39 +48,6 @@ import Utils (flattenId)
 --         Left _ -> error "Reorderer: mutually recursive functions are not implemented"
 --         Right defns' -> Namespace uses (stxs' ++ defns')
 
-
--- |
--- @
--- (f, Int)
--- @
--- 
--- @
--- sig f : {f:Int} -> Int
--- def f x@ = index 0 (un# x)
--- @
-splitDefn :: SrcFile -> Expr -> [Definition]
-splitDefn srcfile (CotypeDecl coT@(CoT obs)) =
-  concat [ splitDefn srcfile (defn ob i) | ob <- obs | i <- [0..] ]
-  where var = "x"
-
-        pat = namePat var (mkPredPat constTrueE)
-
-        body t i =
-          CastE t $
-            appE "cast#" $
-              AppE
-                (appE "index" (IntE i))
-                (appE "un#" (idE var))
-
-        lambda t name i =
-          CondMacro [([pat], body t i)] name
-
-        defn (name, t) i =
-          let str = QualName.fromQualName name in
-          FnDecl NrDef str (CastE (ArrowT coT t) (lambda t str i))
-
-splitDefn srcfile (CotypeDecl orT@(OrT orTs)) =
-  undefined
 
 splitDefn srcfile expr@(FnDecl _ name _) =
     let

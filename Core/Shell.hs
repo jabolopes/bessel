@@ -9,7 +9,6 @@ import System.Process hiding (shell)
 
 import Core hiding (fnDesc, srcfile)
 import Data.SrcFile
-import Data.Type
 import Monad.InterpreterM
 
 

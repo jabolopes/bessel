@@ -20,7 +20,7 @@ printNameM name =
 printPatM pat =
   do case patDefns pat of
        [] -> return ()
-       (arg, _, _):_ -> putPrinter arg
+       (arg, _):_ -> putPrinter arg
      putPrinter "@("
      printExprM (patPred pat)
      putPrinter ")"
@@ -66,10 +66,6 @@ printExprM (AppE expr1 expr2) =
                   do putPrinter "("
                      printExprM expr
                      putPrinter ")"
-
-printExprM (CastE typ expr) =
-  do putPrinter $ show typ ++ " : "
-     printExprM expr
 
 printExprM (CondMacro ms blame) =
   do putMatches ms

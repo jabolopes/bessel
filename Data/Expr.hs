@@ -3,15 +3,13 @@ module Data.Expr where
 import Data.List (nub, sort)
 
 import Data.QualName
-import Data.Type
 
 
-type PatDefn = (String, Maybe Type, [Expr])
+type PatDefn = (String, [Expr])
 
 
 data Pat
   = Pat { patPred :: Expr
-        , patType :: Maybe Type
         , patDefns :: [PatDefn] }
     deriving (Show)
 
@@ -29,57 +27,29 @@ mkPatType typ _ = error $ "Expr.mkGeneralPat.mkPatType: unhandled case for type 
 
 mkPatDefns :: [[Expr]] -> [Pat] -> [PatDefn]
 mkPatDefns [] [] = []    
-mkPatDefns (mod:mods) (Pat _ _ defns:pats) =
+mkPatDefns (mod:mods) (Pat _ defns:pats) =
   modDefns mod defns ++ mkPatDefns mods pats
   where modDefns _ [] = []
-        modDefns mod ((str, t, mod'):defns) =
-          (str, t, mod' ++ mod):modDefns mod defns
+        modDefns mod ((str, mod'):defns) =
+          (str, mod' ++ mod):modDefns mod defns
 
 
 mkAllPat :: Pat
 mkAllPat =
   Pat { patPred = constTrueE
-      , patType = Nothing
-      , patDefns = [] }
-
-
-isFn :: Type -> Expr
-isFn BoolT = idE "isBool"
-isFn IntT = idE "isInt"
-isFn DoubleT = idE "isReal"
-isFn CharT = idE "isChar"
-isFn (SeqT seqT) = appE "isSeq" (isFn seqT)
-isFn DynT = idE "isDyn"
-isFn (OrT orTs) = appE "por" $ SeqE $ map isFn orTs
-
-
-mkTypePat :: Type -> Pat
-mkTypePat t =
-  Pat { patPred = isFn t
-      , patType = Just t
       , patDefns = [] }
 
 
 mkPredPat :: Expr -> Pat
 mkPredPat pred =
   Pat { patPred = pred
-      , patType = Just DynT
       , patDefns = [] }
 
 
-mkGeneralPat :: Expr -> Type -> [[Expr]] -> [Pat] -> Pat
-mkGeneralPat pred t mods pats =
+mkGeneralPat :: Expr -> [[Expr]] -> [Pat] -> Pat
+mkGeneralPat pred mods pats =
     Pat { patPred = mkPatPred pred pats
-        , patType = Just (mkPatType t pats)
         , patDefns = mkPatDefns mods pats }
-
-
-listPatType :: Char -> [Type] -> [Pat] -> Type
-listPatType c ts [] = rebuildForallT (TupT (reverse ts))
-listPatType c ts (pat:pats) =
-  case patType pat of
-    Nothing -> listPatType (succ c) (VarT [c]:ts) pats
-    Just t -> listPatType c (t:ts) pats
 
 
 -- edit: document why this function has a special case for the empty
@@ -93,53 +63,39 @@ listPatType c ts (pat:pats) =
 mkListPat :: [Pat] -> Pat
 mkListPat [] =
   Pat { patPred = appE "plist" (SeqE [])
-      , patType = Just $ ForallT "a" $ SeqT $ VarT "a"
       , patDefns = [] }
 
 -- edit: 'DynT' should be 'SeqT' or 'ConT "Seq"'
 mkListPat pats =
   Pat { patPred = mkPatPred (idE "plist") pats
-      , patType = Just (listPatType 'a' [] pats)
       , patDefns = mkPatDefns patMods pats }
   where listRef 1 = [idE "hd"]
         listRef i = idE "tl":listRef (i - 1)
         patMods = map (reverse . listRef) [1..length pats]
 
 
-combPatType :: ([Type] -> Type) -> Char -> [Type] -> [Pat] -> Type
-combPatType typ c ts [] = rebuildForallT (typ (reverse ts))
-combPatType typ c ts (pat:pats) =
-  case patType pat of
-    Nothing -> combPatType typ (succ c) (VarT [c]:ts) pats
-    Just t -> combPatType typ c (t:ts) pats
-
-
-mkCombPat :: Expr -> ([Type] -> Type) -> [Expr] -> [Pat] -> Pat
-mkCombPat pred typ mods pats =
+mkCombPat :: Expr -> [Expr] -> [Pat] -> Pat
+mkCombPat pred mods pats =
   Pat { patPred = mkPatPred pred pats
-      , patType = Just (combPatType typ 'a' [] pats)
       , patDefns = mkPatDefns (map (:[]) mods) pats }
 
 
 -- edit: 'DynT' should be 'ConT "And"'
 mkAndPat :: [Pat] -> Pat
 mkAndPat pats =
-  mkGeneralPat (idE "isAnd") DynT (map andRef [1..length pats]) pats
+  mkGeneralPat (idE "isAnd") (map andRef [1..length pats]) pats
   where andRef 1 = [idE "hd", idE "un#"]
         andRef i = idE "tl":andRef (i - 1)
 
 
 namePat :: String -> Pat -> Pat
 namePat name pat =
-  pat { patDefns = (name, patType pat, []):patDefns pat }
+  pat { patDefns = (name, []):patDefns pat }
 
 
 data DefnKw
   = Def | NrDef
     deriving (Show)
-
-
-type Observation = (String, Type)
 
 
 data Expr
@@ -151,7 +107,6 @@ data Expr
     | SeqE [Expr]
 
     | AppE Expr Expr
-    | CastE Type Expr
 
     -- |
     -- This construct is not available in the parser
@@ -173,17 +128,12 @@ data Expr
     -- @
     | CondE [(Expr, Expr)] String
 
-    -- info: observations (1st argument) are sorted in Parser
-    | CotypeDecl Type
-
     | FnDecl DefnKw String Expr
 
     | LambdaE String (Maybe String) Expr
 
     -- info: initialization vals (1st argument) are sorted in Parser
     | MergeE [(QualName, Expr)]
-
-    | TypeE Type
 
     | WhereE Expr [Expr]
       deriving (Show)
@@ -220,7 +170,6 @@ isValueE RealE {} = True
 isValueE CharE {} = True
 isValueE SeqE {} = True
 isValueE LambdaE {} = True
-isValueE (CastE _ expr) = isValueE expr
 isValueE _ = False
 
 
@@ -294,9 +243,7 @@ freeVarsList env fvars (x:xs) =
 freeVarsPat :: [String] -> [String] -> Pat -> ([String], [String])
 freeVarsPat env fvars pat =
   let (env', fvars') = freeVars' env fvars (patPred pat) in
-  freeVarsList (env' ++ map patName (patDefns pat)) fvars' (concatMap patMods (patDefns pat))
-  where patName (x, _, _) = x
-        patMods (_, _, x) = x
+  freeVarsList (env' ++ map fst (patDefns pat)) fvars' (concatMap snd (patDefns pat))
 
 
 freeVarsPats :: [String] -> [String] -> [Pat] -> ([String], [String])
@@ -325,9 +272,6 @@ freeVars' env fvars (SeqE exprs) =
 freeVars' env fvars (AppE expr1 expr2) =
     let (env', fvars') = freeVars' env fvars expr1 in
     freeVars' env' fvars' expr2
-
-freeVars' env fvars (CastE _ expr) =
-  freeVars' env fvars expr
 
 freeVars' env fvars (CondMacro ms _) =
     loop env fvars ms
@@ -367,8 +311,6 @@ freeVars' env fvars (MergeE vals) =
               let (env', fvars') = freeVars' env fvars expr in
               loop env' fvars' vals
 
-freeVars' env fvars TypeE {} = (env, fvars)
-
 freeVars' env fvars (WhereE expr exprs) =
     let (env', fvars') = loop env fvars exprs in
     freeVars' env' fvars' expr
@@ -376,9 +318,6 @@ freeVars' env fvars (WhereE expr exprs) =
           loop env fvars (expr:exprs) =
               let (env', fvars') = freeVars' env fvars expr in
               loop env' fvars' exprs
-
-freeVars' _ _ _ =
-    error "freeVars': unhandled case"
 
 
 freeVars :: Expr -> [String]

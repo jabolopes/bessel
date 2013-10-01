@@ -17,7 +17,6 @@ import Data.SrcFile
 import Data.Expr
 import Data.QualName (mkQualName)
 import Data.Token
-import Data.Type
 import Lexer
 import Monad.ParserM
 import qualified Monad.ParserM as ParserM
@@ -60,12 +59,10 @@ checkUseList uses =
 
 %token
   -- punctuation
-  '->'    { TokenArrow }
   '@'     { TokenAt }
   '@ '    { TokenAtSpace }
   '|'     { TokenBar }
   '.'     { TokenDot }
-  ':'     { TokenColon }
   ','     { TokenComma }
   '='     { TokenEquiv }
 
@@ -81,7 +78,6 @@ checkUseList uses =
   as      { TokenAs }
   def     { TokenDef }
   me      { TokenMe }
-  type    { TokenType }
   use     { TokenUse }
   where   { TokenWhere }
 
@@ -167,15 +163,10 @@ DefnList:
 
 Defn:
     FnDefn   { $1 }
-  | TypeDefn { $1 }
 
 FnDefn:
-    def Name ':' Type DefnMatches { FnDecl Def $2 (CastE $4 (CondMacro $5 $2)) }
-  | def Name ':' Type '=' Expr    { FnDecl Def $2 (CastE $4 $6) }
-
-TypeDefn:
-    type Cotype { CotypeDecl $2 }
-  | type OrType { CotypeDecl $2 }
+    def Name DefnMatches { FnDecl Def $2 (CondMacro $3 $2) }
+  | def Name '=' Expr    { FnDecl Def $2 $4 }
 
 DefnMatches:
     DefnMatches '|' PatList '=' Expr  { $1 ++ [($3, $5)] }
@@ -256,12 +247,8 @@ PatNoSpace:
   | PatRest { $1 }
 
 PatRest:
--- type patterns
-    id '@' PatType         { namePat $1 (mkTypePat $3) }
-  |    '@' PatType         { mkTypePat $2 }
-
 -- predicate patterns
-  | id '@' '(' Expr ')'    { namePat $1 (mkPredPat $4) }
+    id '@' '(' Expr ')'    { namePat $1 (mkPredPat $4) }
   |    '@' '(' Expr ')'    { mkPredPat $3 }
   | id '@' QualName        { namePat $1 (mkPredPat (IdE $3)) }
   |    '@' QualName        { mkPredPat (IdE $2) }
@@ -274,17 +261,11 @@ PatRest:
   | id '@' '(' CombPat ')' { namePat $1 $4 }
   |        '(' CombPat ')' { $2 }
 
-PatType:
-    '(' MonotypeList ')' { TupT $2 }
-  | '[' Monotype ']'     { SeqT $2 }
-  | TypeId               { $1 }
-  | '(' Monotype ')'     { $2 }
-
 CombPat:
-    Pat '+>' PatNoSpace { mkCombPat (idE "pal") TupT [idE "hd", idE "tl"] [$1, $3] }
-  | Pat '<+' PatNoSpace { mkCombPat (idE "par") TupT [idE "tlr", idE "hdr"] [$1, $3] }
---  | Pat '&&' PatNoSpace { mkCombPat (idE "pand") DynT [idE "id", idE "id"] [$1, $3] }
---  | Pat '||' PatNoSpace { mkCombPat (idE "por") DynT [idE "id", idE "id"] [$1, $3] }
+    Pat '+>' PatNoSpace { mkCombPat (idE "pal") [idE "hd", idE "tl"] [$1, $3] }
+  | Pat '<+' PatNoSpace { mkCombPat (idE "par") [idE "tlr", idE "hdr"] [$1, $3] }
+--  | Pat '&&' PatNoSpace { mkCombPat (idE "pand") [idE "id", idE "id"] [$1, $3] }
+--  | Pat '||' PatNoSpace { mkCombPat (idE "por") [idE "id", idE "id"] [$1, $3] }
   | Pat '&'  PatNoSpace { mkAndPat [$1, $3] }
 
 ListPat:
@@ -306,62 +287,6 @@ PatList2:
 ExprList:
     ExprList ',' Expr   { $1 ++ [$3] }
   | Expr                { [$1] }
-
-
--- types
-
-Monotype:
-    Monotype '&' Monotype  { AndT $1 $3 }
-  | Monotype '->' Monotype { ArrowT $1 $3 }
-  | '(' MonotypeList ')'   { TupT $2 }
-  | '[' Monotype ']'       { SeqT $2 }
-  | TypeId                { $1 }
-  | '(' Monotype ')'       { $2 }
-
-MonotypeList:
-    MonotypeList ',' Monotype { $1 ++ [$3] }
-  | Monotype ',' Monotype     { [$1, $3] }
-
-TypeId:
-    typeId { case $1 of
-               "Bool" -> BoolT
-               "Int" -> IntT
-               "Real" -> DoubleT
-               "Char" -> CharT
-               "Dyn" -> DynT }
-
-Type:
-    TypeAux { rebuildForallT $1 }
-
-TypeAux:
-    TypeAux '->' TypeAux { ArrowT $1 $3 }
-  | TypeAux '&' TypeAux  { AndT $1 $3 }
-  | '(' TypeList ')'     { TupT $2 }
-  | '[' TypeAux ']'      { SeqT $2 }
-  | Cotype               { $1 }
-  | OrType               { $1 }
-  | TypeId               { $1 }
-  | id                   { VarT $1 }
-  | '(' TypeAux ')'      { $2 }
-
-TypeList:
-    TypeList ',' TypeAux { $1 ++ [$3] }
-  | TypeAux ',' TypeAux  { [$1, $3] }
-
-Cotype:
-    '{' CotypeObservations '}' { CoT (sortWith fst $2) }
-
-CotypeObservations:
-    CotypeObservations '|' QualName ':' Type { $1 ++ [($3, $5)] }
-  | QualName ':' Type                        { [($1, $3)] }
-
-OrType:
-    '{' OrTypeCons '}' { OrT $2 }
-
-OrTypeCons:
-    OrTypeCons '|' TypeAux { $1 ++ [$3] }
-  | TypeAux '|' TypeAux    { [$1, $3] }
-
 
 -- identifiers
 

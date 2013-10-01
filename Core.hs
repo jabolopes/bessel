@@ -16,7 +16,6 @@ import Data.Exception
 import Data.SrcFile
 import qualified Data.SrcFile as SrcFile (initial)
 import Data.Symbol
-import Data.Type
 import Monad.InterpreterM
 import Renamer
 
@@ -398,142 +397,96 @@ m :: (Val -> Val) -> Val
 m fn = FnVal $ \val -> return $ fn val
 
 
-predT :: Type
-predT = ArrowT DynT BoolT
-
-
-listPredT :: Type
-listPredT = ArrowT (SeqT DynT) BoolT
-
-
-typeDesc :: TypeDesc
-typeDesc =
-    [("Bool", BoolT),
-     ("Int", IntT),
-     ("Double", DoubleT),
-     ("Char", CharT),
-     ("Dyn", DynT)]
-
-
 fnDesc :: FnDesc
 fnDesc = [
   -- constants
-  ("false", BoolT, false),
-  ("true", BoolT, true),
+  ("false", false),
+  ("true", true),
   -- predicates
-  ("isBool", predT, m isBool),
-  ("isInt", predT, m isInt),
-  ("isReal", predT, m isReal),
-  ("isChar", predT, m isChar),
-  ("isFn", predT, m isFn),
-  ("isObj", predT, m isObj),
-  ("isSeq", ArrowT predT predT, m isSeq),
+  ("isBool", m isBool),
+  ("isInt", m isInt),
+  ("isReal", m isReal),
+  ("isChar", m isChar),
+  ("isFn", m isFn),
+  ("isObj", m isObj),
+  ("isSeq", m isSeq),
   -- comparison functions
-  ("eqBool", ArrowT BoolT (ArrowT BoolT BoolT), m eqBool),
-  ("eqInt", ArrowT IntT (ArrowT IntT BoolT), m eqInt),
-  ("eqReal", ArrowT DoubleT (ArrowT DoubleT BoolT), m eqReal),
-  ("eqChar", ArrowT CharT (ArrowT CharT BoolT), m eqChar),
-  ("ltBool", ArrowT BoolT (ArrowT BoolT BoolT), m ltBool),
-  ("ltInt", ArrowT IntT (ArrowT IntT BoolT), m ltInt),
-  ("ltReal", ArrowT DoubleT (ArrowT DoubleT BoolT), m ltReal),
-  ("ltChar", ArrowT CharT (ArrowT CharT BoolT), m ltChar),
-  ("ltSeq", ArrowT DynT (ArrowT DynT BoolT), m ltSeq),
+  ("eqBool", m eqBool),
+  ("eqInt", m eqInt),
+  ("eqReal", m eqReal),
+  ("eqChar", m eqChar),
+  ("ltBool", m ltBool),
+  ("ltInt", m ltInt),
+  ("ltReal", m ltReal),
+  ("ltChar", m ltChar),
+  ("ltSeq", m ltSeq),
   -- arithmetic functions
-  ("mkBool", ArrowT DynT BoolT, m mkBool),
-  ("mkInt", ArrowT DynT IntT, m mkInt),
-  ("mkReal", ArrowT DynT DoubleT, m mkReal),
-  ("mkChar", ArrowT DynT CharT, m mkChar),
+  ("mkBool", m mkBool),
+  ("mkInt", m mkInt),
+  ("mkReal", m mkReal),
+  ("mkChar", m mkChar),
 
-  ("mkSeq", ForallT "a"
-            (ArrowT
-             (ArrowT DynT (VarT "a"))
-             (ArrowT DynT (SeqT (VarT "a")))), m mkSeq),
+  ("mkSeq", m mkSeq),
 
-  ("addInt", ArrowT IntT (ArrowT IntT IntT), m addInt),
-  ("addReal", ArrowT DoubleT (ArrowT DoubleT DoubleT), m addReal),
-  ("subInt", ArrowT IntT (ArrowT IntT IntT), m subInt),
-  ("subReal", ArrowT DoubleT (ArrowT DoubleT DoubleT), m subReal),
-  ("mulInt", ArrowT IntT (ArrowT IntT IntT), m mulInt),
-  ("mulReal", ArrowT DoubleT (ArrowT DoubleT DoubleT), m mulReal),
-  ("divInt", ArrowT IntT (ArrowT IntT IntT), m divInt),
-  ("divReal", ArrowT DoubleT (ArrowT DoubleT DoubleT), m divReal),
-  ("absInt", ArrowT IntT IntT, m absInt),
-  ("absReal", ArrowT DoubleT DoubleT, m absReal),
-  ("ceilingReal", ArrowT DoubleT IntT, m ceilingReal),
-  ("floorReal", ArrowT DoubleT IntT, m floorReal),
-  ("negInt", ArrowT IntT IntT, m negInt),
-  ("negReal", ArrowT DoubleT DoubleT, m negReal),
-  ("remInt", ArrowT IntT (ArrowT IntT IntT), m remInt),
+  ("addInt", m addInt),
+  ("addReal", m addReal),
+  ("subInt", m subInt),
+  ("subReal", m subReal),
+  ("mulInt", m mulInt),
+  ("mulReal", m mulReal),
+  ("divInt", m divInt),
+  ("divReal", m divReal),
+  ("absInt", m absInt),
+  ("absReal", m absReal),
+  ("ceilingReal", m ceilingReal),
+  ("floorReal", m floorReal),
+  ("negInt", m negInt),
+  ("negReal", m negReal),
+  ("remInt", m remInt),
   -- combining forms
-  ("apply", ArrowT (TupT [ArrowT DynT DynT, DynT]) DynT, FnVal apply),
-  ("o", ForallT "a"
-         (ForallT "b"
-          (ForallT "c"
-           (ArrowT (ArrowT (VarT "b") (VarT "c"))
-            (ArrowT (ArrowT (VarT "a") (VarT "b"))
-             (ArrowT (VarT "a") (VarT "c")))))), m o),
+  ("apply", FnVal apply),
+  ("o", m o),
   -- predicate combining forms
-  ("plist", ArrowT (SeqT predT) predT, m plist),
-  ("pand", ArrowT (SeqT predT) predT, m pand),
-  ("por", ArrowT (SeqT predT) predT, m por),
-  ("pal", ArrowT (TupT [predT, predT]) listPredT, m pal),
-  ("par", ArrowT (TupT [predT, predT]) listPredT, m par),
-  ("al", ForallT "a" (ArrowT (VarT "a") (ArrowT (SeqT (VarT "a")) (SeqT (VarT "a")))), m al),
-  ("ar", ForallT "a" (ArrowT (SeqT (VarT "a")) (ArrowT (VarT "a") (SeqT (VarT "a")))), m ar),
-  ("concat", ArrowT (SeqT (SeqT DynT)) (SeqT DynT), m concat),
-  ("hd", ForallT "a" (ArrowT (SeqT (VarT "a")) (VarT "a")), m hd),
-  ("tl", ForallT "a" (ArrowT (SeqT (VarT "a")) (SeqT (VarT "a"))), m tl),
-  ("hdr", ForallT "a" (ArrowT (SeqT (VarT "a")) (VarT "a")), m hdr),
-  ("tlr", ForallT "a" (ArrowT (SeqT (VarT "a")) (SeqT (VarT "a"))), m tlr),
+  ("plist", m plist),
+  ("pand", m pand),
+  ("por", m por),
+  ("pal", m pal),
+  ("par", m par),
+  ("al", m al),
+  ("ar", m ar),
+  ("concat", m concat),
+  ("hd", m hd),
+  ("tl", m tl),
+  ("hdr", m hdr),
+  ("tlr", m tlr),
   -- io
-  ("out", ArrowT (SeqT (SeqT CharT)) (SeqT (SeqT CharT)), m out),
+  ("out", m out),
   -- misc
-  ("signal", ForallT "a" (ArrowT (VarT "a") (ForallT "b" (VarT "b"))), m signal),
+  ("signal", m signal),
 
-  ("un#", ForallT "a" (ForallT "b" (ArrowT (VarT "a") (VarT "b"))), m unSharp),
+  ("un#", m unSharp),
 
-  ("fix#", fixSharpT, m fixSharp),
+  ("fix#", m fixSharp),
 
-  ("null#", nullSharpT, nullSharp),
+  ("null#", nullSharp),
 
-  -- and types
-  ("cast#", ForallT "a"
-            (ForallT "b"
-             (ArrowT (VarT "a") (VarT "b"))), m castSharp),
+  ("isAnd", m isAnd),
 
-  ("isAnd", ArrowT (SeqT predT) predT, m isAnd),
+  ("mkAnd", m mkAnd),
 
-  ("mkAnd", ForallT "a"
-            (ForallT "b"
-             (ArrowT (VarT "a")
-              (ArrowT (VarT "b")
-               (AndT (VarT "a") (VarT "b"))))), m mkAnd),
-
-  ("index", ArrowT IntT (ArrowT DynT DynT), m index)]
+  ("index", m index)]
 
 
 unSharp :: Val -> Val
 unSharp (TypeVal val) = val
 
 
--- | fixSharp : ((a -> b) -> a -> b) -> a -> b
-fixSharpT =
-  ForallT "a"
-   (ForallT "b"
-    (ArrowT
-     (ArrowT
-      (ArrowT (VarT "a") (VarT "b"))
-      (ArrowT (VarT "a") (VarT "b")))
-      (ArrowT (VarT "a") (VarT "b"))))
 fixSharp :: Val -> Val
 fixSharp (FnVal fn) = FnVal hof
   where hof val =
           do FnVal fn' <- fn (FnVal hof)
              fn' val
 
-
-nullSharpT :: Type
-nullSharpT = ForallT "a" (SeqT (VarT "a"))
 
 nullSharp :: Val
 nullSharp = SeqVal []
@@ -565,4 +518,4 @@ isAnd (SeqVal [FnVal hdFn, FnVal tlFn]) = FnVal hof
              else tlFn (TypeVal (SeqVal vals))
 
 srcfile :: SrcFile
-srcfile = mkCoreSrcFile "Core" [] typeDesc fnDesc
+srcfile = mkCoreSrcFile "Core" [] fnDesc

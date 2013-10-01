@@ -6,11 +6,10 @@ import Data.Map (Map)
 import qualified Data.Map as Map ((!), empty, fromList, insert, lookup, mapKeys, mapMaybe, union, toList)
 import Data.Maybe (fromMaybe)
 
-import Data.Definition (Definition (symbol, typ, val))
-import qualified Data.Definition as Definition (name, initial, val, typ, symbol)
+import Data.Definition (Definition (symbol, val))
+import qualified Data.Definition as Definition (name, initial, val, symbol)
 import Data.Expr (Expr)
 import Data.Symbol (Symbol (..))
-import Data.Type (Type)
 import Monad.InterpreterM (Val)
 
 
@@ -55,22 +54,16 @@ symbols :: SrcFile -> Map String Symbol
 symbols = Map.mapMaybe Definition.symbol . defs
 
 
-type TypeDesc = [(String, Type)]
-type FnDesc = [(String, Type, Val)]
+type FnDesc = [(String, Val)]
 
 
-mkCoreSrcFile :: String -> [String] -> TypeDesc -> FnDesc -> SrcFile
-mkCoreSrcFile srcfileName deps typeDesc fnDesc =
+mkCoreSrcFile :: String -> [String] -> FnDesc -> SrcFile
+mkCoreSrcFile srcfileName deps fnDesc =
     addDefinitions (initial CoreT srcfileName deps) defs
     where defName name = srcfileName ++ "." ++ name
           fnSymbol = FnSymbol . defName
           
-          defs =
-            let
-                typs = [ (Definition.initial (defName x)) { symbol = Just (TypeSymbol i), typ = Right y } | (x, y) <- typeDesc | i <- [0..] ]
-                fns = [ (Definition.initial (defName x)) { symbol = Just (fnSymbol x), typ = Right y, val = Just z } | (x, y, z) <- fnDesc ]
-            in
-              typs ++ fns
+          defs = [ (Definition.initial (defName x)) { symbol = Just (fnSymbol x), val = Just z } | (x, z) <- fnDesc ]
 
 
 interactiveName :: String
@@ -124,20 +117,6 @@ addDefinitionSymbols srcfile syms =
                 defs' = Map.insert name def defs
             in
               loop defs' syms
-
-
-addDefinitionTypes :: SrcFile -> Map String Type -> SrcFile
-addDefinitionTypes srcfile ts =
-    srcfile { defs = loop (defs srcfile) (Map.toList ts) }
-    where loop defs [] = defs
-          loop defs ((name, t):ts) =
-              let
-                  def = case Map.lookup name defs of
-                          Nothing -> error $ "SrcFile.addDefinitionTypes: definition " ++ show name ++ " is not defined"
-                          Just def -> def { typ = Right t }
-                  defs' = Map.insert name def defs
-              in
-                loop defs' ts
 
 
 addDefinitionVals :: SrcFile -> Map String Val -> SrcFile
