@@ -419,7 +419,7 @@ subT ctx t1@(EvarT var) t2@AndT {}
 -- <:AndEvar
 subT ctx t1@AndT {} t2@(EvarT var)
   | isEmptyTypeContext ctx var =
-    do judgementM "<And:Evar"
+    do judgementM "<:AndEvar"
                   ("ctx1," ++ var ++ "1," ++ var ++ "2," ++ var ++ "=" ++ var ++ "1 & " ++ var ++ "2" |- t1 <: t2 -| "ctx2")
                   (gamma' "ctx1" [var] |- t1 <: var -| "ctx2")
 
