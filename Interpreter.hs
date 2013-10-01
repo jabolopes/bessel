@@ -25,7 +25,7 @@ import Utils
 evalM :: Expr -> InterpreterM Val
 evalM (CharE c) = return $ CharVal c
 evalM (IntE i) = return $ IntVal i
-evalM (RealE d) = return $ DoubleVal d
+evalM (RealE d) = return $ RealVal d
 evalM (SeqE exprs) = SeqVal <$> mapM evalM exprs
 
 evalM (IdE str) =

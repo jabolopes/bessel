@@ -19,38 +19,23 @@ import Data.Symbol
 import Monad.InterpreterM
 import Renamer
 
-
 -- predicates
 
 isBool :: Val -> Val
 isBool BoolVal {} = true
 isBool _ = false
 
-
 isInt :: Val -> Val
 isInt IntVal {} = true
 isInt _ = false
 
-
 isReal :: Val -> Val
-isReal DoubleVal {} = true
+isReal RealVal {} = true
 isReal _ = false
-
 
 isChar :: Val -> Val
 isChar CharVal {} = true
 isChar _ = false
-
-
-isFn :: Val -> Val
-isFn FnVal {} = true
-isFn _ = false
-
-
-isObj :: Val -> Val
-isObj TypeVal {} = true
-isObj _ = false
-
 
 isSeq :: Val -> Val
 isSeq (FnVal fn) = FnVal hof
@@ -58,6 +43,14 @@ isSeq (FnVal fn) = FnVal hof
             do b <- all isNotFalseVal <$> mapM fn vals
                return $ if b then true else false
         hof _ = return false
+
+isFn :: Val -> Val
+isFn FnVal {} = true
+isFn _ = false
+
+isObj :: Val -> Val
+isObj TypeVal {} = true
+isObj _ = false
 
 
 -- comparison functions
@@ -77,8 +70,8 @@ eqInt (IntVal i1) = FnVal eqIntHof
 
 
 eqReal :: Val -> Val
-eqReal (DoubleVal d1) = FnVal eqRealHof
-    where eqRealHof (DoubleVal d2)
+eqReal (RealVal d1) = FnVal eqRealHof
+    where eqRealHof (RealVal d2)
               | d1 == d2 = return true
               | otherwise = return false
 
@@ -114,8 +107,8 @@ ltInt (IntVal i1) = FnVal ltIntHof
 
 
 ltReal :: Val -> Val
-ltReal (DoubleVal d1) = FnVal ltRealHof
-    where ltRealHof (DoubleVal d2)
+ltReal (RealVal d1) = FnVal ltRealHof
+    where ltRealHof (RealVal d2)
               | d1 < d2 = return true
               | otherwise = return false
 
@@ -131,7 +124,7 @@ ltChar (CharVal c1) = FnVal ltCharHof
 valLt :: Val -> Val -> Val
 valLt (IntVal b1) (IntVal b2) | b1 < b2 = true
 valLt (IntVal i1) (IntVal i2) | i1 < i2 = true
-valLt (DoubleVal d1) (DoubleVal d2) | d1 < d2 = true
+valLt (RealVal d1) (RealVal d2) | d1 < d2 = true
 valLt (CharVal c1) (CharVal c2) | c1 < c2 = true
 valLt (SeqVal vals1) (SeqVal vals2)
     | null vals1 && null vals2 = false
@@ -159,12 +152,12 @@ mkBool val@BoolVal {} = val
 
 mkInt :: Val -> Val
 mkInt val@IntVal {} = val
-mkInt (DoubleVal d) = IntVal (floor d)
+mkInt (RealVal d) = IntVal (floor d)
 
 
 mkReal :: Val -> Val
-mkReal (IntVal i) = DoubleVal (fromIntegral i)
-mkReal val@DoubleVal {} = val
+mkReal (IntVal i) = RealVal (fromIntegral i)
+mkReal val@RealVal {} = val
 
 
 mkChar :: Val -> Val
@@ -182,8 +175,8 @@ addInt (IntVal i1) =
 
 
 addReal :: Val -> Val
-addReal (DoubleVal i1) =
-    FnVal $ \(DoubleVal i2) -> return $ DoubleVal (i1 + i2)
+addReal (RealVal i1) =
+    FnVal $ \(RealVal i2) -> return $ RealVal (i1 + i2)
 
 
 subInt :: Val -> Val
@@ -192,8 +185,8 @@ subInt (IntVal i1) =
 
 
 subReal :: Val -> Val
-subReal (DoubleVal d1) =
-    FnVal $ \(DoubleVal d2) -> return $ DoubleVal (d1 - d2)
+subReal (RealVal d1) =
+    FnVal $ \(RealVal d2) -> return $ RealVal (d1 - d2)
 
 
 mulInt :: Val -> Val
@@ -202,8 +195,8 @@ mulInt (IntVal i1) =
 
 
 mulReal :: Val -> Val
-mulReal (DoubleVal d1) =
-    FnVal $ \(DoubleVal d2) -> return $ DoubleVal (d1 * d2)
+mulReal (RealVal d1) =
+    FnVal $ \(RealVal d2) -> return $ RealVal (d1 * d2)
 
 
 divInt :: Val -> Val
@@ -212,8 +205,8 @@ divInt (IntVal i1) =
 
 
 divReal :: Val -> Val
-divReal (DoubleVal d1) =
-    FnVal $ \(DoubleVal d2) -> return $ DoubleVal (d1 / d2)
+divReal (RealVal d1) =
+    FnVal $ \(RealVal d2) -> return $ RealVal (d1 / d2)
 
 
 absInt :: Val -> Val
@@ -221,15 +214,15 @@ absInt (IntVal i) = IntVal (abs i)
 
 
 absReal :: Val -> Val
-absReal (DoubleVal d) = DoubleVal (abs d)
+absReal (RealVal d) = RealVal (abs d)
 
 
 ceilingReal :: Val -> Val
-ceilingReal (DoubleVal d) = IntVal (ceiling d)
+ceilingReal (RealVal d) = IntVal (ceiling d)
 
 
 floorReal :: Val -> Val
-floorReal (DoubleVal d) = IntVal (floor d)
+floorReal (RealVal d) = IntVal (floor d)
 
 
 negInt :: Val -> Val
@@ -237,7 +230,7 @@ negInt (IntVal i) = IntVal (- i)
 
 
 negReal :: Val -> Val
-negReal (DoubleVal d) = DoubleVal (- d)
+negReal (RealVal d) = RealVal (- d)
 
 
 remInt :: Val -> Val
