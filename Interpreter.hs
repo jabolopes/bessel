@@ -1,11 +1,12 @@
-{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE NamedFieldPuns, ParallelListComp #-}
 module Interpreter where
 
 import Control.Monad.State
 import Data.Functor ((<$>))
 import Data.Map as Map (Map)
 import qualified Data.Map as Map ((!), fromList, insert, keys, lookup, toList, union)
-import Data.Maybe (catMaybes, fromJust)
+import Data.Maybe (catMaybes, isNothing, mapMaybe)
+import Data.Either (lefts, rights)
 
 import Data.Definition (Definition(..))
 import qualified Data.Definition as Definition
@@ -81,28 +82,36 @@ evalM (WhereE expr exprs) =
 
 
 interpretDefinition :: FileSystem -> Definition -> Definition
-interpretDefinition fs def@Definition { renExpr = Just expr } =
-    do let defs = map (FileSystem.definition fs) (freeNames def)
-           vals = Map.fromList [ (sym, fromJust (Definition.val def)) | def <- defs, let Just (FnSymbol sym) = Definition.symbol def ]
-           val = fst $ runState (evalM expr) (Env.initial vals)
-       def { val = Just val }
-
+interpretDefinition fs def@Definition { renExpr = Right expr } =
+  do let defs = map (FileSystem.definition fs) (freeNames def)
+     case (filter isNothing (map Definition.symbol defs), lefts (map Definition.val defs)) of
+       ([], []) ->
+         let
+           syms = mapMaybe Definition.symbol defs
+           vals = rights (map Definition.val defs)
+           -- edit: fix: why FnSymbol ?
+           env = Map.fromList [ (sym, val) | FnSymbol sym <- syms | val <- vals ]
+           val = fst $ runState (evalM expr) (Env.initial env)
+         in
+           def { val = Right val }
+       _ ->
+         def { val = Left "definition depends on free names that failed to evaluate" }
 
 interpretDefinitions :: FileSystem -> SrcFile -> [Definition] -> SrcFile
 interpretDefinitions _ srcfile [] = srcfile
-
 interpretDefinitions fs srcfile (def:defs) =
-    let
-        def' = interpretDefinition fs def
-        srcfile' = SrcFile.updateDefinitions srcfile [def']
-        fs' = FileSystem.add fs srcfile'
-    in
-      interpretDefinitions fs' srcfile' defs
-
+  either
+    (const $ interpretDefinitions fs srcfile defs)
+    (let
+      def' = interpretDefinition fs def
+      srcfile' = SrcFile.updateDefinitions srcfile [def']
+      fs' = FileSystem.add fs srcfile'
+     in
+       const $ interpretDefinitions fs' srcfile' defs)
+    (Definition.renExpr def)
 
 interpret :: FileSystem -> SrcFile -> SrcFile
 interpret _ srcfile@SrcFile { t = CoreT } =
     srcfile
-
 interpret fs srcfile =
     interpretDefinitions fs srcfile (SrcFile.defsAsc srcfile)

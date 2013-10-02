@@ -11,10 +11,10 @@ data Definition
                , unprefixedUses :: [String]
                , prefixedUses :: [(String, String)]
                , symbol :: Maybe Symbol
-               , val :: Maybe Val
+               , val :: Either String Val
                , srcExpr :: Maybe Expr
                , expExpr :: Maybe Expr
-               , renExpr :: Maybe Expr }
+               , renExpr :: Either String Expr }
     deriving (Show)
 
 
@@ -25,7 +25,7 @@ initial name =
              , unprefixedUses = []
              , prefixedUses = []
              , symbol = Nothing
-             , val = Nothing
+             , val = Left "Data.Definition.val: field is not initialized"
              , srcExpr = Nothing
              , expExpr = Nothing
-             , renExpr = Nothing }
+             , renExpr = Left "Data.Definition.renExpr: field is not initialized" }

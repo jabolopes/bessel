@@ -2,55 +2,90 @@ me Prelude
 
 use Core
 
-
--- type List a = null | cons a (List a)
-
--- sig isNull# : List a -> Bool
--- def isNull# = ...
-
--- sig isCons# = List a -> Bool
--- def isCons# = ...
-
--- sig isList# = Dyn -> Bool
--- def isList# = ...
-
--- sig null = List a
--- def null = null#
-
--- sig cons = a -> List a -> List a
--- def cons = cons#
-
-
--- sig isNull : List a -> Bool
--- def isNull @[] = true
---          | @ = false
-
--- sig isNull : List a -> Bool
--- def isNull @null = true
---          | @ = false
-
--- sig isNull : List a -> Bool
--- def isNull x@isNull# = true
---           | @ = false
-
+-- Fn
 
 def id x@ = x
-
 def const x@ @ = x
+
+-- Bool
+
+def isBool = isBool#
+def true = true#
+def false = false#
+def eqBool = eqBool#
 
 def not @id = false
       | @ = true
 
-def isDyn = const true
+-- Int
 
--- def is Int : Dyn -> Bool
---   = isInt
+def isInt = isInt#
+def eqInt = eqInt#
+def ltInt = ltInt#
+def addInt = addInt#
+def subInt = subInt#
+def mulInt = mulInt#
+def divInt = divInt#
+def absInt = absInt#
+def negInt = negInt#
+def invInt = negInt#
+def remInt = remInt#
 
--- def is [A@is] : Dyn -> Bool
---   = isSeq (is A)
+-- Real
 
--- def is @(a & b) : Dyn -> Bool
---   = isAnd (mkAnd (is a) (is b))
+def isReal = isReal#
+def eqReal = eqReal#
+def ltReal = ltReal#
+def addReal = addReal#
+def subReal = subReal#
+def mulReal = mulReal#
+def divReal = divReal#
+def absReal = absReal#
+def ceilingReal = ceilingReal#
+def floorReal = floorReal#
+def negReal = negReal#
+def invReal = invReal#
+
+-- Int and Real
+
+def ltIntReal = ltIntReal#
+def ltRealInt = ltRealInt#
+def addIntReal = addIntReal#
+def addRealInt x@ y@ = addIntReal y x
+def subIntReal x@ y@ = addIntReal x (negReal y)
+def subRealInt x@ y@ = addRealInt x (negInt y)
+def mulIntReal = mulIntReal#
+def mulRealInt x@ y@ = mulIntReal y x
+def divIntReal x@ y@ = mulIntReal x (invReal y)
+def divRealInt x@ y@ = mulReal x (invInt y)
+
+-- Char
+
+def isChar = isChar#
+def eqChar = eqChar#
+def ltChar = ltChar#
+
+-- Seq
+
+def null = null#
+def cons = cons#
+def isTuple = isTuple#
+def isList = isList#
+def hd = hd#
+def tl = tl#
+def (+>) = cons
+
+def length
+  @[] = 0
+| (@ +> xs@) = length xs + 1
+
+-- def reverse
+--   @[] = []
+-- | (x@ +> xs@) = reverse xs <+ x
+
+def map
+  fn@ @[] = []
+| fn@ (x@ +> xs@) = fn x +> map fn xs
 
 def eq
   x@isBool y@isBool = eqBool x y
@@ -67,10 +102,9 @@ def eq
 | @ @ = false
 
 def lt
-  x@isBool y@isBool = ltBool x y
-| x@isInt  y@isInt  = ltInt x y
-| x@isInt  y@isReal = ltReal (mkReal x) y
-| x@isReal y@isInt  = ltReal x (mkReal y)
+  x@isInt  y@isInt  = ltInt x y
+| x@isInt  y@isReal = ltIntReal x y
+| x@isReal y@isInt  = ltRealInt x y
 | x@isReal y@isReal = ltReal x y
 | x@isChar y@isChar = ltChar x y
 -- | x@[Dyn] y@[Dyn] = ltSeq x y
@@ -114,37 +148,31 @@ def isPair
 --   x@[isChar] = true
 -- |  @ = false
 
+-- Number
+
 def add
   x@isInt  y@isInt  = addInt x y
 | x@isReal y@isReal = addReal x y
-| x@isInt  y@isReal = addReal (mkReal x) y
-| x@isReal y@isInt  = addReal x (mkReal y)
+| x@isInt  y@isReal = addIntReal x y
+| x@isReal y@isInt  = addRealInt x y
 
 def sub
   x@isInt  y@isInt  = subInt x y
 | x@isReal y@isReal = subReal x y
-| x@isInt  y@isReal = subReal (mkReal x) y
-| x@isReal y@isInt  = subReal x (mkReal y)
+| x@isInt  y@isReal = subIntReal x y
+| x@isReal y@isInt  = subRealInt x y
 
 def mul
   x@isInt  y@isInt  = mulInt x y
 | x@isReal y@isReal = mulReal x y
-| x@isInt  y@isReal = mulReal (mkReal x) y
-| x@isReal y@isInt  = mulReal x (mkReal y)
+| x@isInt  y@isReal = mulIntReal x y
+| x@isReal y@isInt  = mulRealInt x y
 
 def div
   x@isInt  y@isInt  = divInt x y
 | x@isReal y@isReal = divReal x y
-| x@isInt  y@isReal = divReal (mkReal x) y
-| x@isReal y@isInt  = divReal x (mkReal y)
-
-def (+) = add
-
-def (-) = sub
-
-def (*) = mul
-
-def (/) = div
+| x@isInt  y@isReal = divIntReal x y
+| x@isReal y@isInt  = divRealInt x y
 
 def abs
   x@isInt  = absInt x
@@ -165,18 +193,7 @@ def neg
 def rem
   x@ y@ = remInt x y
 
-def (+>) = al
-
-def (<+) = ar
-
-def length
-  @[] = 0
-| (@ +> xs@) = length xs + 1
-
-def reverse
-  @[] = []
-| (x@ +> xs@) = reverse xs <+ x
-
-def map
-  fn@ @[] = []
-| fn@ (x@ +> xs@) = fn x +> map fn xs
+def (+) = add
+def (-) = sub
+def (*) = mul
+def (/) = div

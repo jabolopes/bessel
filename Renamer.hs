@@ -1,11 +1,11 @@
 {-# LANGUAGE NamedFieldPuns, ParallelListComp, TupleSections #-}
 module Renamer where
 
-import Control.Monad.Error (throwError)
+import Control.Monad.Error (catchError, throwError)
 import Control.Monad.State
 import Data.Functor ((<$>))
 import Data.List (isPrefixOf)
-import Data.Maybe (mapMaybe)
+import Data.Maybe (catMaybes, isNothing, mapMaybe)
 
 import Data.Definition (Definition(Definition, freeNames, expExpr, symbol, renExpr))
 import qualified Data.Definition as Definition
@@ -270,13 +270,20 @@ renameDefinitionM fs def@Definition { expExpr = Just expr } =
            prefixed = Definition.prefixedUses def
            names = Expr.freeVars expr
        defs <- lookupFreeVars fs unprefixed prefixed names
-       sequence_ [ addSymbolM name sym | name <- names | def <- defs, let Just sym = Definition.symbol def ]
-       expr' <- renameOneM expr
-       sym <- getSymbolM $ flattenId $ tail $ splitId $ Definition.name def
-       return $ def { freeNames = map Definition.name defs
-                    , symbol = Just sym
-                    , renExpr = Just expr' }
-
+       if any (isNothing . Definition.symbol) defs then
+         return $ def { freeNames = map Definition.name defs
+                      , symbol = Nothing
+                      , renExpr = Left "definition depends on free names that failed to rename" }
+       else do
+         let syms = mapMaybe Definition.symbol defs
+         sequence_ [ addSymbolM name sym | name <- names | sym <- syms ]
+         (do expr' <- renameOneM expr
+             sym <- getSymbolM $ flattenId $ tail $ splitId $ Definition.name def
+             return $ def { freeNames = map Definition.name defs
+                          , symbol = Just sym
+                          , renExpr = Right expr' }) `catchError` (\err -> return $ def { freeNames = map Definition.name defs
+                                                                                        , symbol = Nothing
+                                                                                        , renExpr = Left err })
 
 renameDefinition :: FileSystem -> String -> Definition -> Either String Definition
 renameDefinition fs ns def =

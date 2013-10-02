@@ -2,21 +2,11 @@ module Main where
 
 import Data.Foldable (forM_)
 import Data.Functor ((<$>))
-import Data.Map (Map)
-import qualified Data.Map as Map (fromList)
-import System.Environment
 
 import Config
--- import qualified Core.Environment (link)
--- import qualified Core.IO (link)
--- import qualified Core.Math (link)
--- import qualified Core.Shell (link)
--- import qualified Core.Happstack (link)
 import Data.Exception
-import Data.FileSystem (FileSystem)
 import qualified Data.FileSystem as FileSystem (initial)
 import Data.SrcFile
-import qualified Data.SrcFile as SrcFile (name)
 import Repl hiding (initialFs)
 
 

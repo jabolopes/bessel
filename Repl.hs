@@ -8,7 +8,7 @@ import Data.Char (isSpace)
 import Data.Functor ((<$>))
 import Data.List (intercalate)
 import qualified Data.Map as Map (elems, null)
-import System.Console.GetOpt (OptDescr(..), ArgDescr(..), ArgOrder(..), getOpt)
+import System.Console.GetOpt (OptDescr(..), ArgDescr(..), ArgOrder(..), getOpt, usageInfo)
 import System.Console.Readline
 import System.IO.Error
 
@@ -25,6 +25,7 @@ import Expander (expand, expandDefinition)
 import Interpreter (interpret, interpretDefinition)
 import Lexer (lexTokens)
 import Loader (preload, readFileM)
+import Monad.InterpreterM (Val)
 import Parser (parseRepl)
 import Printer.PrettyExpr (prettyPrintSrcFile, prettyPrint)
 import Renamer (rename, renameDefinition)
@@ -47,9 +48,9 @@ doPutValT :: Bool
 doPutValT = True
 
 
-putVal :: Show a => Maybe a -> IO ()
-putVal Nothing = putStrLn "Repl.putVal: failed to put value"
-putVal (Just val) = when doPutVal (print val)
+putVal :: Either String Val -> IO ()
+putVal (Left err) = putStrLn err
+putVal (Right val) = when doPutVal (print val)
 
 
 parserEither :: Either String a -> a
@@ -149,8 +150,8 @@ runSnippetM ln =
      liftIO $ putVal (Definition.val evalDef)
 
 
-showModuleM :: Bool -> Bool -> Bool -> Bool -> String -> ReplM ()
-showModuleM showAll showBrief showOrd showTyp filename =
+showMeM :: Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> String -> StateT ReplState IO ()
+showMeM showAll showBrief showOrd showFree showSrc showExp showRen filename =
     let
         filesM
             | showAll = FileSystem.toAscList . fs <$> get
@@ -163,33 +164,30 @@ showModuleM showAll showBrief showOrd showTyp filename =
                                    return []
                      Just srcfile -> return [srcfile]
     in
-      filesM >>= (liftIO . mapM_ (putStrLn . showSrcFile))
+      mapM_ putSrcFile =<< filesM
     where showDeps srcfile
               | null (SrcFile.deps srcfile) = ""
               | otherwise = " uses " ++ intercalate ", " (SrcFile.deps srcfile)
 
-          showDefns srcfile
-              | Map.null (SrcFile.defs srcfile) = "\n no definitions"
-              | otherwise = "\n " ++ intercalate "\n " (map show defns)
-            where showType (Left err) = err
-                  showType (Right typ) = show typ
-                  
-                  defns
+          putDefns srcfile
+            | Map.null (SrcFile.defs srcfile) =
+              liftIO (putStrLn " no definitions")
+            | otherwise =
+              mapM_ (putDefinitionM showFree showSrc showExp showRen) defns
+            where defns
                     | showOrd = SrcFile.defsAsc $ srcfile
                     | otherwise = Map.elems . SrcFile.defs $ srcfile
 
-          showSrcFile srcfile =
-              let str = SrcFile.name srcfile ++ " (" ++ show (SrcFile.t srcfile) ++ ")" ++ showDeps srcfile in
-              if showBrief then
-                  str
-              else
-                  str ++ showDefns srcfile
-
+          putSrcFile srcfile
+            | showBrief = liftIO (putStrLn str)
+            | otherwise =
+              do liftIO (putStrLn str)
+                 putDefns srcfile
+            where str = SrcFile.name srcfile ++ " (" ++ show (SrcFile.t srcfile) ++ ")" ++ showDeps srcfile
 
 showTokensM :: String -> ReplM ()
 showTokensM filename =
     liftIO (print . lexTokens filename =<< readFileM filename)
-
 
 showRenamedM :: Bool -> String -> ReplM ()
 showRenamedM showAll filename =
@@ -209,76 +207,86 @@ showRenamedM showAll filename =
 
 
 showDefinition :: Definition -> String
-showDefinition def =
-  intercalate " " [name def,
-                   showSym def,
-                   showVal def] ++ "\n\n" ++ showFreeNames def
-  where showSym def =
+showDefinition def = intercalate " " [name def, showSym, showVal]
+  where showSym =
           case Definition.symbol def of
             Just sym -> "(" ++ show sym ++ ")"
             _ -> ""
 
-        showVal def =
+        showVal =
           case Definition.val def of
-            Just val -> "= " ++ show val
-            _ -> ""
+            Left err -> err
+            Right val -> "= " ++ show val
 
-        showFreeNames = intercalate ", " . Definition.freeNames
-
-
-putDefinitionM :: Definition -> ReplM ()
-putDefinitionM def =
+putDefinitionM :: Bool -> Bool -> Bool -> Bool -> Definition -> ReplM ()
+putDefinitionM showFree showSrc showExp showRen def =
   liftIO $ do
     putStrLn (showDefinition def)
-    putStrLn ""
-    prettyPrint (fromJust (srcExpr def))
-    putStrLn ""
-    putStrLn ""
-    prettyPrint (fromJust (expExpr def))
-    putStrLn ""
-    putStrLn ""
-    prettyPrint (fromJust (renExpr def))
-    putStrLn ""
-
+    when showFree $ do
+      putStrLn "\n-- free"
+      putStrLn $ intercalate ", " (Definition.freeNames def)      
+    when showSrc $ do
+      putStrLn "\n-- source"
+      prettyPrint (fromJust (srcExpr def))
+      putStrLn ""
+    when showExp $ do
+      putStrLn "\n-- expanded"
+      prettyPrint (fromJust (expExpr def))
+      putStrLn ""
+    when showRen $ do
+      putStrLn "\n-- renamed"
+      putRenExpr (renExpr def)
+      putStrLn ""
+  where putRenExpr (Left err) = putStrLn err
+        putRenExpr (Right val) = prettyPrint val
 
 data Flag
-    = ShowAll
-    | ShowBrief
-    | ShowOrd
-    | ShowTyp
-      deriving (Eq, Show)
+  = ShowAll
+  | ShowBrief
+  | ShowOrd
 
+  | ShowFree
+  | ShowSrc
+  | ShowExp
+  | ShowRen
+    deriving (Eq, Show)
 
 options :: [OptDescr Flag]
 options = [Option "a" [] (NoArg ShowAll) "Show all",
            Option "b" [] (NoArg ShowBrief) "Show brief",
            Option "o" [] (NoArg ShowOrd) "Show in order",
-           Option "t" [] (NoArg ShowTyp) "Show types only"]
-
+           Option "" ["free"] (NoArg ShowFree) "Show free names of definition",
+           Option "" ["src"] (NoArg ShowSrc) "Show source of definition",
+           Option "" ["exp"] (NoArg ShowExp) "Show expanded definition",
+           Option "" ["ren"] (NoArg ShowRen) "Show renamed definition"]
 
 runCommandM :: String -> [Flag] -> [String] -> ReplM ()
-runCommandM "def" opts (name:nonOpts) =
-  do fs <- fs <$> get
-     case FileSystem.lookupDefinition fs name of
-       Nothing -> liftIO $ putStrLn $ "definition " ++ show name ++ " does not exist"
-       Just def -> putDefinitionM def
-
-runCommandM "def" _ _ =
-  liftIO (putStrLn ":def <name>")
-
-runCommandM "show" opts ("me":nonOpts) =
+runCommandM "def" opts nonOpts
+  | null nonOpts || '.' `notElem` last nonOpts =
     let
-        showAll = ShowAll `elem` opts
+      me | null nonOpts = ""
+         | otherwise = last nonOpts
+    in
+      if not showAll && null me then
+        usageM
+      else
+        showMeM showAll showBrief showOrd showFree showSrc showExp showRen me
+  | otherwise =
+    do let name = last nonOpts
+       fs <- fs <$> get
+       case FileSystem.lookupDefinition fs name of
+         Nothing -> liftIO $ putStrLn $ "definition " ++ show name ++ " does not exist"
+         Just def -> (putDefinitionM showFree showSrc showExp showRen) def
+  where showAll = ShowAll `elem` opts
         showBrief = ShowBrief `elem` opts
         showOrd = ShowOrd `elem` opts
-        showTyp = ShowTyp `elem` opts
-        filename | null nonOpts = ""
-                 | otherwise = last nonOpts
-    in
-      if not showAll && null filename then
-          liftIO $ putStrLn ":show me [-b] [-o] [-a | <me>]"
-      else
-          showModuleM showAll showBrief showOrd showTyp filename
+        showFree = ShowFree `elem` opts
+        showSrc = ShowSrc `elem` opts
+        showExp = ShowExp `elem` opts
+        showRen = ShowRen `elem` opts
+
+        usageM =
+          liftIO $ putStrLn $ usageInfo "def [-b] [--free] [--src] [--exp] [--ren] [-o] [-a | <me>]" options
 
 runCommandM "show" _ ["tokens"] =
     liftIO $ putStrLn ":show tokens <me>"
@@ -287,18 +295,18 @@ runCommandM "show" _ ("tokens":nonOpts) =
     showTokensM $ last nonOpts
 
 runCommandM "show" opts ("renamed":nonOpts) =
-    let
-        showAll = ShowAll `elem` opts
-        filename | null nonOpts = ""
-                 | otherwise = last nonOpts
-    in
-      if not showAll && null filename then
-          liftIO $ putStrLn ":show renamed [-a | <me>]"
-      else
-          showRenamedM showAll filename
+  let
+    showAll = ShowAll `elem` opts
+    filename | null nonOpts = ""
+             | otherwise = last nonOpts
+  in
+    if not showAll && null filename then
+      liftIO $ putStrLn ":show renamed [-a | <me>]"
+    else
+      showRenamedM showAll filename
 
 runCommandM "show" _ _ =
-    liftIO $ putStrLn ":show [ me | tokens | renamed ]"
+    liftIO $ putStrLn ":show [ tokens | renamed ]"
 
 runCommandM "load" _ [] =
     liftIO $ putStrLn ":load [ <me> | <file/me> ]"
@@ -326,8 +334,8 @@ promptM :: String -> ReplM ()
 promptM ln =
     do liftIO (addHistory ln)
        process ln
-    where process (':':ln) = dispatchCommandM ln
-          process ln = runSnippetM ln
+    where process (':':x) = dispatchCommandM x
+          process x = runSnippetM x
 
 
 replM :: ReplM Bool

@@ -55,19 +55,19 @@ mkGeneralPat pred mods pats =
 -- edit: document why this function has a special case for the empty
 -- list
 --
--- edit: plist already checks the lenght of the list, however, it
+-- edit: 'isTuple' already checks the lenght of the list, however, it
 -- might be better to generate end of list pattern
 -- @
 -- nrdef [] = tail (... (tail xs)...)
 -- @
 mkListPat :: [Pat] -> Pat
 mkListPat [] =
-  Pat { patPred = appE "plist" (SeqE [])
+  Pat { patPred = appE "isTuple" (SeqE [])
       , patDefns = [] }
 
 -- edit: 'DynT' should be 'SeqT' or 'ConT "Seq"'
 mkListPat pats =
-  Pat { patPred = mkPatPred (idE "plist") pats
+  Pat { patPred = mkPatPred (idE "isTuple") pats
       , patDefns = mkPatDefns patMods pats }
   where listRef 1 = [idE "hd"]
         listRef i = idE "tl":listRef (i - 1)
@@ -78,14 +78,6 @@ mkCombPat :: Expr -> [Expr] -> [Pat] -> Pat
 mkCombPat pred mods pats =
   Pat { patPred = mkPatPred pred pats
       , patDefns = mkPatDefns (map (:[]) mods) pats }
-
-
--- edit: 'DynT' should be 'ConT "And"'
-mkAndPat :: [Pat] -> Pat
-mkAndPat pats =
-  mkGeneralPat (idE "isAnd") (map andRef [1..length pats]) pats
-  where andRef 1 = [idE "hd", idE "un#"]
-        andRef i = idE "tl":andRef (i - 1)
 
 
 namePat :: String -> Pat -> Pat
@@ -179,8 +171,8 @@ andE expr1 expr2 =
     -- expression in order to force them to have type 'Bool'.
     let
         err = "irrefutable 'and' pattern"
-        m2 = (expr2, idE "true")
-        m3 = (idE "true", idE "false")
+        m2 = (expr2, idE "true#")
+        m3 = (idE "true#", idE "false#")
         m1 = (expr1, CondE [m2, m3] err)
     in
       CondE [m1, m3] err
@@ -204,7 +196,7 @@ constE = LambdaE "_" Nothing
 
 
 constTrueE :: Expr
-constTrueE = constE (idE "true")
+constTrueE = constE (idE "true#")
 
 
 foldAppE :: Expr -> [Expr] -> Expr
@@ -217,9 +209,9 @@ orE expr1 expr2 =
     -- expression in order to force them to have type 'Bool'.
     let
         err = "irrefutable 'or' pattern"
-        m1 = (expr1, idE "true")
-        m2 = (expr2, idE "true")
-        m3 = (idE "true", idE "false")
+        m1 = (expr1, idE "true#")
+        m2 = (expr2, idE "true#")
+        m3 = (idE "true#", idE "false#")
     in
       CondE [m1, m2, m3] err
 

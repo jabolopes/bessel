@@ -63,7 +63,7 @@ mkCoreSrcFile srcfileName deps fnDesc =
     where defName name = srcfileName ++ "." ++ name
           fnSymbol = FnSymbol . defName
           
-          defs = [ (Definition.initial (defName x)) { symbol = Just (fnSymbol x), val = Just z } | (x, z) <- fnDesc ]
+          defs = [ (Definition.initial (defName x)) { symbol = Just (fnSymbol x), val = Right z } | (x, z) <- fnDesc ]
 
 
 interactiveName :: String
@@ -127,7 +127,7 @@ addDefinitionVals srcfile vals =
               let
                   def = case Map.lookup name defs of
                           Nothing -> error $ "SrcFile.addDefinitionVals: definition " ++ show name ++ " is not defined"
-                          Just def -> def { val = Just val }
+                          Just def -> def { val = Right val }
                   defs' = Map.insert name def defs
               in
                 loop defs' ts

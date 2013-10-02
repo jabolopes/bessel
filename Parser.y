@@ -262,11 +262,9 @@ PatRest:
   |        '(' CombPat ')' { $2 }
 
 CombPat:
-    Pat '+>' PatNoSpace { mkCombPat (idE "pal") [idE "hd", idE "tl"] [$1, $3] }
-  | Pat '<+' PatNoSpace { mkCombPat (idE "par") [idE "tlr", idE "hdr"] [$1, $3] }
+    Pat '+>' PatNoSpace { mkCombPat (idE "isList") [idE "hd", idE "tl"] [$1, $3] }
 --  | Pat '&&' PatNoSpace { mkCombPat (idE "pand") [idE "id", idE "id"] [$1, $3] }
 --  | Pat '||' PatNoSpace { mkCombPat (idE "por") [idE "id", idE "id"] [$1, $3] }
-  | Pat '&'  PatNoSpace { mkAndPat [$1, $3] }
 
 ListPat:
     '[' ExprPatList ']' { mkListPat $2 }
