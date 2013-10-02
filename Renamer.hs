@@ -4,7 +4,7 @@ module Renamer where
 import Control.Monad.Error (catchError, throwError)
 import Control.Monad.State
 import Data.Functor ((<$>))
-import Data.List (isPrefixOf)
+import Data.List (intercalate, isPrefixOf)
 import Data.Maybe (catMaybes, isNothing, mapMaybe)
 
 import Data.Definition (Definition(Definition, freeNames, expExpr, symbol, renExpr))
@@ -273,7 +273,8 @@ renameDefinitionM fs def@Definition { expExpr = Just expr } =
        if any (isNothing . Definition.symbol) defs then
          return $ def { freeNames = map Definition.name defs
                       , symbol = Nothing
-                      , renExpr = Left "definition depends on free names that failed to rename" }
+                      , renExpr = Left $ "definition depends on free names that failed to rename\n  " ++
+                                         intercalate ", " [ Definition.name x | x <- defs, isNothing (Definition.symbol x) ] }
        else do
          let syms = mapMaybe Definition.symbol defs
          sequence_ [ addSymbolM name sym | name <- names | sym <- syms ]
