@@ -6,19 +6,10 @@ import qualified Prelude
 import Control.Arrow ((***))
 import Control.Monad ((<=<))
 import Data.Functor ((<$>))
-import Data.Map (Map)
-import qualified Data.Map as Map (fromList)
-import System.IO hiding (hGetContents)
-import System.IO.Unsafe
 
-import Data.Env (Env)
-import qualified Data.Env as Env (fromList)
 import Data.Exception
-import Data.SrcFile
-import qualified Data.SrcFile as SrcFile (initial)
-import Data.Symbol
+import Data.Module
 import Monad.InterpreterM
-import Renamer
 
 -- Bool
 
@@ -342,5 +333,5 @@ index :: Val -> Val
 index (IntVal i) = FnVal (return . hof)
     where hof (SeqVal vals) = vals !! i
 
-srcfile :: SrcFile
-srcfile = mkCoreSrcFile "Core" [] fnDesc
+coreModule :: Module
+coreModule = mkCoreModule "Core" [] fnDesc

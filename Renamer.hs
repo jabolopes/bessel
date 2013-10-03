@@ -1,6 +1,8 @@
 {-# LANGUAGE NamedFieldPuns, ParallelListComp, TupleSections #-}
 module Renamer where
 
+import Prelude hiding (mod)
+
 import Control.Monad.Error (catchError, throwError)
 import Control.Monad.State
 import Data.Functor ((<$>))
@@ -15,8 +17,8 @@ import Data.Frame (Frame)
 import qualified Data.Frame as Frame (fid)
 import Data.FrameTree (FrameTree)
 import qualified Data.FrameTree as FrameTree (empty, rootId, getFrame, getLexicalSymbol, addSymbol, addFrame)
-import Data.SrcFile (SrcFileT (..), SrcFile(..))
-import qualified Data.SrcFile as SrcFile (name, defsAsc, updateDefinitions)
+import Data.Module (ModuleT (..), Module(..))
+import qualified Data.Module as Module
 import Data.Expr (DefnKw(..), Expr(..))
 import qualified Data.Expr as Expr (freeVars, idE)
 import qualified Data.QualName as QualName (fromQualName)
@@ -271,19 +273,16 @@ renameDefinition fs ns def =
   fst <$> runStateT (renameDefinitionM fs def) initialRenamerState
 
 
-renameDefinitions :: FileSystem -> SrcFile -> [Definition] -> Either String SrcFile
-renameDefinitions _ srcfile [] = return srcfile
+renameDefinitions :: FileSystem -> Module -> [Definition] -> Either String Module
+renameDefinitions _ mod [] = return mod
+renameDefinitions fs mod (def:defs) =
+    do def' <- renameDefinition fs (Module.modName mod) def
+       let mod' = Module.updateDefinitions mod [def']
+           fs' = FileSystem.add fs mod'
+       renameDefinitions fs' mod' defs
 
-renameDefinitions fs srcfile (def:defs) =
-    do def' <- renameDefinition fs (SrcFile.name srcfile) def
-       let srcfile' = SrcFile.updateDefinitions srcfile [def']
-           fs' = FileSystem.add fs srcfile'
-       renameDefinitions fs' srcfile' defs
-
-
-rename :: FileSystem -> SrcFile -> Either String SrcFile
-rename _ srcfile@SrcFile { t = CoreT } =
-    return srcfile
-
-rename fs srcfile =
-    renameDefinitions fs srcfile (SrcFile.defsAsc srcfile)
+rename :: FileSystem -> Module -> Either String Module
+rename _ mod@Module { modType = CoreT } =
+    return mod
+rename fs mod =
+    renameDefinitions fs mod (Module.defsAsc mod)

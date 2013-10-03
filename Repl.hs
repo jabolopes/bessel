@@ -19,12 +19,12 @@ import Data.Exception
 import Data.Expr (DefnKw(..), Expr(..))
 import Data.FileSystem (FileSystem)
 import qualified Data.FileSystem as FileSystem
-import Data.SrcFile (SrcFile)
-import qualified Data.SrcFile as SrcFile hiding (unprefixedUses)
+import Data.Module (Module)
+import qualified Data.Module as Module hiding (unprefixedUses)
 import qualified Doc.Doc as Doc
 import qualified Doc.Definition as Doc
 import qualified Doc.Expr as Doc
-import qualified Doc.SrcFile as Doc
+import qualified Doc.Module as Doc
 import Expander (expand, expandDefinition)
 import Interpreter (interpret, interpretDefinition)
 import Lexer (lexTokens)
@@ -73,30 +73,30 @@ typecheckerEither :: Monad m => Either String a -> m a
 typecheckerEither x = return $ either throwTypecheckerException id x
 
 
-stageFiles :: [SrcFile] -> IO FileSystem
-stageFiles srcfiles =
+stageFiles :: [Module] -> IO FileSystem
+stageFiles mods =
     do putStrLn $ "Staging " ++ show n ++ " modules"
-       loop FileSystem.empty srcfiles [1..]
-    where n = length srcfiles
+       loop FileSystem.empty mods [1..]
+    where n = length mods
 
           putHeader i =
               putStr $ "[" ++ show i ++ "/" ++ show n ++ "] "
 
-          updateFs fs !srcfile =
-              (FileSystem.add fs srcfile, srcfile)
+          updateFs fs mod =
+              (FileSystem.add fs mod, mod)
 
           reorderFile fs = updateFs fs . reorder
           expandFile fs = updateFs fs . expanderEither . expand fs
           renameFile fs = updateFs fs . renamerEither . rename fs
 
-          interpretFile fs srcfile =
-              let srcfile' = interpret fs srcfile in
-              (FileSystem.add fs srcfile', srcfile')
+          interpretFile fs mod =
+              let mod' = interpret fs mod in
+              (FileSystem.add fs mod', mod')
 
           loop fs [] _ = return fs
           loop fs (srcs:srcss) (i:is) =
               do putHeader i
-                 putStr $ SrcFile.name srcs ++ ": "
+                 putStr $ Module.modName srcs ++ ": "
 
                  let (reordfs, reords) = reorderFile fs srcs
                  putStr "reordered, "
@@ -115,9 +115,9 @@ stageFiles srcfiles =
 
 importFile :: FileSystem -> String -> IO ReplState
 importFile fs filename =
-    do srcfiles <- preload fs filename
-       fs' <- stageFiles srcfiles
-       let interactive = SrcFile.mkInteractiveSrcFile srcfiles []
+    do mods <- preload fs filename
+       fs' <- stageFiles mods
+       let interactive = Module.mkInteractiveModule mods []
            fs'' = FileSystem.add fs' interactive
        return ReplState { initialFs = fs, fs = fs'' }
 
@@ -125,8 +125,8 @@ importFile fs filename =
 mkSnippet :: FileSystem -> Expr -> Definition
 mkSnippet fs expr@(FnDecl _ name _) =
   let
-    name' = SrcFile.interactiveName ++ "." ++ name
-    unprefixed = map SrcFile.name (FileSystem.toAscList fs)
+    name' = Module.interactiveName ++ "." ++ name
+    unprefixed = map Module.modName (FileSystem.toAscList fs)
   in
     (Definition.initial name') { defUnprefixedUses = unprefixed
                                , defSrc = Just expr }
@@ -136,19 +136,19 @@ mkSnippet fs expr =
 
 
 renameSnippet :: FileSystem -> Definition -> Either String Definition
-renameSnippet fs = renameDefinition fs SrcFile.interactiveName
+renameSnippet fs = renameDefinition fs Module.interactiveName
 
 
 runSnippetM :: String -> ReplM ()
 runSnippetM ln =
   do fs <- fs <$> get
-     let expr = parserEither (parseRepl SrcFile.interactiveName ln)
+     let expr = parserEither (parseRepl Module.interactiveName ln)
      let def = mkSnippet fs expr
          expDef = expanderEither (expandDefinition fs def)
          renDef = renamerEither (renameSnippet fs expDef)
          evalDef = interpretDefinition fs renDef
-         interactive = FileSystem.get fs SrcFile.interactiveName
-         interactive' = SrcFile.updateDefinitions interactive [evalDef]
+         interactive = FileSystem.get fs Module.interactiveName
+         interactive' = Module.updateDefinitions interactive [evalDef]
      modify $ \s -> s { fs = FileSystem.add fs interactive' }
      liftIO $ putVal (Definition.defVal evalDef)
 
@@ -163,13 +163,13 @@ showMeM showAll showBrief showOrd showFree showSrc showExp showRen filename =
                    case FileSystem.lookup fs filename of
                      Nothing -> do liftIO $ do
                                      putStrLn $ "module " ++ show filename ++ " has not been staged"
-                                     putStrLn $ "staged modules are " ++ intercalate ", " (map SrcFile.name (FileSystem.toAscList fs))
+                                     putStrLn $ "staged modules are " ++ intercalate ", " (map Module.modName (FileSystem.toAscList fs))
                                    return []
-                     Just srcfile -> return [srcfile]
+                     Just mod -> return [mod]
     in
-      do srcfiles <- filesM
-         let srcFileDoc = Doc.docSrcFiles showBrief showOrd showFree showSrc showExp showRen srcfiles
-         liftIO $ putStr $ Doc.renderDoc srcFileDoc
+      do mods <- filesM
+         let modDoc = Doc.docModules showBrief showOrd showFree showSrc showExp showRen mods
+         liftIO $ putStr $ Doc.renderDoc modDoc
 
 showTokensM :: String -> ReplM ()
 showTokensM filename =

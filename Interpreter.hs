@@ -1,6 +1,8 @@
 {-# LANGUAGE ParallelListComp #-}
 module Interpreter where
 
+import Prelude hiding (mod)
+
 import Control.Monad.State
 import Data.Functor ((<$>))
 import qualified Data.Map as Map (fromList)
@@ -12,8 +14,8 @@ import qualified Data.Definition as Definition
 import qualified Data.Env as Env (initial)
 import Data.FileSystem (FileSystem)
 import qualified Data.FileSystem as FileSystem
-import Data.SrcFile
-import qualified Data.SrcFile as SrcFile (updateDefinitions, defsAsc)
+import Data.Module
+import qualified Data.Module as Module (updateDefinitions, defsAsc)
 import Data.Expr
 import qualified Data.QualName as QualName (fromQualName)
 import Data.Symbol
@@ -84,21 +86,19 @@ interpretDefinition fs def@Definition { defRen = Right expr } =
        _ ->
          def { defVal = Left "definition depends on free names that failed to evaluate" }
 
-interpretDefinitions :: FileSystem -> SrcFile -> [Definition] -> SrcFile
-interpretDefinitions _ srcfile [] = srcfile
-interpretDefinitions fs srcfile (def:defs) =
+interpretDefinitions :: FileSystem -> Module -> [Definition] -> Module
+interpretDefinitions _ mod [] = mod
+interpretDefinitions fs mod (def:defs) =
   either
-    (const $ interpretDefinitions fs srcfile defs)
+    (const $ interpretDefinitions fs mod defs)
     (let
       def' = interpretDefinition fs def
-      srcfile' = SrcFile.updateDefinitions srcfile [def']
-      fs' = FileSystem.add fs srcfile'
+      mod' = Module.updateDefinitions mod [def']
+      fs' = FileSystem.add fs mod'
      in
-       const $ interpretDefinitions fs' srcfile' defs)
+       const $ interpretDefinitions fs' mod' defs)
     (Definition.defRen def)
 
-interpret :: FileSystem -> SrcFile -> SrcFile
-interpret _ srcfile@SrcFile { t = CoreT } =
-    srcfile
-interpret fs srcfile =
-    interpretDefinitions fs srcfile (SrcFile.defsAsc srcfile)
+interpret :: FileSystem -> Module -> Module
+interpret _ mod@Module { modType = CoreT } = mod
+interpret fs mod = interpretDefinitions fs mod (Module.defsAsc mod)

@@ -5,7 +5,7 @@ module Parser where
 import Prelude hiding (lex)
 
 import Control.Monad.State
-import Data.List (intercalate, nub, partition, sort)
+import Data.List (intercalate, nub, partition)
 
 import GHC.Exts (sortWith)
 
@@ -13,7 +13,7 @@ import Config
 import Data.Exception
 import Data.Functor ((<$>))
 import Data.LexState
-import Data.SrcFile
+import Data.Module
 import Data.Expr
 import Data.QualName (mkQualName)
 import Data.Token
@@ -25,9 +25,9 @@ import Utils
 
 checkUniqueImports :: [String] -> [(String, String)] -> ParserM ()
 checkUniqueImports unprefixed prefixed
-  | length (nub $ sort unprefixed) /= length unprefixed =
+  | length (nub $ unprefixed) /= length unprefixed =
       failM "duplicated 'use' forms"
-  | length (nub $ sort $ map fst prefixed) /= length (map fst prefixed) =
+  | length (nub $ map fst prefixed) /= length (map fst prefixed) =
       failM "duplicated 'use' forms"
   | otherwise =
       return ()
@@ -35,7 +35,7 @@ checkUniqueImports unprefixed prefixed
 
 checkUniqueQualifiers :: [(String, String)] -> ParserM ()
 checkUniqueQualifiers prefixed
-  | length (nub $ sort $ map snd prefixed) /= length (map snd prefixed) =
+  | length (nub $ map snd prefixed) /= length (map snd prefixed) =
       failM "duplicated qualifiers in 'use' forms"
   | otherwise =
       return ()
@@ -51,7 +51,7 @@ checkUseList uses =
 %monad { ParserM }
 %lexer { nextToken } { TokenEOF }
 
-%name parseSrcFile SrcFile
+%name parseModule Module
 %name parseDefnOrExpr DefnOrExpr
 
 %tokentype { Token }
@@ -142,9 +142,9 @@ DefnOrExpr:
   | Expr { $1 }
 
 
-SrcFile:
-    me LongTypeId CheckUseList DefnList { mkParsedSrcFile (flattenId $2) $3 $4 }
-  | me LongTypeId DefnList              { mkParsedSrcFile (flattenId $2) [] $3 }
+Module:
+    me LongTypeId CheckUseList DefnList { mkParsedModule (flattenId $2) $3 $4 }
+  | me LongTypeId DefnList              { mkParsedModule (flattenId $2) [] $3 }
 
 CheckUseList:
     UseList {% checkUseList $1 >>
@@ -333,22 +333,22 @@ nextToken cont =
        cont tk
 
 
-runParser :: ParserM SrcFile -> [String] -> String -> String -> Either String SrcFile
+runParser :: ParserM Module -> [String] -> String -> String -> Either String Module
 runParser m deps filename str =
     case runStateT m $ ParserM.initial $ lexState filename str of
-        Right (srcfile, s) -> Right srcfile { deps = nub $ sort $ deps ++ dependencies s }
+        Right (mod, s) -> Right mod { modDeps = nub $ deps ++ dependencies s }
         Left str -> Left str
 
 
-parseFile :: String -> String -> Either String SrcFile
+parseFile :: String -> String -> Either String Module
 parseFile filename str =
     let deps = ["Core", preludeName] in
-    addImplicitUnprefixedUses deps <$> runParser parseSrcFile deps filename str
+    addImplicitUnprefixedUses deps <$> runParser parseModule deps filename str
 
 
-parsePrelude :: String -> String -> Either String SrcFile
+parsePrelude :: String -> String -> Either String Module
 parsePrelude filename str =
-    runParser parseSrcFile [] filename str
+    runParser parseModule [] filename str
 
 
 parseRepl :: String -> String -> Either String Expr

@@ -1,39 +1,36 @@
 {-# LANGUAGE ParallelListComp, TupleSections #-}
 module Expander where
 
+import Prelude hiding (mod)
+
 import Control.Monad.Error (throwError)
 import Control.Monad.State
 import Data.Functor ((<$>))
-import Data.List (intercalate, isPrefixOf, maximumBy, nub, partition, sort)
+import Data.List (maximumBy)
 
 import Data.Definition (Definition(..))
 import Data.FileSystem (FileSystem)
 import qualified Data.FileSystem as FileSystem
-import Data.SrcFile (SrcFileT(..), SrcFile(..))
-import qualified Data.SrcFile as SrcFile
+import Data.Module (ModuleT(..), Module(..))
+import qualified Data.Module as Module
 import Data.Expr
-import qualified Data.Expr as Expr (appE, freeVars, idE)
-import Data.QualName
-import qualified Data.QualName as QualName (fromQualName)
+import qualified Data.Expr as Expr (appE, freeVars)
 import Renamer (renameDeclaration)
-
 
 data ExpanderState =
     ExpanderState { macroCount :: Int }
 
+initialExpanderState :: ExpanderState
 initialExpanderState =
     ExpanderState { macroCount = 0 }
 
-
 type ExpanderM a = StateT ExpanderState (Either String) a
-
 
 genNameM :: String -> ExpanderM String
 genNameM name =
     do c <- macroCount <$> get
        modify $ \s -> s { macroCount = macroCount s + 1 }
        return (name ++ "#" ++ show c)
-
 
 -- cond macros
 
@@ -216,19 +213,18 @@ expandDefinition fs def =
     fst <$> runStateT (expandDefinitionM def) initialExpanderState 
 
 
-expandDefinitions :: FileSystem -> SrcFile -> [Definition] -> Either String SrcFile
-expandDefinitions _ srcfile [] = return srcfile
-
-expandDefinitions fs srcfile (def:defs) =
+expandDefinitions :: FileSystem -> Module -> [Definition] -> Either String Module
+expandDefinitions _ mod [] = return mod
+expandDefinitions fs mod (def:defs) =
     do def' <- expandDefinition fs def
-       let srcfile' = SrcFile.updateDefinitions srcfile [def']
-           fs' = FileSystem.add fs srcfile'
-       expandDefinitions fs' srcfile' defs
+       let mod' = Module.updateDefinitions mod [def']
+           fs' = FileSystem.add fs mod'
+       expandDefinitions fs' mod' defs
 
 
-expand :: FileSystem -> SrcFile -> Either String SrcFile
-expand _ srcfile@SrcFile { t = CoreT } =
-    return srcfile
+expand :: FileSystem -> Module -> Either String Module
+expand _ mod@Module { modType = CoreT } =
+    return mod
 
-expand fs srcfile =
-    expandDefinitions fs srcfile (SrcFile.defsAsc srcfile)
+expand fs mod =
+    expandDefinitions fs mod (Module.defsAsc mod)

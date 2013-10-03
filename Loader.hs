@@ -1,8 +1,7 @@
-{-# LANGUAGE NamedFieldPuns, ParallelListComp,
-             TupleSections #-}
+{-# LANGUAGE ParallelListComp #-}
 module Loader where
 
-import Prelude hiding (lex)
+import Prelude hiding (lex, mod)
 
 import Data.Map (Map)
 import qualified Data.Map as Map ((!), fromList)
@@ -13,11 +12,9 @@ import Data.Exception (throwLoaderException, throwParserException)
 import Data.FileSystem (FileSystem)
 import qualified Data.FileSystem as FileSystem (get, member)
 import Data.GraphUtils (acyclicTopSort)
-import Data.SrcFile
-import qualified Data.SrcFile as SrcFile (name, deps)
+import Data.Module (Module(..))
+import qualified Data.Module as Module (modName, modDeps)
 import Parser (parsePrelude, parseFile)
-import Utils (singleton)
-
 
 readFileM :: String -> IO String
 readFileM filename = readFile $ toFilename filename ++ ".bsl"
@@ -25,53 +22,47 @@ readFileM filename = readFile $ toFilename filename ++ ".bsl"
               where f '.' = '/'
                     f c = c
 
-
-loadSrcFileM :: String -> IO SrcFile
-loadSrcFileM filename =
+loadModuleM :: String -> IO Module
+loadModuleM filename =
     do str <- readFileM filename
        let parseFn | isPrelude filename = parsePrelude
                    | otherwise = parseFile
-           srcfile = case parseFn filename str of
-                       Left str -> throwParserException str
+           mod = case parseFn filename str of
+                       Left err -> throwParserException err
                        Right x -> x
-       if SrcFile.name srcfile /= filename
-       then throwLoaderException $ "me " ++ show (SrcFile.name srcfile) ++ " and filename " ++ show filename ++ " mismatch"
-       else return srcfile
+       if Module.modName mod /= filename
+       then throwLoaderException $ "me " ++ show (Module.modName mod) ++ " and filename " ++ show filename ++ " mismatch"
+       else return mod
 
-
-preloadSrcFile :: FileSystem -> String -> IO [SrcFile]
-preloadSrcFile fs filename = preloadSrcFile' [] Set.empty [filename]
-    where preloadSrcFile' srcfiles _ [] = return srcfiles
-          preloadSrcFile' srcfiles loaded (filename:filenames)
+preloadModule :: FileSystem -> String -> IO [Module]
+preloadModule fs filename = preloadModule' [] Set.empty [filename]
+    where preloadModule' mods _ [] = return mods
+          preloadModule' mods loaded (filename:filenames)
               | filename `Set.member` loaded =
-                  preloadSrcFile' srcfiles loaded filenames
+                  preloadModule' mods loaded filenames
               | fs `FileSystem.member` filename =
-                  do let srcfile = FileSystem.get fs filename
-                     preloadSrcFile' (srcfile:srcfiles) (Set.insert filename loaded) (deps srcfile ++ filenames)
+                  do let mod = FileSystem.get fs filename
+                     preloadModule' (mod:mods) (Set.insert filename loaded) (Module.modDeps mod ++ filenames)
               | otherwise =
-                  do srcfile <- loadSrcFileM filename
-                     preloadSrcFile' (srcfile:srcfiles) (Set.insert filename loaded) (deps srcfile ++ filenames)
+                  do mod <- loadModuleM filename
+                     preloadModule' (mod:mods) (Set.insert filename loaded) (Module.modDeps mod ++ filenames)
 
+buildNodes :: [Module] -> Map String Int
+buildNodes mods =
+    Map.fromList [ (Module.modName mod, i) | mod <- mods | i <- [1..] ]
 
-buildNodes :: [SrcFile] -> Map String Int
-buildNodes srcfiles =
-    Map.fromList [ (SrcFile.name srcfile, i) | srcfile <- srcfiles | i <- [1..] ]
-
-
-buildEdges :: Map String Int -> [SrcFile] -> [(Int, Int)]
+buildEdges :: Map String Int -> [Module] -> [(Int, Int)]
 buildEdges nodes =
-    concatMap (\srcfile -> zip (repeat (nodes Map.! SrcFile.name srcfile)) (map (nodes Map.!) (SrcFile.deps srcfile)))
+    concatMap (\mod -> zip (repeat (nodes Map.! Module.modName mod)) (map (nodes Map.!) (Module.modDeps mod)))
 
+buildGraph :: [Module] -> Either [Module] [Module]
+buildGraph mods =
+    let edges = buildEdges (buildNodes mods) mods in
+    acyclicTopSort mods edges
 
-buildGraph :: [SrcFile] -> Either [SrcFile] [SrcFile]
-buildGraph srcfiles =
-    let edges = buildEdges (buildNodes srcfiles) srcfiles in
-    acyclicTopSort srcfiles edges
-
-
-preload :: FileSystem -> String -> IO [SrcFile]
+preload :: FileSystem -> String -> IO [Module]
 preload fs filename =
-    do srcfiles <- preloadSrcFile fs filename
-       case buildGraph srcfiles of
-         Left srcfiles' -> error $ "Loader.preload: module cycle in " ++ show (map SrcFile.name srcfiles')
-         Right srcfiles' -> return srcfiles'
+    do mods <- preloadModule fs filename
+       case buildGraph mods of
+         Left mods' -> error $ "Loader.preload: module cycle in " ++ show (map Module.modName mods')
+         Right mods' -> return mods'
