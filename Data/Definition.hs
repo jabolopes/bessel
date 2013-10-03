@@ -8,26 +8,26 @@ import Monad.InterpreterM (Val)
 
 
 data Definition
-  = Definition { name :: String
-               , freeNames :: [String]
-               , unprefixedUses :: [String]
-               , prefixedUses :: [(String, String)]
-               , symbol :: Maybe Symbol
-               , val :: Either String Val
-               , srcExpr :: Maybe Expr
-               , expExpr :: Maybe Expr
-               , renExpr :: Either Doc Expr }
+  = Definition { defName :: String
+               , defFreeNames :: [String]
+               , defUnprefixedUses :: [String]
+               , defPrefixedUses :: [(String, String)]
+               , defSym :: Maybe Symbol
+               , defVal :: Either String Val
+               , defSrc :: Maybe Expr
+               , defExp :: Maybe Expr
+               , defRen :: Either Doc Expr }
     deriving (Show)
 
 
 initial :: String -> Definition
 initial name =
-  Definition { name = name
-             , freeNames = []
-             , unprefixedUses = []
-             , prefixedUses = []
-             , symbol = Nothing
-             , val = Left ""
-             , srcExpr = Nothing
-             , expExpr = Nothing
-             , renExpr = Left Doc.empty }
+  Definition { defName = name
+             , defFreeNames = []
+             , defUnprefixedUses = []
+             , defPrefixedUses = []
+             , defSym = Nothing
+             , defVal = Left ""
+             , defSrc = Nothing
+             , defExp = Nothing
+             , defRen = Left Doc.empty }

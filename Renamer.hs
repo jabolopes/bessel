@@ -7,7 +7,7 @@ import Data.Functor ((<$>))
 import Data.List (isPrefixOf)
 import Data.Maybe (isNothing, mapMaybe)
 
-import Data.Definition (Definition(Definition, freeNames, expExpr, symbol, renExpr))
+import Data.Definition (Definition(..))
 import qualified Data.Definition as Definition
 import Data.FileSystem (FileSystem)
 import qualified Data.FileSystem as FileSystem (add, lookupDefinition)
@@ -245,26 +245,26 @@ renameDeclaration expr@(FnDecl _ name _) =
 
 
 renameDefinitionM :: FileSystem -> Definition -> RenamerM Definition
-renameDefinitionM fs def@Definition { expExpr = Just expr } =
-    do let unprefixed = Definition.unprefixedUses def
-           prefixed = Definition.prefixedUses def
+renameDefinitionM fs def@Definition { defExp = Just expr } =
+    do let unprefixed = Definition.defUnprefixedUses def
+           prefixed = Definition.defPrefixedUses def
            names = Expr.freeVars expr
        defs <- lookupFreeVars fs unprefixed prefixed names
-       if any (isNothing . Definition.symbol) defs then
-         return $ def { freeNames = map Definition.name defs
-                      , symbol = Nothing
-                      , renExpr = Left $ let freeNames = [ Definition.name x | x <- defs, isNothing (Definition.symbol x) ] in
+       if any (isNothing . Definition.defSym) defs then
+         return $ def { defFreeNames = map Definition.defName defs
+                      , defSym = Nothing
+                      , defRen = Left $ let freeNames = [ Definition.defName x | x <- defs, isNothing (Definition.defSym x) ] in
                                          Doc.freeNamesFailedToRename freeNames }
        else do
-         let syms = mapMaybe Definition.symbol defs
+         let syms = mapMaybe Definition.defSym defs
          sequence_ [ addSymbolM name sym | name <- names | sym <- syms ]
          (do expr' <- renameOneM expr
-             sym <- getSymbolM $ flattenId $ tail $ splitId $ Definition.name def
-             return $ def { freeNames = map Definition.name defs
-                          , symbol = Just sym
-                          , renExpr = Right expr' }) `catchError` (\err -> return $ def { freeNames = map Definition.name defs
-                                                                                        , symbol = Nothing
-                                                                                        , renExpr = Left (Doc.text err) })
+             sym <- getSymbolM $ flattenId $ tail $ splitId $ Definition.defName def
+             return $ def { defFreeNames = map Definition.defName defs
+                          , defSym = Just sym
+                          , defRen = Right expr' }) `catchError` (\err -> return $ def { defFreeNames = map Definition.defName defs
+                                                                                        , defSym = Nothing
+                                                                                        , defRen = Left (Doc.text err) })
 
 renameDefinition :: FileSystem -> String -> Definition -> Either String Definition
 renameDefinition fs ns def =

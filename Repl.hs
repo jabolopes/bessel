@@ -128,8 +128,8 @@ mkSnippet fs expr@(FnDecl _ name _) =
     name' = SrcFile.interactiveName ++ "." ++ name
     unprefixed = map SrcFile.name (FileSystem.toAscList fs)
   in
-    (Definition.initial name') { unprefixedUses = unprefixed
-                               , srcExpr = Just expr }
+    (Definition.initial name') { defUnprefixedUses = unprefixed
+                               , defSrc = Just expr }
 
 mkSnippet fs expr =
   mkSnippet fs $ FnDecl NrDef "val" expr
@@ -150,7 +150,7 @@ runSnippetM ln =
          interactive = FileSystem.get fs SrcFile.interactiveName
          interactive' = SrcFile.updateDefinitions interactive [evalDef]
      modify $ \s -> s { fs = FileSystem.add fs interactive' }
-     liftIO $ putVal (Definition.val evalDef)
+     liftIO $ putVal (Definition.defVal evalDef)
 
 
 showMeM :: Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> String -> StateT ReplState IO ()

@@ -82,20 +82,20 @@ evalM (WhereE expr exprs) =
 
 
 interpretDefinition :: FileSystem -> Definition -> Definition
-interpretDefinition fs def@Definition { renExpr = Right expr } =
-  do let defs = map (FileSystem.definition fs) (freeNames def)
-     case (filter isNothing (map Definition.symbol defs), lefts (map Definition.val defs)) of
+interpretDefinition fs def@Definition { defRen = Right expr } =
+  do let defs = map (FileSystem.definition fs) (defFreeNames def)
+     case (filter isNothing (map Definition.defSym defs), lefts (map Definition.defVal defs)) of
        ([], []) ->
          let
-           syms = mapMaybe Definition.symbol defs
-           vals = rights (map Definition.val defs)
+           syms = mapMaybe Definition.defSym defs
+           vals = rights (map Definition.defVal defs)
            -- edit: fix: why FnSymbol ?
            env = Map.fromList [ (sym, val) | FnSymbol sym <- syms | val <- vals ]
            val = fst $ runState (evalM expr) (Env.initial env)
          in
-           def { val = Right val }
+           def { defVal = Right val }
        _ ->
-         def { val = Left "definition depends on free names that failed to evaluate" }
+         def { defVal = Left "definition depends on free names that failed to evaluate" }
 
 interpretDefinitions :: FileSystem -> SrcFile -> [Definition] -> SrcFile
 interpretDefinitions _ srcfile [] = srcfile
@@ -108,7 +108,7 @@ interpretDefinitions fs srcfile (def:defs) =
       fs' = FileSystem.add fs srcfile'
      in
        const $ interpretDefinitions fs' srcfile' defs)
-    (Definition.renExpr def)
+    (Definition.defRen def)
 
 interpret :: FileSystem -> SrcFile -> SrcFile
 interpret _ srcfile@SrcFile { t = CoreT } =

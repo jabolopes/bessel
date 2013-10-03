@@ -33,21 +33,21 @@ docEither _ = "?"
 
 docFree :: Bool -> Definition -> [String]
 docFree showFree def
-  | showFree = Definition.freeNames def
+  | showFree = Definition.defFreeNames def
   | otherwise = []
 
 docSrc :: Bool -> Definition -> Doc
-docSrc showSrc Definition { srcExpr = Just expr }
+docSrc showSrc Definition { defSrc = Just expr }
   | showSrc = Doc.docExpr Doc.SrcDocT expr
 docSrc _ _ = empty
 
 docExp :: Bool -> Definition -> Doc
-docExp showExp Definition { expExpr = Just expr }
+docExp showExp Definition { defExp = Just expr }
   | showExp = Doc.docExpr Doc.ExpDocT expr
 docExp _ _ = empty
 
 docRen :: Bool -> Definition -> Doc
-docRen showRen Definition { renExpr = Right expr }
+docRen showRen Definition { defRen = Right expr }
   | showRen = Doc.docExpr Doc.RenDocT expr
 docRen _ _ = empty
 
@@ -70,15 +70,15 @@ docErrorVal _ = empty
 
 docError :: Definition -> Doc
 docError def =
-  vcat [docErrorSrc (Definition.srcExpr def),
-        docErrorExp (Definition.expExpr def),
-        docErrorRen (Definition.renExpr def),
-        docErrorVal (Definition.val def)]
+  vcat [docErrorSrc (Definition.defSrc def),
+        docErrorExp (Definition.defExp def),
+        docErrorRen (Definition.defRen def),
+        docErrorVal (Definition.defVal def)]
 
 docDefn :: Bool -> Bool -> Bool -> Bool -> Definition -> Doc
 docDefn showFree showSrc showExp showRen def =
-  definitionOk (Definition.name def)
-               (docEither (Definition.val def))
+  definitionOk (Definition.defName def)
+               (docEither (Definition.defVal def))
                (docFree showFree def)
                (docSrc showSrc def)
                (docExp showExp def)

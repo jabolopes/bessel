@@ -206,9 +206,9 @@ expandM (WhereE body defns) =
 
 
 expandDefinitionM :: Definition -> ExpanderM Definition
-expandDefinitionM def@Definition { srcExpr = Just expr } =
+expandDefinitionM def@Definition { defSrc = Just expr } =
     do expr' <- expandOneM expr
-       return def { expExpr = Just expr' }
+       return def { defExp = Just expr' }
 
 
 expandDefinition :: FileSystem -> Definition -> Either String Definition

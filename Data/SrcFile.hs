@@ -6,8 +6,8 @@ import Data.Map (Map)
 import qualified Data.Map as Map ((!), empty, fromList, insert, lookup, mapKeys, mapMaybe, union, toList)
 import Data.Maybe (fromMaybe)
 
-import Data.Definition (Definition (symbol, val))
-import qualified Data.Definition as Definition (name, initial, val, symbol)
+import Data.Definition (Definition(..))
+import qualified Data.Definition as Definition
 import Data.Expr (Expr)
 import Data.Symbol (Symbol (..))
 import Monad.InterpreterM (Val)
@@ -51,7 +51,7 @@ defsAsc srcfile = map def (defOrd srcfile)
 
 
 symbols :: SrcFile -> Map String Symbol
-symbols = Map.mapMaybe Definition.symbol . defs
+symbols = Map.mapMaybe Definition.defSym . defs
 
 
 type FnDesc = [(String, Val)]
@@ -63,7 +63,8 @@ mkCoreSrcFile srcfileName deps fnDesc =
     where defName name = srcfileName ++ "." ++ name
           fnSymbol = FnSymbol . defName
           
-          defs = [ (Definition.initial (defName x)) { symbol = Just (fnSymbol x), val = Right z } | (x, z) <- fnDesc ]
+          defs = [ (Definition.initial (defName x)) { defSym = Just (fnSymbol x),
+                                                      defVal = Right z } | (x, z) <- fnDesc ]
 
 
 interactiveName :: String
@@ -93,16 +94,16 @@ addImplicitUnprefixedUses uses srcfile =
 addDefinitions :: SrcFile -> [Definition] -> SrcFile
 addDefinitions srcfile definitions =
     srcfile { defs = defsMp `Map.union` defs srcfile
-            , defOrd = defOrd srcfile ++ map Definition.name definitions }
+            , defOrd = defOrd srcfile ++ map Definition.defName definitions }
     where defsMp =
-              Map.fromList [ (Definition.name def, def) | def <- definitions ]
+              Map.fromList [ (Definition.defName def, def) | def <- definitions ]
 
 
 updateDefinitions :: SrcFile -> [Definition] -> SrcFile
 updateDefinitions srcfile definitions =
     srcfile { defs = defsMp `Map.union` defs srcfile }
     where defsMp =
-              Map.fromList [ (Definition.name def, def) | def <- definitions ]
+              Map.fromList [ (Definition.defName def, def) | def <- definitions ]
 
 
 addDefinitionSymbols :: SrcFile -> Map String Symbol -> SrcFile
@@ -113,7 +114,7 @@ addDefinitionSymbols srcfile syms =
             let
                 def = case Map.lookup name defs of
                         Nothing -> error $ "SrcFile.addDefinitionSymbols: definition " ++ show name ++ " is not defined"
-                        Just def -> def { symbol = Just sym }
+                        Just def -> def { defSym = Just sym }
                 defs' = Map.insert name def defs
             in
               loop defs' syms
@@ -127,7 +128,7 @@ addDefinitionVals srcfile vals =
               let
                   def = case Map.lookup name defs of
                           Nothing -> error $ "SrcFile.addDefinitionVals: definition " ++ show name ++ " is not defined"
-                          Just def -> def { val = Right val }
+                          Just x -> x { defVal = Right val }
                   defs' = Map.insert name def defs
               in
                 loop defs' ts
