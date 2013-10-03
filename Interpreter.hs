@@ -65,7 +65,7 @@ evalM (FnDecl NrDef str body) =
        addBindM str val
        return val
 
-evalM (LambdaE str _ body) =
+evalM (LambdaE str body) =
     FnVal . closure <$> get
     where closure env val =
               withLexicalEnvM env $ do

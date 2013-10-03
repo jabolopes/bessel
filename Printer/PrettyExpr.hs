@@ -114,11 +114,9 @@ printExprM (FnDecl kw name body) =
           putAnn Nothing = return ()
           putAnn (Just t) = putPrinter $ " : " ++ show t
 
-printExprM (LambdaE str t body) =
-    do putPrinter $ "\\" ++ str ++ putT t ++ " -> "
+printExprM (LambdaE str body) =
+    do putPrinter $ "\\" ++ str ++ " -> "
        withPrinterCol $ printExprM body
-    where putT Nothing = ""
-          putT (Just t) = " : " ++ t
 
 printExprM (MergeE vals) =
     do putPrinter "{"

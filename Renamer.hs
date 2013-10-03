@@ -4,8 +4,8 @@ module Renamer where
 import Control.Monad.Error (catchError, throwError)
 import Control.Monad.State
 import Data.Functor ((<$>))
-import Data.List (intercalate, isPrefixOf)
-import Data.Maybe (catMaybes, isNothing, mapMaybe)
+import Data.List (isPrefixOf)
+import Data.Maybe (isNothing, mapMaybe)
 
 import Data.Definition (Definition(Definition, freeNames, expExpr, symbol, renExpr))
 import qualified Data.Definition as Definition
@@ -18,11 +18,11 @@ import qualified Data.FrameTree as FrameTree (empty, rootId, getFrame, getLexica
 import Data.SrcFile (SrcFileT (..), SrcFile(..))
 import qualified Data.SrcFile as SrcFile (name, defsAsc, updateDefinitions)
 import Data.Expr (DefnKw(..), Expr(..))
-import qualified Data.Expr as Expr (appE, freeVars, idE)
+import qualified Data.Expr as Expr (freeVars, idE)
 import qualified Data.QualName as QualName (fromQualName)
 import Data.Symbol (Symbol (..))
+import qualified Doc.Renamer as Doc
 import Utils (rebaseName, flattenId, splitId)
-
 
 data RenamerState =
     RenamerState { frameTree :: FrameTree
@@ -140,31 +140,13 @@ withScopeM m =
        modify $ \s -> s { currentFrame = Frame.fid frame }
        return val
 
-
--- lambda
-
-renameLambdaM :: String -> Maybe String -> Expr -> RenamerM Expr
-renameLambdaM arg ann body =
+renameLambdaM :: String -> Expr -> RenamerM Expr
+renameLambdaM arg body =
     do arg' <- genNameM arg
-       LambdaE arg' ann <$>
+       LambdaE arg' <$>
          withScopeM
            (do addFnSymbolM arg arg'
                withScopeM (renameOneM body))
-
-
-renameUnannotatedLambdaM :: String -> Expr -> RenamerM Expr
-renameUnannotatedLambdaM arg = renameLambdaM arg Nothing
-
-
-renameAnnotatedLambdaM :: String -> String -> Expr -> RenamerM Expr
-renameAnnotatedLambdaM arg ann body = undefined
--- edit: remove undefined
--- renameAnnotatedLambdaM arg ann body =
---     do argT <- getTypeSymbolM ann
---        renameLambdaM arg (Just argT) body
-
--- /lambda
-
 
 renameOneM :: Expr -> RenamerM Expr
 renameOneM expr = head <$> renameM expr
@@ -215,11 +197,8 @@ renameM (FnDecl NrDef name body) =
        addFnSymbolM name name'
        return [FnDecl NrDef name' body']
 
-renameM (LambdaE arg Nothing body) =
-    (:[]) <$> renameUnannotatedLambdaM arg body
-
-renameM (LambdaE arg (Just ann) body) =
-    (:[]) <$> renameAnnotatedLambdaM arg ann body
+renameM (LambdaE arg body) =
+    (:[]) <$> renameLambdaM arg body
 
 renameM (MergeE vals) =
   (:[]) <$> MergeE <$> mapM renameValsM vals
@@ -273,8 +252,8 @@ renameDefinitionM fs def@Definition { expExpr = Just expr } =
        if any (isNothing . Definition.symbol) defs then
          return $ def { freeNames = map Definition.name defs
                       , symbol = Nothing
-                      , renExpr = Left $ "definition depends on free names that failed to rename\n  " ++
-                                         intercalate ", " [ Definition.name x | x <- defs, isNothing (Definition.symbol x) ] }
+                      , renExpr = Left $ let freeNames = [ Definition.name x | x <- defs, isNothing (Definition.symbol x) ] in
+                                         Doc.freeNamesFailedToRename freeNames }
        else do
          let syms = mapMaybe Definition.symbol defs
          sequence_ [ addSymbolM name sym | name <- names | sym <- syms ]

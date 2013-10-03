@@ -111,7 +111,7 @@ expandCondMacro ms blame =
        returnOneM $ lambdas args (CondE ms' blame)
     where lambdas [] body = body
           lambdas (arg:args) body =
-              LambdaE arg Nothing (lambdas args body)
+              LambdaE arg (lambdas args body)
 
           applyPred arg pat =
               AppE (patPred pat) (idE arg)
@@ -129,19 +129,6 @@ expandCondMacro ms blame =
 
 -- |
 -- @
---   x@ = ... fn ...
--- @
---
--- @
---   fn@ x@ = ... fn ...
--- @
-fixArgBody :: String -> Expr -> Expr
-fixArgBody name body =
-  LambdaE name Nothing body
-
-
--- |
--- @
 -- def fn : ...
 --   x@ = ... fn ...
 -- @
@@ -153,7 +140,7 @@ fixArgBody name body =
 fixDecl :: Expr -> Either String Expr
 fixDecl expr@(FnDecl _ name body) =
   do FnDecl _ name' body' <- renameDeclaration expr
-     let argBody = fixArgBody name' body'
+     let argBody = LambdaE name' body'
          declBody = Expr.appE "fix#" argBody
      return $ FnDecl NrDef name declBody
 
@@ -205,8 +192,8 @@ expandM expr@(FnDecl kw name body) =
        else
          returnOneM $ FnDecl NrDef name body'
 
-expandM (LambdaE arg ann body) =
-  oneM . LambdaE arg ann <$> expandOneM body
+expandM (LambdaE arg body) =
+  oneM . LambdaE arg <$> expandOneM body
 
 expandM (MergeE vals) =
   oneM . MergeE <$> mapM expandVals vals

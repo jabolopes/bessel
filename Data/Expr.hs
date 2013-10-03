@@ -122,7 +122,7 @@ data Expr
 
     | FnDecl DefnKw String Expr
 
-    | LambdaE String (Maybe String) Expr
+    | LambdaE String Expr
 
     -- info: initialization vals (1st argument) are sorted in Parser
     | MergeE [(QualName, Expr)]
@@ -191,8 +191,7 @@ binOpE op expr = AppE (appE op expr)
 
 
 constE :: Expr -> Expr
-constE = LambdaE "_" Nothing
--- edit: maybe it should be VarT or Evar instead of Nothing?
+constE = LambdaE "_"
 
 
 constTrueE :: Expr
@@ -293,7 +292,7 @@ freeVars' env fvars (FnDecl NrDef name expr) =
     let (env', fvars') = freeVars' env fvars expr in
     (name:env', fvars')
 
-freeVars' env fvars (LambdaE arg _ body) =
+freeVars' env fvars (LambdaE arg body) =
     freeVars' (arg:env) fvars body
 
 freeVars' env fvars (MergeE vals) =
