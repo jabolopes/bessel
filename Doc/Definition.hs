@@ -1,7 +1,6 @@
 module Doc.Definition where
 
 import Data.List (intercalate)
-import Data.Maybe (isNothing)
 import Text.PrettyPrint ((<+>), ($+$), equals, empty, isEmpty, text, vcat)
 
 import Data.Definition (Definition(..))
@@ -11,19 +10,17 @@ import qualified Doc.Doc as Doc
 import qualified Doc.Expr as Doc (DocType(..), docExpr)
 
 definitionOk :: String -> String -> [String] -> Doc -> Doc -> Doc -> Doc -> Doc
-definitionOk name val freeNames src exp ren err
-  | null freeNames =
-    hdDoc $+$ srcDoc $+$ expDoc $+$ renDoc $+$ errDoc
-  | otherwise =
-    hdDoc $+$ freeDoc $+$ srcDoc $+$ expDoc $+$ renDoc $+$ errDoc
+definitionOk name val freeNames src exp ren err =
+  hdDoc $+$ vcat [freeDoc, srcDoc, expDoc, renDoc, errDoc]
   where hdDoc = text name <+> equals <+> text val
 
-        freeDoc =
-          Doc.nest $ text "-- free" $+$ text (intercalate ", " freeNames)
+        freeDoc
+          | null freeNames = empty
+          | otherwise = Doc.nest $ text "-- free" $+$ text (intercalate ", " freeNames)
 
         sectionDoc desc expr
           | isEmpty expr = empty
-          | otherwise = Doc.nest $ text desc $+$ expr $+$ text ""
+          | otherwise = Doc.nest $ text desc $+$ expr
 
         srcDoc = sectionDoc "-- source" src
         expDoc = sectionDoc "-- expanded" exp
@@ -62,17 +59,21 @@ docErrorExp :: Maybe t -> Doc
 docErrorExp Nothing = text "definition has no expanded expression"
 docErrorExp _ = empty
 
-docMaybe :: Either String t -> Doc
-docMaybe (Left "") = empty
-docMaybe (Left err) = text err
-docMaybe _ = empty
+docErrorRen :: Either Doc a -> Doc
+docErrorRen (Left err) = err
+docErrorRen _ = empty
+
+docErrorVal :: Either String a -> Doc
+docErrorVal (Left "") = empty
+docErrorVal (Left err) = text err
+docErrorVal _ = empty
 
 docError :: Definition -> Doc
 docError def =
   vcat [docErrorSrc (Definition.srcExpr def),
         docErrorExp (Definition.expExpr def),
-        docMaybe (Definition.renExpr def),
-        docMaybe (Definition.val def)]
+        docErrorRen (Definition.renExpr def),
+        docErrorVal (Definition.val def)]
 
 docDefn :: Bool -> Bool -> Bool -> Bool -> Definition -> Doc
 docDefn showFree showSrc showExp showRen def =

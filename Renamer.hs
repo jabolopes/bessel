@@ -21,6 +21,7 @@ import Data.Expr (DefnKw(..), Expr(..))
 import qualified Data.Expr as Expr (freeVars, idE)
 import qualified Data.QualName as QualName (fromQualName)
 import Data.Symbol (Symbol (..))
+import qualified Doc.Doc as Doc
 import qualified Doc.Renamer as Doc
 import Utils (rebaseName, flattenId, splitId)
 
@@ -263,7 +264,7 @@ renameDefinitionM fs def@Definition { expExpr = Just expr } =
                           , symbol = Just sym
                           , renExpr = Right expr' }) `catchError` (\err -> return $ def { freeNames = map Definition.name defs
                                                                                         , symbol = Nothing
-                                                                                        , renExpr = Left err })
+                                                                                        , renExpr = Left (Doc.text err) })
 
 renameDefinition :: FileSystem -> String -> Definition -> Either String Definition
 renameDefinition fs ns def =

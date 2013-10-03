@@ -1,4 +1,4 @@
-module Doc.Doc (Doc, empty, nest, renderDoc) where
+module Doc.Doc (Doc, empty, nest, renderDoc, text) where
 
 import Text.PrettyPrint hiding (nest)
 import qualified Text.PrettyPrint as PrettyPrint

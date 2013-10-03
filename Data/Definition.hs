@@ -2,6 +2,8 @@ module Data.Definition where
 
 import Data.Expr (Expr)
 import Data.Symbol (Symbol)
+import Doc.Doc (Doc)
+import qualified Doc.Doc as Doc (empty)
 import Monad.InterpreterM (Val)
 
 
@@ -14,7 +16,7 @@ data Definition
                , val :: Either String Val
                , srcExpr :: Maybe Expr
                , expExpr :: Maybe Expr
-               , renExpr :: Either String Expr }
+               , renExpr :: Either Doc Expr }
     deriving (Show)
 
 
@@ -28,4 +30,4 @@ initial name =
              , val = Left ""
              , srcExpr = Nothing
              , expExpr = Nothing
-             , renExpr = Left "" }
+             , renExpr = Left Doc.empty }
