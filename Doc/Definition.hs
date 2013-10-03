@@ -27,4 +27,4 @@ definitionOk name val freeNames src exp ren
 
 definitionError :: String -> String -> String
 definitionError name err =
-  Doc.renderDoc $ text name $+$ text err
+  Doc.renderDoc $ text name $+$ Doc.nest (text err)
