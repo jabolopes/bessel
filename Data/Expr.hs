@@ -101,7 +101,7 @@ data Expr
     | AppE Expr Expr
 
     -- |
-    -- This construct is not available in the parser
+    -- This construct is only available in the parser
     -- @
     -- x@Int y@isInt = val1
     -- x@Int y@isReal = val2
