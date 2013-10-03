@@ -2,7 +2,6 @@ module Data.QualName where
 
 import Utils (flattenId)
 
-
 newtype QualName
   = QualName { fromQualName :: String }
     deriving (Eq, Ord)
