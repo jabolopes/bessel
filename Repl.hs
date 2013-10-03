@@ -191,9 +191,11 @@ showTokensM :: String -> ReplM ()
 showTokensM filename =
     liftIO (print . lexTokens filename =<< readFileM filename)
 
+isLeft :: Either a b -> Bool
 isLeft (Left _) = True
 isLeft _ = False
 
+fromLeft :: Either a b -> a
 fromLeft (Left x) = x
 
 showDefinition :: Bool -> Bool -> Bool -> Bool -> Definition -> String
