@@ -31,8 +31,6 @@ data Token
      | TokenString String
 
      -- operators
-     | TokenAmpersand String
-
      | TokenComposition String
 
      | TokenMult String

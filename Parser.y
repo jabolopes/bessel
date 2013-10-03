@@ -88,8 +88,6 @@ checkUseList uses =
   string    { TokenString $$ }
 
   -- operators
-  '&'     { TokenAmpersand $$ }
-
   'o'     { TokenComposition $$ }
 
   '*'     { TokenMult $$ }
@@ -122,7 +120,6 @@ checkUseList uses =
 %right '->'
 %nonassoc guard_prec     -- guard
 %left where              -- where
-%right '&'               -- and type operator (e.g., Int & Int)
 %left '&&' '||'          -- logical
 %left '+>' '<+'          -- arrow
 %left '==' '/=' '<' '>' '<=' '>='  -- comparison
