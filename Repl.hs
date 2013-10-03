@@ -8,7 +8,7 @@ import Data.Char (isSpace)
 import Data.Functor ((<$>))
 import Data.List (intercalate)
 import qualified Data.Map as Map (elems, null)
-import Data.Maybe (fromJust, isNothing)
+import Data.Maybe (isNothing)
 import System.Console.GetOpt (OptDescr(..), ArgDescr(..), ArgOrder(..), getOpt, usageInfo)
 import System.Console.Readline
 import System.IO.Error
@@ -30,7 +30,6 @@ import Lexer (lexTokens)
 import Loader (preload, readFileM)
 import Monad.InterpreterM (Val)
 import Parser (parseRepl)
-import Printer.PrettyExpr (prettyPrintSrcFile, prettyPrint)
 import Renamer (rename, renameDefinition)
 import Reorderer (reorder)
 import Utils (split)
@@ -192,22 +191,6 @@ showTokensM :: String -> ReplM ()
 showTokensM filename =
     liftIO (print . lexTokens filename =<< readFileM filename)
 
-showRenamedM :: Bool -> String -> ReplM ()
-showRenamedM showAll filename =
-    let
-        filesM
-            | showAll = FileSystem.toAscList . fs <$> get
-            | otherwise =
-                do fs <- fs <$> get
-                   case FileSystem.lookup fs filename of
-                     Nothing -> do liftIO $ do
-                                     putStrLn $ "module " ++ show filename ++ " has not been staged"
-                                     putStrLn $ "staged modules are " ++ intercalate ", " (map SrcFile.name (FileSystem.toAscList fs))
-                                   return []
-                     Just srcfile -> return [srcfile]
-    in
-      filesM >>= liftIO . mapM_ prettyPrintSrcFile
-
 isLeft (Left _) = True
 isLeft _ = False
 
@@ -215,14 +198,14 @@ fromLeft (Left x) = x
 
 showDefinition :: Bool -> Bool -> Bool -> Bool -> Definition -> String
 showDefinition showFree showSrc showExp showRen def
-  | isLeft (Definition.val def) =
-    Doc.definitionError n (fromLeft (Definition.val def))
   | isNothing (Definition.srcExpr def) =
     Doc.definitionError n "definition is missing source expression"
   | isNothing (Definition.expExpr def) =
     Doc.definitionError n "definition has not expanded expression"
   | isLeft (Definition.renExpr def) =
     Doc.definitionError n (fromLeft (Definition.renExpr def))
+  | isLeft (Definition.val def) =
+    Doc.definitionError n (fromLeft (Definition.val def))
   | otherwise =
     Doc.definitionOk (Definition.name def)
                      (defVal (Definition.val def))
@@ -296,32 +279,12 @@ runCommandM "def" opts nonOpts
         showRen = ShowRen `elem` opts
 
         usageM =
-          liftIO $ putStrLn $ usageInfo "def [-b] [--free] [--src] [--exp] [--ren] [-o] [-a | <me>]" options
+          liftIO $ putStrLn $ usageInfo "def [-b] [--free] [--src] [--exp] [--ren] [-o] (-a | <me>)" options
 
-runCommandM "show" _ ["tokens"] =
-    liftIO $ putStrLn ":show tokens <me>"
-
-runCommandM "show" _ ("tokens":nonOpts) =
-    showTokensM $ last nonOpts
-
-runCommandM "show" opts ("renamed":nonOpts) =
-  let
-    showAll = ShowAll `elem` opts
-    filename | null nonOpts = ""
-             | otherwise = last nonOpts
-  in
-    if not showAll && null filename then
-      liftIO $ putStrLn ":show renamed [-a | <me>]"
-    else
-      showRenamedM showAll filename
-
-runCommandM "show" _ _ =
-    liftIO $ putStrLn ":show [ tokens | renamed ]"
-
-runCommandM "load" _ [] =
+runCommandM "load" _ nonOpts
+  | null nonOpts =
     liftIO $ putStrLn ":load [ <me> | <file/me> ]"
-
-runCommandM "load" _ nonOpts =
+  | otherwise =
     do fs <- initialFs <$> get
        liftIO (importFile fs (last nonOpts)) >>= put
 
@@ -329,7 +292,7 @@ runCommandM "l" opts nonOpts =
     runCommandM "load" opts nonOpts
 
 runCommandM _ _ _ =
-    liftIO $ putStrLn ":def | :show | :load"
+    liftIO $ putStrLn ":def | :load"
 
 
 dispatchCommandM :: String -> ReplM ()
@@ -337,7 +300,7 @@ dispatchCommandM ln =
     case getOpt Permute options (split ' ' ln) of
       (opts, [], []) -> runCommandM "" opts []
       (opts, nonOpts, []) -> runCommandM (head nonOpts) opts (tail nonOpts)
-      (_, _, errs) -> error $ intercalate "\n" errs
+      (_, _, errs) -> liftIO $ putStr $ intercalate "" errs
 
 
 promptM :: String -> ReplM ()
