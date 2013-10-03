@@ -8,19 +8,22 @@ import Data.Char (isSpace)
 import Data.Functor ((<$>))
 import Data.List (intercalate)
 import qualified Data.Map as Map (elems, null)
+import Data.Maybe (fromJust, isNothing)
 import System.Console.GetOpt (OptDescr(..), ArgDescr(..), ArgOrder(..), getOpt, usageInfo)
 import System.Console.Readline
 import System.IO.Error
 
 import Data.Definition (Definition(..))
-import qualified Data.Definition as Definition (initial, name, val, symbol, freeNames)
+import qualified Data.Definition as Definition
 import Data.Exception
 import Data.Expr (DefnKw(..), Expr(..))
 import Data.FileSystem (FileSystem)
 import qualified Data.FileSystem as FileSystem
-import Data.Maybe (fromJust)
 import Data.SrcFile (SrcFile)
 import qualified Data.SrcFile as SrcFile hiding (unprefixedUses)
+import qualified Doc.Doc as Doc
+import qualified Doc.Definition as Doc
+import qualified Doc.Expr as Doc
 import Expander (expand, expandDefinition)
 import Interpreter (interpret, interpretDefinition)
 import Lexer (lexTokens)
@@ -173,7 +176,7 @@ showMeM showAll showBrief showOrd showFree showSrc showExp showRen filename =
             | Map.null (SrcFile.defs srcfile) =
               liftIO (putStrLn " no definitions")
             | otherwise =
-              mapM_ (putDefinitionM showFree showSrc showExp showRen) defns
+              mapM_ (liftIO . putStrLn . showDefinition showFree showSrc showExp showRen) defns
             where defns
                     | showOrd = SrcFile.defsAsc $ srcfile
                     | otherwise = Map.elems . SrcFile.defs $ srcfile
@@ -205,40 +208,47 @@ showRenamedM showAll filename =
     in
       filesM >>= liftIO . mapM_ prettyPrintSrcFile
 
+isLeft (Left _) = True
+isLeft _ = False
 
-showDefinition :: Definition -> String
-showDefinition def = intercalate " " [name def, showSym, showVal]
-  where showSym =
-          case Definition.symbol def of
-            Just sym -> "(" ++ show sym ++ ")"
-            _ -> ""
+fromLeft (Left x) = x
 
-        showVal =
-          case Definition.val def of
-            Left err -> err
-            Right val -> "= " ++ show val
+showDefinition :: Bool -> Bool -> Bool -> Bool -> Definition -> String
+showDefinition showFree showSrc showExp showRen def
+  | isLeft (Definition.val def) =
+    Doc.definitionError n (fromLeft (Definition.val def))
+  | isNothing (Definition.srcExpr def) =
+    Doc.definitionError n "definition is missing source expression"
+  | isNothing (Definition.expExpr def) =
+    Doc.definitionError n "definition has not expanded expression"
+  | isLeft (Definition.renExpr def) =
+    Doc.definitionError n (fromLeft (Definition.renExpr def))
+  | otherwise =
+    Doc.definitionOk (Definition.name def)
+                     (defVal (Definition.val def))
+                     free
+                     (src def)
+                     (exp def)
+                     (ren def)
+  where n = Definition.name def
 
-putDefinitionM :: Bool -> Bool -> Bool -> Bool -> Definition -> ReplM ()
-putDefinitionM showFree showSrc showExp showRen def =
-  liftIO $ do
-    putStrLn (showDefinition def)
-    when showFree $ do
-      putStrLn "\n-- free"
-      putStrLn $ intercalate ", " (Definition.freeNames def)      
-    when showSrc $ do
-      putStrLn "\n-- source"
-      prettyPrint (fromJust (srcExpr def))
-      putStrLn ""
-    when showExp $ do
-      putStrLn "\n-- expanded"
-      prettyPrint (fromJust (expExpr def))
-      putStrLn ""
-    when showRen $ do
-      putStrLn "\n-- renamed"
-      putRenExpr (renExpr def)
-      putStrLn ""
-  where putRenExpr (Left err) = putStrLn err
-        putRenExpr (Right val) = prettyPrint val
+        defVal (Right x) = show x
+
+        free
+          | showFree = Definition.freeNames def
+          | otherwise = []
+        
+        src Definition { srcExpr = Just expr }
+          | showSrc = Doc.docExpr Doc.SrcDocT expr
+          | otherwise = Doc.empty
+
+        exp Definition { expExpr = Just expr }
+          | showExp = Doc.docExpr Doc.ExpDocT expr
+          | otherwise = Doc.empty
+
+        ren Definition { renExpr = Right expr }
+          | showRen = Doc.docExpr Doc.RenDocT expr
+          | otherwise = Doc.empty
 
 data Flag
   = ShowAll
@@ -276,7 +286,7 @@ runCommandM "def" opts nonOpts
        fs <- fs <$> get
        case FileSystem.lookupDefinition fs name of
          Nothing -> liftIO $ putStrLn $ "definition " ++ show name ++ " does not exist"
-         Just def -> (putDefinitionM showFree showSrc showExp showRen) def
+         Just def -> liftIO $ putStrLn $ showDefinition showFree showSrc showExp showRen def
   where showAll = ShowAll `elem` opts
         showBrief = ShowBrief `elem` opts
         showOrd = ShowOrd `elem` opts
