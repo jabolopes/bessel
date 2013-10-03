@@ -24,6 +24,7 @@ import qualified Data.SrcFile as SrcFile hiding (unprefixedUses)
 import qualified Doc.Doc as Doc
 import qualified Doc.Definition as Doc
 import qualified Doc.Expr as Doc
+import qualified Doc.SrcFile as Doc
 import Expander (expand, expandDefinition)
 import Interpreter (interpret, interpretDefinition)
 import Lexer (lexTokens)
@@ -166,74 +167,13 @@ showMeM showAll showBrief showOrd showFree showSrc showExp showRen filename =
                                    return []
                      Just srcfile -> return [srcfile]
     in
-      mapM_ putSrcFile =<< filesM
-    where showDeps srcfile
-              | null (SrcFile.deps srcfile) = ""
-              | otherwise = " uses " ++ intercalate ", " (SrcFile.deps srcfile)
-
-          putDefns srcfile
-            | Map.null (SrcFile.defs srcfile) =
-              liftIO (putStrLn " no definitions")
-            | otherwise =
-              mapM_ (liftIO . putStrLn . showDefinition showFree showSrc showExp showRen) defns
-            where defns
-                    | showOrd = SrcFile.defsAsc $ srcfile
-                    | otherwise = Map.elems . SrcFile.defs $ srcfile
-
-          putSrcFile srcfile
-            | showBrief = liftIO (putStrLn str)
-            | otherwise =
-              do liftIO (putStrLn str)
-                 putDefns srcfile
-            where str = SrcFile.name srcfile ++ " (" ++ show (SrcFile.t srcfile) ++ ")" ++ showDeps srcfile
+      do srcfiles <- filesM
+         let srcFileDoc = Doc.docSrcFiles showBrief showOrd showFree showSrc showExp showRen srcfiles
+         liftIO $ putStr $ Doc.renderDoc srcFileDoc
 
 showTokensM :: String -> ReplM ()
 showTokensM filename =
     liftIO (print . lexTokens filename =<< readFileM filename)
-
-isLeft :: Either a b -> Bool
-isLeft (Left _) = True
-isLeft _ = False
-
-fromLeft :: Either a b -> a
-fromLeft (Left x) = x
-
-showDefinition :: Bool -> Bool -> Bool -> Bool -> Definition -> String
-showDefinition showFree showSrc showExp showRen def
-  | isNothing (Definition.srcExpr def) =
-    Doc.definitionError n "definition is missing source expression"
-  | isNothing (Definition.expExpr def) =
-    Doc.definitionError n "definition has not expanded expression"
-  | isLeft (Definition.renExpr def) =
-    Doc.definitionError n (fromLeft (Definition.renExpr def))
-  | isLeft (Definition.val def) =
-    Doc.definitionError n (fromLeft (Definition.val def))
-  | otherwise =
-    Doc.definitionOk (Definition.name def)
-                     (defVal (Definition.val def))
-                     free
-                     (src def)
-                     (exp def)
-                     (ren def)
-  where n = Definition.name def
-
-        defVal (Right x) = show x
-
-        free
-          | showFree = Definition.freeNames def
-          | otherwise = []
-        
-        src Definition { srcExpr = Just expr }
-          | showSrc = Doc.docExpr Doc.SrcDocT expr
-          | otherwise = Doc.empty
-
-        exp Definition { expExpr = Just expr }
-          | showExp = Doc.docExpr Doc.ExpDocT expr
-          | otherwise = Doc.empty
-
-        ren Definition { renExpr = Right expr }
-          | showRen = Doc.docExpr Doc.RenDocT expr
-          | otherwise = Doc.empty
 
 data Flag
   = ShowAll
@@ -271,7 +211,7 @@ runCommandM "def" opts nonOpts
        fs <- fs <$> get
        case FileSystem.lookupDefinition fs name of
          Nothing -> liftIO $ putStrLn $ "definition " ++ show name ++ " does not exist"
-         Just def -> liftIO $ putStrLn $ showDefinition showFree showSrc showExp showRen def
+         Just def -> liftIO $ putStrLn $ Doc.renderDoc $ Doc.docDefn showFree showSrc showExp showRen def
   where showAll = ShowAll `elem` opts
         showBrief = ShowBrief `elem` opts
         showOrd = ShowOrd `elem` opts
