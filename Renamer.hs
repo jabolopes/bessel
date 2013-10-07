@@ -23,8 +23,8 @@ import Data.Expr (DefnKw(..), Expr(..))
 import qualified Data.Expr as Expr (freeVars, idE)
 import qualified Data.QualName as QualName (fromQualName)
 import Data.Symbol (Symbol (..))
-import qualified Doc.Doc as Doc
-import qualified Doc.Renamer as Doc
+import qualified Data.PrettyString as PrettyString
+import qualified Pretty.Renamer as Pretty
 import Utils (rebaseName, flattenId, splitId)
 
 data RenamerState =
@@ -256,7 +256,7 @@ renameDefinitionM fs def@Definition { defExp = Just expr } =
          return $ def { defFreeNames = map Definition.defName defs
                       , defSym = Nothing
                       , defRen = Left $ let freeNames = [ Definition.defName x | x <- defs, isNothing (Definition.defSym x) ] in
-                                         Doc.freeNamesFailedToRename freeNames }
+                                         Pretty.freeNamesFailedToRename freeNames }
        else do
          let syms = mapMaybe Definition.defSym defs
          sequence_ [ addSymbolM name sym | name <- names | sym <- syms ]
@@ -266,7 +266,7 @@ renameDefinitionM fs def@Definition { defExp = Just expr } =
                           , defSym = Just sym
                           , defRen = Right expr' }) `catchError` (\err -> return $ def { defFreeNames = map Definition.defName defs
                                                                                         , defSym = Nothing
-                                                                                        , defRen = Left (Doc.text err) })
+                                                                                        , defRen = Left (PrettyString.text err) })
 
 renameDefinition :: FileSystem -> String -> Definition -> Either String Definition
 renameDefinition fs ns def =

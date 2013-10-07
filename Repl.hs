@@ -1,4 +1,3 @@
-{-# LANGUAGE BangPatterns #-}
 module Repl where
 
 import Prelude hiding (lex)
@@ -7,8 +6,6 @@ import Control.Monad.State
 import Data.Char (isSpace)
 import Data.Functor ((<$>))
 import Data.List (intercalate)
-import qualified Data.Map as Map (elems, null)
-import Data.Maybe (isNothing)
 import System.Console.GetOpt (OptDescr(..), ArgDescr(..), ArgOrder(..), getOpt, usageInfo)
 import System.Console.Readline
 import System.IO.Error
@@ -20,17 +17,17 @@ import Data.Expr (DefnKw(..), Expr(..))
 import Data.FileSystem (FileSystem)
 import qualified Data.FileSystem as FileSystem
 import Data.Module (Module)
-import qualified Data.Module as Module hiding (unprefixedUses)
-import qualified Doc.Doc as Doc
-import qualified Doc.Definition as Doc
-import qualified Doc.Expr as Doc
-import qualified Doc.Module as Doc
+import qualified Data.Module as Module
+import qualified Data.PrettyString as PrettyString
 import Expander (expand, expandDefinition)
 import Interpreter (interpret, interpretDefinition)
 import Lexer (lexTokens)
 import Loader (preload, readFileM)
 import Monad.InterpreterM (Val)
 import Parser (parseRepl)
+import qualified Pretty.Definition as Pretty
+import qualified Pretty.Expr as Pretty
+import qualified Pretty.Module as Pretty
 import Renamer (rename, renameDefinition)
 import Reorderer (reorder)
 import Utils (split)
@@ -168,8 +165,8 @@ showMeM showAll showBrief showOrd showFree showSrc showExp showRen filename =
                      Just mod -> return [mod]
     in
       do mods <- filesM
-         let modDoc = Doc.docModules showBrief showOrd showFree showSrc showExp showRen mods
-         liftIO $ putStr $ Doc.renderDoc modDoc
+         let modDoc = Pretty.docModules showBrief showOrd showFree showSrc showExp showRen mods
+         liftIO $ putStr $ PrettyString.toString modDoc
 
 showTokensM :: String -> ReplM ()
 showTokensM filename =
@@ -211,7 +208,7 @@ runCommandM "def" opts nonOpts
        fs <- fs <$> get
        case FileSystem.lookupDefinition fs name of
          Nothing -> liftIO $ putStrLn $ "definition " ++ show name ++ " does not exist"
-         Just def -> liftIO $ putStrLn $ Doc.renderDoc $ Doc.docDefn showFree showSrc showExp showRen def
+         Just def -> liftIO $ putStrLn $ PrettyString.toString $ Pretty.docDefn showFree showSrc showExp showRen def
   where showAll = ShowAll `elem` opts
         showBrief = ShowBrief `elem` opts
         showOrd = ShowOrd `elem` opts

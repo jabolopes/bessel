@@ -1,9 +1,9 @@
 module Data.Definition where
 
 import Data.Expr (Expr)
+import Data.PrettyString (PrettyString)
+import qualified Data.PrettyString as PrettyString (empty)
 import Data.Symbol (Symbol)
-import Doc.Doc (Doc)
-import qualified Doc.Doc as Doc (empty)
 import Monad.InterpreterM (Val)
 
 
@@ -16,7 +16,7 @@ data Definition
                , defVal :: Either String Val
                , defSrc :: Maybe Expr
                , defExp :: Maybe Expr
-               , defRen :: Either Doc Expr }
+               , defRen :: Either PrettyString Expr }
     deriving (Show)
 
 
@@ -30,4 +30,4 @@ initial name =
              , defVal = Left ""
              , defSrc = Nothing
              , defExp = Nothing
-             , defRen = Left Doc.empty }
+             , defRen = Left PrettyString.empty }
