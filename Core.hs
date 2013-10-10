@@ -121,11 +121,13 @@ invReal (RealVal d) = RealVal (1 / d)
 
 -- Int and Real
 
+ltIntReal :: Val -> Val
 ltIntReal (IntVal i) = FnVal (return . hof)
   where hof (RealVal d)
           | fromIntegral i < d = true
           | otherwise = false
 
+ltRealInt :: Val -> Val
 ltRealInt (RealVal d) = FnVal (return . hof)
   where hof (IntVal i)
           | d < fromIntegral i = true
