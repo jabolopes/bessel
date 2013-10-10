@@ -4,26 +4,21 @@ import Data.List (nub, sort)
 
 import Data.QualName
 
-
 type PatDefn = (String, [Expr])
-
 
 data Pat
   = Pat { patPred :: Expr
         , patDefns :: [PatDefn] }
     deriving (Show)
 
-
 mkPatPred :: Expr -> [Pat] -> Expr
 mkPatPred pred [] = pred
 mkPatPred pred pats =
   AppE pred $ SeqE $ map patPred pats
 
-
 -- edit: this function requires 'AppT'
 mkPatType typ [] = typ
 mkPatType typ _ = error $ "Expr.mkGeneralPat.mkPatType: unhandled case for type " ++ show typ
-
 
 mkPatDefns :: [[Expr]] -> [Pat] -> [PatDefn]
 mkPatDefns [] [] = []    
@@ -33,18 +28,15 @@ mkPatDefns (mod:mods) (Pat _ defns:pats) =
         modDefns mod ((str, mod'):defns) =
           (str, mod' ++ mod):modDefns mod defns
 
-
 mkAllPat :: Pat
 mkAllPat =
   Pat { patPred = constTrueE
       , patDefns = [] }
 
-
 mkPredPat :: Expr -> Pat
 mkPredPat pred =
   Pat { patPred = pred
       , patDefns = [] }
-
 
 mkGeneralPat :: Expr -> [[Expr]] -> [Pat] -> Pat
 mkGeneralPat pred mods pats =
@@ -177,10 +169,13 @@ andE expr1 expr2 =
     in
       CondE [m1, m3] err
 
-
 idE :: String -> Expr
 idE = IdE . mkQualName . (:[])
 
+intE :: Int -> Expr
+intE n
+  | n > 0 = IntE n
+  | otherwise = appE "negInt" (IntE (- n))
 
 appE :: String -> Expr -> Expr
 appE str = AppE (idE str)
@@ -214,14 +209,21 @@ orE expr1 expr2 =
     in
       CondE [m1, m2, m3] err
 
+realE :: Double -> Expr
+realE n
+  | n > 0 = RealE n
+  | otherwise = appE "negReal" (RealE (- n))
+
+seqE :: [Expr] -> Expr
+seqE [] = idE "null"
+seqE (e:es) = AppE (appE "cons" e) (seqE es)
 
 signalE :: String -> String -> Expr -> Expr
 signalE id str val =
     appE "signal" (SeqE [stringE id, stringE str, val])
 
-
 stringE :: String -> Expr
-stringE str = SeqE $ map CharE str
+stringE str = seqE (map CharE str)
 
 
 freeVarsList :: [String] -> [String] -> [Expr] -> ([String], [String])

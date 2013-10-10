@@ -1,10 +1,13 @@
-module Config (isPrelude, preludeName) where
+module Config where
 
-preludeNames :: [String]
-preludeNames = ["Prelude"]
+coreName :: String
+coreName = "Core"
 
-isPrelude :: String -> Bool
-isPrelude = (`elem` preludeNames)
+isCore :: String -> Bool
+isCore = (== coreName)
 
 preludeName :: String
-preludeName = head preludeNames
+preludeName = "Prelude"
+
+isPrelude :: String -> Bool
+isPrelude = (== preludeName)

@@ -7,6 +7,7 @@ import Control.Arrow ((***))
 import Control.Monad ((<=<))
 import Data.Functor ((<$>))
 
+import Config
 import Data.Exception
 import Data.Module
 import Monad.InterpreterM
@@ -336,4 +337,4 @@ index (IntVal i) = FnVal (return . hof)
     where hof (SeqVal vals) = vals !! i
 
 coreModule :: Module
-coreModule = mkCoreModule "Core" [] fnDesc
+coreModule = mkCoreModule coreName [] fnDesc

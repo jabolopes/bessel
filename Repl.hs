@@ -18,6 +18,7 @@ import Data.FileSystem (FileSystem)
 import qualified Data.FileSystem as FileSystem
 import Data.Module (Module)
 import qualified Data.Module as Module
+import Data.PrettyString (PrettyString)
 import qualified Data.PrettyString as PrettyString
 import Expander (expand, expandDefinition)
 import Interpreter (interpret, interpretDefinition)
@@ -30,6 +31,7 @@ import qualified Pretty.Expr as Pretty
 import qualified Pretty.Module as Pretty
 import Renamer (rename, renameDefinition)
 import Reorderer (reorder)
+import qualified Stage.Expander as Expander (expandMacro)
 import Utils (split)
 
 
@@ -54,8 +56,9 @@ putVal (Right val) = when doPutVal (print val)
 
 
 parserEither :: Either String a -> a
-parserEither = either throwParserException id
+parserEither = either (throwParserException . PrettyString.text) id
 
+stageExpanderEither = either (throwExpanderException . PrettyString.toString) id
 
 expanderEither :: Either String a -> a
 expanderEither = either throwExpanderException id
@@ -139,8 +142,9 @@ renameSnippet fs = renameDefinition fs Module.interactiveName
 runSnippetM :: String -> ReplM ()
 runSnippetM ln =
   do fs <- fs <$> get
-     let expr = parserEither (parseRepl Module.interactiveName ln)
-     let def = mkSnippet fs expr
+     let macro = parserEither (parseRepl Module.interactiveName ln)
+         expr = stageExpanderEither (Expander.expandMacro macro)
+         def = mkSnippet fs expr
          expDef = expanderEither (expandDefinition fs def)
          renDef = renamerEither (renameSnippet fs expDef)
          evalDef = interpretDefinition fs renDef
@@ -261,8 +265,9 @@ replM =
 
 
 putUserException :: UserException -> IO ()
-putUserException (LoaderException str) =
-    putStrLn $ "loader error: " ++ str
+putUserException (LoaderException err) =
+  putStrLn . PrettyString.toString $
+  PrettyString.sep [PrettyString.text "loader error: ", err]
 
 putUserException (ExpanderException str) =
     putStrLn $ "renamer error: " ++ str
@@ -279,8 +284,9 @@ putUserException (InterpreterException str) =
 putUserException (LexerException str) =
     putStrLn $ "lexical error: " ++ str
 
-putUserException (ParserException str) =
-    putStrLn $ "parse error: " ++ str
+putUserException (ParserException err) =
+  putStrLn . PrettyString.toString $
+  PrettyString.sep [PrettyString.text "parse error: ", err]
 
 putUserException (SignalException str) =
     putStrLn $ "uncaught exception: " ++ str

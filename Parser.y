@@ -5,47 +5,22 @@ module Parser where
 import Prelude hiding (lex)
 
 import Control.Monad.State
-import Data.List (intercalate, nub, partition)
 
 import GHC.Exts (sortWith)
 
 import Config
 import Data.Exception
+import Data.Expr hiding (Pat)
 import Data.Functor ((<$>))
 import Data.LexState
+import Data.Macro
 import Data.Module
-import Data.Expr
 import Data.QualName (mkQualName)
 import Data.Token
 import Lexer
 import Monad.ParserM
 import qualified Monad.ParserM as ParserM
 import Utils
-
-
-checkUniqueImports :: [String] -> [(String, String)] -> ParserM ()
-checkUniqueImports unprefixed prefixed
-  | length (nub $ unprefixed) /= length unprefixed =
-      failM "duplicated 'use' forms"
-  | length (nub $ map fst prefixed) /= length (map fst prefixed) =
-      failM "duplicated 'use' forms"
-  | otherwise =
-      return ()
-
-
-checkUniqueQualifiers :: [(String, String)] -> ParserM ()
-checkUniqueQualifiers prefixed
-  | length (nub $ map snd prefixed) /= length (map snd prefixed) =
-      failM "duplicated qualifiers in 'use' forms"
-  | otherwise =
-      return ()
-
-
-checkUseList :: [(String, String)] -> ParserM ()
-checkUseList uses =
-  do let (unprefixed, prefixed) = partition (null . snd) uses
-     checkUniqueImports (map fst unprefixed) prefixed
-     checkUniqueQualifiers prefixed
 }
 
 %monad { ParserM }
@@ -134,151 +109,162 @@ checkUseList uses =
 
 %%
 
+DefnOrExpr :: { Macro }
 DefnOrExpr:
     Defn { $1 }
   | Expr { $1 }
 
-
+Module :: { Macro }
 Module:
-    me LongTypeId CheckUseList DefnList { mkParsedModule (flattenId $2) $3 $4 }
-  | me LongTypeId DefnList              { mkParsedModule (flattenId $2) [] $3 }
+    me LongTypeId UseList DefnList { ModuleM (flattenId $2) $3 $4 }
+  | me LongTypeId DefnList         { ModuleM (flattenId $2) [] $3 }
 
-CheckUseList:
-    UseList {% checkUseList $1 >>
-               mapM_ (addDependencyM . fst) $1 >>
-               return $1 }
-
+UseList :: { [(String, String)] }
 UseList:
     UseList use LongTypeId as LongTypeId { $1 ++ [(flattenId $3, flattenId $5)] }
   | UseList use LongTypeId               { $1 ++ [(flattenId $3, "")] }
   | use LongTypeId as LongTypeId         { [(flattenId $2, flattenId $4)] }
   | use LongTypeId                       { [(flattenId $2, "")] }
 
+DefnList :: { [Macro] }
 DefnList:
     DefnList Defn   { $1 ++ [$2] }
   | Defn            { [$1] }
 
+Defn :: { Macro }
 Defn:
-    FnDefn   { $1 }
+    FnDefn { $1 }
 
+FnDefn :: { Macro }
 FnDefn:
-    def Name DefnMatches { FnDecl Def $2 (CondMacro $3 $2) }
-  | def Name '=' Expr    { FnDecl Def $2 $4 }
+    def Name DefnMatches { FnDeclM Def $2 (CondM $3) }
+  | def Name '=' Expr    { FnDeclM Def $2 $4 }
 
+DefnMatches :: { [([Pat], Macro)] }
 DefnMatches:
     DefnMatches '|' PatList '=' Expr  { $1 ++ [($3, $5)] }
   | PatList '=' Expr                  { [($1, $3)] }
 
+Expr :: { Macro }
 Expr:
     SimpleExpr %prec below_app_prec { $1 }
 
-  | Expr SimpleExpr %prec app_prec  { AppE $1 $2 }
+  | Expr SimpleExpr %prec app_prec  { AppM $1 $2 }
 
-  | Expr 'o' Expr   { binOpE $2 $1 $3 }
+  | Expr 'o' Expr   { BinOpM $2 $1 $3 }
 
-  | Expr '*' Expr   { binOpE $2 $1 $3 }
-  | Expr '/' Expr   { binOpE $2 $1 $3 }
+  | Expr '*' Expr   { BinOpM $2 $1 $3 }
+  | Expr '/' Expr   { BinOpM $2 $1 $3 }
 
-  | Expr '+' Expr   { binOpE $2 $1 $3 }
-  | Expr '-' Expr   { binOpE $2 $1 $3 }
+  | Expr '+' Expr   { BinOpM $2 $1 $3 }
+  | Expr '-' Expr   { BinOpM $2 $1 $3 }
 
-  | Expr '==' Expr  { binOpE $2 $1 $3 }
-  | Expr '/=' Expr  { binOpE $2 $1 $3 }
-  | Expr '<'  Expr  { binOpE $2 $1 $3 }
-  | Expr '>'  Expr  { binOpE $2 $1 $3 }
-  | Expr '<=' Expr  { binOpE $2 $1 $3 }
-  | Expr '>=' Expr  { binOpE $2 $1 $3 }
+  | Expr '==' Expr  { BinOpM $2 $1 $3 }
+  | Expr '/=' Expr  { BinOpM $2 $1 $3 }
+  | Expr '<'  Expr  { BinOpM $2 $1 $3 }
+  | Expr '>'  Expr  { BinOpM $2 $1 $3 }
+  | Expr '<=' Expr  { BinOpM $2 $1 $3 }
+  | Expr '>=' Expr  { BinOpM $2 $1 $3 }
 
-  | Expr '+>' Expr  { binOpE $2 $1 $3 }
-  | Expr '<+' Expr  { binOpE $2 $1 $3 }
+  | Expr '+>' Expr  { BinOpM $2 $1 $3 }
+  | Expr '<+' Expr  { BinOpM $2 $1 $3 }
 
-  | Expr '&&' Expr  { andE $1 $3 }
-  | Expr '||' Expr  { orE $1 $3 }
+  | Expr '&&' Expr  { AndM $1 $3 }
+  | Expr '||' Expr  { OrM $1 $3 }
 
-  | Expr quotedId Expr { binOpE $2 $1 $3 }
+  | Expr quotedId Expr { BinOpM $2 $1 $3 }
 
-  | Expr where '{' DefnList '}' { WhereE $1 $4 }
+  | Expr where '{' DefnList '}' { WhereM $1 $4 }
 
-  | Lambda          { CondMacro $1 "lambda" }
+  | Lambda          { CondM $1 }
   | Merge           { $1 }
 
+Lambda :: { [([Pat], Macro)] }
 Lambda:
     Lambda '|' PatList SimpleExpr { $1 ++ [($3, $4)] }
   | PatList SimpleExpr            { [($1, $2)] }
 
+PatList :: { [Pat] }
 PatList:
     PatList Pat         { $1 ++ [$2] }
   | Pat                 { [$1] }
 
 Merge:
-    '{' MergeObservations '}' { MergeE (sortWith fst $2) }
+  '{' MergeObservations '}' { undefined } -- MergeE (sortWith fst $2)
 
 MergeObservations:
     MergeObservations '|' QualName '=' Expr { $1 ++ [($3, $5)] }
   | QualName '=' Expr                       { [($1, $3)] }
 
+SimpleExpr :: { Macro }
 SimpleExpr:
-    QualName     { IdE $1 }
+    QualName     { IdM $1 }
   | Constant     { $1 }
   | '(' Expr ')' { $2 }
 
+Constant :: { Macro }
 Constant:
-    character        { CharE $1 }
-  | integer          { if $1 >= 0 then IntE $1 else appE "negInt" (IntE (- $1)) }
-  | double           { if $1 >= 0 then RealE $1 else appE "negReal" (RealE (- $1)) }
-  | '[' ExprList ']' { SeqE $2 }
-  | '['          ']' { idE "null#" }
-  | string           { stringE $1 }
-
+    character        { CharM $1 }
+  | integer          { IntM $1 }
+  | double           { RealM $1 }
+  | '[' ExprList ']' { SeqM $2 }
+  | '['          ']' { SeqM [] }
+  | string           { StringM $1 }
 
 -- patterns
 
+Pat :: { Pat }
 Pat:
-    id '@ ' { namePat $1 mkAllPat }
-  |    '@ ' { mkAllPat }
+    id '@ ' { bindPat $1 allPat }
+  |    '@ ' { allPat }
   | PatRest { $1 }
 
+PatNoSpace :: { Pat }
 PatNoSpace:
-    id '@'  { namePat $1 mkAllPat }
-  |    '@'  { mkAllPat }
+    id '@'  { bindPat $1 allPat }
+  |    '@'  { allPat }
   | PatRest { $1 }
 
+PatRest :: { Pat }
 PatRest:
 -- predicate patterns
-    id '@' '(' Expr ')'    { namePat $1 (mkPredPat $4) }
-  |    '@' '(' Expr ')'    { mkPredPat $3 }
-  | id '@' QualName        { namePat $1 (mkPredPat (IdE $3)) }
-  |    '@' QualName        { mkPredPat (IdE $2) }
+    id '@' '(' Expr ')'    { bindPat $1 (predicatePat $4) }
+  |    '@' '(' Expr ')'    { predicatePat $3 }
+  | id '@' QualName        { bindPat $1 (predicatePat (IdM $3)) }
+  |    '@' QualName        { predicatePat (IdM $2) }
 
 -- list patterns
-  | id '@' ListPat         { namePat $1 $3 }
-  |        ListPat         { $1 }
+  | id '@' '(' ListPat ')' { bindPat $1 $4 }
+  | '(' ListPat ')'        { $2 }
 
--- combined patterns
-  | id '@' '(' CombPat ')' { namePat $1 $4 }
-  |        '(' CombPat ')' { $2 }
+-- tuple patterns
+  | id '@' TuplePat        { bindPat $1 $3 }
+  |        TuplePat        { $1 }
 
-CombPat:
-    Pat '+>' PatNoSpace { mkCombPat (idE "isList") [idE "hd", idE "tl"] [$1, $3] }
---  | Pat '&&' PatNoSpace { mkCombPat (idE "pand") [idE "id", idE "id"] [$1, $3] }
---  | Pat '||' PatNoSpace { mkCombPat (idE "por") [idE "id", idE "id"] [$1, $3] }
-
+ListPat :: { Pat }
 ListPat:
-    '[' ExprPatList ']' { mkListPat $2 }
-  | '@' '[' ']'         { mkListPat [] }
+    Pat '+>' PatNoSpace    { listPat $1 $3 }
 
+TuplePat :: { Pat }
+TuplePat:
+    '[' ExprPatList ']' { tuplePat $2 }
+  | '@' '[' ']'         { tuplePat [] }
+
+ExprPatList :: { [Pat] }
 ExprPatList:
-    ExprList ',' PatNoSpace ',' PatList2 { map mkPredPat $1 ++ [$3] ++ $5 }
-  | ExprList ',' PatNoSpace              { map mkPredPat $1 ++ [$3] }
+    ExprList ',' PatNoSpace ',' PatList2 { map predicatePat $1 ++ [$3] ++ $5 }
+  | ExprList ',' PatNoSpace              { map predicatePat $1 ++ [$3] }
   | PatNoSpace ',' PatList2              { $1:$3 }
   | PatNoSpace                           { [$1] }
 
+PatList2 :: { [Pat] }
 PatList2:
-    Expr ',' PatList2        { mkPredPat $1:$3 }
+    Expr ',' PatList2        { predicatePat $1:$3 }
   | PatNoSpace  ',' PatList2 { $1:$3 }
-  | Expr                     { [mkPredPat $1] }
+  | Expr                     { [predicatePat $1] }
   | PatNoSpace               { [$1] }
 
+ExprList :: { [Macro] }
 ExprList:
     ExprList ',' Expr   { $1 ++ [$3] }
   | Expr                { [$1] }
@@ -322,33 +308,22 @@ Operator:
 parseError :: Token -> ParserM a
 parseError = failM . show
 
-
 nextToken :: (Token -> ParserM a) -> ParserM a
 nextToken cont =
-    do (tk, state') <- lex . lexerState <$> get
-       modify $ \s -> s { lexerState = state' }
-       cont tk
+  do (tk, state') <- lex . psLexerState <$> get
+     modify $ \s -> s { psLexerState = state' }
+     cont tk
 
+runParser :: ParserM Macro -> String -> String -> Either String Macro
+runParser m filename str =
+  case runStateT m $ ParserM.initial $ lexState filename str of
+    Right (mod, _) -> Right mod
+    Left str -> Left str
 
-runParser :: ParserM Module -> [String] -> String -> String -> Either String Module
-runParser m deps filename str =
-    case runStateT m $ ParserM.initial $ lexState filename str of
-        Right (mod, s) -> Right mod { modDeps = nub $ deps ++ dependencies s }
-        Left str -> Left str
+parseFile :: String -> String -> Either String Macro
+parseFile filename str = runParser parseModule filename str
 
-
-parseFile :: String -> String -> Either String Module
-parseFile filename str =
-    let deps = ["Core", preludeName] in
-    addImplicitUnprefixedUses deps <$> runParser parseModule deps filename str
-
-
-parsePrelude :: String -> String -> Either String Module
-parsePrelude filename str =
-    runParser parseModule [] filename str
-
-
-parseRepl :: String -> String -> Either String Expr
+parseRepl :: String -> String -> Either String Macro
 parseRepl filename str =
-    evalStateT parseDefnOrExpr $ ParserM.initial $ lexState filename str
+  evalStateT parseDefnOrExpr $ ParserM.initial $ lexState filename str
 }
