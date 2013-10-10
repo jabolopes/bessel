@@ -26,8 +26,6 @@ docExpr _ (IdE name) = PrettyString.text (show name)
 docExpr _ (IntE i) = PrettyString.int i
 docExpr _ (RealE d) = PrettyString.double d
 docExpr _ (CharE c) = PrettyString.char c
-docExpr t (SeqE es) =
-  PrettyString.hcat (PrettyString.intercalate (PrettyString.text ", ") (map (docExpr t) es))
 docExpr t (AppE e1 e2@AppE {}) =
   PrettyString.sep [docExpr t e1, PrettyString.parens (docExpr t e2)]
 docExpr t (AppE e1 e2) =

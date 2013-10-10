@@ -164,7 +164,6 @@ expandM expr@IdE {} = returnOneM expr
 expandM expr@IntE {} = returnOneM expr
 expandM expr@RealE {} = returnOneM expr
 expandM expr@CharE {} = returnOneM expr
-expandM (SeqE exprs) = oneM . SeqE <$> mapM expandOneM exprs
 
 expandM (AppE expr1 expr2) =
     oneM <$> ((AppE <$> expandOneM expr1) `ap` expandOneM expr2)

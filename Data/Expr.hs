@@ -14,7 +14,7 @@ data Pat
 mkPatPred :: Expr -> [Pat] -> Expr
 mkPatPred pred [] = pred
 mkPatPred pred pats =
-  AppE pred $ SeqE $ map patPred pats
+  AppE pred $ seqE $ map patPred pats
 
 -- edit: this function requires 'AppT'
 mkPatType typ [] = typ
@@ -54,7 +54,7 @@ mkGeneralPat pred mods pats =
 -- @
 mkListPat :: [Pat] -> Pat
 mkListPat [] =
-  Pat { patPred = appE "isTuple" (SeqE [])
+  Pat { patPred = appE "isTuple" (seqE [])
       , patDefns = [] }
 
 -- edit: 'DynT' should be 'SeqT' or 'ConT "Seq"'
@@ -88,7 +88,6 @@ data Expr
     | IntE Int
     | RealE Double
     | CharE Char
-    | SeqE [Expr]
 
     | AppE Expr Expr
 
@@ -152,7 +151,6 @@ isValueE IdE {} = True
 isValueE IntE {} = True
 isValueE RealE {} = True
 isValueE CharE {} = True
-isValueE SeqE {} = True
 isValueE LambdaE {} = True
 isValueE _ = False
 
@@ -220,7 +218,7 @@ seqE (e:es) = AppE (appE "cons" e) (seqE es)
 
 signalE :: String -> String -> Expr -> Expr
 signalE id str val =
-    appE "signal" (SeqE [stringE id, stringE str, val])
+    appE "signal" (seqE [stringE id, stringE str, val])
 
 stringE :: String -> Expr
 stringE str = seqE (map CharE str)
@@ -254,13 +252,6 @@ freeVars' env fvars (IdE name)
 freeVars' env fvars (IntE _) = (env, fvars)
 freeVars' env fvars (RealE _) = (env, fvars)
 freeVars' env fvars (CharE _) = (env, fvars)
-
-freeVars' env fvars (SeqE exprs) =
-    loop env fvars exprs
-    where loop env fvars [] = (env, fvars)
-          loop env fvars (expr:exprs) =
-              let (env', fvars') = freeVars' env fvars expr in
-              loop env' fvars' exprs
 
 freeVars' env fvars (AppE expr1 expr2) =
     let (env', fvars') = freeVars' env fvars expr1 in

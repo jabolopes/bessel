@@ -170,7 +170,6 @@ renameM expr@(IdE name) =
 renameM expr@IntE {} = return [expr]
 renameM expr@RealE {} = return [expr]
 renameM expr@CharE {} = return [expr]
-renameM (SeqE exprs) = (:[]) . SeqE <$> mapM renameOneM exprs
 
 renameM (AppE expr1 expr2) =
     (:[]) <$> ((AppE <$> renameOneM expr1) `ap` renameOneM expr2)
