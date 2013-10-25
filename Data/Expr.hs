@@ -1,104 +1,16 @@
 module Data.Expr where
 
-import Data.List (nub, sort)
+import qualified Data.List as List (nub)
 
 import Data.QualName
-
-type PatDefn = (String, [Expr])
-
-data Pat
-  = Pat { patPred :: Expr
-        , patDefns :: [PatDefn] }
-    deriving (Show)
-
-mkPatPred :: Expr -> [Pat] -> Expr
-mkPatPred pred [] = pred
-mkPatPred pred pats =
-  AppE pred $ seqE $ map patPred pats
-
--- edit: this function requires 'AppT'
-mkPatType typ [] = typ
-mkPatType typ _ = error $ "Expr.mkGeneralPat.mkPatType: unhandled case for type " ++ show typ
-
-mkPatDefns :: [[Expr]] -> [Pat] -> [PatDefn]
-mkPatDefns [] [] = []    
-mkPatDefns (mod:mods) (Pat _ defns:pats) =
-  modDefns mod defns ++ mkPatDefns mods pats
-  where modDefns _ [] = []
-        modDefns mod ((str, mod'):defns) =
-          (str, mod' ++ mod):modDefns mod defns
-
-mkAllPat :: Pat
-mkAllPat =
-  Pat { patPred = constTrueE
-      , patDefns = [] }
-
-mkPredPat :: Expr -> Pat
-mkPredPat pred =
-  Pat { patPred = pred
-      , patDefns = [] }
-
-mkGeneralPat :: Expr -> [[Expr]] -> [Pat] -> Pat
-mkGeneralPat pred mods pats =
-    Pat { patPred = mkPatPred pred pats
-        , patDefns = mkPatDefns mods pats }
-
-
--- edit: document why this function has a special case for the empty
--- list
---
--- edit: 'isTuple' already checks the lenght of the list, however, it
--- might be better to generate end of list pattern
--- @
--- nrdef [] = tail (... (tail xs)...)
--- @
-mkListPat :: [Pat] -> Pat
-mkListPat [] =
-  Pat { patPred = appE "isTuple" (seqE [])
-      , patDefns = [] }
-
--- edit: 'DynT' should be 'SeqT' or 'ConT "Seq"'
-mkListPat pats =
-  Pat { patPred = mkPatPred (idE "isTuple") pats
-      , patDefns = mkPatDefns patMods pats }
-  where listRef 1 = [idE "hd"]
-        listRef i = idE "tl":listRef (i - 1)
-        patMods = map (reverse . listRef) [1..length pats]
-
-
-mkCombPat :: Expr -> [Expr] -> [Pat] -> Pat
-mkCombPat pred mods pats =
-  Pat { patPred = mkPatPred pred pats
-      , patDefns = mkPatDefns (map (:[]) mods) pats }
-
-
-namePat :: String -> Pat -> Pat
-namePat name pat =
-  pat { patDefns = (name, []):patDefns pat }
-
 
 data DefnKw
   = Def | NrDef
     deriving (Show)
 
-
 data Expr
-    = IdE QualName
-
-    | IntE Int
-    | RealE Double
+    = AppE Expr Expr
     | CharE Char
-
-    | AppE Expr Expr
-
-    -- |
-    -- This construct is only available in the parser
-    -- @
-    -- x@Int y@isInt = val1
-    -- x@Int y@isReal = val2
-    --  @     @ = blame "..."
-    -- @
-    | CondMacro [([Pat], Expr)] String
 
     -- |
     -- This construct is not available in the parser
@@ -112,39 +24,35 @@ data Expr
     | CondE [(Expr, Expr)] String
 
     | FnDecl DefnKw String Expr
-
+    | IdE QualName
+    | IntE Int
     | LambdaE String Expr
 
     -- info: initialization vals (1st argument) are sorted in Parser
     | MergeE [(QualName, Expr)]
 
+    | RealE Double
     | WhereE Expr [Expr]
       deriving (Show)
-
-
-isCharE :: Expr -> Bool
-isCharE (CharE _) = True
-isCharE _ = False
-
 
 isAppE :: Expr -> Bool
 isAppE (AppE _ _) = True
 isAppE _ = False
 
+isCharE :: Expr -> Bool
+isCharE (CharE _) = True
+isCharE _ = False
 
 isFnDecl FnDecl {} = True
 isFnDecl _ = False
-
 
 isLambdaE :: Expr -> Bool
 isLambdaE LambdaE {} = True
 isLambdaE _ = False
 
-
 isWhereE :: Expr -> Bool
 isWhereE WhereE {} = True
 isWhereE _ = False
-
 
 isValueE :: Expr -> Bool
 isValueE IdE {} = True
@@ -153,7 +61,6 @@ isValueE RealE {} = True
 isValueE CharE {} = True
 isValueE LambdaE {} = True
 isValueE _ = False
-
 
 andE :: Expr -> Expr -> Expr
 andE expr1 expr2 =
@@ -167,6 +74,21 @@ andE expr1 expr2 =
     in
       CondE [m1, m3] err
 
+appE :: String -> Expr -> Expr
+appE str = AppE (idE str)
+
+binOpE :: String -> Expr -> Expr -> Expr
+binOpE op expr = AppE (appE op expr)
+
+constE :: Expr -> Expr
+constE = LambdaE "_"
+
+constTrueE :: Expr
+constTrueE = constE (idE "true#")
+
+foldAppE :: Expr -> [Expr] -> Expr
+foldAppE = foldr AppE
+
 idE :: String -> Expr
 idE = IdE . mkQualName . (:[])
 
@@ -174,26 +96,6 @@ intE :: Int -> Expr
 intE n
   | n > 0 = IntE n
   | otherwise = appE "negInt" (IntE (- n))
-
-appE :: String -> Expr -> Expr
-appE str = AppE (idE str)
-
-
-binOpE :: String -> Expr -> Expr -> Expr
-binOpE op expr = AppE (appE op expr)
-
-
-constE :: Expr -> Expr
-constE = LambdaE "_"
-
-
-constTrueE :: Expr
-constTrueE = constE (idE "true#")
-
-
-foldAppE :: Expr -> [Expr] -> Expr
-foldAppE = foldr AppE
-
 
 orE :: Expr -> Expr -> Expr
 orE expr1 expr2 =
@@ -223,51 +125,17 @@ signalE id str val =
 stringE :: String -> Expr
 stringE str = seqE (map CharE str)
 
-
 freeVarsList :: [String] -> [String] -> [Expr] -> ([String], [String])
 freeVarsList env fvars [] = (env, fvars)
 freeVarsList env fvars (x:xs) =
     let (env', fvars') = freeVars' env fvars x in
     freeVarsList env' fvars' xs
 
-
-freeVarsPat :: [String] -> [String] -> Pat -> ([String], [String])
-freeVarsPat env fvars pat =
-  let (env', fvars') = freeVars' env fvars (patPred pat) in
-  freeVarsList (env' ++ map fst (patDefns pat)) fvars' (concatMap snd (patDefns pat))
-
-
-freeVarsPats :: [String] -> [String] -> [Pat] -> ([String], [String])
-freeVarsPats env fvars [] = (env, fvars)
-freeVarsPats env fvars (pat:pats) =
-    let (env', fvars') = freeVarsPat env fvars pat in
-    freeVarsPats env' fvars' pats
-
-
 freeVars' :: [String] -> [String] -> Expr -> ([String], [String])
-freeVars' env fvars (IdE name)
-    | fromQualName name `elem` env = (env, fvars)
-    | otherwise = (env, fromQualName name:fvars)
-
-freeVars' env fvars (IntE _) = (env, fvars)
-freeVars' env fvars (RealE _) = (env, fvars)
-freeVars' env fvars (CharE _) = (env, fvars)
-
 freeVars' env fvars (AppE expr1 expr2) =
     let (env', fvars') = freeVars' env fvars expr1 in
     freeVars' env' fvars' expr2
-
-freeVars' env fvars (CondMacro ms _) =
-    loop env fvars ms
-    where loop env fvars [] = (env, fvars)
-          loop env fvars ((pats, expr):ms) =
-              let
-                  (env', fvars') = freeVarsPats env fvars pats
-                  (env'', fvars'') = freeVars' env' fvars' expr
-              in
-                loop env'' fvars'' ms
-              
-
+freeVars' env fvars (CharE _) = (env, fvars)
 freeVars' env fvars (CondE ms _) =
     loop env fvars ms
     where loop env fvars [] = (env, fvars)
@@ -277,24 +145,24 @@ freeVars' env fvars (CondE ms _) =
                   (env'', fvars'') = freeVars' env' fvars' expr2
               in
                 loop env'' fvars'' exprs
-
 freeVars' env fvars (FnDecl Def name expr) =
     freeVars' (name:env) fvars expr
-
 freeVars' env fvars (FnDecl NrDef name expr) =
     let (env', fvars') = freeVars' env fvars expr in
     (name:env', fvars')
-
+freeVars' env fvars (IdE name)
+    | fromQualName name `elem` env = (env, fvars)
+    | otherwise = (env, fromQualName name:fvars)
+freeVars' env fvars (IntE _) = (env, fvars)
 freeVars' env fvars (LambdaE arg body) =
     freeVars' (arg:env) fvars body
-
 freeVars' env fvars (MergeE vals) =
     loop env fvars vals
     where loop env fvars [] = (env, fvars)
           loop env fvars ((_, expr):vals) =
               let (env', fvars') = freeVars' env fvars expr in
               loop env' fvars' vals
-
+freeVars' env fvars (RealE _) = (env, fvars)
 freeVars' env fvars (WhereE expr exprs) =
     let (env', fvars') = loop env fvars exprs in
     freeVars' env' fvars' expr
@@ -303,6 +171,5 @@ freeVars' env fvars (WhereE expr exprs) =
               let (env', fvars') = freeVars' env fvars expr in
               loop env' fvars' exprs
 
-
 freeVars :: Expr -> [String]
-freeVars = nub . sort . snd . freeVars' [] []
+freeVars = List.nub . snd . freeVars' [] []
