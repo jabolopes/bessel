@@ -89,3 +89,6 @@ Definitions and shadowing:
 - redefinition of names is not being properly detected and reported
 - check shadowing
 - names in CondMacro (I believe) are being renamed twice
+
+
+docCond and docPat from 'Expr' and 'Macro' can be unified

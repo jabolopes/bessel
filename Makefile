@@ -5,7 +5,7 @@ DIST_DIRS = dist/bin \
 
 .PHONY: all
 all: dist/hs/Parser.hs dist/hs/Lexer.hs | dist/bin dist/obj dist/hs
-	ghc --make Main.hs -idist/hs -o dist/bin/bsl -outputdir dist/obj
+	ghc -Wall --make Main.hs -idist/hs -o dist/bin/bsl -outputdir dist/obj
 
 $(DIST_DIRS):
 	mkdir -p $@

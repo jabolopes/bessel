@@ -7,7 +7,7 @@ import Data.Typeable
 import Data.PrettyString (PrettyString)
 
 data UserException
-    = LoaderException PrettyString
+    = LoaderException [PrettyString]
     | ExpanderException String
     | RenamerException String
     | InterpreterException String
@@ -19,7 +19,7 @@ data UserException
 
 instance Exception UserException
 
-throwLoaderException :: PrettyString -> a
+throwLoaderException :: [PrettyString] -> a
 throwLoaderException = throw . LoaderException
 
 throwExpanderException :: String -> a

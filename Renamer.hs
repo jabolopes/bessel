@@ -246,7 +246,7 @@ renameDeclaration expr@(FnDecl _ name _) =
 
 
 renameDefinitionM :: FileSystem -> Definition -> RenamerM Definition
-renameDefinitionM fs def@Definition { defExp = Just expr } =
+renameDefinitionM fs def@Definition { defExp = Right expr } =
     do let unprefixed = Definition.defUnprefixedUses def
            prefixed = Definition.defPrefixedUses def
            names = Expr.freeVars expr

@@ -1,6 +1,6 @@
 module Repl where
 
-import Prelude hiding (lex)
+import Prelude hiding (lex, mod)
 
 import Control.Monad.State
 import Data.Char (isSpace)
@@ -10,108 +10,54 @@ import System.Console.GetOpt (OptDescr(..), ArgDescr(..), ArgOrder(..), getOpt, 
 import System.Console.Readline
 import System.IO.Error
 
-import Data.Definition (Definition(..))
 import qualified Data.Definition as Definition
 import Data.Exception
-import Data.Expr (DefnKw(..), Expr(..))
 import Data.FileSystem (FileSystem)
 import qualified Data.FileSystem as FileSystem
 import Data.Module (Module)
 import qualified Data.Module as Module
-import Data.PrettyString (PrettyString)
 import qualified Data.PrettyString as PrettyString
-import Expander (expand, expandDefinition)
-import Interpreter (interpret, interpretDefinition)
 import Lexer (lexTokens)
 import Loader (preload, readFileM)
 import Monad.InterpreterM (Val)
-import Parser (parseRepl)
 import qualified Pretty.Definition as Pretty
-import qualified Pretty.Expr as Pretty
 import qualified Pretty.Module as Pretty
-import Renamer (rename, renameDefinition)
-import Reorderer (reorder)
-import qualified Stage.Expander as Expander (expandMacro)
+import qualified Stage
 import Utils (split)
-
 
 data ReplState =
     ReplState { initialFs :: FileSystem, fs :: FileSystem }
 
-
 type ReplM a = StateT ReplState IO a
-
 
 doPutVal :: Bool
 doPutVal = True
-
-
-doPutValT :: Bool
-doPutValT = True
-
 
 putVal :: Either String Val -> IO ()
 putVal (Left err) = putStrLn err
 putVal (Right val) = when doPutVal (print val)
 
-
-parserEither :: Either String a -> a
-parserEither = either (throwParserException . PrettyString.text) id
-
-stageExpanderEither = either (throwExpanderException . PrettyString.toString) id
-
-expanderEither :: Either String a -> a
-expanderEither = either throwExpanderException id
-
-
-renamerEither :: Either String a -> a
-renamerEither = either throwRenamerException id
-
-
--- edit: the Monad forces the argument to be reduced to normal form
-typecheckerEither :: Monad m => Either String a -> m a
-typecheckerEither x = return $ either throwTypecheckerException id x
-
-
 stageFiles :: [Module] -> IO FileSystem
 stageFiles mods =
     do putStrLn $ "Staging " ++ show n ++ " modules"
-       loop FileSystem.empty mods [1..]
+       res <- loop FileSystem.empty mods [(1 :: Int)..]
+       case res of
+         Left () -> error ""
+         Right x -> return x
     where n = length mods
 
           putHeader i =
               putStr $ "[" ++ show i ++ "/" ++ show n ++ "] "
 
-          updateFs fs mod =
-              (FileSystem.add fs mod, mod)
-
-          reorderFile fs = updateFs fs . reorder
-          expandFile fs = updateFs fs . expanderEither . expand fs
-          renameFile fs = updateFs fs . renamerEither . rename fs
-
-          interpretFile fs mod =
-              let mod' = interpret fs mod in
-              (FileSystem.add fs mod', mod')
-
-          loop fs [] _ = return fs
-          loop fs (srcs:srcss) (i:is) =
+          loop fs [] _ = return (Right fs)
+          loop fs (mod:mods) (i:is) =
               do putHeader i
-                 putStr $ Module.modName srcs ++ ": "
-
-                 let (reordfs, reords) = reorderFile fs srcs
-                 putStr "reordered, "
-
-                 let (expfs, exps) = expandFile reordfs reords
-                 putStr "expanded, "
-
-                 let (renfs, rens) = renameFile expfs exps
-                 putStr "renamed, "
-
-                 let (evalfs, evals) = interpretFile renfs rens
-                 putStrLn "evaluated"
-
-                 loop evalfs srcss is
-
+                 putStr $ Module.modName mod ++ ": "
+                 res <- Stage.stageModule fs mod
+                 case res of
+                   Left err -> do putStrLn (PrettyString.toString err)
+                                  return (Left ())
+                   Right (fs', _) -> loop fs' mods is
 
 importFile :: FileSystem -> String -> IO ReplState
 importFile fs filename =
@@ -121,56 +67,32 @@ importFile fs filename =
            fs'' = FileSystem.add fs' interactive
        return ReplState { initialFs = fs, fs = fs'' }
 
-
-mkSnippet :: FileSystem -> Expr -> Definition
-mkSnippet fs expr@(FnDecl _ name _) =
-  let
-    name' = Module.interactiveName ++ "." ++ name
-    unprefixed = map Module.modName (FileSystem.toAscList fs)
-  in
-    (Definition.initial name') { defUnprefixedUses = unprefixed
-                               , defSrc = Just expr }
-
-mkSnippet fs expr =
-  mkSnippet fs $ FnDecl NrDef "val" expr
-
-
-renameSnippet :: FileSystem -> Definition -> Either String Definition
-renameSnippet fs = renameDefinition fs Module.interactiveName
-
-
 runSnippetM :: String -> ReplM ()
 runSnippetM ln =
   do fs <- fs <$> get
-     let macro = parserEither (parseRepl Module.interactiveName ln)
-         expr = stageExpanderEither (Expander.expandMacro macro)
-         def = mkSnippet fs expr
-         expDef = expanderEither (expandDefinition fs def)
-         renDef = renamerEither (renameSnippet fs expDef)
-         evalDef = interpretDefinition fs renDef
-         interactive = FileSystem.get fs Module.interactiveName
-         interactive' = Module.updateDefinitions interactive [evalDef]
-     modify $ \s -> s { fs = FileSystem.add fs interactive' }
-     liftIO $ putVal (Definition.defVal evalDef)
-
+     case Stage.stageDefinition fs ln of
+       Left err -> liftIO . putStrLn . PrettyString.toString $ err
+       Right (fs', def) ->
+         do modify $ \s -> s { fs = fs' }
+            liftIO $ putVal (Definition.defVal def)
 
 showMeM :: Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> String -> StateT ReplState IO ()
 showMeM showAll showBrief showOrd showFree showSrc showExp showRen filename =
-    let
-        filesM
-            | showAll = FileSystem.toAscList . fs <$> get
-            | otherwise =
-                do fs <- fs <$> get
-                   case FileSystem.lookup fs filename of
-                     Nothing -> do liftIO $ do
-                                     putStrLn $ "module " ++ show filename ++ " has not been staged"
-                                     putStrLn $ "staged modules are " ++ intercalate ", " (map Module.modName (FileSystem.toAscList fs))
-                                   return []
-                     Just mod -> return [mod]
-    in
-      do mods <- filesM
-         let modDoc = Pretty.docModules showBrief showOrd showFree showSrc showExp showRen mods
-         liftIO $ putStr $ PrettyString.toString modDoc
+  let
+    filesM
+      | showAll = FileSystem.toAscList . fs <$> get
+      | otherwise =
+        do fs <- fs <$> get
+           case FileSystem.lookup fs filename of
+             Nothing -> liftIO $ do
+                          putStrLn $ "module " ++ show filename ++ " has not been staged"
+                          putStrLn $ "staged modules are " ++ intercalate ", " (map Module.modName (FileSystem.toAscList fs))
+                          return []
+             Just mod -> return [mod]
+  in
+    do mods <- filesM
+       let modDoc = Pretty.docModules showBrief showOrd showFree showSrc showExp showRen mods
+       liftIO $ putStr $ PrettyString.toString modDoc
 
 showTokensM :: String -> ReplM ()
 showTokensM filename =
@@ -223,20 +145,16 @@ runCommandM "def" opts nonOpts
 
         usageM =
           liftIO $ putStrLn $ usageInfo "def [-b] [--free] [--src] [--exp] [--ren] [-o] (-a | <me>)" options
-
 runCommandM "load" _ nonOpts
   | null nonOpts =
     liftIO $ putStrLn ":load [ <me> | <file/me> ]"
   | otherwise =
     do fs <- initialFs <$> get
        liftIO (importFile fs (last nonOpts)) >>= put
-
 runCommandM "l" opts nonOpts =
-    runCommandM "load" opts nonOpts
-
+  runCommandM "load" opts nonOpts
 runCommandM _ _ _ =
-    liftIO $ putStrLn ":def | :load"
-
+  liftIO $ putStrLn ":def | :load | :me"
 
 dispatchCommandM :: String -> ReplM ()
 dispatchCommandM ln =
@@ -245,14 +163,12 @@ dispatchCommandM ln =
       (opts, nonOpts, []) -> runCommandM (head nonOpts) opts (tail nonOpts)
       (_, _, errs) -> liftIO $ putStr $ intercalate "" errs
 
-
 promptM :: String -> ReplM ()
 promptM ln =
     do liftIO (addHistory ln)
        process ln
     where process (':':x) = dispatchCommandM x
           process x = runSnippetM x
-
 
 replM :: ReplM Bool
 replM =
@@ -263,56 +179,46 @@ replM =
                  | all isSpace ln -> replM
                  | otherwise -> promptM ln >> return False
 
-
 putUserException :: UserException -> IO ()
-putUserException (LoaderException err) =
+putUserException (LoaderException errs) =
   putStrLn . PrettyString.toString $
-  PrettyString.sep [PrettyString.text "loader error: ", err]
-
+  PrettyString.text "loader error(s): "
+  PrettyString.$+$
+  PrettyString.nest (PrettyString.sep errs)
 putUserException (ExpanderException str) =
-    putStrLn $ "renamer error: " ++ str
-
+  putStrLn $ "renamer error: " ++ str
 putUserException (RenamerException str) =
-    putStrLn $ "renamer error: " ++ str
-
+  putStrLn $ "renamer error: " ++ str
 putUserException (TypecheckerException str) =
-    putStrLn $ "typechecker error: " ++ str
-
+  putStrLn $ "typechecker error: " ++ str
 putUserException (InterpreterException str) =
-    putStrLn $ "interpreter error: " ++ str
-
+  putStrLn $ "interpreter error: " ++ str
 putUserException (LexerException str) =
-    putStrLn $ "lexical error: " ++ str
-
+  putStrLn $ "lexical error: " ++ str
 putUserException (ParserException err) =
   putStrLn . PrettyString.toString $
   PrettyString.sep [PrettyString.text "parse error: ", err]
-
 putUserException (SignalException str) =
-    putStrLn $ "uncaught exception: " ++ str
-
+  putStrLn $ "uncaught exception: " ++ str
 
 finallyIOException :: Show a => ReplState -> a -> IO (Bool, ReplState)
 finallyIOException state e =
-    print e >> return (False, state)
-
+  print e >> return (False, state)
 
 finallyException :: a -> UserException -> IO (Bool, a)
 finallyException state e =
-    putUserException e >> return (False, state)
-
+  putUserException e >> return (False, state)
 
 repl :: ReplState -> IO ()
 repl state =
-    do (b, state') <- (runStateT replM state
-                       `catchIOError` finallyIOException state)
-                      `catchUserException` finallyException state
-       unless b (repl state')
-
+  do (b, state') <- (runStateT replM state
+                     `catchIOError` finallyIOException state)
+                    `catchUserException` finallyException state
+     unless b (repl state')
 
 batch :: String -> ReplState -> IO ()
 batch ln state =
-    do _ <- (runStateT (promptM ln >> return True) state
-             `catchIOError` finallyIOException state)
-            `catchUserException` finallyException state
-       return ()
+  do _ <- (runStateT (promptM ln >> return True) state
+           `catchIOError` finallyIOException state)
+          `catchUserException` finallyException state
+     return ()

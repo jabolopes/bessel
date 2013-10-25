@@ -1,16 +1,15 @@
-{-# LANGUAGE ParallelListComp, TupleSections #-}
 module Data.Module where
 
 import Prelude hiding (mod)
 
-import Data.List (partition)
+import qualified Data.List as List (partition)
 import Data.Map (Map)
-import qualified Data.Map as Map ((!), empty, fromList, insert, lookup, mapKeys, mapMaybe, union, toList)
+import qualified Data.Map as Map (empty, fromList, insert, lookup, mapMaybe, union, toList)
 import Data.Maybe (fromMaybe)
 
 import Data.Definition (Definition(..))
 import qualified Data.Definition as Definition
-import Data.Expr (Expr)
+import Data.Macro
 import Data.Symbol (Symbol (..))
 import Monad.InterpreterM (Val)
 
@@ -26,17 +25,18 @@ data Module
            , modDeps :: [String]
            , modUnprefixedUses :: [String]
            , modPrefixedUses :: [(String, String)]
-           , modDecls :: [Expr]
+           , modDecls :: [Macro]
            , modDefs :: Map String Definition
            , modDefOrd :: [String] }
 
-initial :: ModuleT -> String -> [String] -> Module
-initial t name deps =
+initial :: ModuleT -> String -> [(String, String)] -> Module
+initial t name uses =
+  let (unprefixed, prefixed) = List.partition (null . snd) uses in
   Module { modType = t
          , modName = name
-         , modDeps = deps
-         , modUnprefixedUses = []
-         , modPrefixedUses = []
+         , modDeps = map fst uses
+         , modUnprefixedUses = map fst unprefixed
+         , modPrefixedUses = prefixed
          , modDecls = []
          , modDefs = Map.empty
          , modDefOrd = [] }
@@ -55,7 +55,8 @@ type FnDesc = [(String, Val)]
 
 mkCoreModule :: String -> [String] -> FnDesc -> Module
 mkCoreModule name deps fnDesc =
-    addDefinitions (initial CoreT name deps) defs
+    let uses = [ (dep, "") | dep <- deps ] in
+    addDefinitions (initial CoreT name uses) defs
     where qualName descName = name ++ "." ++ descName
 
           defs = [ (Definition.initial (qualName x)) { defSym = Just (FnSymbol (qualName x)),
@@ -64,18 +65,17 @@ mkCoreModule name deps fnDesc =
 interactiveName :: String
 interactiveName = "Interactive"
 
-mkInteractiveModule :: [Module] -> [Expr] -> Module
-mkInteractiveModule mods exprs =
-    let deps = map modName mods in
-    (initial InteractiveT interactiveName deps) { modUnprefixedUses = deps
-                                                , modDecls = exprs }
+mkInteractiveModule :: [Module] -> [Macro] -> Module
+mkInteractiveModule mods macros =
+    let uses = zip (map modName mods) (repeat "") in
+    (initial InteractiveT interactiveName uses) { modDecls = macros }
 
-mkParsedModule :: String -> [(String, String)] -> [Expr] -> Module
-mkParsedModule name uses exprs =
-  let (unprefixed, prefixed) = partition (null . snd) uses in
+mkParsedModule :: String -> [(String, String)] -> [Macro] -> Module
+mkParsedModule name uses macros =
+  let (unprefixed, prefixed) = List.partition (null . snd) uses in
   (initial SrcT name []) { modUnprefixedUses = map fst unprefixed
                          , modPrefixedUses = prefixed
-                         , modDecls = exprs }
+                         , modDecls = macros }
 
 addImplicitUnprefixedUses :: [String] -> Module -> Module
 addImplicitUnprefixedUses uses mod =

@@ -3,8 +3,7 @@ module Loader where
 
 import Prelude hiding (lex, mod)
 
-import Data.Functor ((<$>))
-import Data.List (nub)
+import qualified Data.List as List (nub)
 import Data.Map (Map)
 import qualified Data.Map as Map ((!), fromList)
 import qualified Data.Set as Set (empty, member, insert)
@@ -15,13 +14,12 @@ import Data.FileSystem (FileSystem)
 import qualified Data.FileSystem as FileSystem (get, member)
 import Data.GraphUtils (acyclicTopSort)
 import Data.Macro
-import Data.Module (Module(..))
-import qualified Data.Module as Module (modName, modDeps)
+import Data.Module (ModuleT(..), Module(..))
+import qualified Data.Module as Module (initial, modName, modDeps)
 import Data.PrettyString (PrettyString)
 import qualified Data.PrettyString as PrettyString
 import Parser (parseFile)
-import qualified Pretty.Loader as Pretty
-import qualified Stage.Expander as Stage
+import qualified Pretty.Stage.Loader as Pretty
 
 readFileM :: String -> IO String
 readFileM filename = readFile $ toFilename filename ++ ".bsl"
@@ -46,15 +44,18 @@ loadFile filename filetext
 loadModuleM :: String -> IO Module
 loadModuleM filename =
   do str <- readFileM filename
-     let mod@(ModuleM me _ _) = case loadFile filename str of
-                                  Left err -> throwParserException err
-                                  Right x -> x
+     let mod@(ModuleM me uses body) = case loadFile filename str of
+                                        Left err -> throwParserException err
+                                        Right x -> x
      if filename /= me
-     then throwLoaderException (Pretty.moduleMeMismatch me filename)
-     else do
-       case Stage.expandModule mod of
-         Left err -> throwLoaderException err
-         Right x -> return x
+     then throwLoaderException [Pretty.moduleMeMismatch me filename]
+     else
+       if length (map fst uses) /= length (List.nub (map fst uses))
+       then throwLoaderException [Pretty.moduleContainsDuplicateUses me uses]
+       else
+         if length (map snd uses) /= length (List.nub (map snd uses))
+         then throwLoaderException [Pretty.moduleContainsDuplicateQualifiers me uses]
+         else return (Module.initial SrcT me uses) { modDecls = body }
 
 preloadModule :: FileSystem -> String -> IO [Module]
 preloadModule fs filename = preloadModule' [] Set.empty [filename]

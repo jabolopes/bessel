@@ -25,13 +25,13 @@ initial = foldl add empty
 
 add :: FileSystem -> Module -> FileSystem
 add fs mod =
-    let
-       fid = fromMaybe
-               (Map.size (fileIds fs))
-               (Map.lookup (Module.modName mod) (fileIds fs))
-    in
-      fs { files = Map.insert fid mod (files fs)
-         , fileIds = Map.insert (Module.modName mod) fid (fileIds fs) }
+  let
+    fid = fromMaybe
+            (Map.size (fileIds fs))
+            (Map.lookup (Module.modName mod) (fileIds fs))
+  in
+    fs { files = Map.insert fid mod (files fs)
+       , fileIds = Map.insert (Module.modName mod) fid (fileIds fs) }
 
 get :: FileSystem -> String -> Module
 get fs name =

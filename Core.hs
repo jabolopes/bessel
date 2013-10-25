@@ -178,17 +178,17 @@ isTuple (SeqVal fns) = FnVal hof
           hof _ = return false
 
 isList :: Val -> Val
-isList (SeqVal [FnVal fn1, FnVal fn2]) =
-    FnVal pal'
-    where pal' (SeqVal (x:xs)) =
-              do val1 <- fn1 x
-                 if isNotFalseVal val1
-                   then do val2 <- fn2 (SeqVal xs)
-                           return (if isNotFalseVal val2
-                                   then true
-                                   else false)
-                   else return false
-          pal' _ = return false
+isList (FnVal fn1) = FnVal hof
+  where hof (FnVal fn2) = return (FnVal isList')
+          where isList' (SeqVal (x:xs)) =
+                  do val1 <- fn1 x
+                     if isNotFalseVal val1
+                     then do val2 <- fn2 (SeqVal xs)
+                             return (if isNotFalseVal val2
+                                     then true
+                                     else false)
+                     else return false
+                isList' _ = return false
 
 null :: Val
 null = SeqVal []

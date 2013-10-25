@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeSynonymInstances #-}
 module Data.PrettyString
   (PrettyString,
    (<>),
@@ -20,10 +21,15 @@ module Data.PrettyString
    nest,
    toString) where
 
+import Control.Monad.Error
+
 import Text.PrettyPrint (Doc, (<>), (<+>), ($$), ($+$))
 import qualified Text.PrettyPrint as PrettyPrint
 
 type PrettyString = Doc
+
+instance Error PrettyString where
+  strMsg = PrettyPrint.text
 
 intercalate :: PrettyString -> [PrettyString] -> [PrettyString]
 intercalate = PrettyPrint.punctuate

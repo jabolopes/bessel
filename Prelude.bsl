@@ -75,14 +75,6 @@ def hd = hd#
 def tl = tl#
 def (+>) = cons
 
-def length
-  @[] = 0
-| (@ +> xs@) = length xs + 1
-
--- def reverse
---   @[] = []
--- | (x@ +> xs@) = reverse xs <+ x
-
 def map
   fn@ @[] = []
 | fn@ (x@ +> xs@) = fn x +> map fn xs
@@ -197,3 +189,11 @@ def (+) = add
 def (-) = sub
 def (*) = mul
 def (/) = div
+
+def length
+  @[] = 0
+| (@ +> xs@) = length xs + 1
+
+-- def reverse
+--   @[] = []
+-- | (x@ +> xs@) = reverse xs <+ x

@@ -1,11 +1,11 @@
 module Data.Definition where
 
 import Data.Expr (Expr)
+import Data.Macro (Macro)
 import Data.PrettyString (PrettyString)
 import qualified Data.PrettyString as PrettyString (empty)
 import Data.Symbol (Symbol)
 import Monad.InterpreterM (Val)
-
 
 data Definition
   = Definition { defName :: String
@@ -14,11 +14,9 @@ data Definition
                , defPrefixedUses :: [(String, String)]
                , defSym :: Maybe Symbol
                , defVal :: Either String Val
-               , defSrc :: Maybe Expr
-               , defExp :: Maybe Expr
+               , defMac :: Either PrettyString Macro
+               , defExp :: Either PrettyString Expr
                , defRen :: Either PrettyString Expr }
-    deriving (Show)
-
 
 initial :: String -> Definition
 initial name =
@@ -28,6 +26,6 @@ initial name =
              , defPrefixedUses = []
              , defSym = Nothing
              , defVal = Left ""
-             , defSrc = Nothing
-             , defExp = Nothing
+             , defMac = Left PrettyString.empty
+             , defExp = Left PrettyString.empty
              , defRen = Left PrettyString.empty }

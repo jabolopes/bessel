@@ -73,7 +73,7 @@ data Macro
   -- @
   -- def x = ...
   -- @
-  | FnDeclM DefnKw String Macro
+  | FnDeclM String Macro
 
   -- | IdM
   -- @
@@ -133,3 +133,6 @@ appM name = AppM (idM name)
 
 idM :: String -> Macro
 idM = IdM . QualName.mkQualName . Utils.splitId
+
+moduleDeps :: Macro -> [String]
+moduleDeps (ModuleM _ uses _) = map fst uses

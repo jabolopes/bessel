@@ -4,7 +4,7 @@ import Data.Expr
 import Data.PrettyString (PrettyString, (<>), (<+>), ($$), ($+$))
 import qualified Data.PrettyString as PrettyString
 
-data DocType = SrcDocT | ExpDocT | RenDocT
+data DocType = ExpDocT | RenDocT
 
 docPat :: DocType -> Pat -> PrettyString
 docPat t pat =
@@ -14,12 +14,11 @@ docPat t pat =
 
 docCond :: (a -> PrettyString) -> DocType -> [(a, Expr)] -> String -> PrettyString
 docCond fn t ms blame =
-  foldl1 ($+$) (map docMatch ms ++ docBlame t)
+  foldl1 ($+$) (map docMatch ms ++ docBlame)
   where docMatch (x, e) =
           PrettyString.sep [fn x <+> PrettyString.equals, PrettyString.nest (docExpr t e)]
 
-        docBlame SrcDocT = []
-        docBlame _ = [PrettyString.text "_" <+> PrettyString.equals <+> PrettyString.text blame]
+        docBlame = [PrettyString.text "_" <+> PrettyString.equals <+> PrettyString.text blame]
 
 docExpr :: DocType -> Expr -> PrettyString
 docExpr _ (IdE name) = PrettyString.text (show name)
@@ -35,10 +34,9 @@ docExpr t (CondMacro ms blame) =
 docExpr t (CondE ms blame) =
   PrettyString.sep [PrettyString.text "cond", PrettyString.nest (docCond (docExpr t) t ms blame)]
 docExpr t (FnDecl kw name body) =
-  PrettyString.sep [kwDoc t kw <+> PrettyString.text name <+> PrettyString.equals, PrettyString.nest (docExpr t body)]
-  where kwDoc SrcDocT _ = PrettyString.text "def"
-        kwDoc _ Def = PrettyString.text "def"
-        kwDoc _ NrDef = PrettyString.text "nrdef"
+  PrettyString.sep [kwDoc kw <+> PrettyString.text name <+> PrettyString.equals, PrettyString.nest (docExpr t body)]
+  where kwDoc Def = PrettyString.text "def"
+        kwDoc NrDef = PrettyString.text "nrdef"
 docExpr t (LambdaE arg body) =
   PrettyString.sep [PrettyString.text "\\" <> PrettyString.text arg <+> PrettyString.text "->", PrettyString.nest (docExpr t body)]
 docExpr _ MergeE {} =

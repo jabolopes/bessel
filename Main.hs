@@ -13,12 +13,10 @@ import Repl hiding (initialFs)
 coreModules :: [Module]
 coreModules = [Core.coreModule]
 
-
 mainException :: UserException -> IO (Maybe a)
 mainException e =
     do putUserException e
        return Nothing
-
 
 main :: IO ()
 main =

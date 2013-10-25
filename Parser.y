@@ -137,8 +137,8 @@ Defn:
 
 FnDefn :: { Macro }
 FnDefn:
-    def Name DefnMatches { FnDeclM Def $2 (CondM $3) }
-  | def Name '=' Expr    { FnDeclM Def $2 $4 }
+    def Name DefnMatches { FnDeclM $2 (CondM $3) }
+  | def Name '=' Expr    { FnDeclM $2 $4 }
 
 DefnMatches :: { [([Pat], Macro)] }
 DefnMatches:
