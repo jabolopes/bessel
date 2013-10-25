@@ -14,7 +14,7 @@ import qualified Data.Definition as Definition
 import Data.FileSystem (FileSystem)
 import qualified Data.FileSystem as FileSystem (add, lookupDefinition)
 import Data.Frame (Frame)
-import qualified Data.Frame as Frame (fid)
+import qualified Data.Frame as Frame (frId)
 import Data.FrameTree (FrameTree)
 import qualified Data.FrameTree as FrameTree (empty, rootId, getFrame, getLexicalSymbol, addSymbol, addFrame)
 import Data.Module (ModuleT (..), Module(..))
@@ -98,7 +98,7 @@ getFnSymbolM :: String -> RenamerM String
 getFnSymbolM name =
     do sym <- getSymbolM name
        case sym of
-         FnSymbol name -> return name
+         FnSymbol x -> return x
          _ -> throwError $ "name " ++ show name ++ " is not a function"
 
 
@@ -111,14 +111,14 @@ getTypeSymbolM name =
 
 
 addSymbolM :: String -> Symbol -> RenamerM ()
-addSymbolM name sym = checkShadowing name >> addSymbol name sym
-    where checkShadowing name =
+addSymbolM name sym = checkShadowing >> addSymbol
+    where checkShadowing =
               do msym <- lookupSymbolM name
                  case msym of
                    Nothing -> return ()
                    Just _ -> throwError $ "name " ++ show name ++ " is already defined"
 
-          addSymbol name sym =
+          addSymbol =
               do tree <- frameTree <$> get
                  currentFrame <- getCurrentFrameM
                  let tree' = FrameTree.addSymbol tree currentFrame name sym
@@ -138,9 +138,9 @@ withScopeM m =
     do tree <- frameTree <$> get
        frame <- getCurrentFrameM
        let (tree', frame') = FrameTree.addFrame tree frame
-       modify $ \s -> s { frameTree = tree', currentFrame = Frame.fid frame' }
+       modify $ \s -> s { frameTree = tree', currentFrame = Frame.frId frame' }
        val <- m
-       modify $ \s -> s { currentFrame = Frame.fid frame }
+       modify $ \s -> s { currentFrame = Frame.frId frame }
        return val
 
 renameLambdaM :: String -> Expr -> RenamerM Expr
@@ -221,9 +221,9 @@ lookupUnprefixedFreeVar fs unprefixed var =
 
 lookupPrefixedFreeVar :: FileSystem -> [(String, String)] -> String -> [Definition]
 lookupPrefixedFreeVar fs prefixed name =
-    mapMaybe (definition . rebase name) $ filter (isPrefix name) prefixed
-    where isPrefix name (_, y) = splitId y `isPrefixOf` splitId name
-          rebase name (x, y) = rebaseName x y name
+    mapMaybe (definition . rebase) $ filter isPrefix prefixed
+    where isPrefix (_, y) = splitId y `isPrefixOf` splitId name
+          rebase (x, y) = rebaseName x y name
           definition = FileSystem.lookupDefinition fs
 
 
@@ -240,7 +240,7 @@ lookupFreeVars fs unprefixed prefixed (name:names) =
 
 
 renameDeclaration :: Expr -> Either String Expr
-renameDeclaration expr@(FnDecl _ name _) =
+renameDeclaration expr@FnDecl {} =
   let state = initialRenamerState { existFreeVars = True } in
   fst <$> runStateT (renameOneM expr) state
 
