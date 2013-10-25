@@ -1,10 +1,7 @@
 module Monad.InterpreterM where
 
 import Control.Monad.State
-import Data.Dynamic
-import Data.Functor ((<$>))
-import Data.List (intercalate)
-import Data.Maybe
+import qualified Data.List as List (intercalate)
 
 import Data.Env (Env)
 import qualified Data.Env as Env
@@ -26,7 +23,7 @@ instance Show Val where
     show (RealVal d) = show d
     show (SeqVal vals)
         | not (null vals) && all isCharVal vals = show $ map (\(CharVal c) -> c) vals
-        | otherwise = "[" ++ intercalate "," (map show vals) ++ "]"
+        | otherwise = "[" ++ List.intercalate "," (map show vals) ++ "]"
     show (FnVal _) = "fn"
     show (TypeVal val) = "{" ++ show val ++ "}"
 
