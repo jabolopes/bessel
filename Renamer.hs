@@ -267,15 +267,15 @@ renameDefinitionM fs def@Definition { defExp = Right expr } =
                                                                                         , defSym = Nothing
                                                                                         , defRen = Left (PrettyString.text err) })
 
-renameDefinition :: FileSystem -> String -> Definition -> Either String Definition
-renameDefinition fs ns def =
+renameDefinition :: FileSystem -> Definition -> Either String Definition
+renameDefinition fs def =
   fst <$> runStateT (renameDefinitionM fs def) initialRenamerState
 
 
 renameDefinitions :: FileSystem -> Module -> [Definition] -> Either String Module
 renameDefinitions _ mod [] = return mod
 renameDefinitions fs mod (def:defs) =
-    do def' <- renameDefinition fs (Module.modName mod) def
+    do def' <- renameDefinition fs def
        let mod' = Module.updateDefinitions mod [def']
            fs' = FileSystem.add fs mod'
        renameDefinitions fs' mod' defs

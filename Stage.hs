@@ -41,7 +41,7 @@ mkSnippet fs macro = mkSnippet fs $ FnDeclM "val" macro
 
 renameSnippet :: FileSystem -> Definition -> Either PrettyString Definition
 renameSnippet fs def =
-  case Renamer.renameDefinition fs Module.interactiveName def of
+  case Renamer.renameDefinition fs def of
     Left err -> Left (PrettyString.text err)
     Right x -> Right x
 
