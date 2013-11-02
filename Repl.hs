@@ -8,6 +8,7 @@ import Data.Functor ((<$>))
 import Data.List (intercalate)
 import System.Console.GetOpt (OptDescr(..), ArgDescr(..), ArgOrder(..), getOpt, usageInfo)
 import System.Console.Readline
+import System.IO (hFlush, stdout)
 import System.IO.Error
 
 import qualified Data.Definition as Definition
@@ -167,6 +168,7 @@ promptM :: String -> ReplM ()
 promptM ln =
     do liftIO (addHistory ln)
        process ln
+       liftIO (hFlush stdout)
     where process (':':x) = dispatchCommandM x
           process x = runSnippetM x
 
