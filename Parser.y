@@ -240,6 +240,7 @@ PatRest:
 -- tuple patterns
   | id '@' TuplePat        { bindPat $1 $3 }
   |        TuplePat        { $1 }
+  |    '@' '[' ']'         { tuplePat [] }
 
 ListPat :: { Pat }
 ListPat:
@@ -248,7 +249,6 @@ ListPat:
 TuplePat :: { Pat }
 TuplePat:
     '[' ExprPatList ']' { tuplePat $2 }
-  | '@' '[' ']'         { tuplePat [] }
 
 ExprPatList :: { [Pat] }
 ExprPatList:
