@@ -93,7 +93,7 @@ showMeM showAll showBrief showOrd showFree showSrc showExp showRen filename =
   in
     do mods <- filesM
        let modDoc = Pretty.docModules showBrief showOrd showFree showSrc showExp showRen mods
-       liftIO $ putStr $ PrettyString.toString modDoc
+       liftIO $ putStrLn $ PrettyString.toString modDoc
 
 showTokensM :: String -> ReplM ()
 showTokensM filename =
