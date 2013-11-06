@@ -1,6 +1,5 @@
 module Data.Macro where
 
-import Data.Expr hiding (Pat)
 import Data.QualName (QualName)
 import qualified Data.QualName as QualName (mkQualName)
 import qualified Utils
