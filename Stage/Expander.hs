@@ -1,16 +1,14 @@
 {-# LANGUAGE ParallelListComp, TupleSections #-}
 module Stage.Expander where
 
+import Prelude hiding (mod)
+
 import Control.Applicative ((<$>), (<*>))
 import Control.Monad.Error.Class (throwError)
-import Data.Either (partitionEithers)
-import Data.List (nub, partition)
 
 import Data.Expr (DefnKw(..), Expr(..))
 import qualified Data.Expr as Expr
 import Data.Macro
-import Data.Module
-import qualified Data.Module as Module
 import Monad.NameM (NameM)
 import qualified Monad.NameM as NameM
 import Data.PrettyString (PrettyString)
