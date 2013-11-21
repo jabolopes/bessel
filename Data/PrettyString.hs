@@ -14,6 +14,7 @@ module Data.PrettyString
    PrettyPrint.equals,
    PrettyPrint.int,
    PrettyPrint.parens,
+   PrettyPrint.quotes,
    PrettyPrint.sep,
    PrettyPrint.text,
    PrettyPrint.vcat,

@@ -1,7 +1,7 @@
 module Pretty.Data.Macro where
 
 import Data.Macro
-import Data.PrettyString (PrettyString, (<>), (<+>), ($$), ($+$))
+import Data.PrettyString (PrettyString, (<>), (<+>), ($+$))
 import qualified Data.PrettyString as PrettyString
 
 docPat :: Pat -> PrettyString
@@ -24,25 +24,37 @@ docPat pat =
 
 docMatch :: ([Pat], Macro) -> PrettyString
 docMatch (pats, body) =
-  PrettyString.sep [docPats, PrettyString.parens . PrettyString.nest . docMacro $ body]
+  PrettyString.sep [docPats, PrettyString.equals, PrettyString.nest . docMacro $ body]
   where docPats = PrettyString.sep (map docPat pats)
 
 docCond :: [([Pat], Macro)] -> PrettyString
 docCond ms = PrettyString.vcat (map docMatch ms)
 
+isParens :: Bool -> Macro -> Bool
+isParens right AppM {} = right
+isParens _ CharM {}    = False
+isParens _ IdM {}      = False
+isParens _ IntM {}     = False
+isParens _ RealM {}    = False
+isParens _ StringM {}  = False
+isParens _ _           = True
+
 docMacro :: Macro -> PrettyString
 docMacro (AndM m1 m2) = docMacro m1 <+> PrettyString.text "&&" <+> docMacro m2
-docMacro (AppM m1 m2@AppM {}) =
-  PrettyString.sep [docMacro m1, PrettyString.parens (docMacro m2)]
 docMacro (AppM m1 m2) =
-  PrettyString.sep [docMacro m1, PrettyString.nest (docMacro m2)]
+  let
+    fn1 | isParens False m1 = PrettyString.parens . docMacro
+        | otherwise = docMacro
+    fn2 | isParens True m2 = PrettyString.parens . docMacro
+        | otherwise = docMacro
+  in
+    PrettyString.sep [fn1 m1, PrettyString.nest (fn2 m2)]
 docMacro (BinOpM op m1 m2) =
   docMacro m1 <+> PrettyString.text op <+> docMacro m2
 docMacro (CharM c) = PrettyString.char '\'' <> PrettyString.char c <> PrettyString.char '\''
 docMacro (CondM ms) = docCond ms
 docMacro (FnDeclM name body) =
-  PrettyString.sep [PrettyString.text name <+> PrettyString.equals,
-                    PrettyString.nest (docMacro body)]
+  PrettyString.sep [PrettyString.text name, PrettyString.nest (docMacro body)]
 docMacro (IdM name) = PrettyString.text (show name)
 docMacro (IntM i) = PrettyString.int i
 docMacro (ModuleM name uses defns) =

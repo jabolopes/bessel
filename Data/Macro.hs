@@ -1,5 +1,7 @@
 module Data.Macro where
 
+import Control.Applicative ((<$>))
+
 import Data.QualName (QualName)
 import qualified Data.QualName as QualName (mkQualName)
 import qualified Utils
@@ -34,6 +36,15 @@ tuplePat :: [Pat] -> Pat
 tuplePat pats =
   Pat { patBinder = ""
       , patGuard = TuplePG pats }
+
+toMacro :: Pat -> Maybe Macro
+toMacro pat
+  | null (patBinder pat) = toMacro' (patGuard pat)
+  | otherwise = Nothing
+  where toMacro' AllPG = Nothing
+        toMacro' (PredicatePG macro) = Just macro
+        toMacro' (ListPG _ _) = Nothing
+        toMacro' (TuplePG pats) = SeqM <$> mapM toMacro pats
 
 data Macro
   -- | AndM

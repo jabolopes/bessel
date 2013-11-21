@@ -21,6 +21,12 @@ import Lexer
 import Monad.ParserM
 import qualified Monad.ParserM as ParserM
 import Utils
+
+ensureExpr :: Pat -> ParserM Macro
+ensureExpr val =
+  case toMacro val of
+    Nothing -> failM "expecting expression but got pattern"
+    Just expr -> return expr
 }
 
 %monad { ParserM }
@@ -93,18 +99,19 @@ import Utils
 
 -- Precedence (lower)
 %right '->'
-%nonassoc guard_prec     -- guard
-%left where              -- where
-%left '&&' '||'          -- logical
-%left '+>' '<+'          -- arrow
-%left '==' '/=' '<' '>' '<=' '>='  -- comparison
-%left '+' '-'            -- additives
-%left '*' '/'            -- multiplicatives
-%left 'o'                -- composition
-%left quotedId           -- functions as operators
-%nonassoc below_app_prec -- below application (e.g., single id)
-%left app_prec           -- application
+%left lambda_prec                 -- lambda
+%left where                       -- where
+%left '&&' '||'                   -- logical
+%left '+>' '<+'                   -- arrow
+%left '==' '/=' '<' '>' '<=' '>=' -- comparison
+%left '+' '-'                     -- additives
+%left '*' '/'                     -- multiplicatives
+%left 'o'                         -- composition
+%left quotedId                    -- functions as operators
+%nonassoc below_app_prec          -- below application (e.g., single id)
+%left app_prec                    -- application
 %nonassoc '(' '[' '[|' character integer double string id typeId
+%nonassoc '@ '
 -- /Precedence (greater)
 
 %%
@@ -137,19 +144,13 @@ Defn:
 
 FnDefn :: { Macro }
 FnDefn:
-    def Name DefnMatches { FnDeclM $2 (CondM $3) }
-  | def Name '=' Expr    { FnDeclM $2 $4 }
-
-DefnMatches :: { [([Pat], Macro)] }
-DefnMatches:
-    DefnMatches '|' PatList '=' Expr  { $1 ++ [($3, $5)] }
-  | PatList '=' Expr                  { [($1, $3)] }
+    def Name Expr    { FnDeclM $2 $3 }
 
 Expr :: { Macro }
 Expr:
-    SimpleExpr %prec below_app_prec { $1 }
+    SimpleExprPat %prec below_app_prec {% ensureExpr $1 }
 
-  | Expr SimpleExpr %prec app_prec  { AppM $1 $2 }
+  | Expr SimpleExprPat %prec app_prec {% AppM $1 <\$> ensureExpr $2 }
 
   | Expr 'o' Expr   { BinOpM $2 $1 $3 }
 
@@ -176,40 +177,17 @@ Expr:
 
   | Expr where '{' DefnList '}' { WhereM $1 $4 }
 
-  | Lambda          { CondM $1 }
-  | Merge           { $1 }
+  | Lambda { CondM $1 }
 
 Lambda :: { [([Pat], Macro)] }
 Lambda:
-    Lambda '|' PatList SimpleExpr { $1 ++ [($3, $4)] }
-  | PatList SimpleExpr            { [($1, $2)] }
+    Lambda '|' PatList '=' Expr %prec lambda_prec { $1 ++ [($3, $5)] }
+  | PatList '=' Expr            %prec lambda_prec { [($1, $3)] }
 
 PatList :: { [Pat] }
 PatList:
     PatList Pat         { $1 ++ [$2] }
   | Pat                 { [$1] }
-
-Merge:
-  '{' MergeObservations '}' { undefined } -- MergeE (sortWith fst $2)
-
-MergeObservations:
-    MergeObservations '|' QualName '=' Expr { $1 ++ [($3, $5)] }
-  | QualName '=' Expr                       { [($1, $3)] }
-
-SimpleExpr :: { Macro }
-SimpleExpr:
-    QualName     { IdM $1 }
-  | Constant     { $1 }
-  | '(' Expr ')' { $2 }
-
-Constant :: { Macro }
-Constant:
-    character        { CharM $1 }
-  | integer          { IntM $1 }
-  | double           { RealM $1 }
-  | '[' ExprList ']' { SeqM $2 }
-  | '['          ']' { SeqM [] }
-  | string           { StringM $1 }
 
 -- patterns
 
@@ -227,47 +205,35 @@ PatNoSpace:
 
 PatRest :: { Pat }
 PatRest:
--- predicate patterns
-    id '@' '(' Expr ')'    { bindPat $1 (predicatePat $4) }
-  |    '@' '(' Expr ')'    { predicatePat $3 }
-  | id '@' QualName        { bindPat $1 (predicatePat (IdM $3)) }
-  |    '@' QualName        { predicatePat (IdM $2) }
+  -- list patterns
+    id '@' '(' ListPat ')' { bindPat $1 $4 }
+  |        '(' ListPat ')' { $2 }
 
--- list patterns
-  | id '@' '(' ListPat ')' { bindPat $1 $4 }
-  | '(' ListPat ')'        { $2 }
-
--- tuple patterns
-  | id '@' TuplePat        { bindPat $1 $3 }
-  |        TuplePat        { $1 }
-  |    '@' '[' ']'         { tuplePat [] }
+  -- expression patterns
+  | id '@' SimpleExprPat   { bindPat $1 $3 }
+  |    '@' SimpleExprPat   { $2 }
 
 ListPat :: { Pat }
 ListPat:
     Pat '+>' PatNoSpace    { listPat $1 $3 }
 
-TuplePat :: { Pat }
-TuplePat:
-    '[' ExprPatList ']' { tuplePat $2 }
+SimpleExprPat :: { Pat }
+SimpleExprPat:
+    QualName            { predicatePat (IdM $1) }
+  | character           { predicatePat (CharM $1) }
+  | integer             { predicatePat (IntM $1) }
+  | double              { predicatePat (RealM $1) }
+  | '[' ExprPatList ']' { tuplePat $2 }
+  | '['             ']' { tuplePat [] }
+  | string              { predicatePat (StringM $1) }
+  | '(' Expr ')'        { predicatePat $2 }
 
 ExprPatList :: { [Pat] }
 ExprPatList:
-    ExprList ',' PatNoSpace ',' PatList2 { map predicatePat $1 ++ [$3] ++ $5 }
-  | ExprList ',' PatNoSpace              { map predicatePat $1 ++ [$3] }
-  | PatNoSpace ',' PatList2              { $1:$3 }
-  | PatNoSpace                           { [$1] }
-
-PatList2 :: { [Pat] }
-PatList2:
-    Expr ',' PatList2        { predicatePat $1:$3 }
-  | PatNoSpace  ',' PatList2 { $1:$3 }
-  | Expr                     { [predicatePat $1] }
-  | PatNoSpace               { [$1] }
-
-ExprList :: { [Macro] }
-ExprList:
-    ExprList ',' Expr   { $1 ++ [$3] }
-  | Expr                { [$1] }
+    ExprPatList ',' PatNoSpace { $1 ++ [$3] }
+  | ExprPatList ',' Expr       { $1 ++ [predicatePat $3] }
+  | PatNoSpace                 { [$1] }
+  | Expr                       { [predicatePat $1] }
 
 -- identifiers
 

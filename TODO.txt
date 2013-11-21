@@ -38,7 +38,7 @@ Add type annotations like so?
   def f = x:a (negInt x) -- polymorphic type
 
 
-Remove '@' in empty list pattern.
+Remove '@' in patterns: '@' SimpleExprPat
 
 
 Comments are broken.

@@ -40,8 +40,7 @@ patFnDecl :: Expr -> String -> [Expr] -> Expr
 patFnDecl val binder mods =
   FnDecl NrDef binder (Expr.foldAppE val mods)
 
--- | Generates a function definition for a pattern, given its @name@
--- and @mods@
+-- | Generates function definitions for a pattern's bindings
 --
 -- @
 -- xs@[x@, y@]
@@ -68,10 +67,47 @@ patDefns val pat = patDefnsMods pat []
                         listRef i = Expr.idE "tl":listRef (i - 1)
                         patMods = map (reverse . listRef) [1..length pats]
 
+patConstantPred :: Macro -> (String, String)
+patConstantPred CharM {} = ("isChar#", "eqChar#")
+patConstantPred IntM {} = ("isInt#", "eqInt#")
+patConstantPred RealM {} = ("isReal#", "eqReal#")
+
+-- | Generates a predicate for a pattern, according the predicate
+-- guard
+--
+-- @
+-- x@
+-- x@isInt
+-- (x@ +> xs@)
+-- x@[@, @]
+-- x@1
+-- x@"ola"
+-- @
+--
+-- @
+-- const true
+-- isInt
+-- isList (const true) (const true)
+-- isTuple [const true, const true]
+-- isInt && eqInt 1
+-- isTuple [isChar, isChar, isChar]
+-- @
 patPred :: Pat -> ExpanderM Expr
 patPred = patPred' . patGuard
   where patPred' AllPG = return Expr.constTrueE
-        patPred' (PredicatePG pred) = expandMacro pred
+
+        patPred' (PredicatePG pred@(IdM _)) = expandMacro pred
+
+        patPred' (PredicatePG (StringM cs)) =
+          patPred' . TuplePG . map (predicatePat . CharM) $ cs
+
+        patPred' (PredicatePG val) =
+          do let (isFn, eqFn) = patConstantPred val
+             arg <- NameM.genNameM "arg"
+             let argId = idM arg
+                 pred = AndM (appM isFn argId) ((appM eqFn val) `AppM` argId)
+             LambdaE arg <$> expandMacro pred
+
         patPred' (ListPG hdPat tlPat) =
           do hdPred <- patPred hdPat
              tlPred <- patPred tlPat
