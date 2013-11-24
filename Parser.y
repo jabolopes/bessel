@@ -123,15 +123,15 @@ DefnOrExpr:
 
 Module :: { Macro }
 Module:
-    me LongTypeId UseList DefnList { ModuleM (flattenId $2) $3 $4 }
-  | me LongTypeId DefnList         { ModuleM (flattenId $2) [] $3 }
+    me TypeName UseList DefnList { ModuleM (flattenId $2) $3 $4 }
+  | me TypeName DefnList         { ModuleM (flattenId $2) [] $3 }
 
 UseList :: { [(String, String)] }
 UseList:
-    UseList use LongTypeId as LongTypeId { $1 ++ [(flattenId $3, flattenId $5)] }
-  | UseList use LongTypeId               { $1 ++ [(flattenId $3, "")] }
-  | use LongTypeId as LongTypeId         { [(flattenId $2, flattenId $4)] }
-  | use LongTypeId                       { [(flattenId $2, "")] }
+    UseList use TypeName as TypeName { $1 ++ [(flattenId $3, flattenId $5)] }
+  | UseList use TypeName             { $1 ++ [(flattenId $3, "")] }
+  | use TypeName as TypeName         { [(flattenId $2, flattenId $4)] }
+  | use TypeName                     { [(flattenId $2, "")] }
 
 DefnList :: { [Macro] }
 DefnList:
@@ -144,7 +144,7 @@ Defn:
 
 FnDefn :: { Macro }
 FnDefn:
-    def Name Expr    { FnDeclM $2 $3 }
+    def Name Expr { FnDeclM $2 $3 }
 
 Expr :: { Macro }
 Expr:
@@ -186,8 +186,8 @@ Lambda:
 
 PatList :: { [Pat] }
 PatList:
-    PatList Pat         { $1 ++ [$2] }
-  | Pat                 { [$1] }
+    PatList Pat { $1 ++ [$2] }
+  | Pat         { [$1] }
 
 -- patterns
 
@@ -238,11 +238,11 @@ ExprPatList:
 -- identifiers
 
 QualName:
-    LongTypeId '.' Name { mkQualName ($1 ++ [$3]) }
-  | Name                { mkQualName [$1] }
+    TypeName '.' Name { mkQualName ($1 ++ [$3]) }
+  | Name              { mkQualName [$1] }
 
-LongTypeId:
-    LongTypeId '.' typeId { $1 ++ [$3] }
+TypeName:
+    TypeName '.' typeId { $1 ++ [$3] }
   | typeId                { [$1] }
 
 Name:
