@@ -73,9 +73,9 @@ runSnippetM ln =
   do fs <- fs <$> get
      case Stage.stageDefinition fs ln of
        Left err -> liftIO . putStrLn . PrettyString.toString $ err
-       Right (fs', def) ->
+       Right (fs', defs) ->
          do modify $ \s -> s { fs = fs' }
-            liftIO $ putVal (Definition.defVal def)
+            liftIO $ putVal (Definition.defVal (last defs))
 
 showMeM :: Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> String -> StateT ReplState IO ()
 showMeM showAll showBrief showOrd showFree showSrc showExp showRen filename =

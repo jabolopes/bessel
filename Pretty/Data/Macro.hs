@@ -3,6 +3,7 @@ module Pretty.Data.Macro where
 import Data.Macro
 import Data.PrettyString (PrettyString, (<>), (<+>), ($+$))
 import qualified Data.PrettyString as PrettyString
+import qualified Data.TypeName as TypeName (fromTypeName)
 
 docPat :: Pat -> PrettyString
 docPat pat =
@@ -21,6 +22,9 @@ docPat pat =
           PrettyString.char '[' <>
           PrettyString.sep (PrettyString.intercalate (PrettyString.char ',') (map docPat pats)) <>
           PrettyString.char ']'
+        docGuard (TypePG typeName pats) =
+          PrettyString.sep
+           (PrettyString.text (TypeName.fromTypeName typeName):map docPat pats)
 
 docMatch :: ([Pat], Macro) -> PrettyString
 docMatch (pats, body) =
@@ -54,7 +58,7 @@ docMacro (BinOpM op m1 m2) =
 docMacro (CharM c) = PrettyString.char '\'' <> PrettyString.char c <> PrettyString.char '\''
 docMacro (CondM ms) = docCond ms
 docMacro (FnDeclM name body) =
-  PrettyString.sep [PrettyString.text name, PrettyString.nest (docMacro body)]
+  PrettyString.sep [PrettyString.text "def" <+> PrettyString.text name, PrettyString.nest (docMacro body)]
 docMacro (IdM name) = PrettyString.text (show name)
 docMacro (IntM i) = PrettyString.int i
 docMacro (ModuleM name uses defns) =
@@ -78,6 +82,11 @@ docMacro (SeqM ms) =
   PrettyString.char ']'
 docMacro (StringM str) =
   PrettyString.char '"' <> PrettyString.text str <> PrettyString.char '"'
+docMacro (TypeDeclM typeName cons) =
+  PrettyString.sep [PrettyString.text "type" <+> PrettyString.text (TypeName.fromTypeName typeName), PrettyString.nest consDoc]
+  where docConstructor (Constructor consName consPat) =
+          PrettyString.text (TypeName.fromTypeName consName) <+> docPat consPat
+        consDoc = PrettyString.sep . PrettyString.intercalate (PrettyString.text "|") . map docConstructor $ cons
 docMacro (WhereM m ms) =
   PrettyString.sep
   [docMacro m,

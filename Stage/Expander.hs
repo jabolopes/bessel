@@ -9,6 +9,8 @@ import Control.Monad.Error.Class (throwError)
 import Data.Expr (DefnKw(..), Expr(..))
 import qualified Data.Expr as Expr
 import Data.Macro
+import Data.TypeName (TypeName)
+import qualified Data.TypeName as TypeName (fromTypeName)
 import Monad.NameM (NameM)
 import qualified Monad.NameM as NameM
 import Data.PrettyString (PrettyString)
@@ -66,6 +68,8 @@ patDefns val pat = patDefnsMods pat []
                   where listRef 1 = [Expr.idE "hd"]
                         listRef i = Expr.idE "tl":listRef (i - 1)
                         patMods = map (reverse . listRef) [1..length pats]
+                patDefns' (TypePG _ pats) =
+                  concatMap (flip patDefnsMods (Expr.idE "unCons#":mods)) pats
 
 patConstantPred :: Macro -> (String, String)
 patConstantPred CharM {} = ("isChar#", "eqChar#")
@@ -95,25 +99,23 @@ patConstantPred RealM {} = ("isReal#", "eqReal#")
 patPred :: Pat -> ExpanderM Expr
 patPred = patPred' . patGuard
   where patPred' AllPG = return Expr.constTrueE
-
-        patPred' (PredicatePG pred@(IdM _)) = expandMacro pred
-
+        patPred' (PredicatePG pred@(IdM _)) = expandOne pred
         patPred' (PredicatePG (StringM cs)) =
           patPred' . TuplePG . map (predicatePat . CharM) $ cs
-
         patPred' (PredicatePG val) =
           do let (isFn, eqFn) = patConstantPred val
              arg <- NameM.genNameM "arg"
              let argId = idM arg
                  pred = AndM (appM isFn argId) ((appM eqFn val) `AppM` argId)
-             LambdaE arg <$> expandMacro pred
-
+             LambdaE arg <$> expandOne pred
         patPred' (ListPG hdPat tlPat) =
           do hdPred <- patPred hdPat
              tlPred <- patPred tlPat
              return $ Expr.appE "isList" hdPred `AppE` tlPred
         patPred' (TuplePG pats) =
           Expr.appE "isTuple" . Expr.seqE <$> mapM patPred pats
+        patPred' (TypePG typeName _) =
+          return . Expr.idE . consIsName $ typeName
 
 -- |
 -- @
@@ -129,9 +131,9 @@ patPred = patPred' . patGuard
 expandMatchBody :: [String] -> [Pat] -> Macro -> ExpanderM Expr
 expandMatchBody args pats body =
   case concat [ patDefns (Expr.idE arg) pat | arg <- args | pat <- pats ] of
-    [] -> expandMacro body
+    [] -> expandOne body
     defns ->
-      do body' <- expandMacro body
+      do body' <- expandOne body
          return (WhereE body' defns)
 
 -- |
@@ -223,27 +225,100 @@ expandFnDecl name body =
 -- /expand FnDeclM
 
 expandSeq :: [Macro] -> ExpanderM Expr
-expandSeq ms = Expr.seqE <$> mapM expandMacro ms
+expandSeq ms = Expr.seqE <$> mapM expandOne ms
 
 expandString :: String -> Expr
 expandString = Expr.stringE
 
-expandMacro :: Macro -> ExpanderM Expr
-expandMacro (AndM m1 m2) = Expr.andE <$> expandMacro m1 <*> expandMacro m2
-expandMacro (AppM m1 m2) = AppE <$> expandMacro m1 <*> expandMacro m2
-expandMacro (BinOpM op m1 m2) = Expr.binOpE op <$> expandMacro m1 <*> expandMacro m2
-expandMacro (CharM c) = return (CharE c)
-expandMacro (CondM ms) = expandCond ms "lambda"
-expandMacro (FnDeclM name (CondM ms)) = expandFnDecl name =<< expandCond ms name
-expandMacro (FnDeclM name body) = expandFnDecl name =<< expandMacro body
-expandMacro (IdM name) = return (Expr.IdE name)
-expandMacro (IntM n) = return (Expr.intE n)
-expandMacro (ModuleM me _ _) = throwError (Pretty.devModuleNested me)
-expandMacro (OrM m1 m2) = Expr.orE <$> expandMacro m1 <*> expandMacro m2
-expandMacro (RealM n) = return (Expr.realE n)
-expandMacro (SeqM ms) = expandSeq ms
-expandMacro (StringM str) = return (expandString str)
-expandMacro (WhereM m ms) = WhereE <$> expandMacro m <*> mapM expandMacro ms
+-- expand TypeDeclM
 
-expand :: Macro -> Either PrettyString Expr
+consIsName :: TypeName -> String
+consIsName consName =
+  "is" ++ (TypeName.fromTypeName consName)
+
+consMkName :: TypeName -> String
+consMkName = TypeName.fromTypeName
+
+consPredFn :: TypeName -> Macro
+consPredFn consName =
+  let
+    consNameStr = TypeName.fromTypeName consName
+    body = appM "isCons#" . appM "link#" . StringM $ consNameStr
+  in
+    FnDeclM (consIsName consName) body
+
+typePredFn :: TypeName -> [TypeName] -> Macro
+typePredFn typeName consNames =
+  let
+    fnName = consIsName typeName
+    predNames = map (idM . consIsName) consNames
+    body = foldl1 OrM predNames
+  in
+    FnDeclM fnName body
+
+consConsFn :: TypeName -> Pat -> Macro
+consConsFn consName consPat =
+  let
+    consNameStr = TypeName.fromTypeName consName
+    body = appM "mkCons#" . appM "link#" . StringM $ consNameStr
+  in
+    FnDeclM (consMkName consName) $
+      CondM [([consPat], body `AppM` idM (patBinder consPat))]
+
+expandConstructor :: Constructor -> ExpanderM [Expr]
+expandConstructor (Constructor consName consPat) =
+  do arg <- NameM.genNameM "arg"
+     let predMacro = consPredFn consName
+         consMacro = consConsFn consName consPat { patBinder = arg }
+     (++) <$> expandMacro predMacro <*> expandMacro consMacro
+
+expandTypeDecl :: TypeName -> [Constructor] -> ExpanderM [Expr]
+expandTypeDecl typeName cons =
+  do consFns <- concat <$> mapM expandConstructor cons
+     typeFn <- expandMacro $ typePredFn typeName (map (\(Constructor x _) -> x) cons)
+     return $ consFns ++ typeFn
+
+-- /expand TypeDeclM
+
+expandOne :: Macro -> ExpanderM Expr
+expandOne macro = head <$> expandMacro macro
+
+returnOne :: ExpanderM Expr -> ExpanderM [Expr]
+returnOne m = (:[]) <$> m
+
+expandMacro :: Macro -> ExpanderM [Expr]
+expandMacro (AndM m1 m2) =
+  returnOne $ Expr.andE <$> expandOne m1 <*> expandOne m2
+expandMacro (AppM m1 m2) =
+  returnOne $ AppE <$> expandOne m1 <*> expandOne m2
+expandMacro (BinOpM op m1 m2) =
+  returnOne $ Expr.binOpE op <$> expandOne m1 <*> expandOne m2
+expandMacro (CharM c) =
+  returnOne . return . CharE $ c
+expandMacro (CondM ms) =
+  returnOne $ expandCond ms "lambda"
+expandMacro (FnDeclM name (CondM ms)) =
+  returnOne $ expandFnDecl name =<< expandCond ms name
+expandMacro (FnDeclM name body) =
+  returnOne $ expandFnDecl name =<< expandOne body
+expandMacro (IdM name) =
+  returnOne . return . Expr.IdE $ name
+expandMacro (IntM n) =
+  returnOne . return . Expr.intE $ n
+expandMacro (ModuleM me _ _) =
+  throwError (Pretty.devModuleNested me)
+expandMacro (OrM m1 m2) =
+  returnOne $ Expr.orE <$> expandOne m1 <*> expandOne m2
+expandMacro (RealM n) =
+  returnOne . return . Expr.realE $ n
+expandMacro (SeqM ms) =
+  returnOne $ expandSeq ms
+expandMacro (StringM str) =
+  returnOne . return . expandString $ str
+expandMacro (TypeDeclM typeName cons) =
+  expandTypeDecl typeName cons
+expandMacro (WhereM m ms) =
+  returnOne $ WhereE <$> expandOne m <*> (concat <$> mapM expandMacro ms)
+
+expand :: Macro -> Either PrettyString [Expr]
 expand m = fst <$> NameM.runNameM (expandMacro m) NameM.initialNameState

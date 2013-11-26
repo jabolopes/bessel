@@ -2,32 +2,57 @@ module Stage where
 
 import Prelude hiding (mod)
 
-import Data.Definition (Definition(defMac, defExp, defUnprefixedUses))
+import Data.Definition (Definition(defName, defMac, defExp, defUnprefixedUses))
 import qualified Data.Definition as Definition
 import qualified Data.Exception as Exception
+import Data.Expr (Expr(..))
 import Data.FileSystem (FileSystem)
 import qualified Data.FileSystem as FileSystem
 import Data.Module (ModuleT(..), Module(..))
 import Data.Macro (Macro(..))
 import qualified Data.Module as Module
+import qualified Data.TypeName as TypeName (fromTypeName)
+import Data.PrettyString (PrettyString)
+import qualified Data.PrettyString as PrettyString (text, toString)
 import qualified Interpreter (interpret, interpretDefinition)
 import qualified Parser (parseRepl)
 import qualified Stage.Expander as Expander (expand)
-import Data.PrettyString (PrettyString)
-import qualified Data.PrettyString as PrettyString (text, toString)
 import qualified Pretty.Stage as Pretty
-import qualified Reorderer (reorder)
 import qualified Renamer (rename, renameDefinition)
 
--- Snippets
+-- Definitions
 
-expandDefinition :: Definition -> Either PrettyString Definition
-expandDefinition def = expandSrc . Definition.defMac $ def
-  where expandSrc (Left err) =
+qualifiedName :: Module -> String -> String
+qualifiedName mod name = Module.modName mod ++ "." ++ name
+
+defnName :: Macro -> String
+defnName (FnDeclM x _) = x
+defnName (TypeDeclM x _) = TypeName.fromTypeName x
+
+splitDefinition :: Module -> Macro -> Definition
+splitDefinition mod macro =
+  let
+    name = qualifiedName mod (defnName macro)
+    unprefixed = Module.modName mod:Module.modUnprefixedUses mod
+    prefixed = Module.modPrefixedUses mod
+  in
+    (Definition.initial name) { Definition.defUnprefixedUses = unprefixed
+                              , Definition.defPrefixedUses = prefixed
+                              , defMac = Right macro }
+
+expandDefinition :: Module -> Definition -> Either PrettyString [Definition]
+expandDefinition mod def = expandSrc . Definition.defMac $ def
+  where mkDef expr@(FnDecl _ fnName _) =
+          def { defName = qualifiedName mod fnName
+              , defExp = Right expr }
+        mkDef _ =
+          error "expandDefinition: expand can only return top-level definitions"
+
+        expandSrc (Left err) =
           Left (Pretty.definitionContainsNoMacro err)
         expandSrc (Right src) =
-          do expr' <- Expander.expand src
-             return def { defExp = Right expr' }
+          do exprs <- Expander.expand src
+             Right $ map mkDef exprs
 
 mkSnippet :: FileSystem -> Macro -> Definition
 mkSnippet fs macro@(FnDeclM name _) =
@@ -45,34 +70,41 @@ renameSnippet fs def =
     Left err -> Left (PrettyString.text err)
     Right x -> Right x
 
-stageDefinition :: FileSystem -> String -> Either PrettyString (FileSystem, Definition)
+stageDefinition :: FileSystem -> String -> Either PrettyString (FileSystem, [Definition])
 stageDefinition fs ln =
   do macro <- case Parser.parseRepl Module.interactiveName ln of
                 Left err -> Left (PrettyString.text err)
                 Right x -> Right x
-     let def = mkSnippet fs macro
-     expDef <- expandDefinition def
-     renDef <- renameSnippet fs expDef
-     let evalDef = Interpreter.interpretDefinition fs renDef
-         interactive = FileSystem.get fs Module.interactiveName
-         interactive' = Module.updateDefinitions interactive [evalDef]
-     return (FileSystem.add fs interactive', evalDef)
+     let interactive = FileSystem.get fs Module.interactiveName
+         def = mkSnippet fs macro
+     expDefs <- expandDefinition interactive def
+     renDefs <- mapM (renameSnippet fs) expDefs
+     let evalDefs = map (Interpreter.interpretDefinition fs) renDefs
+         interactive' = Module.updateDefinitions interactive evalDefs
+     return (FileSystem.add fs interactive', evalDefs)
 
 -- * Modules
 
 reorderModule :: FileSystem -> Module -> (FileSystem, Module)
 reorderModule fs mod =
-  let mod' = Reorderer.reorder mod in
+  let mod' = Module.addDefinitions mod $ map (splitDefinition mod) (Module.modDecls mod) in
   (FileSystem.add fs mod', mod')
 
 expandModule :: FileSystem -> Module -> Either PrettyString (FileSystem, Module)
 expandModule fs mod@Module { modType = CoreT } =
   return (fs, mod)
 expandModule fs mod =
-  do let defs = Module.defsAsc mod
-     defs' <- mapM expandDefinition defs
-     let mod' = Module.updateDefinitions mod defs'
+  do mod' <- expand mod (Module.defsAsc mod)
      return (FileSystem.add fs mod', mod')
+  where expand mod [] = Right mod
+        expand mod (def:defs) =
+          do defs' <- expandDefinition mod def
+             let ord =
+                   case span (/= Definition.defName def) (Module.modDefOrd mod) of
+                     (xs, y:ys) -> xs ++ [y] ++ map Definition.defName defs' ++ ys
+                 mod' = Module.setDefinitionOrder mod ord
+                 mod'' = Module.updateDefinitions mod' defs'
+             expand mod'' defs
 
 renameModule :: FileSystem -> Module -> Either String (FileSystem, Module)
 renameModule fs mod =

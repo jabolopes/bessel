@@ -218,3 +218,10 @@ def bar x@ =
   case x
     (@isInt = true
    | @      = false)
+
+type Fruit Apple @isInt
+
+def ola1 Apple 1
+def ola2 Apple 2
+
+def adeus1 (@Apple x@ ) = x

@@ -21,6 +21,7 @@ data Token
      | TokenAs
      | TokenDef
      | TokenMe
+     | TokenType
      | TokenUse
      | TokenWhere
 

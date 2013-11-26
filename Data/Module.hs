@@ -2,7 +2,7 @@ module Data.Module where
 
 import Prelude hiding (mod)
 
-import qualified Data.List as List (partition)
+import qualified Data.List as List (nub, partition)
 import Data.Map (Map)
 import qualified Data.Map as Map (empty, fromList, insert, lookup, mapMaybe, union, toList)
 import Data.Maybe (fromMaybe)
@@ -83,16 +83,17 @@ addImplicitUnprefixedUses uses mod =
 
 addDefinitions :: Module -> [Definition] -> Module
 addDefinitions mod defs =
-    mod { modDefs = defsMp `Map.union` modDefs mod
-        , modDefOrd = modDefOrd mod ++ map Definition.defName defs }
-    where defsMp =
-              Map.fromList [ (Definition.defName def, def) | def <- defs ]
+  mod { modDefs = defsMp `Map.union` modDefs mod
+      , modDefOrd = List.nub $ modDefOrd mod ++ map Definition.defName defs }
+  where defsMp =
+          Map.fromList [ (Definition.defName def, def) | def <- defs ]
 
 updateDefinitions :: Module -> [Definition] -> Module
 updateDefinitions mod definitions =
-    mod { modDefs = defsMp `Map.union` modDefs mod }
-    where defsMp =
-              Map.fromList [ (Definition.defName def, def) | def <- definitions ]
+  mod { modDefs = defsMp `Map.union` modDefs mod
+      , modDefOrd = List.nub $ modDefOrd mod ++ map Definition.defName definitions }
+  where defsMp =
+          Map.fromList [ (Definition.defName def, def) | def <- definitions ]
 
 addDefinitionSymbols :: Module -> Map String Symbol -> Module
 addDefinitionSymbols mod syms =
@@ -122,4 +123,4 @@ addDefinitionVals mod vals =
 
 setDefinitionOrder :: Module -> [String] -> Module
 setDefinitionOrder mod defOrd =
-    mod { modDefOrd = defOrd }
+    mod { modDefOrd = List.nub defOrd }

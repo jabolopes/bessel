@@ -20,8 +20,8 @@ $letter       = [a-zA-Z]
 
 @symbol = "\\" | "!" | "#" | "$" | "%"
         | "/"  | "'" | "?" | "«" | "»"
-	| "+"  | "*" | "´" | "º" | "ª"
-	| "~"  | "^" | ";" | "-"
+        | "+"  | "*" | "´" | "º" | "ª"
+        | "~"  | "^" | ";" | "-"
 
 @id_char = $letter | $digit | @symbol
 
@@ -61,6 +61,7 @@ tokens :-
   "as"                { \_ -> TokenAs }
   "def"               { \_ -> TokenDef }
   "me"                { \_ -> TokenMe }
+  "type"              { \_ -> TokenType }
   "use"               { \_ -> TokenUse }
   "where"             { \_ -> TokenWhere }
 

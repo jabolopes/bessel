@@ -44,9 +44,10 @@ loadFile filename filetext
 loadModuleM :: String -> IO Module
 loadModuleM filename =
   do str <- readFileM filename
-     let mod@(ModuleM me uses body) = case loadFile filename str of
-                                        Left err -> throwParserException err
-                                        Right x -> x
+     let ModuleM me uses body =
+           case loadFile filename str of
+             Left err -> throwParserException err
+             Right x -> x
      if filename /= me
      then throwLoaderException [Pretty.moduleMeMismatch me filename]
      else

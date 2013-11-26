@@ -1,0 +1,51 @@
+-- Definitions
+
+type Fruit
+  = Apple
+  | Banana isInt
+  | Fig [isInt, isReal]
+  | Orange Fruit
+
+def show
+  Apple  = "apple"
+| Banana = "banana"
+| Fig    = "fig"
+| Orange = "orange"
+
+def show
+  Apple       = "apple"
+| (Banana x@) = concat ["banana", showInt x]
+| (Fig xs@)   = concat ["fig", showListInt xs]
+| (Orange x@) = concat ["orange", show x]
+
+
+-- Expansions
+
+def isApple = isCons# (link# "Apple")
+def isBanana = isCons# (link# "Banana")
+def isFig = isCons# (link# "Fig")
+def isOrange = isCons# (link# "Orange")
+
+def isFruit x@ = isApple x || isBanana x || isFig x || isOrange x
+
+def Apple = mkCons# (link# "Apple") 0
+def Banana x#0@isInt = mkCons# (link# "Banana") x#0
+def Fig x#0@[isInt, isReal] = mkCons# (link# "Fig") x#0
+def Orange x#0@Fruit = mkCons# (link# "Orange") x#0
+
+  def Orange x#0@isFruit = ...
+
+def show
+  isApple  = "apple"
+  isBanana = "banana"
+  isFig    = "fig"
+  isOrange = "orange"
+
+def show
+  isApple = "apple"
+  x#0@isBanana = concat ["banana", showInt x]
+    where def x = unCons# x#0
+  x#1@isFig = concat ["fig", showListInt xs]
+    where def xs = unCons# x#1
+  x#2@isOrange = concat ["orange", show x]
+    where def x = unCons# x#2

@@ -231,8 +231,10 @@ renameDefinitionM fs def@Definition { defExp = Right expr } =
              return $ def { defFreeNames = map Definition.defName defs
                           , defSym = Just sym
                           , defRen = Right expr' }) `catchError` (\err -> return $ def { defFreeNames = map Definition.defName defs
-                                                                                        , defSym = Nothing
-                                                                                        , defRen = Left (PrettyString.text err) })
+                                                                                       , defSym = Nothing
+                                                                                       , defRen = Left (PrettyString.text err) })
+renameDefinitionM _ def = return def
+
 renameDefinition :: FileSystem -> Definition -> Either String Definition
 renameDefinition fs def =
   fst <$> runStateT (renameDefinitionM fs def) initialRenamerState

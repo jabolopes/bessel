@@ -38,7 +38,7 @@ docExpr _ (CharE c) = PrettyString.quotes (PrettyString.char c)
 docExpr t (CondE ms blame) =
   PrettyString.sep [PrettyString.text "cond", PrettyString.nest (docCond (docExpr t) t ms blame)]
 docExpr t (FnDecl kw name body) =
-  PrettyString.sep [kwDoc kw <+> PrettyString.text name <+> PrettyString.equals, PrettyString.nest (docExpr t body)]
+  PrettyString.sep [kwDoc kw <+> PrettyString.text name, PrettyString.nest (docExpr t body)]
   where kwDoc Def = PrettyString.text "def"
         kwDoc NrDef = PrettyString.text "nrdef"
 docExpr _ (IdE name) = PrettyString.text (show name)

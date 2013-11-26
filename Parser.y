@@ -15,8 +15,11 @@ import Data.Functor ((<$>))
 import Data.LexState
 import Data.Macro
 import Data.Module
-import Data.QualName (mkQualName)
+import Data.QualName (QualName)
+import qualified Data.QualName as QualName (mkQualName)
 import Data.Token
+import Data.TypeName (TypeName)
+import qualified Data.TypeName as TypeName (mkTypeName, fromTypeName)
 import Lexer
 import Monad.ParserM
 import qualified Monad.ParserM as ParserM
@@ -59,6 +62,7 @@ ensureExpr val =
   as      { TokenAs }
   def     { TokenDef }
   me      { TokenMe }
+  type    { TokenType }
   use     { TokenUse }
   where   { TokenWhere }
 
@@ -111,7 +115,7 @@ ensureExpr val =
 %nonassoc below_app_prec          -- below application (e.g., single id)
 %left app_prec                    -- application
 %nonassoc '(' '[' '[|' character integer double string id typeId
-%nonassoc '@ '
+%nonassoc '@' '@ '
 -- /Precedence (greater)
 
 %%
@@ -123,15 +127,15 @@ DefnOrExpr:
 
 Module :: { Macro }
 Module:
-    me TypeName UseList DefnList { ModuleM (flattenId $2) $3 $4 }
-  | me TypeName DefnList         { ModuleM (flattenId $2) [] $3 }
+    me TypeName UseList DefnList { ModuleM (TypeName.fromTypeName $2) $3 $4 }
+  | me TypeName DefnList         { ModuleM (TypeName.fromTypeName $2) [] $3 }
 
 UseList :: { [(String, String)] }
 UseList:
-    UseList use TypeName as TypeName { $1 ++ [(flattenId $3, flattenId $5)] }
-  | UseList use TypeName             { $1 ++ [(flattenId $3, "")] }
-  | use TypeName as TypeName         { [(flattenId $2, flattenId $4)] }
-  | use TypeName                     { [(flattenId $2, "")] }
+    UseList use TypeName as TypeName { $1 ++ [(TypeName.fromTypeName $3, TypeName.fromTypeName $5)] }
+  | UseList use TypeName             { $1 ++ [(TypeName.fromTypeName $3, "")] }
+  | use TypeName as TypeName         { [(TypeName.fromTypeName $2, TypeName.fromTypeName $4)] }
+  | use TypeName                     { [(TypeName.fromTypeName $2, "")] }
 
 DefnList :: { [Macro] }
 DefnList:
@@ -140,7 +144,8 @@ DefnList:
 
 Defn :: { Macro }
 Defn:
-    FnDefn { $1 }
+    FnDefn   { $1 }
+  | TypeDefn { $1 }
 
 FnDefn :: { Macro }
 FnDefn:
@@ -189,6 +194,14 @@ PatList:
     PatList Pat { $1 ++ [$2] }
   | Pat         { [$1] }
 
+TypeDefn :: { Macro }
+TypeDefn:
+    type TypeName ConstructorList { TypeDeclM $2 $3 }
+
+ConstructorList:
+    ConstructorList '|' TypeName Pat { $1 ++ [Constructor $3 $4] }
+  | TypeName Pat                     { [Constructor $1 $2] }
+
 -- patterns
 
 Pat :: { Pat }
@@ -209,6 +222,11 @@ PatRest:
     id '@' '(' ListPat ')' { bindPat $1 $4 }
   |        '(' ListPat ')' { $2 }
 
+  | id '@' '(' PatList ')' { let Pat { patGuard = TypePG typeName _ } = head $4 in
+                             bindPat $1 (typePat typeName (tail $4)) }
+  |        '(' PatList ')' { let Pat { patGuard = TypePG typeName _ } = head $2 in
+                             typePat typeName (tail $2) }
+
   -- expression patterns
   | id '@' SimpleExprPat   { bindPat $1 $3 }
   |    '@' SimpleExprPat   { $2 }
@@ -227,6 +245,7 @@ SimpleExprPat:
   | '['             ']' { tuplePat [] }
   | string              { predicatePat (StringM $1) }
   | '(' Expr ')'        { predicatePat $2 }
+  | TypeName            { typePat $1 [] }
 
 ExprPatList :: { [Pat] }
 ExprPatList:
@@ -237,14 +256,21 @@ ExprPatList:
 
 -- identifiers
 
+QualName :: { QualName }
 QualName:
-    TypeName '.' Name { mkQualName ($1 ++ [$3]) }
-  | Name              { mkQualName [$1] }
+    LongTypeId '.' Name { QualName.mkQualName ($1 ++ [$3]) }
+  | Name                { QualName.mkQualName [$1] }
 
+TypeName :: { TypeName }
 TypeName:
-    TypeName '.' typeId { $1 ++ [$3] }
+    LongTypeId { TypeName.mkTypeName $1 }
+
+LongTypeId :: { [String] }
+LongTypeId:
+    LongTypeId '.' typeId { $1 ++ [$3] }
   | typeId                { [$1] }
 
+Name :: { String }
 Name:
     '(' Operator ')' { $2 }
   | id               { $1 }

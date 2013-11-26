@@ -69,3 +69,13 @@ Rename 'flattenId' to 'joinId'.
 Definitions and shadowing:
 - redefinition of names is not being properly detected and reported
 - check shadowing
+
+
+When using names from Core, don't just put the string in the middle of
+the code because it makes it untraceable.  Instead, create a name
+holding the string and use it.
+
+
+The generated documentation contains a link to source.  This source
+contains free names.  These names can be copied to the clipboard with
+their corresponding lexical information, such as, the imports.

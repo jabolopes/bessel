@@ -6,6 +6,7 @@ import qualified Prelude
 import Control.Arrow ((***))
 import Control.Monad ((<=<))
 import Data.Functor ((<$>))
+import Data.Hashable (hash)
 
 import Config
 import Data.Exception
@@ -321,7 +322,11 @@ fnDesc =
    ("signal", m signal),
    ("un", m unSharp),
    ("fix", m fixSharp),
-   ("index", m index)]
+   ("index", m index),
+   ("mkCons", m mkCons),
+   ("isCons", m isCons),
+   ("unCons", m unCons),
+   ("link", m link)]
 
 unSharp :: Val -> Val
 unSharp (TypeVal val) = val
@@ -335,6 +340,22 @@ fixSharp (FnVal fn) = FnVal hof
 index :: Val -> Val
 index (IntVal i) = FnVal (return . hof)
     where hof (SeqVal vals) = vals !! i
+
+mkCons :: Val -> Val
+mkCons (IntVal typeId) = FnVal (return . hof)
+  where hof val = TypeVal $ SeqVal [IntVal typeId, val]
+
+unCons :: Val -> Val
+unCons (TypeVal (SeqVal [_, val])) = val
+
+isCons :: Val -> Val
+isCons (IntVal typeId) = FnVal (return . hof)
+  where hof (TypeVal (SeqVal [IntVal typeId', _]))
+          | typeId == typeId' = true
+          | otherwise = false
+
+link :: Val -> Val
+link val = IntVal . hash . unboxString $ val
 
 coreModule :: Module
 coreModule = mkCoreModule coreName [] fnDesc
