@@ -14,7 +14,7 @@ def true true#
 def false false#
 def eqBool eqBool#
 
-def not @id = false
+def not id = false
       | @ = true
 
 -- Int
@@ -76,7 +76,7 @@ def tl tl#
 def (+>) cons
 
 def map
-  fn@ @[] = []
+  fn@ [] = []
 | fn@ (x@ +> xs@) = fn x +> map fn xs
 
 def eq
@@ -87,7 +87,7 @@ def eq
 -- | x@[isDyn] y@[isDyn] = eqSeq x y
     where {
       def eqSeq
-        @[] @[] = true
+        [] [] = true
       | (z@ +> zs@) (w@ +> ws@) = eq z w && eqSeq zs ws
       | @ @ = false
     }
@@ -102,7 +102,7 @@ def lt
 -- | x@[Dyn] y@[Dyn] = ltSeq x y
     where {
       def ltSeq
-        @[] @[] = true
+        [] [] = true
       | (z@ +> zs@) (w@ +> ws@) = lt z w && ltSeq zs ws
       | @ @ = false
     }
@@ -129,11 +129,11 @@ def isNeg x@ = isNum x && x < 0
 def isZero x@ = x == 0
 
 def isNull
-  @[] = true
+  [] = true
 | @ = false
 
 def isPair
-  @[@,@] = true
+  [@,@] = true
 | @ = false
 
 -- def isString
@@ -191,7 +191,7 @@ def (*) mul
 def (/) div
 
 def length
-  @[] = 0
+  [] = 0
 | (@ +> xs@) = length xs + 1
 
 -- def reverse
@@ -199,29 +199,31 @@ def length
 -- | (x@ +> xs@) = reverse xs <+ x
 
 def ola
-  @1 = true
-| @  = false
+  1 = true
+| @ = false
 
 def adeus
-  @"ola" = true
-| @      = false
+  "ola" = true
+| @     = false
 
 def case x@ fn@ = fn x
 
 def if x@ then@ else@ = 0
 
 def foo x@ =
-  (@isInt = true
- | @      = false) x
+  (isInt = true
+ | @     = false) x
 
 def bar x@ =
   case x
-    (@isInt = true
-   | @      = false)
+    (isInt = true
+   | @     = false)
 
-type Fruit Apple @isInt
+type Fruit Apple isInt
 
 def ola1 Apple 1
 def ola2 Apple 2
 
-def adeus1 (@Apple x@ ) = x
+def adeus1 (Apple x@) = x
+def adeus2 (Apple x@ y@) = x
+def adeus3 (Apple x@isInt) = x

@@ -42,7 +42,7 @@ tokens :-
   @comment            ;
 
   -- punctuation
-  "@ "                { \_ -> TokenAtSpace }
+  \@@identifier       { \(_:s) -> TokenAtId s }
   "@"                 { \_ -> TokenAt }
   "|"                 { \_ -> TokenBar }
   ","                 { \_ -> TokenComma }

@@ -10,25 +10,23 @@ import GHC.Exts (sortWith)
 
 import Config
 import Data.Exception
-import Data.Expr hiding (Pat)
+import Data.Expr
 import Data.Functor ((<$>))
 import Data.LexState
-import Data.Macro
 import Data.Module
 import Data.QualName (QualName)
-import qualified Data.QualName as QualName (mkQualName)
+import qualified Data.QualName as QualName (mkQualName, fromQualName)
+import Data.Source
 import Data.Token
-import Data.TypeName (TypeName)
-import qualified Data.TypeName as TypeName (mkTypeName, fromTypeName)
 import Lexer
 import Monad.ParserM
 import qualified Monad.ParserM as ParserM
 import Utils
 
-ensureExpr :: Pat -> ParserM Macro
+ensureExpr :: Source -> ParserM Source
 ensureExpr val =
-  case toMacro val of
-    Nothing -> failM "expecting expression but got pattern"
+  case toSource val of
+    Nothing -> failM "expecting expression instead of pattern"
     Just expr -> return expr
 }
 
@@ -44,7 +42,7 @@ ensureExpr val =
 %token
   -- punctuation
   '@'     { TokenAt }
-  '@ '    { TokenAtSpace }
+  '@id'   { TokenAtId $$ }
   '|'     { TokenBar }
   '.'     { TokenDot }
   ','     { TokenComma }
@@ -106,7 +104,8 @@ ensureExpr val =
 %left lambda_prec                 -- lambda
 %left where                       -- where
 %left '&&' '||'                   -- logical
-%left '+>' '<+'                   -- arrow
+%left '<+'                        -- snoc
+%right '+>'                       -- cons
 %left '==' '/=' '<' '>' '<=' '>=' -- comparison
 %left '+' '-'                     -- additives
 %left '*' '/'                     -- multiplicatives
@@ -115,144 +114,118 @@ ensureExpr val =
 %nonassoc below_app_prec          -- below application (e.g., single id)
 %left app_prec                    -- application
 %nonassoc '(' '[' '[|' character integer double string id typeId
-%nonassoc '@' '@ '
+%nonassoc '@'
 -- /Precedence (greater)
 
 %%
 
-DefnOrExpr :: { Macro }
+DefnOrExpr :: { Source }
 DefnOrExpr:
     Defn { $1 }
-  | Expr { $1 }
+  | Expr {% ensureExpr $1 }
 
-Module :: { Macro }
+Module :: { Source }
 Module:
-    me TypeName UseList DefnList { ModuleM (TypeName.fromTypeName $2) $3 $4 }
-  | me TypeName DefnList         { ModuleM (TypeName.fromTypeName $2) [] $3 }
+    me TypeName UseList DefnList { ModuleS (QualName.fromQualName $2) $3 $4 }
+  | me TypeName DefnList         { ModuleS (QualName.fromQualName $2) [] $3 }
 
 UseList :: { [(String, String)] }
 UseList:
-    UseList use TypeName as TypeName { $1 ++ [(TypeName.fromTypeName $3, TypeName.fromTypeName $5)] }
-  | UseList use TypeName             { $1 ++ [(TypeName.fromTypeName $3, "")] }
-  | use TypeName as TypeName         { [(TypeName.fromTypeName $2, TypeName.fromTypeName $4)] }
-  | use TypeName                     { [(TypeName.fromTypeName $2, "")] }
+    UseList use TypeName as TypeName { $1 ++ [(QualName.fromQualName $3, QualName.fromQualName $5)] }
+  | UseList use TypeName             { $1 ++ [(QualName.fromQualName $3, "")] }
+  | use TypeName as TypeName         { [(QualName.fromQualName $2, QualName.fromQualName $4)] }
+  | use TypeName                     { [(QualName.fromQualName $2, "")] }
 
-DefnList :: { [Macro] }
+DefnList :: { [Source] }
 DefnList:
-    DefnList Defn   { $1 ++ [$2] }
-  | Defn            { [$1] }
+    DefnList Defn { $1 ++ [$2] }
+  | Defn          { [$1] }
 
-Defn :: { Macro }
+Defn :: { Source }
 Defn:
     FnDefn   { $1 }
   | TypeDefn { $1 }
 
-FnDefn :: { Macro }
+FnDefn :: { Source }
 FnDefn:
-    def Name Expr { FnDeclM $2 $3 }
+    def Name Expr {% return . FnDeclS $2 =<< ensureExpr $3 }
 
-Expr :: { Macro }
+Expr :: { Source }
 Expr:
-    SimpleExprPat %prec below_app_prec {% ensureExpr $1 }
+    AppExpr         { listToApp $1 }
 
-  | Expr SimpleExprPat %prec app_prec {% AppM $1 <\$> ensureExpr $2 }
+  | Expr 'o' Expr   { BinOpS $2 $1 $3 }
 
-  | Expr 'o' Expr   { BinOpM $2 $1 $3 }
+  | Expr '*' Expr   { BinOpS $2 $1 $3 }
+  | Expr '/' Expr   { BinOpS $2 $1 $3 }
 
-  | Expr '*' Expr   { BinOpM $2 $1 $3 }
-  | Expr '/' Expr   { BinOpM $2 $1 $3 }
+  | Expr '+' Expr   { BinOpS $2 $1 $3 }
+  | Expr '-' Expr   { BinOpS $2 $1 $3 }
 
-  | Expr '+' Expr   { BinOpM $2 $1 $3 }
-  | Expr '-' Expr   { BinOpM $2 $1 $3 }
+  | Expr '==' Expr  { BinOpS $2 $1 $3 }
+  | Expr '/=' Expr  { BinOpS $2 $1 $3 }
+  | Expr '<'  Expr  { BinOpS $2 $1 $3 }
+  | Expr '>'  Expr  { BinOpS $2 $1 $3 }
+  | Expr '<=' Expr  { BinOpS $2 $1 $3 }
+  | Expr '>=' Expr  { BinOpS $2 $1 $3 }
 
-  | Expr '==' Expr  { BinOpM $2 $1 $3 }
-  | Expr '/=' Expr  { BinOpM $2 $1 $3 }
-  | Expr '<'  Expr  { BinOpM $2 $1 $3 }
-  | Expr '>'  Expr  { BinOpM $2 $1 $3 }
-  | Expr '<=' Expr  { BinOpM $2 $1 $3 }
-  | Expr '>=' Expr  { BinOpM $2 $1 $3 }
+  | Expr '+>' Expr  { BinOpS $2 $1 $3 }
+  | Expr '<+' Expr  { BinOpS $2 $1 $3 }
 
-  | Expr '+>' Expr  { BinOpM $2 $1 $3 }
-  | Expr '<+' Expr  { BinOpM $2 $1 $3 }
+  | Expr '&&' Expr  { AndS $1 $3 }
+  | Expr '||' Expr  { OrS $1 $3 }
 
-  | Expr '&&' Expr  { AndM $1 $3 }
-  | Expr '||' Expr  { OrM $1 $3 }
+  | Expr quotedId Expr { BinOpS $2 $1 $3 }
 
-  | Expr quotedId Expr { BinOpM $2 $1 $3 }
+  | Expr where '{' DefnList '}' { WhereS $1 $4 }
 
-  | Expr where '{' DefnList '}' { WhereM $1 $4 }
+  | Cond            { CondS $1 }
 
-  | Lambda { CondM $1 }
+Cond :: { [([Source], Source)] }
+Cond:
+    Cond '|' AppExpr '=' Expr %prec lambda_prec { $1 ++ [($3, $5)] }
+  | AppExpr '=' Expr          %prec lambda_prec { [($1, $3)] }
 
-Lambda :: { [([Pat], Macro)] }
-Lambda:
-    Lambda '|' PatList '=' Expr %prec lambda_prec { $1 ++ [($3, $5)] }
-  | PatList '=' Expr            %prec lambda_prec { [($1, $3)] }
-
-PatList :: { [Pat] }
-PatList:
-    PatList Pat { $1 ++ [$2] }
-  | Pat         { [$1] }
-
-TypeDefn :: { Macro }
+TypeDefn :: { Source }
 TypeDefn:
-    type TypeName ConstructorList { TypeDeclM $2 $3 }
+    type TypeName ConstructorList { TypeDeclS $2 $3 }
 
+ConstructorList :: { [(QualName, Source)] }
 ConstructorList:
-    ConstructorList '|' TypeName Pat { $1 ++ [Constructor $3 $4] }
-  | TypeName Pat                     { [Constructor $1 $2] }
+    ConstructorList '|' TypeName Pat { $1 ++ [($3, $4)] }
+  | TypeName Pat                     { [($1, $2)] }
 
 -- patterns
 
-Pat :: { Pat }
+AppExpr :: { [Source] }
+AppExpr:
+    Pat         %prec below_app_prec { [$1] }
+  | AppExpr Pat %prec app_prec       { $1 ++ [$2] }
+
+Pat :: { Source }
 Pat:
-    id '@ ' { bindPat $1 allPat }
-  |    '@ ' { allPat }
-  | PatRest { $1 }
+    id '@id'         { bindPat $1 (IdS (QualName.mkQualName [$2])) }
+  | id '@' SimplePat { bindPat $1 $3 }
+  | id '@'           { bindPat $1 allPat }
+  |    '@'           { allPat }
+  |        SimplePat { $1 }
 
-PatNoSpace :: { Pat }
-PatNoSpace:
-    id '@'  { bindPat $1 allPat }
-  |    '@'  { allPat }
-  | PatRest { $1 }
+SimplePat :: { Source }
+SimplePat:
+    QualName            { IdS $1 }
+  | character           { CharS $1 }
+  | integer             { IntS $1 }
+  | double              { RealS $1 }
+  | '[' ExprList ']'    { SeqS $2 }
+  | '['          ']'    { SeqS [] }
+  | string              { StringS $1 }
+  | TypeName            { idS (QualName.fromQualName $1) }
+  | '(' Expr ')'        { $2 }
 
-PatRest :: { Pat }
-PatRest:
-  -- list patterns
-    id '@' '(' ListPat ')' { bindPat $1 $4 }
-  |        '(' ListPat ')' { $2 }
-
-  | id '@' '(' PatList ')' { let Pat { patGuard = TypePG typeName _ } = head $4 in
-                             bindPat $1 (typePat typeName (tail $4)) }
-  |        '(' PatList ')' { let Pat { patGuard = TypePG typeName _ } = head $2 in
-                             typePat typeName (tail $2) }
-
-  -- expression patterns
-  | id '@' SimpleExprPat   { bindPat $1 $3 }
-  |    '@' SimpleExprPat   { $2 }
-
-ListPat :: { Pat }
-ListPat:
-    Pat '+>' PatNoSpace    { listPat $1 $3 }
-
-SimpleExprPat :: { Pat }
-SimpleExprPat:
-    QualName            { predicatePat (IdM $1) }
-  | character           { predicatePat (CharM $1) }
-  | integer             { predicatePat (IntM $1) }
-  | double              { predicatePat (RealM $1) }
-  | '[' ExprPatList ']' { tuplePat $2 }
-  | '['             ']' { tuplePat [] }
-  | string              { predicatePat (StringM $1) }
-  | '(' Expr ')'        { predicatePat $2 }
-  | TypeName            { typePat $1 [] }
-
-ExprPatList :: { [Pat] }
-ExprPatList:
-    ExprPatList ',' PatNoSpace { $1 ++ [$3] }
-  | ExprPatList ',' Expr       { $1 ++ [predicatePat $3] }
-  | PatNoSpace                 { [$1] }
-  | Expr                       { [predicatePat $1] }
+ExprList :: { [Source] }
+ExprList:
+    ExprList ',' Expr { $1 ++ [$3] }
+  | Expr              { [$1] }
 
 -- identifiers
 
@@ -261,9 +234,9 @@ QualName:
     LongTypeId '.' Name { QualName.mkQualName ($1 ++ [$3]) }
   | Name                { QualName.mkQualName [$1] }
 
-TypeName :: { TypeName }
+TypeName :: { QualName }
 TypeName:
-    LongTypeId { TypeName.mkTypeName $1 }
+    LongTypeId { QualName.mkQualName $1 }
 
 LongTypeId :: { [String] }
 LongTypeId:
@@ -306,16 +279,16 @@ nextToken cont =
      modify $ \s -> s { psLexerState = state' }
      cont tk
 
-runParser :: ParserM Macro -> String -> String -> Either String Macro
+runParser :: ParserM Source -> String -> String -> Either String Source
 runParser m filename str =
   case runStateT m $ ParserM.initial $ lexState filename str of
     Right (mod, _) -> Right mod
     Left str -> Left str
 
-parseFile :: String -> String -> Either String Macro
+parseFile :: String -> String -> Either String Source
 parseFile filename str = runParser parseModule filename str
 
-parseRepl :: String -> String -> Either String Macro
+parseRepl :: String -> String -> Either String Source
 parseRepl filename str =
   evalStateT parseDefnOrExpr $ ParserM.initial $ lexState filename str
 }

@@ -1,4 +1,4 @@
-module Pretty.Module where
+module Pretty.Data.Module where
 
 import Prelude hiding (mod)
 
@@ -9,7 +9,7 @@ import Data.Module (ModuleT, Module)
 import qualified Data.Module as Module
 import Data.PrettyString (PrettyString, (<+>), ($+$))
 import qualified Data.PrettyString as PrettyString
-import qualified Pretty.Definition as Pretty
+import qualified Pretty.Data.Definition as Pretty
 
 docHeader :: String -> ModuleT -> PrettyString
 docHeader name typ =

@@ -1,4 +1,4 @@
-module Pretty.Definition where
+module Pretty.Data.Definition where
 
 import Data.List (intercalate)
 
@@ -7,7 +7,7 @@ import qualified Data.Definition as Definition
 import Data.PrettyString (PrettyString, (<>), (<+>), ($+$))
 import qualified Data.PrettyString as PrettyString
 import qualified Pretty.Expr as Pretty (DocType(..), docExpr)
-import qualified Pretty.Data.Macro as Pretty
+import qualified Pretty.Data.Source as Pretty
 
 definitionOk :: String -> String -> [String] -> PrettyString -> PrettyString -> PrettyString -> PrettyString -> PrettyString
 definitionOk name val freeNames src exp ren err =
@@ -36,9 +36,9 @@ docFree showFree def
   | showFree = Definition.defFreeNames def
   | otherwise = []
 
-docMacro showSrc Definition { defMac = Right macro }
-  | showSrc = Pretty.docMacro macro
-docMacro _ _ = PrettyString.empty
+docSource showSrc Definition { defSrc = Right src }
+  | showSrc = Pretty.docSource src
+docSource _ _ = PrettyString.empty
 
 docExp :: Bool -> Definition -> PrettyString
 docExp showExp Definition { defExp = Right expr }
@@ -50,9 +50,9 @@ docRen showRen Definition { defRen = Right expr }
   | showRen = Pretty.docExpr Pretty.RenDocT expr
 docRen _ _ = PrettyString.empty
 
-docErrorMac :: Either PrettyString a -> PrettyString
-docErrorMac (Right _) = PrettyString.empty
-docErrorMac (Left err)
+docErrorSrc :: Either PrettyString a -> PrettyString
+docErrorSrc (Right _) = PrettyString.empty
+docErrorSrc (Left err)
   | PrettyString.isEmpty err = PrettyString.text "definition has no source expression"
   | otherwise = err
 
@@ -73,7 +73,7 @@ docErrorVal _ = PrettyString.empty
 
 docError :: Definition -> PrettyString
 docError def =
-  PrettyString.vcat [docErrorMac (Definition.defMac def),
+  PrettyString.vcat [docErrorSrc (Definition.defSrc def),
                      docErrorExp (Definition.defExp def),
                      docErrorRen (Definition.defRen def),
                      docErrorVal (Definition.defVal def)]
@@ -83,7 +83,7 @@ docDefn showFree showSrc showExp showRen def =
   definitionOk (Definition.defName def)
                (docEither (Definition.defVal def))
                (docFree showFree def)
-               (docMacro showSrc def)
+               (docSource showSrc def)
                (docExp showExp def)
                (docRen showRen def)
                (docError def)

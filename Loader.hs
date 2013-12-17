@@ -13,11 +13,11 @@ import Data.Exception (throwLoaderException, throwParserException)
 import Data.FileSystem (FileSystem)
 import qualified Data.FileSystem as FileSystem (get, member)
 import Data.GraphUtils (acyclicTopSort)
-import Data.Macro
 import Data.Module (ModuleT(..), Module(..))
 import qualified Data.Module as Module (initial, modName, modDeps)
 import Data.PrettyString (PrettyString)
 import qualified Data.PrettyString as PrettyString
+import Data.Source
 import Parser (parseFile)
 import qualified Pretty.Stage.Loader as Pretty
 
@@ -27,24 +27,24 @@ readFileM filename = readFile $ toFilename filename ++ ".bsl"
               where f '.' = '/'
                     f c = c
 
-parseModule :: String -> String -> Either PrettyString Macro
+parseModule :: String -> String -> Either PrettyString Source
 parseModule filename filetext =
   case parseFile filename filetext of
     Left str -> Left (PrettyString.text str)
     Right mod -> Right mod
 
-loadFile :: String -> String -> Either PrettyString Macro
+loadFile :: String -> String -> Either PrettyString Source
 loadFile filename filetext
   | isPrelude filename =
     parseModule filename filetext
   | otherwise =
-    do ModuleM me uses body <- parseModule filename filetext
-       return $ ModuleM me ((coreName, ""):(preludeName, ""):uses) body
+    do ModuleS me uses body <- parseModule filename filetext
+       return $ ModuleS me ((coreName, ""):(preludeName, ""):uses) body
 
 loadModuleM :: String -> IO Module
 loadModuleM filename =
   do str <- readFileM filename
-     let ModuleM me uses body =
+     let ModuleS me uses body =
            case loadFile filename str of
              Left err -> throwParserException err
              Right x -> x

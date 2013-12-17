@@ -1,9 +1,9 @@
 module Data.Definition where
 
 import Data.Expr (Expr)
-import Data.Macro (Macro)
 import Data.PrettyString (PrettyString)
 import qualified Data.PrettyString as PrettyString (empty)
+import Data.Source (Source)
 import Data.Symbol (Symbol)
 import Monad.InterpreterM (Val)
 
@@ -14,7 +14,7 @@ data Definition
                , defPrefixedUses :: [(String, String)]
                , defSym :: Maybe Symbol
                , defVal :: Either String Val
-               , defMac :: Either PrettyString Macro
+               , defSrc :: Either PrettyString Source
                , defExp :: Either PrettyString Expr
                , defRen :: Either PrettyString Expr }
 
@@ -26,6 +26,6 @@ initial name =
              , defPrefixedUses = []
              , defSym = Nothing
              , defVal = Left ""
-             , defMac = Left PrettyString.empty
+             , defSrc = Left PrettyString.empty
              , defExp = Left PrettyString.empty
              , defRen = Left PrettyString.empty }

@@ -9,7 +9,7 @@ import Data.Maybe (fromMaybe)
 
 import Data.Definition (Definition(..))
 import qualified Data.Definition as Definition
-import Data.Macro
+import Data.Source
 import Data.Symbol (Symbol (..))
 import Monad.InterpreterM (Val)
 
@@ -25,7 +25,7 @@ data Module
            , modDeps :: [String]
            , modUnprefixedUses :: [String]
            , modPrefixedUses :: [(String, String)]
-           , modDecls :: [Macro]
+           , modDecls :: [Source]
            , modDefs :: Map String Definition
            , modDefOrd :: [String] }
 
@@ -65,17 +65,17 @@ mkCoreModule name deps fnDesc =
 interactiveName :: String
 interactiveName = "Interactive"
 
-mkInteractiveModule :: [Module] -> [Macro] -> Module
-mkInteractiveModule mods macros =
+mkInteractiveModule :: [Module] -> [Source] -> Module
+mkInteractiveModule mods srcs =
     let uses = zip (map modName mods) (repeat "") in
-    (initial InteractiveT interactiveName uses) { modDecls = macros }
+    (initial InteractiveT interactiveName uses) { modDecls = srcs }
 
-mkParsedModule :: String -> [(String, String)] -> [Macro] -> Module
-mkParsedModule name uses macros =
+mkParsedModule :: String -> [(String, String)] -> [Source] -> Module
+mkParsedModule name uses srcs =
   let (unprefixed, prefixed) = List.partition (null . snd) uses in
   (initial SrcT name []) { modUnprefixedUses = map fst unprefixed
                          , modPrefixedUses = prefixed
-                         , modDecls = macros }
+                         , modDecls = srcs }
 
 addImplicitUnprefixedUses :: [String] -> Module -> Module
 addImplicitUnprefixedUses uses mod =

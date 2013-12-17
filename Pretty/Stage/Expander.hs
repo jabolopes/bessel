@@ -11,8 +11,16 @@ devModuleNested me =
   $+$
   PrettyString.nest (PrettyString.text "This should be disallowed by the parser")
 
+devPattern :: PrettyString -> PrettyString
+devPattern pat =
+  (PrettyString.text "pattern" <+>
+   pat <+>
+   PrettyString.text "occurs in source to be expanded")
+  $+$
+  PrettyString.nest (PrettyString.text "This should be disallowed by the parser")
+
 condMatchPatternsMismatch :: PrettyString -> PrettyString
 condMatchPatternsMismatch ms =
-  PrettyString.text "Cond contains different number of patterns"
+  PrettyString.text "conditional contains different number of patterns"
   $+$
   PrettyString.nest ms

@@ -1,5 +1,7 @@
 module Data.QualName where
 
+import qualified Data.Char as Char (isUpper)
+
 import Utils (flattenId)
 
 newtype QualName
@@ -12,3 +14,7 @@ instance Show QualName where
 mkQualName :: [String] -> QualName
 mkQualName name =
   QualName { fromQualName = flattenId name }
+
+isTypeName :: String -> Bool
+isTypeName (x:_) = Char.isUpper x
+isTypeName _ = False

@@ -8,28 +8,32 @@ import Control.Monad.Error.Class (throwError)
 
 import Data.Expr (DefnKw(..), Expr(..))
 import qualified Data.Expr as Expr
-import Data.Macro
-import Data.TypeName (TypeName)
-import qualified Data.TypeName as TypeName (fromTypeName)
-import Monad.NameM (NameM)
-import qualified Monad.NameM as NameM
+import Data.QualName (QualName)
+import qualified Data.QualName as QualName (fromQualName, isTypeName)
 import Data.PrettyString (PrettyString)
 import qualified Data.PrettyString as PrettyString (text)
+import Data.Source
+import Monad.NameM (NameM)
+import qualified Monad.NameM as NameM
 import qualified Renamer as Renamer
 import Pretty.Stage.Expander as Pretty
+import Pretty.Data.Source as Pretty
 
 type ExpanderM a = NameM (Either PrettyString) a
 
 -- expand CondM
 
-genPatNames :: [Pat] -> ExpanderM [String]
-genPatNames = mapM (genName . patBinder)
+genPatNames :: [Source] -> ExpanderM [String]
+genPatNames = mapM genPatName
   where genName name
           | null name = NameM.genNameM "arg"
           | otherwise = NameM.genNameM name
 
--- | Generates a function definition for a pattern, given its @name@
--- and @mods@
+        genPatName (PatS binder _) = genName binder
+        genPatName _ = genName ""
+
+-- | Generates a function definition for a pattern, given the
+-- pattern's @binder@ and @mods@
 --
 -- @
 -- x@
@@ -38,9 +42,14 @@ genPatNames = mapM (genName . patBinder)
 -- @
 -- def x = ...
 -- @
-patFnDecl :: Expr -> String -> [Expr] -> Expr
-patFnDecl val binder mods =
+patFnDecl :: String -> [Expr] -> Expr -> Expr
+patFnDecl binder mods val =
   FnDecl NrDef binder (Expr.foldAppE val mods)
+
+isTypeGuard :: Source -> Bool
+isTypeGuard (AppS fn _) = isTypeGuard fn
+isTypeGuard (IdS name) = QualName.isTypeName $ QualName.fromQualName name
+isTypeGuard _ = False
 
 -- | Generates function definitions for a pattern's bindings
 --
@@ -53,28 +62,36 @@ patFnDecl val binder mods =
 -- def x = hd x1#
 -- def y = hd (tl x1#)
 -- @
-patDefns :: Expr -> Pat -> [Expr]
-patDefns val pat = patDefnsMods pat []
-  where patDefnsMods pat mods
-          | null (patBinder pat) = patDefns' (patGuard pat)
-          | otherwise = patFnDecl val (patBinder pat) mods:patDefns' (patGuard pat)
-          where patDefns' AllPG = []
-                patDefns' PredicatePG {} = []
-                patDefns' (ListPG hdPat tlPat) =
-                  patDefnsMods hdPat (Expr.idE "hd":mods) ++
-                  patDefnsMods tlPat (Expr.idE "tl":mods)
-                patDefns' (TuplePG pats) =
-                  concat [ patDefnsMods pat (mod ++ mods) | pat <- pats | mod <- patMods ]
-                  where listRef 1 = [Expr.idE "hd"]
-                        listRef i = Expr.idE "tl":listRef (i - 1)
-                        patMods = map (reverse . listRef) [1..length pats]
-                patDefns' (TypePG _ pats) =
-                  concatMap (flip patDefnsMods (Expr.idE "unCons#":mods)) pats
+patDefns :: Expr -> Source -> [Expr]
+patDefns val = sourceDefns []
+  where sourceDefns mods src
+          | isTypeGuard src =
+            concatMap (sourceDefns (Expr.idE "unCons#":mods)) $ tail . appToList $ src
+        sourceDefns mods (BinOpS "+>" hdPat tlPat) =
+          sourceDefns (Expr.idE "hd":mods) hdPat ++
+          sourceDefns (Expr.idE "tl":mods) tlPat
+        sourceDefns mods (PatS binder guard) =
+          hdDefn ++ tlDefn
+          where hdDefn =
+                  case binder of
+                    "" -> []
+                    _ -> (:[]) $ patFnDecl binder mods val
 
-patConstantPred :: Macro -> (String, String)
-patConstantPred CharM {} = ("isChar#", "eqChar#")
-patConstantPred IntM {} = ("isInt#", "eqInt#")
-patConstantPred RealM {} = ("isReal#", "eqReal#")
+                tlDefn =
+                  case guard of
+                    Nothing -> []
+                    Just src -> sourceDefns mods src
+        sourceDefns mods (SeqS pats) =
+          concat [ sourceDefns (mod ++ mods) pat | pat <- pats | mod <- patMods ]
+          where listRef 1 = [Expr.idE "hd"]
+                listRef i = Expr.idE "tl":listRef (i - 1)
+                patMods = map (reverse . listRef) [1..length pats]
+        sourceDefns _ _ = []
+
+patConstantPred :: Source -> (String, String)
+patConstantPred CharS {} = ("isChar#", "eqChar#")
+patConstantPred IntS {} = ("isInt#", "eqInt#")
+patConstantPred RealS {} = ("isReal#", "eqReal#")
 
 -- | Generates a predicate for a pattern, according the predicate
 -- guard
@@ -96,26 +113,32 @@ patConstantPred RealM {} = ("isReal#", "eqReal#")
 -- isInt && eqInt 1
 -- isTuple [isChar, isChar, isChar]
 -- @
-patPred :: Pat -> ExpanderM Expr
-patPred = patPred' . patGuard
-  where patPred' AllPG = return Expr.constTrueE
-        patPred' (PredicatePG pred@(IdM _)) = expandOne pred
-        patPred' (PredicatePG (StringM cs)) =
-          patPred' . TuplePG . map (predicatePat . CharM) $ cs
-        patPred' (PredicatePG val) =
-          do let (isFn, eqFn) = patConstantPred val
-             arg <- NameM.genNameM "arg"
-             let argId = idM arg
-                 pred = AndM (appM isFn argId) ((appM eqFn val) `AppM` argId)
-             LambdaE arg <$> expandOne pred
-        patPred' (ListPG hdPat tlPat) =
-          do hdPred <- patPred hdPat
-             tlPred <- patPred tlPat
+patPred :: Source -> ExpanderM Expr        
+patPred = sourcePred
+  where sourcePred src
+          | isTypeGuard src =
+            let IdS qualName = head . appToList $ src in
+            return . Expr.idE . consIsName $ qualName
+        sourcePred (BinOpS "+>" hdPat tlPat) =
+          do hdPred <- sourcePred hdPat
+             tlPred <- sourcePred tlPat
              return $ Expr.appE "isList" hdPred `AppE` tlPred
-        patPred' (TuplePG pats) =
-          Expr.appE "isTuple" . Expr.seqE <$> mapM patPred pats
-        patPred' (TypePG typeName _) =
-          return . Expr.idE . consIsName $ typeName
+        sourcePred pred@(IdS _) =
+          expandOne pred
+        sourcePred (PatS _ Nothing) =
+          return Expr.constTrueE
+        sourcePred (PatS _ (Just src)) =
+          patPred src
+        sourcePred (SeqS pats) =
+          Expr.appE "isTuple" . Expr.seqE <$> mapM sourcePred pats
+        sourcePred (StringS cs) =
+          sourcePred . SeqS . map CharS $ cs
+        sourcePred m =
+          do let (isFn, eqFn) = patConstantPred m
+             arg <- NameM.genNameM "arg"
+             let argId = idS arg
+                 pred = AndS (appS isFn argId) ((appS eqFn m) `AppS` argId)
+             LambdaE arg <$> expandOne pred
 
 -- |
 -- @
@@ -128,7 +151,7 @@ patPred = patPred' . patGuard
 --   def y = ...
 -- }
 -- @
-expandMatchBody :: [String] -> [Pat] -> Macro -> ExpanderM Expr
+expandMatchBody :: [String] -> [Source] -> Source -> ExpanderM Expr
 expandMatchBody args pats body =
   case concat [ patDefns (Expr.idE arg) pat | arg <- args | pat <- pats ] of
     [] -> expandOne body
@@ -157,7 +180,7 @@ expandMatchBody args pats body =
 --
 -- The above generated code is a simplification because '&&' is
 -- encoded through 'CondE'.
-expandMatch :: [String] -> [Pat] -> Macro -> ExpanderM (Expr, Expr)
+expandMatch :: [String] -> [Source] -> Source -> ExpanderM (Expr, Expr)
 expandMatch args pats body =
   (,) <$> andPred <*> expandMatchBody args pats body
   where applyPred arg pat =
@@ -167,25 +190,25 @@ expandMatch args pats body =
         andPred =
           foldl1 Expr.andE <$> sequence [ applyPred arg pat | arg <- args | pat <- pats ]
 
-expandMatches :: [String] -> [([Pat], Macro)] -> ExpanderM [(Expr, Expr)]
-expandMatches _ [] = return []
-expandMatches args ((pats, body):ms) =
-  (:) <$> expandMatch args pats body <*> expandMatches args ms
+expandMatches :: [String] -> [([Source], Source)] -> ExpanderM [(Expr, Expr)]
+expandMatches names = loop
+  where loop [] = return []
+        loop ((pats, body):ms) =
+          (:) <$> expandMatch names pats body <*> loop ms
 
-expandCond :: [([Pat], Macro)] -> String -> ExpanderM Expr
+expandCond :: [([Source], Source)] -> String -> ExpanderM Expr
 expandCond ms blame =
-  do let pats = head . fst . unzip $ ms
-     case checkMatches (length pats) ms of
+  do let args = head . fst . unzip $ ms
+     case checkMatches (length args) ms of
        Left err -> throwError err
        Right () ->
-         do args <- genPatNames pats
-            ms' <- expandMatches args ms
-            return . lambdas args . CondE ms' $ blame
-  where checkMatches :: Int -> [([Pat], Macro)] -> Either PrettyString ()
-        checkMatches _ [] = Right ()
-        checkMatches n ((pats, _):ms)
-          | length pats == n = checkMatches n ms
-          | otherwise = Left (Pretty.condMatchPatternsMismatch undefined)
+         do argNames <- genPatNames args
+            ms' <- expandMatches argNames ms
+            return . lambdas argNames . CondE ms' $ blame
+  where checkMatches _ [] = Right ()
+        checkMatches n ((args, _):ms')
+          | length args == n = checkMatches n ms'
+          | otherwise = Left . Pretty.condMatchPatternsMismatch . Pretty.docCond $ ms
 
         lambdas [] body = body
         lambdas (arg:args) body =
@@ -224,7 +247,7 @@ expandFnDecl name body =
 
 -- /expand FnDeclM
 
-expandSeq :: [Macro] -> ExpanderM Expr
+expandSeq :: [Source] -> ExpanderM Expr
 expandSeq ms = Expr.seqE <$> mapM expandOne ms
 
 expandString :: String -> Expr
@@ -232,93 +255,101 @@ expandString = Expr.stringE
 
 -- expand TypeDeclM
 
-consIsName :: TypeName -> String
+consIsName :: QualName -> String
 consIsName consName =
-  "is" ++ (TypeName.fromTypeName consName)
+  "is" ++ (QualName.fromQualName consName)
 
-consMkName :: TypeName -> String
-consMkName = TypeName.fromTypeName
+consMkName :: QualName -> String
+consMkName = QualName.fromQualName
 
-consPredFn :: TypeName -> Macro
+consPredFn :: QualName -> Source
 consPredFn consName =
   let
-    consNameStr = TypeName.fromTypeName consName
-    body = appM "isCons#" . appM "link#" . StringM $ consNameStr
+    consNameStr = QualName.fromQualName consName
+    body = appS "isCons#" . appS "link#" . StringS $ consNameStr
   in
-    FnDeclM (consIsName consName) body
+    FnDeclS (consIsName consName) body
 
-typePredFn :: TypeName -> [TypeName] -> Macro
+typePredFn :: QualName -> [QualName] -> Source
 typePredFn typeName consNames =
   let
     fnName = consIsName typeName
-    predNames = map (idM . consIsName) consNames
-    body = foldl1 OrM predNames
+    predNames = map (idS . consIsName) consNames
+    body = foldl1 OrS predNames
   in
-    FnDeclM fnName body
+    FnDeclS fnName body
 
-consConsFn :: TypeName -> Pat -> Macro
-consConsFn consName consPat =
+consConsFn :: QualName -> String -> Source -> Source
+consConsFn consName binder guard =
   let
-    consNameStr = TypeName.fromTypeName consName
-    body = appM "mkCons#" . appM "link#" . StringM $ consNameStr
+    consNameStr = QualName.fromQualName consName
+    body = appS "mkCons#" . appS "link#" . StringS $ consNameStr
   in
-    FnDeclM (consMkName consName) $
-      CondM [([consPat], body `AppM` idM (patBinder consPat))]
+    FnDeclS (consMkName consName) $
+      CondS [([PatS binder (Just guard)], body `AppS` idS binder)]
 
-expandConstructor :: Constructor -> ExpanderM [Expr]
-expandConstructor (Constructor consName consPat) =
-  do arg <- NameM.genNameM "arg"
-     let predMacro = consPredFn consName
-         consMacro = consConsFn consName consPat { patBinder = arg }
-     (++) <$> expandMacro predMacro <*> expandMacro consMacro
+expandConstructor :: (QualName, Source) -> ExpanderM [Expr]
+expandConstructor (consName, pat) =
+  do binder <- patBinder pat
+     let guard = patGuard pat
+         predSource = consPredFn consName
+         consSource = consConsFn consName binder guard
+     (++) <$> expandSource predSource <*> expandSource consSource
+  where patBinder (PatS binder _) = return binder
+        patBinder _               = NameM.genNameM "arg"
+        
+        patGuard (PatS _ (Just src)) = patGuard src
+        patGuard src = src
 
-expandTypeDecl :: TypeName -> [Constructor] -> ExpanderM [Expr]
+expandTypeDecl :: QualName -> [(QualName, Source)] -> ExpanderM [Expr]
 expandTypeDecl typeName cons =
   do consFns <- concat <$> mapM expandConstructor cons
-     typeFn <- expandMacro $ typePredFn typeName (map (\(Constructor x _) -> x) cons)
+     typeFn <- expandSource $ typePredFn typeName $ map fst cons
      return $ consFns ++ typeFn
 
 -- /expand TypeDeclM
 
-expandOne :: Macro -> ExpanderM Expr
-expandOne macro = head <$> expandMacro macro
+expandOne :: Source -> ExpanderM Expr
+expandOne macro = head <$> expandSource macro
 
 returnOne :: ExpanderM Expr -> ExpanderM [Expr]
 returnOne m = (:[]) <$> m
 
-expandMacro :: Macro -> ExpanderM [Expr]
-expandMacro (AndM m1 m2) =
+expandSource :: Source -> ExpanderM [Expr]
+expandSource (AndS m1 m2) =
   returnOne $ Expr.andE <$> expandOne m1 <*> expandOne m2
-expandMacro (AppM m1 m2) =
+expandSource (AppS m1 m2) =
   returnOne $ AppE <$> expandOne m1 <*> expandOne m2
-expandMacro (BinOpM op m1 m2) =
+expandSource (BinOpS op m1 m2) =
   returnOne $ Expr.binOpE op <$> expandOne m1 <*> expandOne m2
-expandMacro (CharM c) =
+expandSource (CharS c) =
   returnOne . return . CharE $ c
-expandMacro (CondM ms) =
+expandSource (CondS ms) =
   returnOne $ expandCond ms "lambda"
-expandMacro (FnDeclM name (CondM ms)) =
+expandSource (FnDeclS name (CondS ms)) =
   returnOne $ expandFnDecl name =<< expandCond ms name
-expandMacro (FnDeclM name body) =
+expandSource (FnDeclS name body) =
   returnOne $ expandFnDecl name =<< expandOne body
-expandMacro (IdM name) =
+expandSource (IdS name) =
   returnOne . return . Expr.IdE $ name
-expandMacro (IntM n) =
+expandSource (IntS n) =
   returnOne . return . Expr.intE $ n
-expandMacro (ModuleM me _ _) =
+expandSource (ModuleS me _ _) =
   throwError (Pretty.devModuleNested me)
-expandMacro (OrM m1 m2) =
+expandSource (OrS m1 m2) =
   returnOne $ Expr.orE <$> expandOne m1 <*> expandOne m2
-expandMacro (RealM n) =
+expandSource pat@PatS {} =
+  throwError . Pretty.devPattern . Pretty.docSource $ pat
+expandSource (RealS n) =
   returnOne . return . Expr.realE $ n
-expandMacro (SeqM ms) =
+expandSource (SeqS ms) =
   returnOne $ expandSeq ms
-expandMacro (StringM str) =
+expandSource (StringS str) =
   returnOne . return . expandString $ str
-expandMacro (TypeDeclM typeName cons) =
+expandSource (TypeDeclS typeName cons) =
   expandTypeDecl typeName cons
-expandMacro (WhereM m ms) =
-  returnOne $ WhereE <$> expandOne m <*> (concat <$> mapM expandMacro ms)
+expandSource (WhereS src srcs) =
+  returnOne $ WhereE <$> expandOne src <*> (concat <$> mapM expandSource srcs)
 
-expand :: Macro -> Either PrettyString [Expr]
-expand m = fst <$> NameM.runNameM (expandMacro m) NameM.initialNameState
+expand :: Source -> Either PrettyString [Expr]
+expand src = fst <$> NameM.runNameM (expandSource src) NameM.initialNameState

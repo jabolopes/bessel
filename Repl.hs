@@ -21,8 +21,8 @@ import qualified Data.PrettyString as PrettyString
 import Lexer (lexTokens)
 import Loader (preload, readFileM)
 import Monad.InterpreterM (Val)
-import qualified Pretty.Definition as Pretty
-import qualified Pretty.Module as Pretty
+import qualified Pretty.Data.Definition as Pretty
+import qualified Pretty.Data.Module as Pretty
 import qualified Stage
 import Utils (split)
 
@@ -188,7 +188,7 @@ putUserException (LoaderException errs) =
   PrettyString.$+$
   PrettyString.nest (PrettyString.sep errs)
 putUserException (ExpanderException str) =
-  putStrLn $ "renamer error: " ++ str
+  putStrLn $ "expander error: " ++ str
 putUserException (RenamerException str) =
   putStrLn $ "renamer error: " ++ str
 putUserException (TypecheckerException str) =

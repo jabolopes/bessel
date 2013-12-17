@@ -2,18 +2,18 @@ module Stage where
 
 import Prelude hiding (mod)
 
-import Data.Definition (Definition(defName, defMac, defExp, defUnprefixedUses))
+import Data.Definition (Definition(defName, defSrc, defExp, defUnprefixedUses))
 import qualified Data.Definition as Definition
 import qualified Data.Exception as Exception
 import Data.Expr (Expr(..))
 import Data.FileSystem (FileSystem)
 import qualified Data.FileSystem as FileSystem
 import Data.Module (ModuleT(..), Module(..))
-import Data.Macro (Macro(..))
 import qualified Data.Module as Module
-import qualified Data.TypeName as TypeName (fromTypeName)
 import Data.PrettyString (PrettyString)
 import qualified Data.PrettyString as PrettyString (text, toString)
+import qualified Data.QualName as QualName (fromQualName)
+import Data.Source (Source(..))
 import qualified Interpreter (interpret, interpretDefinition)
 import qualified Parser (parseRepl)
 import qualified Stage.Expander as Expander (expand)
@@ -25,11 +25,11 @@ import qualified Renamer (rename, renameDefinition)
 qualifiedName :: Module -> String -> String
 qualifiedName mod name = Module.modName mod ++ "." ++ name
 
-defnName :: Macro -> String
-defnName (FnDeclM x _) = x
-defnName (TypeDeclM x _) = TypeName.fromTypeName x
+defnName :: Source -> String
+defnName (FnDeclS x _) = x
+defnName (TypeDeclS x _) = QualName.fromQualName x
 
-splitDefinition :: Module -> Macro -> Definition
+splitDefinition :: Module -> Source -> Definition
 splitDefinition mod macro =
   let
     name = qualifiedName mod (defnName macro)
@@ -38,10 +38,10 @@ splitDefinition mod macro =
   in
     (Definition.initial name) { Definition.defUnprefixedUses = unprefixed
                               , Definition.defPrefixedUses = prefixed
-                              , defMac = Right macro }
+                              , defSrc = Right macro }
 
 expandDefinition :: Module -> Definition -> Either PrettyString [Definition]
-expandDefinition mod def = expandSrc . Definition.defMac $ def
+expandDefinition mod def = expandSrc . Definition.defSrc $ def
   where mkDef expr@(FnDecl _ fnName _) =
           def { defName = qualifiedName mod fnName
               , defExp = Right expr }
@@ -49,20 +49,20 @@ expandDefinition mod def = expandSrc . Definition.defMac $ def
           error "expandDefinition: expand can only return top-level definitions"
 
         expandSrc (Left err) =
-          Left (Pretty.definitionContainsNoMacro err)
+          Left (Pretty.definitionContainsNoSource err)
         expandSrc (Right src) =
           do exprs <- Expander.expand src
              Right $ map mkDef exprs
 
-mkSnippet :: FileSystem -> Macro -> Definition
-mkSnippet fs macro@(FnDeclM name _) =
+mkSnippet :: FileSystem -> Source -> Definition
+mkSnippet fs macro@(FnDeclS name _) =
   let
     name' = Module.interactiveName ++ "." ++ name
     unprefixed = map Module.modName (FileSystem.toAscList fs)
   in
     (Definition.initial name') { defUnprefixedUses = unprefixed
-                               , defMac = Right macro }
-mkSnippet fs macro = mkSnippet fs $ FnDeclM "val" macro
+                               , defSrc = Right macro }
+mkSnippet fs macro = mkSnippet fs $ FnDeclS "val" macro
 
 renameSnippet :: FileSystem -> Definition -> Either PrettyString Definition
 renameSnippet fs def =
