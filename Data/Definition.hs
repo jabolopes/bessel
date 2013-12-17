@@ -13,10 +13,10 @@ data Definition
                , defUnprefixedUses :: [String]
                , defPrefixedUses :: [(String, String)]
                , defSym :: Maybe Symbol
-               , defVal :: Either String Val
                , defSrc :: Either PrettyString Source
                , defExp :: Either PrettyString Expr
-               , defRen :: Either PrettyString Expr }
+               , defRen :: Either PrettyString Expr
+               , defVal :: Either String Val }
 
 initial :: String -> Definition
 initial name =
@@ -25,7 +25,7 @@ initial name =
              , defUnprefixedUses = []
              , defPrefixedUses = []
              , defSym = Nothing
-             , defVal = Left ""
              , defSrc = Left PrettyString.empty
              , defExp = Left PrettyString.empty
-             , defRen = Left PrettyString.empty }
+             , defRen = Left PrettyString.empty
+             , defVal = Left "" }
