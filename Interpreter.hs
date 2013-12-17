@@ -45,29 +45,29 @@ evalM (CondE ms blame) = evalMatches ms
     where evalMatches [] =
               error $ "Interpreter.evalM(CondE): non-exhaustive patterns in " ++ blame
                     
-          evalMatches ((pred, val):ms) =
+          evalMatches ((pred, val):xs) =
               do pred' <- evalM pred
                  case pred' of
-                   BoolVal False -> evalMatches ms
+                   BoolVal False -> evalMatches xs
                    _ -> evalM val
-evalM (FnDecl Def str body) =
+evalM (FnDecl Def _ _) =
   error "Interpreter.evalM(FnDecl Def ...): recursive functions must be eliminated in previous stages"
 evalM (FnDecl NrDef str body) =
-    do val <- evalM body
-       addBindM str val
-       return val
+  do val <- evalM body
+     addBindM str val
+     return val
 evalM (LambdaE str body) =
-    FnVal . closure <$> get
-    where closure env val =
-              withLexicalEnvM env $ do
-                addBindM str val
-                withEnvM (evalM body)
+  FnVal . closure <$> get
+  where closure env val =
+            withLexicalEnvM env $ do
+              addBindM str val
+              withEnvM (evalM body)
 evalM (MergeE vals) =
   TypeVal <$> SeqVal <$> mapM (evalM . snd) vals
 evalM (WhereE expr exprs) =
-    withEnvM $ do
-      mapM_ evalM exprs
-      withEnvM (evalM expr)
+  withEnvM $ do
+    mapM_ evalM exprs
+    withEnvM (evalM expr)
 
 interpretDefinition :: FileSystem -> Definition -> Definition
 interpretDefinition fs def@Definition { defRen = Right expr } =
@@ -78,7 +78,7 @@ interpretDefinition fs def@Definition { defRen = Right expr } =
            syms = mapMaybe Definition.defSym defs
            vals = rights (map Definition.defVal defs)
            -- edit: fix: why FnSymbol ?
-           env = Map.fromList [ (sym, val) | FnSymbol sym <- syms | val <- vals ]
+           env = Map.fromList [ (sym, v) | FnSymbol sym <- syms | v <- vals ]
            val = fst $ runState (evalM expr) (Env.initial env)
          in
            def { defVal = Right val }
