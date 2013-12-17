@@ -48,9 +48,6 @@ defsAsc mod = map def (modDefOrd mod)
               (error $ "Data.Module.defsAsc: definition " ++ show name ++ " is not defined")
               (Map.lookup name (modDefs mod))
 
-symbols :: Module -> Map String Symbol
-symbols = Map.mapMaybe Definition.defSym . modDefs
-
 type FnDesc = [(String, Val)]
 
 mkCoreModule :: String -> [String] -> FnDesc -> Module
