@@ -43,6 +43,7 @@ isCharE :: Expr -> Bool
 isCharE (CharE _) = True
 isCharE _ = False
 
+isFnDecl :: Expr -> Bool
 isFnDecl FnDecl {} = True
 isFnDecl _ = False
 
