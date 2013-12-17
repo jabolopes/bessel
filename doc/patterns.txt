@@ -1,0 +1,101 @@
+Patterns
+
+A pattern is defined by an optional binder followed by an '@' sign and
+an optional guard.  A binder is a name to bind the value matched by
+the pattern to.  A guard can be, for example, a literal, such as,
+character, number, or string, a list, and a type.
+
+  Pat: id '@' Guard
+
+Binders
+
+The binder is optional.  If the binder is supplied, the '@' sign must
+also be supplied.
+
+  Bind 'x' to a value that matches an integer
+
+  x@isInt
+
+  Bind 'x' to any value
+
+  x@
+
+Guards
+
+The guard can be a type predicate expression (e.g., an identifier), a
+literal, a list, an operator guard, or an algebraic datatype guard.
+
+  Guard: type predicate expression
+       | character
+       | integer
+       | real
+       | string
+       | List
+       | operator guard
+       | algebraic datatype guard
+
+
+  Type predicate expression
+
+  Match an integer and bind it to 'x' in the first case and do not
+  bind it in the second case.
+
+    x@isInt
+    isInt
+
+  Match the string prefixed by "ola" with and without a binder.
+
+    x@(isPrefix "ola")
+    (isPrefix "ola")
+
+
+  Literals
+
+  Match literals, such as, characters, numbers, and strings, with and
+  without binders.
+
+    x@'a'
+      'a'
+
+    x@1
+      1
+
+    x@2.0
+      2.0
+
+    x@"hello"
+      "hello"
+
+
+  Lists
+
+  Match empty and non-empty lists with and without binders, with and
+  without guards, etc.
+
+    x@[i@isInt, r@isReal]
+      [i@isInt, r@isReal]
+      [i@isInt, r@]
+      [isInt, isReal]
+
+    x@[]
+      []
+
+
+  Operators
+
+  Match using the '+>' (i.e., 'cons') operator, with and without
+  binders, with and without guards, etc.
+
+    l@(x@ +> xs@)
+    l@(x@isInt +> xs@isInt)
+      (x@ +> xs@)
+      (isInt +> isInt)
+
+
+  Algebraic datatypes
+
+  Match on an algebraic datatype constructor 'Apple' with one
+  argument.
+
+    f@(Apple x@)
+      (Apple x@)

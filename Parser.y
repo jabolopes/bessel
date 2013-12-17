@@ -216,9 +216,9 @@ SimplePat:
   | character           { CharS $1 }
   | integer             { IntS $1 }
   | double              { RealS $1 }
+  | string              { StringS $1 }
   | '[' ExprList ']'    { SeqS $2 }
   | '['          ']'    { SeqS [] }
-  | string              { StringS $1 }
   | TypeName            { idS (QualName.fromQualName $1) }
   | '(' Expr ')'        { $2 }
 
