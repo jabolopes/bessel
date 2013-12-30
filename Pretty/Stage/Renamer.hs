@@ -1,4 +1,4 @@
-module Pretty.Renamer where
+module Pretty.Stage.Renamer where
 
 import Data.List (intercalate)
 

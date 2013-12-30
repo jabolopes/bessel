@@ -25,7 +25,7 @@ import Data.PrettyString (PrettyString)
 import qualified Data.QualName as QualName (fromQualName)
 import Data.Symbol (Symbol (..))
 import qualified Monad.Utils as Utils (returnOne)
-import qualified Pretty.Renamer as Pretty
+import qualified Pretty.Stage.Renamer as Pretty
 import Utils (rebaseName, flattenId, splitId)
 
 data RenamerState =
