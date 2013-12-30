@@ -5,7 +5,6 @@ import qualified Prelude
 
 import Control.Arrow ((***))
 import Control.Monad ((<=<))
-import Data.Functor ((<$>))
 import Data.Hashable (hash)
 
 import Config
@@ -21,9 +20,9 @@ isBool _ = false
 
 eqBool :: Val -> Val
 eqBool (BoolVal b1) = FnVal hof
-    where hof (BoolVal b2)
-              | b1 == b2 = return true
-              | otherwise = return false
+  where hof (BoolVal b2)
+          | b1 == b2 = return true
+          | otherwise = return false
 
 -- Int
 
@@ -33,31 +32,31 @@ isInt _ = false
 
 eqInt :: Val -> Val
 eqInt (IntVal i1) = FnVal eqIntHof
-    where eqIntHof (IntVal i2)
-              | i1 == i2 = return true
-              | otherwise = return false
+  where eqIntHof (IntVal i2)
+          | i1 == i2 = return true
+          | otherwise = return false
 
 ltInt :: Val -> Val
 ltInt (IntVal i1) = FnVal ltIntHof
-    where ltIntHof (IntVal i2)
-              | i1 < i2 = return true
-              | otherwise = return false
+  where ltIntHof (IntVal i2)
+          | i1 < i2 = return true
+          | otherwise = return false
 
 addInt :: Val -> Val
 addInt (IntVal i1) =
-    FnVal $ \(IntVal i2) -> return $ IntVal (i1 + i2)
+  FnVal $ \(IntVal i2) -> return $ IntVal (i1 + i2)
 
 subInt :: Val -> Val
 subInt (IntVal i1) =
-    FnVal $ \(IntVal i2) -> return $ IntVal (i1 - i2)
+  FnVal $ \(IntVal i2) -> return $ IntVal (i1 - i2)
 
 mulInt :: Val -> Val
 mulInt (IntVal i1) =
-    FnVal $ \(IntVal i2) -> return $ IntVal (i1 * i2)
+  FnVal $ \(IntVal i2) -> return $ IntVal (i1 * i2)
 
 divInt :: Val -> Val
 divInt (IntVal i1) =
-    FnVal $ \(IntVal i2) -> return $ IntVal (i1 `div` i2)
+  FnVal $ \(IntVal i2) -> return $ IntVal (i1 `div` i2)
 
 absInt :: Val -> Val
 absInt (IntVal i) = IntVal (abs i)
@@ -70,7 +69,7 @@ invInt (IntVal i) = RealVal (1.0 / fromIntegral i)
 
 remInt :: Val -> Val
 remInt (IntVal i1) =
-    FnVal $ \(IntVal i2) -> return $ IntVal (i1 `rem` i2)
+  FnVal $ \(IntVal i2) -> return $ IntVal (i1 `rem` i2)
 
 -- Real
 
@@ -80,31 +79,31 @@ isReal _ = false
 
 eqReal :: Val -> Val
 eqReal (RealVal d1) = FnVal eqRealHof
-    where eqRealHof (RealVal d2)
-              | d1 == d2 = return true
-              | otherwise = return false
+  where eqRealHof (RealVal d2)
+          | d1 == d2 = return true
+          | otherwise = return false
 
 ltReal :: Val -> Val
 ltReal (RealVal d1) = FnVal ltRealHof
-    where ltRealHof (RealVal d2)
-              | d1 < d2 = return true
-              | otherwise = return false
+  where ltRealHof (RealVal d2)
+          | d1 < d2 = return true
+          | otherwise = return false
 
 addReal :: Val -> Val
 addReal (RealVal i1) =
-    FnVal $ \(RealVal i2) -> return $ RealVal (i1 + i2)
+  FnVal $ \(RealVal i2) -> return $ RealVal (i1 + i2)
 
 subReal :: Val -> Val
 subReal (RealVal d1) =
-    FnVal $ \(RealVal d2) -> return $ RealVal (d1 - d2)
+  FnVal $ \(RealVal d2) -> return $ RealVal (d1 - d2)
 
 mulReal :: Val -> Val
 mulReal (RealVal d1) =
-    FnVal $ \(RealVal d2) -> return $ RealVal (d1 * d2)
+  FnVal $ \(RealVal d2) -> return $ RealVal (d1 * d2)
 
 divReal :: Val -> Val
 divReal (RealVal d1) =
-    FnVal $ \(RealVal d2) -> return $ RealVal (d1 / d2)
+  FnVal $ \(RealVal d2) -> return $ RealVal (d1 / d2)
 
 absReal :: Val -> Val
 absReal (RealVal d) = RealVal (abs d)
@@ -163,18 +162,18 @@ ltChar (CharVal c1) = FnVal ltCharHof
 
 isTuple :: Val -> Val
 isTuple (SeqVal fns) = FnVal hof
-    where all' :: [Val] -> [Val] -> InterpreterM Bool
-          all' [] [] = return True
-          all' [] _ = return False
-          all' _ [] = return False
+    where all' :: [Val] -> [Val] -> InterpreterM Val
+          all' [] [] = return true
+          all' [] _ = return false
+          all' _ [] = return false
           all' (FnVal fn:fns) (val:vals) =
               do val' <- fn val
                  if isNotFalseVal val'
                    then all' fns vals
-                   else return False
+                   else return false
 
           hof (SeqVal vals)
-                   | length fns == length vals = BoolVal <$> all' fns vals
+                   | length fns == length vals = all' fns vals
                    | otherwise = return false
           hof _ = return false
 
@@ -352,7 +351,8 @@ isCons :: Val -> Val
 isCons (IntVal typeId) = FnVal (return . hof)
   where hof (TypeVal (SeqVal [IntVal typeId', _]))
           | typeId == typeId' = true
-          | otherwise = false
+        hof _ = false
+isCons _ = false
 
 link :: Val -> Val
 link val = IntVal . hash . unboxString $ val
