@@ -20,7 +20,7 @@ import qualified Data.Module as Module
 import qualified Data.PrettyString as PrettyString
 import Lexer (lexTokens)
 import Loader (preload, readFileM)
-import Monad.InterpreterM (Val)
+import Monad.InterpreterM (Val(..))
 import qualified Pretty.Data.Definition as Pretty
 import qualified Pretty.Data.Module as Pretty
 import qualified Pretty.Repl as Pretty
@@ -32,12 +32,12 @@ data ReplState =
 
 type ReplM a = StateT ReplState IO a
 
-doPutVal :: Bool
-doPutVal = True
-
 putVal :: Either String Val -> IO ()
 putVal (Left err) = putStrLn err
-putVal (Right val) = when doPutVal (print val)
+putVal (Right (IOVal m)) =
+  do val <- m
+     print val
+putVal (Right val) = print val
 
 stageFiles :: [Module] -> IO FileSystem
 stageFiles mods =

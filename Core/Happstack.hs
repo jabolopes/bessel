@@ -48,7 +48,7 @@ singleTagM = error "Core.Happstack.singleTagM: not implemented"
 serve :: Val -> Val
 serve val@DynVal {} =
   let Just val' = unDynVal val :: Maybe Html in
-  unsafePerformIO $ do
+  IOVal $ do
     threadId <- forkIO $ simpleHTTP nullConf (ok . toResponse $ val')
     waitForTermination
     killThread threadId

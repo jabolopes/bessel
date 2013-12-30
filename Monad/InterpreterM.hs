@@ -14,6 +14,7 @@ data Val
     | DynVal Dynamic
     | FnVal (Val -> Val)
     | IntVal Int
+    | IOVal (IO Val)
     | RealVal Double
     | SeqVal [Val]
     | TypeVal Val
@@ -25,6 +26,7 @@ instance Show Val where
     show (DynVal val) = "{dyn " ++ show val ++ "}"
     show FnVal {} = "fn"
     show (IntVal i) = show i
+    show IOVal {} = "io"
     show (RealVal d) = show d
     show (SeqVal vals)
         | not (null vals) && all isCharVal vals = show $ map (\(CharVal c) -> c) vals
