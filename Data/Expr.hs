@@ -26,6 +26,12 @@ data Expr
     | FnDecl DefnKw String Expr
     | IdE QualName
     | IntE Int
+
+    -- |
+    -- This construct is not available in the parser
+    -- @
+    -- \x -> ...
+    -- @
     | LambdaE String Expr
 
     -- info: initialization vals (1st argument) are sorted in Parser
@@ -121,7 +127,7 @@ seqE (e:es) = AppE (appE "cons" e) (seqE es)
 
 signalE :: String -> String -> Expr -> Expr
 signalE id str val =
-    appE "signal" (seqE [stringE id, stringE str, val])
+  appE "signal" (seqE [stringE id, stringE str, val])
 
 stringE :: String -> Expr
 stringE str = seqE (map CharE str)
