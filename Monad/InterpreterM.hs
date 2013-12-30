@@ -23,7 +23,7 @@ instance Show Val where
     show (BoolVal True) = "true"
     show (CharVal c) = show c
     show (DynVal val) = "{dyn " ++ show val ++ "}"
-    show (FnVal _) = "fn"
+    show FnVal {} = "fn"
     show (IntVal i) = show i
     show (RealVal d) = show d
     show (SeqVal vals)
