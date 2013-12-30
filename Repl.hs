@@ -41,30 +41,30 @@ putVal (Right val) = print val
 
 stageFiles :: [Module] -> IO FileSystem
 stageFiles mods =
-    do putStrLn $ "Staging " ++ show n ++ " modules"
-       loop FileSystem.empty mods [(1 :: Int)..]
-    where n = length mods
+  do putStrLn $ "Staging " ++ show n ++ " modules"
+     loop FileSystem.empty mods [(1 :: Int)..]
+  where n = length mods
 
-          putHeader i =
-              putStr $ "[" ++ show i ++ "/" ++ show n ++ "] "
+        putHeader i =
+          putStr $ "[" ++ show i ++ "/" ++ show n ++ "] "
 
-          loop fs [] _ = return fs
-          loop fs (mod:mods) (i:is) =
-              do putHeader i
-                 putStrLn (Module.modName mod)
-                 case Stage.stageModule fs mod of
-                   Right (fs', _) -> loop fs' mods is
-                   Left err ->
-                     do putStrLn (PrettyString.toString err)
-                        loop fs mods is
+        loop fs [] _ = return fs
+        loop fs (mod:mods) (i:is) =
+          do putHeader i
+             putStrLn (Module.modName mod)
+             case Stage.stageModule fs mod of
+               Right (fs', _) -> loop fs' mods is
+               Left err ->
+                 do putStrLn (PrettyString.toString err)
+                    loop fs mods is
 
 importFile :: FileSystem -> String -> IO ReplState
 importFile fs filename =
-    do mods <- preload fs filename
-       fs' <- stageFiles mods
-       let interactive = Module.mkInteractiveModule mods []
-           fs'' = FileSystem.add fs' interactive
-       return ReplState { initialFs = fs, fs = fs'' }
+  do mods <- preload fs filename
+     fs' <- stageFiles mods
+     let interactive = Module.mkInteractiveModule mods []
+         fs'' = FileSystem.add fs' interactive
+     return ReplState { initialFs = fs, fs = fs'' }
 
 runSnippetM :: String -> ReplM ()
 runSnippetM ln =

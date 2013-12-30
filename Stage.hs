@@ -29,15 +29,15 @@ defnName (FnDeclS x _) = x
 defnName (TypeDeclS x _) = QualName.fromQualName x
 
 splitDefinition :: Module -> Source -> Definition
-splitDefinition mod macro =
+splitDefinition mod source =
   let
-    name = qualifiedName mod (defnName macro)
+    name = qualifiedName mod (defnName source)
     unprefixed = Module.modName mod:Module.modUnprefixedUses mod
     prefixed = Module.modPrefixedUses mod
   in
     (Definition.initial name) { Definition.defUnprefixedUses = unprefixed
                               , Definition.defPrefixedUses = prefixed
-                              , defSrc = Right macro }
+                              , defSrc = Right source }
 
 expandDefinition :: Module -> Definition -> Either PrettyString [Definition]
 expandDefinition mod def = expandSrc . Definition.defSrc $ def
