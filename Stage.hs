@@ -2,23 +2,22 @@ module Stage where
 
 import Prelude hiding (mod)
 
-import Data.Definition (Definition(defName, defSrc, defExp, defUnprefixedUses))
+import Data.Definition (Definition(..))
 import qualified Data.Definition as Definition
-import qualified Data.Exception as Exception
 import Data.Expr (Expr(..))
 import Data.FileSystem (FileSystem)
 import qualified Data.FileSystem as FileSystem
 import Data.Module (ModuleT(..), Module(..))
 import qualified Data.Module as Module
 import Data.PrettyString (PrettyString)
-import qualified Data.PrettyString as PrettyString (text, toString)
+import qualified Data.PrettyString as PrettyString (text)
 import qualified Data.QualName as QualName (fromQualName)
 import Data.Source (Source(..))
-import qualified Interpreter (interpret, interpretDefinition)
+import qualified Stage.Interpreter as Interpreter (interpret, interpretDefinition)
 import qualified Parser (parseRepl)
 import qualified Stage.Expander as Expander (expand)
+import qualified Stage.Renamer as Renamer (rename, renameDefinition)
 import qualified Pretty.Stage as Pretty
-import qualified Renamer (rename, renameDefinition)
 
 -- Definitions
 
@@ -58,16 +57,17 @@ mkSnippet :: FileSystem -> Source -> Definition
 mkSnippet fs macro@(FnDeclS name _) =
   let
     name' = Module.interactiveName ++ "." ++ name
-    unprefixed = map Module.modName (FileSystem.toAscList fs)
+    mod = FileSystem.get fs Module.interactiveName
   in
-    (Definition.initial name') { defUnprefixedUses = unprefixed
+    (Definition.initial name') { defUnprefixedUses = Module.modUnprefixedUses mod
+                               , defPrefixedUses = Module.modPrefixedUses mod
                                , defSrc = Right macro }
 mkSnippet fs macro = mkSnippet fs $ FnDeclS "val" macro
 
 renameSnippet :: FileSystem -> Definition -> Either PrettyString Definition
 renameSnippet fs def =
   case Renamer.renameDefinition fs def of
-    Left err -> Left (PrettyString.text err)
+    Left err -> Left err
     Right x -> Right x
 
 stageDefinition :: FileSystem -> String -> Either PrettyString (FileSystem, [Definition])
@@ -106,7 +106,7 @@ expandModule fs mod =
                  mod'' = Module.updateDefinitions mod' defs'
              expand mod'' defs
 
-renameModule :: FileSystem -> Module -> Either String (FileSystem, Module)
+renameModule :: FileSystem -> Module -> Either PrettyString (FileSystem, Module)
 renameModule fs mod =
   do mod' <- Renamer.rename fs mod
      return (FileSystem.add fs mod', mod')
@@ -116,18 +116,10 @@ interpretModule fs mod =
   let mod' = Interpreter.interpret fs mod in
   (FileSystem.add fs mod', mod')
 
-stageModule :: FileSystem -> Module -> IO (Either PrettyString (FileSystem, Module))
+stageModule :: FileSystem -> Module -> Either PrettyString (FileSystem, Module)
 stageModule fs mod =
   do let (reordFs, reordMod) = reorderModule fs mod
-     putStr "reordered, "
-     let (expFs, expMod) = case expandModule reordFs reordMod of
-                             Left err -> Exception.throwExpanderException (PrettyString.toString err)
-                             Right x -> x
-     putStr "expanded, "
-     let (renFs, renMod) = case renameModule expFs expMod of
-                             Left err -> Exception.throwRenamerException err
-                             Right x -> x
-     putStr "renamed, "
+     (expFs, expMod) <- expandModule reordFs reordMod
+     (renFs, renMod) <- renameModule expFs expMod
      let (evalFs, evalMod) = interpretModule renFs renMod
-     putStrLn "evaluated"
-     return (return (evalFs, evalMod))
+     return (evalFs, evalMod)

@@ -23,6 +23,7 @@ import Loader (preload, readFileM)
 import Monad.InterpreterM (Val)
 import qualified Pretty.Data.Definition as Pretty
 import qualified Pretty.Data.Module as Pretty
+import qualified Pretty.Repl as Pretty
 import qualified Stage
 import Utils (split)
 
@@ -41,24 +42,21 @@ putVal (Right val) = when doPutVal (print val)
 stageFiles :: [Module] -> IO FileSystem
 stageFiles mods =
     do putStrLn $ "Staging " ++ show n ++ " modules"
-       res <- loop FileSystem.empty mods [(1 :: Int)..]
-       case res of
-         Left () -> error ""
-         Right x -> return x
+       loop FileSystem.empty mods [(1 :: Int)..]
     where n = length mods
 
           putHeader i =
               putStr $ "[" ++ show i ++ "/" ++ show n ++ "] "
 
-          loop fs [] _ = return (Right fs)
+          loop fs [] _ = return fs
           loop fs (mod:mods) (i:is) =
               do putHeader i
-                 putStr $ Module.modName mod ++ ": "
-                 res <- Stage.stageModule fs mod
-                 case res of
-                   Left err -> do putStrLn (PrettyString.toString err)
-                                  return (Left ())
+                 putStrLn (Module.modName mod)
+                 case Stage.stageModule fs mod of
                    Right (fs', _) -> loop fs' mods is
+                   Left err ->
+                     do putStrLn (PrettyString.toString err)
+                        loop fs mods is
 
 importFile :: FileSystem -> String -> IO ReplState
 importFile fs filename =
@@ -102,6 +100,7 @@ showTokensM filename =
 data Flag
   = ShowAll
   | ShowBrief
+  | ShowHelp
   | ShowOrd
 
   | ShowFree
@@ -113,6 +112,7 @@ data Flag
 options :: [OptDescr Flag]
 options = [Option "a" [] (NoArg ShowAll) "Show all",
            Option "b" [] (NoArg ShowBrief) "Show brief",
+           Option "" ["help"] (NoArg ShowHelp) "Show help",
            Option "o" [] (NoArg ShowOrd) "Show in order",
            Option "" ["free"] (NoArg ShowFree) "Show free names of definition",
            Option "" ["src"] (NoArg ShowSrc) "Show source of definition",
@@ -126,10 +126,12 @@ runCommandM "def" opts nonOpts
       me | null nonOpts = ""
          | otherwise = last nonOpts
     in
-      if not showAll && null me then
+      if showHelp then
         usageM
-      else
-        showMeM showAll showBrief showOrd showFree showSrc showExp showRen me
+      else if not showAll && null me then
+             showModuleNamesM
+           else
+             showMeM showAll showBrief showOrd showFree showSrc showExp showRen me
   | otherwise =
     do let name = last nonOpts
        fs <- fs <$> get
@@ -138,6 +140,7 @@ runCommandM "def" opts nonOpts
          Just def -> liftIO $ putStrLn $ PrettyString.toString $ Pretty.docDefn showFree showSrc showExp showRen def
   where showAll = ShowAll `elem` opts
         showBrief = ShowBrief `elem` opts
+        showHelp = ShowHelp `elem` opts
         showOrd = ShowOrd `elem` opts
         showFree = ShowFree `elem` opts
         showSrc = ShowSrc `elem` opts
@@ -145,7 +148,12 @@ runCommandM "def" opts nonOpts
         showRen = ShowRen `elem` opts
 
         usageM =
-          liftIO $ putStrLn $ usageInfo "def [-b] [--free] [--src] [--exp] [--ren] [-o] (-a | <me>)" options
+          liftIO $ putStr $ usageInfo "def [-b] [--help] [--free] [--src] [--exp] [--ren] [-o] [-a | <me>]" options
+
+        showModuleNamesM =
+          do fs <- fs <$> get
+             let modNames = map Module.modName . FileSystem.toAscList $ fs
+             liftIO . putStrLn . PrettyString.toString . Pretty.docModuleNames $ modNames
 runCommandM "load" _ nonOpts
   | null nonOpts =
     liftIO $ putStrLn ":load [ <me> | <file/me> ]"
@@ -182,24 +190,15 @@ replM =
                  | otherwise -> promptM ln >> return False
 
 putUserException :: UserException -> IO ()
-putUserException (LoaderException errs) =
+putUserException (LoaderException err) =
   putStrLn . PrettyString.toString $
-  PrettyString.text "loader error(s): "
+  PrettyString.text "loader error: "
   PrettyString.$+$
-  PrettyString.nest (PrettyString.sep errs)
-putUserException (ExpanderException str) =
-  putStrLn $ "expander error: " ++ str
-putUserException (RenamerException str) =
-  putStrLn $ "renamer error: " ++ str
-putUserException (TypecheckerException str) =
-  putStrLn $ "typechecker error: " ++ str
+  PrettyString.nest err
 putUserException (InterpreterException str) =
   putStrLn $ "interpreter error: " ++ str
 putUserException (LexerException str) =
   putStrLn $ "lexical error: " ++ str
-putUserException (ParserException err) =
-  putStrLn . PrettyString.toString $
-  PrettyString.sep [PrettyString.text "parse error: ", err]
 putUserException (SignalException str) =
   putStrLn $ "uncaught exception: " ++ str
 

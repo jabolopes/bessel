@@ -52,13 +52,8 @@ lookup fs name =
 member :: FileSystem -> String -> Bool
 member fs name = name `Map.member` fileIds fs
 
-definition :: FileSystem -> String -> Definition
-definition fs name =
-    let modName:_ = splitId name in
-    Module.modDefs (get fs modName) Map.! name
-
 lookupDefinition :: FileSystem -> String -> Maybe Definition
 lookupDefinition fs name =
-  do let modName:_:_ = splitId name
-     mod <- lookup fs modName
+  do let modName = init (splitId name)
+     mod <- lookup fs (flattenId modName)
      name `Map.lookup` Module.modDefs mod

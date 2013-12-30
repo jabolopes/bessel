@@ -15,9 +15,22 @@ docHeader :: String -> ModuleT -> PrettyString
 docHeader name typ =
   PrettyString.text name <+> PrettyString.parens (PrettyString.text (show typ))
 
-docDeps :: Bool -> [String] -> PrettyString
-docDeps showBrief deps
-  | showBrief || null deps = PrettyString.empty
+docUses :: [(String, String)] -> PrettyString
+docUses [] = PrettyString.empty
+docUses ((name1, ""):uses) =
+  PrettyString.text "use" <+>
+  PrettyString.text name1 $+$
+  docUses uses
+docUses ((name1, name2):uses) =
+  PrettyString.text "use" <+>
+  PrettyString.text name1 <+>
+  PrettyString.text "as" <+>
+  PrettyString.text name2 $+$
+  docUses uses
+
+docDeps :: [String] -> PrettyString
+docDeps deps
+  | null deps = PrettyString.empty
   | otherwise = PrettyString.text "uses" <+> PrettyString.text (intercalate ", " deps)
 
 docDefns :: Bool -> Bool -> Bool -> Bool -> Bool -> Module -> PrettyString
@@ -35,9 +48,14 @@ docModule showBrief showOrd showFree showSrc showExp showRen mod =
   docHeader (Module.modName mod) (Module.modType mod)
   $+$
   PrettyString.nest
-    (docDeps showBrief (Module.modDeps mod)
-     $+$
-     docDefns showOrd showFree showSrc showExp showRen mod)
+    (if showBrief then
+       docDeps (Module.modDeps mod)
+     else
+       docUses (Module.modPrefixedUses mod)
+       $+$
+       docDeps (Module.modUnprefixedUses mod))
+  $+$
+    docDefns showOrd showFree showSrc showExp showRen mod
 
 docModules :: Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> [Module] -> PrettyString
 docModules showBrief showOrd showFree showSrc showExp showRen mods =

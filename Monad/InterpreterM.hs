@@ -1,6 +1,8 @@
 module Monad.InterpreterM where
 
 import Control.Monad.State
+import Data.Dynamic (Typeable, Dynamic)
+import qualified Data.Dynamic as Dynamic (fromDynamic, toDyn)
 import qualified Data.List as List (intercalate)
 
 import Data.Env (Env)
@@ -8,23 +10,25 @@ import qualified Data.Env as Env
 
 data Val
     = BoolVal Bool
+    | CharVal Char
+    | DynVal Dynamic
+    | FnVal (Val -> InterpreterM Val)
     | IntVal Int
     | RealVal Double
-    | CharVal Char
     | SeqVal [Val]
-    | FnVal (Val -> InterpreterM Val)
     | TypeVal Val
 
 instance Show Val where
     show (BoolVal False) = "false"
     show (BoolVal True) = "true"
     show (CharVal c) = show c
+    show (DynVal val) = "{dyn " ++ show val ++ "}"
+    show (FnVal _) = "fn"
     show (IntVal i) = show i
     show (RealVal d) = show d
     show (SeqVal vals)
         | not (null vals) && all isCharVal vals = show $ map (\(CharVal c) -> c) vals
         | otherwise = "[" ++ List.intercalate "," (map show vals) ++ "]"
-    show (FnVal _) = "fn"
     show (TypeVal val) = "{" ++ show val ++ "}"
 
 isFalseVal :: Val -> Bool
@@ -43,6 +47,12 @@ false = BoolVal False
 
 true :: Val
 true = BoolVal True
+
+dynVal :: Typeable a => a -> Val
+dynVal = DynVal . Dynamic.toDyn
+
+unDynVal :: Typeable a => Val -> Maybe a
+unDynVal (DynVal x) = Dynamic.fromDynamic x
 
 boxString :: String -> Val
 boxString = SeqVal . map CharVal

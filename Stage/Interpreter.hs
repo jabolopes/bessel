@@ -1,12 +1,12 @@
 {-# LANGUAGE ParallelListComp #-}
-module Interpreter where
+module Stage.Interpreter where
 
 import Prelude hiding (mod)
 
 import Control.Monad.State
 import Data.Functor ((<$>))
 import qualified Data.Map as Map (fromList)
-import Data.Maybe (isNothing, mapMaybe)
+import Data.Maybe (catMaybes, isNothing, isJust, mapMaybe)
 import Data.Either (lefts, rights)
 
 import Data.Definition (Definition(..))
@@ -69,9 +69,17 @@ evalM (WhereE expr exprs) =
     mapM_ evalM exprs
     withEnvM (evalM expr)
 
+freeNameDefinitions :: FileSystem -> Definition -> [Definition]
+freeNameDefinitions fs def =
+  let defs = map (FileSystem.lookupDefinition fs) (Definition.defFreeNames def) in
+  if all isJust defs then
+    catMaybes defs
+  else
+    error "Interpreter.freeNamesDefinitions: undefined free variables must be caught in previous stages"
+
 interpretDefinition :: FileSystem -> Definition -> Definition
 interpretDefinition fs def@Definition { defRen = Right expr } =
-  do let defs = map (FileSystem.definition fs) (defFreeNames def)
+  do let defs = freeNameDefinitions fs def
      case (filter isNothing (map Definition.defSym defs), lefts (map Definition.defVal defs)) of
        ([], []) ->
          let
@@ -84,6 +92,7 @@ interpretDefinition fs def@Definition { defRen = Right expr } =
            def { defVal = Right val }
        _ ->
          def { defVal = Left "definition depends on free names that failed to evaluate" }
+interpretDefinition _ def = def
 
 interpretDefinitions :: FileSystem -> Module -> [Definition] -> Module
 interpretDefinitions _ mod [] = mod

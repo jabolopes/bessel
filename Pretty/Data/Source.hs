@@ -62,7 +62,7 @@ docSource (RealS r) =
   PrettyString.double r
 docSource (SeqS ms) =
   PrettyString.char '[' <>
-  PrettyString.sep (PrettyString.intercalate (PrettyString.text ", ") (map docSource ms)) <>
+  PrettyString.sep (PrettyString.intercalate (PrettyString.text ",") (map docSource ms)) <>
   PrettyString.char ']'
 docSource (StringS str) =
   PrettyString.char '"' <> PrettyString.text str <> PrettyString.char '"'

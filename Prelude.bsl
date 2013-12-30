@@ -85,13 +85,13 @@ def eq
 | x@isReal y@isReal = eqReal x y
 | x@isChar y@isChar = eqChar x y
 -- | x@[isDyn] y@[isDyn] = eqSeq x y
-    where {
-      def eqSeq
-        [] [] = true
-      | (z@ +> zs@) (w@ +> ws@) = eq z w && eqSeq zs ws
-      | @ @ = false
-    }
 | @ @ = false
+  where {
+    def eqSeq
+      [] [] = true
+    | (z@ +> zs@) (w@ +> ws@) = eq z w && eqSeq zs ws
+    | @ @ = false
+  }
 
 def lt
   x@isInt  y@isInt  = ltInt x y
@@ -100,13 +100,13 @@ def lt
 | x@isReal y@isReal = ltReal x y
 | x@isChar y@isChar = ltChar x y
 -- | x@[Dyn] y@[Dyn] = ltSeq x y
-    where {
-      def ltSeq
-        [] [] = true
-      | (z@ +> zs@) (w@ +> ws@) = lt z w && ltSeq zs ws
-      | @ @ = false
-    }
 | @ @ = false
+  where {
+    def ltSeq
+      [] [] = true
+    | (z@ +> zs@) (w@ +> ws@) = lt z w && ltSeq zs ws
+    | @ @ = false
+  }
 
 def (==) eq
 
@@ -136,9 +136,10 @@ def isPair
   [@,@] = true
 | @ = false
 
--- def isString
---   x@[isChar] = true
--- |  @ = false
+def isString
+  []                   = true
+| (isChar +> isString) = true
+| @                    = false
 
 -- Number
 

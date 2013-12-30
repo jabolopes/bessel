@@ -2,11 +2,12 @@ module Data.Module where
 
 import Prelude hiding (mod)
 
-import qualified Data.List as List (nub, partition)
+import qualified Data.List as List (elem, nub, partition)
 import Data.Map (Map)
-import qualified Data.Map as Map (empty, fromList, insert, lookup, mapMaybe, union, toList)
+import qualified Data.Map as Map (empty, fromList, insert, lookup, union, toList)
 import Data.Maybe (fromMaybe)
 
+import qualified Config
 import Data.Definition (Definition(..))
 import qualified Data.Definition as Definition
 import Data.Source
@@ -17,7 +18,7 @@ data ModuleT
   = CoreT
   | SrcT
   | InteractiveT
-    deriving (Show)
+    deriving (Eq, Show)
 
 data Module
   = Module { modType :: ModuleT
@@ -29,17 +30,32 @@ data Module
            , modDefs :: Map String Definition
            , modDefOrd :: [String] }
 
+ensureImplicitUses :: Module -> Module
+ensureImplicitUses mod
+  | modType mod /= SrcT || modName mod == Config.preludeName = mod
+  | otherwise =
+    mod { modDeps = ensureElem Config.coreName .
+                      ensureElem Config.preludeName .
+                        modDeps $ mod
+        , modUnprefixedUses = ensureElem Config.coreName .
+                                ensureElem Config.preludeName .
+                                  modUnprefixedUses $ mod }
+  where ensureElem x xs
+          | List.elem x xs = xs
+          | otherwise = x:xs
+
 initial :: ModuleT -> String -> [(String, String)] -> Module
 initial t name uses =
   let (unprefixed, prefixed) = List.partition (null . snd) uses in
-  Module { modType = t
-         , modName = name
-         , modDeps = map fst uses
-         , modUnprefixedUses = map fst unprefixed
-         , modPrefixedUses = prefixed
-         , modDecls = []
-         , modDefs = Map.empty
-         , modDefOrd = [] }
+  ensureImplicitUses
+    Module { modType = t
+           , modName = name
+           , modDeps = map fst uses
+           , modUnprefixedUses = map fst unprefixed
+           , modPrefixedUses = prefixed
+           , modDecls = []
+           , modDefs = Map.empty
+           , modDefOrd = [] }
 
 defsAsc :: Module -> [Definition]
 defsAsc mod = map def (modDefOrd mod)
@@ -64,8 +80,11 @@ interactiveName = "Interactive"
 
 mkInteractiveModule :: [Module] -> [Source] -> Module
 mkInteractiveModule mods srcs =
-    let uses = zip (map modName mods) (repeat "") in
-    (initial InteractiveT interactiveName uses) { modDecls = srcs }
+  let
+    modNames = map modName mods
+    uses = zip (init modNames) modNames ++ [(last modNames, "")]
+  in
+    ensureImplicitUses (initial InteractiveT interactiveName uses) { modDecls = srcs }
 
 mkParsedModule :: String -> [(String, String)] -> [Source] -> Module
 mkParsedModule name uses srcs =

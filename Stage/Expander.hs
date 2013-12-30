@@ -11,17 +11,15 @@ import qualified Data.Expr as Expr
 import Data.QualName (QualName)
 import qualified Data.QualName as QualName (fromQualName, isTypeName)
 import Data.PrettyString (PrettyString)
-import qualified Data.PrettyString as PrettyString (text)
 import Data.Source
 import Monad.NameM (NameM)
+import qualified Monad.Utils as Utils (returnOne)
 import qualified Monad.NameM as NameM
-import qualified Renamer as Renamer
-import Pretty.Stage.Expander as Pretty
-import Pretty.Data.Source as Pretty
+import qualified Pretty.Stage.Expander as Pretty
+import qualified Pretty.Data.Source as Pretty
+import qualified Stage.Renamer as Renamer
 
 type ExpanderM a = NameM (Either PrettyString) a
-
--- expand CondM
 
 genPatNames :: [Source] -> ExpanderM [String]
 genPatNames = mapM genPatName
@@ -48,7 +46,7 @@ patFnDecl binder mods val =
 
 isTypeGuard :: Source -> Bool
 isTypeGuard (AppS fn _) = isTypeGuard fn
-isTypeGuard (IdS name) = QualName.isTypeName $ QualName.fromQualName name
+isTypeGuard (IdS name) = QualName.isTypeName name
 isTypeGuard _ = False
 
 -- | Generates function definitions for a pattern's bindings
@@ -123,7 +121,7 @@ patPred = sourcePred
           do hdPred <- sourcePred hdPat
              tlPred <- sourcePred tlPat
              return $ Expr.appE "isList" hdPred `AppE` tlPred
-        sourcePred pred@(IdS _) =
+        sourcePred pred@IdS {} =
           expandOne pred
         sourcePred (PatS _ Nothing) =
           return Expr.constTrueE
@@ -228,7 +226,7 @@ expandCond ms blame =
 -- def fn : ...
 --   = fix# (gen#@ x@ = ... gen# ...)
 -- @
-fixDecl :: String -> Expr -> Either String Expr
+fixDecl :: String -> Expr -> Either PrettyString Expr
 fixDecl name body =
   do FnDecl _ name' body' <- Renamer.renameDeclaration (FnDecl Def name body)
      let argBody = LambdaE name' body'
@@ -240,8 +238,8 @@ expandFnDecl name body =
   do if name `elem` Expr.freeVars body
      then
        case fixDecl name body of
-         Left err -> throwError (PrettyString.text err)
-         Right expr -> return expr
+         Left err -> throwError err
+         Right x -> return x
      else
        return $ FnDecl NrDef name body
 
@@ -295,7 +293,7 @@ expandConstructor (consName, pat) =
          predSource = consPredFn consName
          consSource = consConsFn consName binder guard
      (++) <$> expandSource predSource <*> expandSource consSource
-  where patBinder (PatS binder _) = return binder
+  where patBinder (PatS binder _) | not (null binder) = return binder
         patBinder _               = NameM.genNameM "arg"
         
         patGuard (PatS _ (Just src)) = patGuard src
@@ -312,44 +310,41 @@ expandTypeDecl typeName cons =
 expandOne :: Source -> ExpanderM Expr
 expandOne macro = head <$> expandSource macro
 
-returnOne :: ExpanderM Expr -> ExpanderM [Expr]
-returnOne m = (:[]) <$> m
-
 expandSource :: Source -> ExpanderM [Expr]
 expandSource (AndS m1 m2) =
-  returnOne $ Expr.andE <$> expandOne m1 <*> expandOne m2
+  Utils.returnOne $ Expr.andE <$> expandOne m1 <*> expandOne m2
 expandSource (AppS m1 m2) =
-  returnOne $ AppE <$> expandOne m1 <*> expandOne m2
+  Utils.returnOne $ AppE <$> expandOne m1 <*> expandOne m2
 expandSource (BinOpS op m1 m2) =
-  returnOne $ Expr.binOpE op <$> expandOne m1 <*> expandOne m2
+  Utils.returnOne $ Expr.binOpE op <$> expandOne m1 <*> expandOne m2
 expandSource (CharS c) =
-  returnOne . return . CharE $ c
+  Utils.returnOne . return . CharE $ c
 expandSource (CondS ms) =
-  returnOne $ expandCond ms "lambda"
+  Utils.returnOne $ expandCond ms "lambda"
 expandSource (FnDeclS name (CondS ms)) =
-  returnOne $ expandFnDecl name =<< expandCond ms name
+  Utils.returnOne $ expandFnDecl name =<< expandCond ms name
 expandSource (FnDeclS name body) =
-  returnOne $ expandFnDecl name =<< expandOne body
+  Utils.returnOne $ expandFnDecl name =<< expandOne body
 expandSource (IdS name) =
-  returnOne . return . Expr.IdE $ name
+  Utils.returnOne . return . Expr.IdE $ name
 expandSource (IntS n) =
-  returnOne . return . Expr.intE $ n
+  Utils.returnOne . return . Expr.intE $ n
 expandSource (ModuleS me _ _) =
   throwError (Pretty.devModuleNested me)
 expandSource (OrS m1 m2) =
-  returnOne $ Expr.orE <$> expandOne m1 <*> expandOne m2
+  Utils.returnOne $ Expr.orE <$> expandOne m1 <*> expandOne m2
 expandSource pat@PatS {} =
   throwError . Pretty.devPattern . Pretty.docSource $ pat
 expandSource (RealS n) =
-  returnOne . return . Expr.realE $ n
+  Utils.returnOne . return . Expr.realE $ n
 expandSource (SeqS ms) =
-  returnOne $ expandSeq ms
+  Utils.returnOne $ expandSeq ms
 expandSource (StringS str) =
-  returnOne . return . expandString $ str
+  Utils.returnOne . return . expandString $ str
 expandSource (TypeDeclS typeName cons) =
   expandTypeDecl typeName cons
 expandSource (WhereS src srcs) =
-  returnOne $ WhereE <$> expandOne src <*> (concat <$> mapM expandSource srcs)
+  Utils.returnOne $ WhereE <$> expandOne src <*> (concat <$> mapM expandSource srcs)
 
 expand :: Source -> Either PrettyString [Expr]
 expand src = fst <$> NameM.runNameM (expandSource src) NameM.initialNameState

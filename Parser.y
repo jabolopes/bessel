@@ -101,8 +101,8 @@ ensureExpr val =
 
 -- Precedence (lower)
 %right '->'
-%left lambda_prec                 -- lambda
 %left where                       -- where
+%left lambda_prec                 -- lambda
 %left '&&' '||'                   -- logical
 %left '<+'                        -- snoc
 %right '+>'                       -- cons
