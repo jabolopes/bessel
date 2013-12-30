@@ -252,10 +252,6 @@ por (SeqVal vals) =
               else
                 true
 
-signal :: Val -> a
-signal = throwSignalException . show
-
-
 -- environment
 
 m :: (Val -> Val) -> Val
@@ -320,7 +316,6 @@ fnDesc =
    ("o", m o),
    ("pand", m pand),
    ("por", m por),
-   ("signal", m signal),
    ("un", m unSharp),
    ("fix", m fixSharp),
    ("index", m index),

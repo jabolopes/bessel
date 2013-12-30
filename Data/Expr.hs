@@ -125,10 +125,6 @@ seqE :: [Expr] -> Expr
 seqE [] = idE "null"
 seqE (e:es) = AppE (appE "cons" e) (seqE es)
 
-signalE :: String -> String -> Expr -> Expr
-signalE id str val =
-  appE "signal" (seqE [stringE id, stringE str, val])
-
 stringE :: String -> Expr
 stringE str = seqE (map CharE str)
 
