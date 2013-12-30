@@ -12,7 +12,7 @@ data Val
     = BoolVal Bool
     | CharVal Char
     | DynVal Dynamic
-    | FnVal (Val -> InterpreterM Val)
+    | FnVal (Val -> Val)
     | IntVal Int
     | RealVal Double
     | SeqVal [Val]
@@ -67,23 +67,23 @@ type InterpreterM a = State (Env Val) a
 
 withEnvM :: InterpreterM a -> InterpreterM a
 withEnvM m =
-    do env <- get
-       withLexicalEnvM env m
+  do env <- get
+     withLexicalEnvM env m
 
 withLexicalEnvM :: Env Val -> InterpreterM a -> InterpreterM a
 withLexicalEnvM env m =
-    do env' <- get
-       put $ Env.push env
-       val <- m
-       put env'
-       return val
+  do env' <- get
+     put $ Env.push env
+     val <- m
+     put env'
+     return val
 
 addBindM :: String -> Val -> InterpreterM ()
 addBindM name val =
-    do env <- get
-       put $ Env.addBind env name val
+  do env <- get
+     put $ Env.addBind env name val
 
 findBindM :: String -> InterpreterM (Maybe Val)
 findBindM name =
-    do env <- get
-       return $ Env.findBind env name
+  do env <- get
+     return $ Env.findBind env name

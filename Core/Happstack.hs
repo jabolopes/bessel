@@ -43,14 +43,12 @@ applyAttribute :: Val -> Val
 applyAttribute tag@DynVal {} = FnVal hof
   where Just tag' = unDynVal tag :: Maybe Html
 
-        hof :: Monad m => Val -> m Val
-        hof attr = return . FnVal $ hof'
+        hof attr = FnVal hof'
           where attr' = stringTag (unboxString attr)
 
-                hof' :: Monad m => Val -> m Val
                 hof' val =
-                  let val' = toValue $ unboxString val in
-                  return $ dynVal (tag' ! customAttribute attr' val')
+                  let val' = toValue (unboxString val) in
+                  dynVal (tag' ! customAttribute attr' val')
 
 applyTag :: Val -> Val
 applyTag tag1@DynVal {} =
@@ -58,7 +56,7 @@ applyTag tag1@DynVal {} =
   FnVal (hof tag1')
   where hof tag1' tag2@DynVal {} =
           let Just tag2' = unDynVal tag2 :: Maybe Html in
-          return . dynVal $ tag1' tag2'
+          dynVal (tag1' tag2')
 
 string :: Val -> Val
 string = dynVal . Blaze.string . unboxString
@@ -67,14 +65,14 @@ singleTagM :: Html -> Val
 singleTagM = undefined
 
 {-# NOINLINE serve #-}
-serve :: Val -> InterpreterM Val
+serve :: Val -> Val
 serve val@DynVal {} =
-  do let Just val' = unDynVal val :: Maybe Html
-     return $ unsafePerformIO $ do
-       threadId <- forkIO $ simpleHTTP nullConf (ok . toResponse $ val')
-       waitForTermination
-       killThread threadId
-       return $ SeqVal []
+  let Just val' = unDynVal val :: Maybe Html in
+  unsafePerformIO $ do
+    threadId <- forkIO $ simpleHTTP nullConf (ok . toResponse $ val')
+    waitForTermination
+    killThread threadId
+    return $ SeqVal []
 serve _ = error $ happstackName ++ ".serve: expected HTML value as first argument"
 
 fnDesc :: FnDesc
@@ -196,9 +194,9 @@ fnDesc =
    ("width"       , attrM "width"),
 
    ("serve"       , FnVal serve),
-   ("string"      , FnVal (return . string)),
-   ("applyAttribute", FnVal (return . applyAttribute)),
-   ("applyTag", FnVal (return . applyTag))]
+   ("string"      , FnVal string),
+   ("applyAttribute", FnVal applyAttribute),
+   ("applyTag", FnVal applyTag)]
 
   -- [("a", (ArrowT DynT DynT, tagM Html.a)),
   --  ("abbr", (ArrowT DynT DynT, tagM Html.abbr)),

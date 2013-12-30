@@ -1,7 +1,7 @@
 {-# LANGUAGE ParallelListComp #-}
 module Stage.Interpreter where
 
-import Prelude hiding (mod)
+import Prelude hiding (mod, pred)
 
 import Control.Monad.State
 import Data.Functor ((<$>))
@@ -35,7 +35,7 @@ evalM (AppE expr1 expr2) =
     do val1 <- evalM expr1
        val2 <- evalM expr2
        case val1 of
-         FnVal fn -> fn val2
+         FnVal fn -> return (fn val2)
          _ -> error $ "Interpreter.evalM(AppE): application of non-functions must be detected by the renamer" ++
                       "\n\n\t expr1 = " ++ show expr1 ++
                       "\n\n\t -> val1 = " ++ show val1 ++
@@ -56,12 +56,16 @@ evalM (FnDecl NrDef str body) =
   do val <- evalM body
      addBindM str val
      return val
-evalM (LambdaE str body) =
-  FnVal . closure <$> get
+evalM (LambdaE arg body) =
+  do env <- get
+     return . FnVal $ closure env
   where closure env val =
-            withLexicalEnvM env $ do
-              addBindM str val
-              withEnvM (evalM body)
+          let
+            m = withLexicalEnvM env $ do
+                  addBindM arg val
+                  withEnvM (evalM body)
+          in
+            fst (runState m env)
 evalM (MergeE vals) =
   TypeVal <$> SeqVal <$> mapM (evalM . snd) vals
 evalM (WhereE expr exprs) =
