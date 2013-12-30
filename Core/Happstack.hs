@@ -2,39 +2,19 @@
 module Core.Happstack where
 
 import Control.Concurrent (killThread, forkIO)
-import qualified Data.ByteString.Lazy.Char8 as LazyByteString (unpack)
-import qualified Data.ByteString.Char8 as StrictByteString (pack)
 import System.IO.Unsafe
 
 import Happstack.Server
 
-import Text.Blaze.Internal (Attributable)
 import qualified Text.Blaze.Internal as Blaze (string)
 import Text.Blaze.Html5 hiding (head, map)
 import qualified Text.Blaze.Html5 as Html
-import Text.Blaze.Renderer.Utf8 (renderMarkup)
 
-import qualified Core
 import Data.Module
 import Monad.InterpreterM
 
 happstackName :: String
 happstackName = "Core.Happstack"
-
-tagTypename :: String
-tagTypename = happstackName ++ ".Tag"
-
-tagTid :: Val
-tagTid = Core.link (boxString tagTypename)
-
-attrTypename :: String
-attrTypename = happstackName ++ ".Attribute"
-
-attrTid :: Val
-attrTid = Core.link (boxString attrTypename)
-
-attrM :: String -> Val
-attrM attr = dynVal attr
 
 tagM :: (Html -> Html) -> Val
 tagM tag = dynVal tag
@@ -62,7 +42,7 @@ string :: Val -> Val
 string = dynVal . Blaze.string . unboxString
 
 singleTagM :: Html -> Val
-singleTagM = undefined
+singleTagM = error "Core.Happstack.singleTagM: not implemented"
 
 {-# NOINLINE serve #-}
 serve :: Val -> Val
@@ -182,16 +162,6 @@ fnDesc =
    ("ul"          , tagM Html.ul),
    ("var"         , tagM Html.var),
    ("video"       , tagM Html.video),
-
-   ("class"       , attrM "class"),
-   ("href"        , attrM "href"),
-   ("httpEquiv"   , attrM "httpEquiv"),
-   ("name"        , attrM "name"),
-   ("rel"         , attrM "rel"),
-   ("src"         , attrM "src"),
-   ("style"       , attrM "style"),
-   ("type_"       , attrM "type_"),
-   ("width"       , attrM "width"),
 
    ("serve"       , FnVal serve),
    ("string"      , FnVal string),
