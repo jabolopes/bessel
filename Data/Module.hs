@@ -23,39 +23,31 @@ data ModuleT
 data Module
   = Module { modType :: ModuleT
            , modName :: String
-           , modDeps :: [String]
-           , modUnprefixedUses :: [String]
-           , modPrefixedUses :: [(String, String)]
            , modDecls :: [Source]
            , modDefs :: Map String Definition
-           , modDefOrd :: [String] }
+           , modDefOrd :: [String]
+           , modUses :: [(String, String)] }
 
 ensureImplicitUses :: Module -> Module
 ensureImplicitUses mod
   | modType mod /= SrcT || modName mod == Config.preludeName = mod
   | otherwise =
-    mod { modDeps = ensureElem Config.coreName .
-                      ensureElem Config.preludeName .
-                        modDeps $ mod
-        , modUnprefixedUses = ensureElem Config.coreName .
-                                ensureElem Config.preludeName .
-                                  modUnprefixedUses $ mod }
+    mod { modUses = ensureElem (Config.coreName, "") .
+                      ensureElem (Config.preludeName, "") .
+                        modUses $ mod }
   where ensureElem x xs
           | List.elem x xs = xs
           | otherwise = x:xs
 
 initial :: ModuleT -> String -> [(String, String)] -> Module
 initial t name uses =
-  let (unprefixed, prefixed) = List.partition (null . snd) uses in
   ensureImplicitUses
     Module { modType = t
            , modName = name
-           , modDeps = map fst uses
-           , modUnprefixedUses = map fst unprefixed
-           , modPrefixedUses = prefixed
            , modDecls = []
            , modDefs = Map.empty
-           , modDefOrd = [] }
+           , modDefOrd = []
+           , modUses = uses }
 
 defsAsc :: Module -> [Definition]
 defsAsc mod = map def (modDefOrd mod)
@@ -63,6 +55,15 @@ defsAsc mod = map def (modDefOrd mod)
             fromMaybe
               (error $ "Data.Module.defsAsc: definition " ++ show name ++ " is not defined")
               (Map.lookup name (modDefs mod))
+
+dependencies :: Module -> [String]
+dependencies = List.nub . map fst . modUses
+
+prefixedUses :: Module -> [(String, String)]
+prefixedUses = snd . List.partition (null . snd) . modUses
+
+unprefixedUses :: Module -> [String]
+unprefixedUses = map fst . fst . List.partition (null . snd) . modUses
 
 type FnDesc = [(String, Val)]
 
@@ -88,14 +89,7 @@ mkInteractiveModule mods srcs =
 
 mkParsedModule :: String -> [(String, String)] -> [Source] -> Module
 mkParsedModule name uses srcs =
-  let (unprefixed, prefixed) = List.partition (null . snd) uses in
-  (initial SrcT name []) { modUnprefixedUses = map fst unprefixed
-                         , modPrefixedUses = prefixed
-                         , modDecls = srcs }
-
-addImplicitUnprefixedUses :: [String] -> Module -> Module
-addImplicitUnprefixedUses uses mod =
-  mod { modUnprefixedUses = uses ++ modUnprefixedUses mod }
+  (initial SrcT name uses) { modDecls = srcs }
 
 addDefinitions :: Module -> [Definition] -> Module
 addDefinitions mod defs =

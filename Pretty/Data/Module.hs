@@ -49,11 +49,11 @@ docModule showBrief showOrd showFree showSrc showExp showRen mod =
   $+$
   PrettyString.nest
     (if showBrief then
-       docDeps (Module.modDeps mod)
+       docDeps (Module.dependencies mod)
      else
-       docUses (Module.modPrefixedUses mod)
+       docUses (Module.prefixedUses mod)
        $+$
-       docDeps (Module.modUnprefixedUses mod))
+       docDeps (Module.unprefixedUses mod))
   $+$
     docDefns showOrd showFree showSrc showExp showRen mod
 

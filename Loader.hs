@@ -14,7 +14,7 @@ import Data.FileSystem (FileSystem)
 import qualified Data.FileSystem as FileSystem (get, member)
 import Data.GraphUtils (acyclicTopSort)
 import Data.Module (ModuleT(..), Module(modDecls))
-import qualified Data.Module as Module (initial, modName, modDeps)
+import qualified Data.Module as Module
 import Data.PrettyString (PrettyString)
 import qualified Data.PrettyString as PrettyString
 import Data.Source
@@ -57,10 +57,10 @@ preloadModule fs = preloadModule' [] Set.empty . (:[])
         preloadModule' mods loaded filenames
       | fs `FileSystem.member` filename =
         do let mod = FileSystem.get fs filename
-           preloadModule' (mod:mods) (Set.insert filename loaded) (Module.modDeps mod ++ filenames)
+           preloadModule' (mod:mods) (Set.insert filename loaded) (Module.dependencies mod ++ filenames)
       | otherwise =
         do mod <- loadModule filename
-           preloadModule' (mod:mods) (Set.insert filename loaded) (Module.modDeps mod ++ filenames)
+           preloadModule' (mod:mods) (Set.insert filename loaded) (Module.dependencies mod ++ filenames)
 
 buildNodes :: [Module] -> Map String Int
 buildNodes mods =
@@ -68,7 +68,7 @@ buildNodes mods =
 
 buildEdges :: Map String Int -> [Module] -> [(Int, Int)]
 buildEdges nodes =
-  concatMap (\mod -> zip (repeat (nodes Map.! Module.modName mod)) (map (nodes Map.!) (Module.modDeps mod)))
+  concatMap (\mod -> zip (repeat (nodes Map.! Module.modName mod)) (map (nodes Map.!) (Module.dependencies mod)))
 
 buildGraph :: [Module] -> Either [Module] [Module]
 buildGraph mods =
