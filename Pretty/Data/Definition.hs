@@ -4,7 +4,7 @@ import Data.List (intercalate)
 
 import Data.Definition (Definition(..))
 import qualified Data.Definition as Definition
-import Data.PrettyString (PrettyString, (<>), (<+>), ($+$))
+import Data.PrettyString (PrettyString, (<+>), ($+$))
 import qualified Data.PrettyString as PrettyString
 import qualified Pretty.Expr as Pretty (DocType(..), docExpr)
 import qualified Pretty.Data.Source as Pretty

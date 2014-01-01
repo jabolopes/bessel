@@ -191,8 +191,8 @@ renameDeclaration expr@FnDecl {} =
 
 renameDefinitionM :: FileSystem -> Definition -> RenamerM Definition
 renameDefinitionM fs def@Definition { defExp = Right expr } =
-  do let unprefixed = Definition.defUnprefixedUses def
-         prefixed = Definition.defPrefixedUses def
+  do let prefixed = Definition.prefixedUses def
+         unprefixed = Definition.unprefixedUses def
          names = Expr.freeVars expr
      defs <- lookupFreeVars fs unprefixed prefixed names
      if any (isNothing . Definition.defSym) defs then

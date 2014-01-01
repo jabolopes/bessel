@@ -32,12 +32,13 @@ splitDefinition :: Module -> Source -> Definition
 splitDefinition mod source =
   let
     name = qualifiedName mod (defnName source)
-    unprefixed = Module.modName mod:Module.unprefixedUses mod
-    prefixed = Module.prefixedUses mod
+    use = (Module.modName mod, "")
+    uses
+      | use `elem` Module.modUses mod = Module.modUses mod
+      | otherwise = use:Module.modUses mod
   in
-    (Definition.initial name) { Definition.defUnprefixedUses = unprefixed
-                              , Definition.defPrefixedUses = prefixed
-                              , defSrc = Right source }
+    (Definition.initial name) { defSrc = Right source
+                              , defUses = uses }
 
 expandDefinition :: Module -> Definition -> Either PrettyString [Definition]
 expandDefinition mod def = expandSrc . Definition.defSrc $ def
@@ -59,8 +60,7 @@ mkSnippet fs source@(FnDeclS name _) =
     name' = Module.interactiveName ++ "." ++ name
     mod = FileSystem.get fs Module.interactiveName
   in
-    (Definition.initial name') { defUnprefixedUses = Module.unprefixedUses mod
-                               , defPrefixedUses = Module.prefixedUses mod
+    (Definition.initial name') { defUses = Module.modUses mod
                                , defSrc = Right source }
 mkSnippet fs source = mkSnippet fs $ FnDeclS "val" source
 
