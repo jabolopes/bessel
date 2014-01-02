@@ -70,7 +70,7 @@ type FnDesc = [(String, Val)]
 mkCoreModule :: String -> [String] -> FnDesc -> Module
 mkCoreModule name deps fnDesc =
     let uses = [ (dep, "") | dep <- deps ] in
-    addDefinitions (initial CoreT name uses) defs
+    ensureDefinitions (initial CoreT name uses) defs
     where qualName descName = name ++ "." ++ descName
 
           defs = [ (Definition.initial (qualName x)) { defSym = Just (FnSymbol (qualName x)),
@@ -91,19 +91,12 @@ mkParsedModule :: String -> [(String, String)] -> [Source] -> Module
 mkParsedModule name uses srcs =
   (initial SrcT name uses) { modDecls = srcs }
 
-addDefinitions :: Module -> [Definition] -> Module
-addDefinitions mod defs =
+ensureDefinitions :: Module -> [Definition] -> Module
+ensureDefinitions mod defs =
   mod { modDefs = defsMp `Map.union` modDefs mod
       , modDefOrd = List.nub $ modDefOrd mod ++ map Definition.defName defs }
   where defsMp =
           Map.fromList [ (Definition.defName def, def) | def <- defs ]
-
-updateDefinitions :: Module -> [Definition] -> Module
-updateDefinitions mod definitions =
-  mod { modDefs = defsMp `Map.union` modDefs mod
-      , modDefOrd = List.nub $ modDefOrd mod ++ map Definition.defName definitions }
-  where defsMp =
-          Map.fromList [ (Definition.defName def, def) | def <- definitions ]
 
 addDefinitionSymbols :: Module -> Map String Symbol -> Module
 addDefinitionSymbols mod syms =

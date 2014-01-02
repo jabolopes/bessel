@@ -18,6 +18,7 @@ import qualified Parser (parseRepl)
 import qualified Stage.Expander as Expander (expand)
 import qualified Stage.Renamer as Renamer (rename, renameDefinition)
 import qualified Pretty.Stage as Pretty
+import qualified Utils
 
 -- Definitions
 
@@ -80,15 +81,20 @@ stageDefinition fs ln =
      expDefs <- expandDefinition interactive def
      renDefs <- mapM (renameSnippet fs) expDefs
      let evalDefs = map (Interpreter.interpretDefinition fs) renDefs
-         interactive' = Module.updateDefinitions interactive evalDefs
+         interactive' = Module.ensureDefinitions interactive evalDefs
      return (FileSystem.add fs interactive', evalDefs)
 
 -- * Modules
 
-reorderModule :: FileSystem -> Module -> (FileSystem, Module)
+reorderModule :: FileSystem -> Module -> Either PrettyString (FileSystem, Module)
 reorderModule fs mod =
-  let mod' = Module.addDefinitions mod $ map (splitDefinition mod) (Module.modDecls mod) in
-  (FileSystem.add fs mod', mod')
+  let
+    defs = map (splitDefinition mod) (Module.modDecls mod)
+    mod' = Module.ensureDefinitions mod defs
+  in
+    case Utils.duplicates (map Definition.defName defs) of
+      Nothing -> Right (FileSystem.add fs mod', mod')
+      Just name -> Left $ Pretty.duplicateDefinitions (Module.modName mod) name
 
 expandModule :: FileSystem -> Module -> Either PrettyString (FileSystem, Module)
 expandModule fs mod@Module { modType = CoreT } =
@@ -103,7 +109,7 @@ expandModule fs mod =
                    case span (/= Definition.defName def) (Module.modDefOrd mod) of
                      (xs, y:ys) -> xs ++ [y] ++ map Definition.defName defs' ++ ys
                  mod' = Module.setDefinitionOrder mod ord
-                 mod'' = Module.updateDefinitions mod' defs'
+                 mod'' = Module.ensureDefinitions mod' defs'
              expand mod'' defs
 
 renameModule :: FileSystem -> Module -> Either PrettyString (FileSystem, Module)
@@ -118,7 +124,7 @@ interpretModule fs mod =
 
 stageModule :: FileSystem -> Module -> Either PrettyString (FileSystem, Module)
 stageModule fs mod =
-  do let (reordFs, reordMod) = reorderModule fs mod
+  do (reordFs, reordMod) <- reorderModule fs mod
      (expFs, expMod) <- expandModule reordFs reordMod
      (renFs, renMod) <- renameModule expFs expMod
      let (evalFs, evalMod) = interpretModule renFs renMod

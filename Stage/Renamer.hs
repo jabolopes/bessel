@@ -220,7 +220,7 @@ renameDefinitions :: FileSystem -> Module -> [Definition] -> Either PrettyString
 renameDefinitions _ mod [] = return mod
 renameDefinitions fs mod (def:defs) =
   do def' <- renameDefinition fs def
-     let mod' = Module.updateDefinitions mod [def']
+     let mod' = Module.ensureDefinitions mod [def']
          fs' = FileSystem.add fs mod'
      renameDefinitions fs' mod' defs
 

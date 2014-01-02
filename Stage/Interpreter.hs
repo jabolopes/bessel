@@ -15,7 +15,7 @@ import qualified Data.Env as Env (initial)
 import Data.FileSystem (FileSystem)
 import qualified Data.FileSystem as FileSystem
 import Data.Module
-import qualified Data.Module as Module (updateDefinitions, defsAsc)
+import qualified Data.Module as Module (defsAsc, ensureDefinitions)
 import Data.Expr
 import qualified Data.QualName as QualName (fromQualName)
 import Data.Symbol
@@ -105,7 +105,7 @@ interpretDefinitions fs mod (def:defs) =
     (const $ interpretDefinitions fs mod defs)
     (let
       def' = interpretDefinition fs def
-      mod' = Module.updateDefinitions mod [def']
+      mod' = Module.ensureDefinitions mod [def']
       fs' = FileSystem.add fs mod'
      in
        const $ interpretDefinitions fs' mod' defs)
