@@ -9,131 +9,137 @@ type Attribute Attr [@, @]
 def attribute attr@ val@ =
   Attr [attr, val]
 
-def class     attribute "class"
-def href      attribute "href"
-def httpEquiv attribute "httpEquiv"
-def name      attribute "name"
-def rel       attribute "rel"
-def src       attribute "src"
-def style     attribute "style"
-def type#     attribute "type#"
-def width     attribute "width"
+def class      attribute "class"
+def content    attribute "content"
+def href       attribute "href"
+def http-equiv attribute "httpEquiv"
+def name       attribute "name"
+def rel        attribute "rel"
+def src        attribute "src"
+def style      attribute "style"
+def type#      attribute "type#"
+def width      attribute "width"
 
-type Html Tag @
+def mkSingleTag id
 
-def tag
-  fn@ val@isString = Core.Happstack.applyTag fn (Core.Happstack.string val)
-| fn@ (Attribute [attr@, val@]) =
-    (x@ = Core.Happstack.applyAttribute (tag fn x) attr val)
-| fn@ val@ = Core.Happstack.applyTag fn val
+def mkTag
+  tag@ (Attribute [attr@, val@]) =
+    mkTag (Core.Happstack.applyAttribute tag attr val)
+| tag@ val@isString =
+    mkSingleTag (Core.Happstack.applyTag tag (Core.Happstack.string val))
+| tag@ vals@((const true) +> (const true)) =
+    mkSingleTag (Core.Happstack.applyList tag vals)
+| tag@ val@ =
+    mkSingleTag (Core.Happstack.applyTag tag val)
 
-def a           tag Core.Happstack.a
-def abbr        tag Core.Happstack.abbr
-def address     tag Core.Happstack.address
-def area        tag Core.Happstack.area
-def article     tag Core.Happstack.article
-def aside       tag Core.Happstack.aside
-def audio       tag Core.Happstack.audio
-def b           tag Core.Happstack.b
-def base        tag Core.Happstack.base
-def bdo         tag Core.Happstack.bdo
-def blockquote  tag Core.Happstack.blockquote
-def body        tag Core.Happstack.body
-def br          tag Core.Happstack.br
-def button      tag Core.Happstack.button
-def canvas      tag Core.Happstack.canvas
-def caption     tag Core.Happstack.caption
-def cite        tag Core.Happstack.cite
-def code        tag Core.Happstack.code
-def col         tag Core.Happstack.col
-def colgroup    tag Core.Happstack.colgroup
-def command     tag Core.Happstack.command
-def datalist    tag Core.Happstack.datalist
-def dd          tag Core.Happstack.dd
-def del         tag Core.Happstack.del
-def details     tag Core.Happstack.details
-def dfn         tag Core.Happstack.dfn
-def dl          tag Core.Happstack.dl
-def docType     tag Core.Happstack.docType
-def docTypeHtml tag Core.Happstack.docTypeHtml
-def dt          tag Core.Happstack.dt
-def em          tag Core.Happstack.em
-def embed       tag Core.Happstack.embed
-def fieldset    tag Core.Happstack.fieldset
-def figcaption  tag Core.Happstack.figcaption
-def figure      tag Core.Happstack.figure
-def footer      tag Core.Happstack.footer
-def form        tag Core.Happstack.form
-def h1          tag Core.Happstack.h1
-def h2          tag Core.Happstack.h2
-def h3          tag Core.Happstack.h3
-def h4          tag Core.Happstack.h4
-def h5          tag Core.Happstack.h5
-def h6          tag Core.Happstack.h6
-def head        tag Core.Happstack.head
-def header      tag Core.Happstack.header
-def hgroup      tag Core.Happstack.hgroup
-def hr          tag Core.Happstack.hr
-def html        tag Core.Happstack.html
-def i           tag Core.Happstack.i
-def iframe      tag Core.Happstack.iframe
-def img         tag Core.Happstack.img
-def input       tag Core.Happstack.input
-def ins         tag Core.Happstack.ins
-def kbd         tag Core.Happstack.kbd
-def keygen      tag Core.Happstack.keygen
-def label       tag Core.Happstack.label
-def legend      tag Core.Happstack.legend
-def li          tag Core.Happstack.li
-def link        tag Core.Happstack.link
-def map         tag Core.Happstack.map
-def mark        tag Core.Happstack.mark
-def menu        tag Core.Happstack.menu
-def meta        tag Core.Happstack.meta
-def meter       tag Core.Happstack.meter
-def nav         tag Core.Happstack.nav
-def noscript    tag Core.Happstack.noscript
-def object      tag Core.Happstack.object
-def ol          tag Core.Happstack.ol
-def optgroup    tag Core.Happstack.optgroup
-def option      tag Core.Happstack.option
-def output      tag Core.Happstack.output
-def p           tag Core.Happstack.p
-def param       tag Core.Happstack.param
-def pre         tag Core.Happstack.pre
-def progress    tag Core.Happstack.progress
-def q           tag Core.Happstack.q
-def rp          tag Core.Happstack.rp
-def rt          tag Core.Happstack.rt
-def ruby        tag Core.Happstack.ruby
-def samp        tag Core.Happstack.samp
-def script      tag Core.Happstack.script
-def section     tag Core.Happstack.section
-def select      tag Core.Happstack.select
-def small       tag Core.Happstack.small
-def source      tag Core.Happstack.source
-def span        tag Core.Happstack.span
-def strong      tag Core.Happstack.strong
-def style       tag Core.Happstack.style
+def (!)
+  tag@ (Attribute [attr@, val@]) =
+    mkSingleTag (Core.Happstack.applyAttribute tag attr val)
+
+def a           mkTag Core.Happstack.a
+def abbr        mkTag Core.Happstack.abbr
+def address     mkTag Core.Happstack.address
+def area        mkSingleTag Core.Happstack.area
+def article     mkTag Core.Happstack.article
+def aside       mkTag Core.Happstack.aside
+def audio       mkTag Core.Happstack.audio
+def b           mkTag Core.Happstack.b
+def base        mkSingleTag Core.Happstack.base
+def bdo         mkTag Core.Happstack.bdo
+def blockquote  mkTag Core.Happstack.blockquote
+def body        mkTag Core.Happstack.body
+def br          mkSingleTag Core.Happstack.br
+def button      mkTag Core.Happstack.button
+def canvas      mkTag Core.Happstack.canvas
+def caption     mkTag Core.Happstack.caption
+def cite        mkTag Core.Happstack.cite
+def code        mkTag Core.Happstack.code
+def col         mkSingleTag Core.Happstack.col
+def colgroup    mkTag Core.Happstack.colgroup
+def command     mkTag Core.Happstack.command
+def datalist    mkTag Core.Happstack.datalist
+def dd          mkTag Core.Happstack.dd
+def del         mkTag Core.Happstack.del
+def details     mkTag Core.Happstack.details
+def dfn         mkTag Core.Happstack.dfn
+def dl          mkTag Core.Happstack.dl
+def docType     mkSingleTag Core.Happstack.docType
+def docTypeHtml mkTag Core.Happstack.docTypeHtml
+def dt          mkTag Core.Happstack.dt
+def em          mkTag Core.Happstack.em
+def embed       mkSingleTag Core.Happstack.embed
+def fieldset    mkTag Core.Happstack.fieldset
+def figcaption  mkTag Core.Happstack.figcaption
+def figure      mkTag Core.Happstack.figure
+def footer      mkTag Core.Happstack.footer
+def form        mkTag Core.Happstack.form
+def h1          mkTag Core.Happstack.h1
+def h2          mkTag Core.Happstack.h2
+def h3          mkTag Core.Happstack.h3
+def h4          mkTag Core.Happstack.h4
+def h5          mkTag Core.Happstack.h5
+def h6          mkTag Core.Happstack.h6
+def head        mkTag Core.Happstack.head
+def header      mkTag Core.Happstack.header
+def hgroup      mkTag Core.Happstack.hgroup
+def hr          mkSingleTag Core.Happstack.hr
+def html        mkTag Core.Happstack.html
+def i           mkTag Core.Happstack.i
+def iframe      mkTag Core.Happstack.iframe
+def img         mkSingleTag Core.Happstack.img
+def input       mkSingleTag Core.Happstack.input
+def ins         mkTag Core.Happstack.ins
+def kbd         mkTag Core.Happstack.kbd
+def keygen      mkSingleTag Core.Happstack.keygen
+def label       mkTag Core.Happstack.label
+def legend      mkTag Core.Happstack.legend
+def li          mkTag Core.Happstack.li
+def link        mkSingleTag Core.Happstack.link
+def map         mkTag Core.Happstack.map
+def mark        mkTag Core.Happstack.mark
+def menu        mkTag Core.Happstack.menu
+def meta        mkSingleTag Core.Happstack.meta
+def meter       mkTag Core.Happstack.meter
+def nav         mkTag Core.Happstack.nav
+def noscript    mkTag Core.Happstack.noscript
+def object      mkTag Core.Happstack.object
+def ol          mkTag Core.Happstack.ol
+def optgroup    mkTag Core.Happstack.optgroup
+def option      mkTag Core.Happstack.option
+def output      mkTag Core.Happstack.output
+def p           mkTag Core.Happstack.p
+def param       mkSingleTag Core.Happstack.param
+def pre         mkTag Core.Happstack.pre
+def progress    mkTag Core.Happstack.progress
+def q           mkTag Core.Happstack.q
+def rp          mkTag Core.Happstack.rp
+def rt          mkTag Core.Happstack.rt
+def ruby        mkTag Core.Happstack.ruby
+def samp        mkTag Core.Happstack.samp
+def script      mkTag Core.Happstack.script
+def section     mkTag Core.Happstack.section
+def select      mkTag Core.Happstack.select
+def small       mkTag Core.Happstack.small
+def source      mkSingleTag Core.Happstack.source
+def span        mkTag Core.Happstack.span
+def strong      mkTag Core.Happstack.strong
+-- def style       tag Core.Happstack.style
 -- def sub         tag Core.Happstack.sub
-def summary     tag Core.Happstack.summary
-def sup         tag Core.Happstack.sup
-def table       tag Core.Happstack.table
-def tbody       tag Core.Happstack.tbody
-def td          tag Core.Happstack.td
-def textarea    tag Core.Happstack.textarea
-def tfoot       tag Core.Happstack.tfoot
-def th          tag Core.Happstack.th
-def thead       tag Core.Happstack.thead
-def time        tag Core.Happstack.time
-def title       tag Core.Happstack.title
-def tr          tag Core.Happstack.tr
-def ul          tag Core.Happstack.ul
-def var         tag Core.Happstack.var
-def video       tag Core.Happstack.video
-
-def page
-  html (body (p "ola tudo bem"))
+def summary     mkTag Core.Happstack.summary
+def sup         mkTag Core.Happstack.sup
+def table       mkTag Core.Happstack.table
+def tbody       mkTag Core.Happstack.tbody
+def td          mkTag Core.Happstack.td
+def textarea    mkTag Core.Happstack.textarea
+def tfoot       mkTag Core.Happstack.tfoot
+def th          mkTag Core.Happstack.th
+def thead       mkTag Core.Happstack.thead
+def time        mkTag Core.Happstack.time
+def title       mkTag Core.Happstack.title
+def tr          mkTag Core.Happstack.tr
+def ul          mkTag Core.Happstack.ul
+def var         mkTag Core.Happstack.var
+def video       mkTag Core.Happstack.video
 
 def main
-  Core.Happstack.serve page
+  Core.Happstack.serveDir "/home/jose/Projects/jabolopes.github.com/"

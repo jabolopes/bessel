@@ -2,7 +2,6 @@
 module Core.Happstack where
 
 import Control.Concurrent (killThread, forkIO)
-import System.IO.Unsafe
 
 import Happstack.Server
 
@@ -10,281 +9,238 @@ import qualified Text.Blaze.Internal as Blaze (string)
 import Text.Blaze.Html5 hiding (head, map)
 import qualified Text.Blaze.Html5 as Html
 
+import qualified Core as Core
 import Data.Module
 import Monad.InterpreterM
 
 happstackName :: String
 happstackName = "Core.Happstack"
 
-tagM :: (Html -> Html) -> Val
-tagM tag = dynVal tag
+happstackError :: String -> a
+happstackError = error . ((happstackName ++ ".") ++)
+
+tagType :: Int
+IntVal tagType = Core.link $ boxString $ happstackName ++ ".Tag"
+
+isTag :: Val -> Bool
+isTag (TypeVal (SeqVal [IntVal typeId, _])) = typeId == tagType
+isTag _ = False
+
+mkTag :: (Html -> Html) -> Val
+mkTag t = TypeVal (SeqVal [IntVal tagType, dynVal t])
+
+unTag :: Val -> Html -> Html
+unTag val@(TypeVal (SeqVal [_, tag]))
+  | isTag  val =
+    let Just tag' = unDynVal tag :: Maybe (Html -> Html) in
+    tag'
+unTag _ =
+  happstackError "unTag: expected tag"
+
+singleTagType :: Int
+IntVal singleTagType = Core.link $ boxString $ happstackName ++ ".SingleTag"
+
+isSingleTag :: Val -> Bool
+isSingleTag (TypeVal (SeqVal [IntVal typeId, _])) = typeId == singleTagType
+isSingleTag _ = False
+
+mkSingleTag :: Html -> Val
+mkSingleTag t = TypeVal (SeqVal [IntVal singleTagType, dynVal t])
+
+unSingleTag :: Val -> Html
+unSingleTag val@(TypeVal (SeqVal [_, tag]))
+  | isSingleTag val =
+    let Just tag' = unDynVal tag :: Maybe Html in
+    tag'
+unSingleTag _ =
+  happstackError "unTag: expected single tag"
 
 applyAttribute :: Val -> Val
-applyAttribute tag@DynVal {} = FnVal hof
-  where Just tag' = unDynVal tag :: Maybe Html
+applyAttribute tag
+  | isTag tag || isSingleTag tag = FnVal hof
+  | otherwise =
+    happstackError "applyAttribute: expected tag or single tag as first argument"
+  where
+    hof attr = FnVal hof'
+      where
+        apply tag attr val =
+          tag ! customAttribute attr val
 
-        hof attr = FnVal hof'
-          where attr' = stringTag (unboxString attr)
-
-                hof' val =
-                  let val' = toValue (unboxString val) in
-                  dynVal (tag' ! customAttribute attr' val')
+        hof' val =
+          let
+            attr' = stringTag . unboxString $ attr
+            val' = toValue . unboxString $ val
+          in
+            if isTag tag then
+              mkTag $ apply (unTag tag) attr' val'
+            else
+              mkSingleTag $ apply (unSingleTag tag) attr' val'
 
 applyTag :: Val -> Val
-applyTag tag1@DynVal {} =
-  let Just tag1' = unDynVal tag1 :: Maybe (Html -> Html) in
-  FnVal (hof tag1')
-  where hof tag1' tag2@DynVal {} =
-          let Just tag2' = unDynVal tag2 :: Maybe Html in
-          dynVal (tag1' tag2')
+applyTag tag1
+  | isTag tag1 = FnVal hof
+  | otherwise = 
+    happstackError "applyTag: expected tag as first argument"
+  where hof tag2
+          | isSingleTag tag2 =
+            let
+              tag1' = unTag tag1
+              tag2' = unSingleTag tag2
+            in
+              mkSingleTag (tag1' tag2')
+          | otherwise =
+            happstackError "applyTag: expected single tag as second argument"
+
+applyList :: Val -> Val
+applyList tag
+  | isTag tag = FnVal hof
+  | otherwise =
+    happstackError "applyList: expected tag as first argument"
+  where hof (SeqVal tags)
+          | all isSingleTag tags =
+            let
+              tag' = unTag tag
+              tags' = map unSingleTag tags
+            in
+              mkSingleTag . tag' . toMarkup $ tags'
+        hof _ =
+          happstackError "applyList: expected list of single tags as second argument"
 
 string :: Val -> Val
-string = dynVal . Blaze.string . unboxString
+string = mkSingleTag . Blaze.string . unboxString
 
-singleTagM :: Html -> Val
-singleTagM = error "Core.Happstack.singleTagM: not implemented"
-
-{-# NOINLINE serve #-}
 serve :: Val -> Val
-serve val@DynVal {} =
-  let Just val' = unDynVal val :: Maybe Html in
+serve val
+  | isSingleTag val =
+    IOVal $ do
+      threadId <- forkIO $ simpleHTTP nullConf (ok . toResponse . unSingleTag $ val)
+      waitForTermination
+      killThread threadId
+      return $ SeqVal []
+  | otherwise = happstackError "serve: expected single tag as first argument"
+
+serveDir :: Val -> Val
+serveDir file =
   IOVal $ do
-    threadId <- forkIO $ simpleHTTP nullConf (ok . toResponse $ val')
+    threadId <- forkIO . simpleHTTP nullConf . serveDirectory EnableBrowsing ["index.html"] $ unboxString file
     waitForTermination
     killThread threadId
     return $ SeqVal []
-serve _ = error $ happstackName ++ ".serve: expected HTML value as first argument"
 
 fnDesc :: FnDesc
 fnDesc =
-  [("a"           , tagM Html.a),
-   ("abbr"        , tagM Html.abbr),
-   ("address"     , tagM Html.address),
-   ("area"        , singleTagM Html.area),
-   ("article"     , tagM Html.article),
-   ("aside"       , tagM Html.aside),
-   ("audio"       , tagM Html.audio),
-   ("b"           , tagM Html.b),
-   ("base"        , singleTagM Html.base),
-   ("bdo"         , tagM Html.bdo),
-   ("blockquote"  , tagM Html.blockquote),
-   ("body"        , tagM Html.body),
-   ("br"          , singleTagM Html.br),
-   ("button"      , tagM Html.button),
-   ("canvas"      , tagM Html.canvas),
-   ("caption"     , tagM Html.caption),
-   ("cite"        , tagM Html.cite),
-   ("code"        , tagM Html.code),
-   ("col"         , singleTagM Html.col),
-   ("colgroup"    , tagM Html.colgroup),
-   ("command"     , tagM Html.command),
-   ("datalist"    , tagM Html.datalist),
-   ("dd"          , tagM Html.dd),
-   ("del"         , tagM Html.del),
-   ("details"     , tagM Html.details),
-   ("dfn"         , tagM Html.dfn),
-   -- ("div"      , tagM Html.div), -- edit: conflicts with 'div'
-   ("dl"          , tagM Html.dl),
-   ("docType"     , singleTagM Html.docType),
-   ("docTypeHtml" , tagM Html.docTypeHtml),
-   ("dt"          , tagM Html.dt),
-   ("em"          , tagM Html.em),
-   ("embed"       , singleTagM Html.embed),
-   ("fieldset"    , tagM Html.fieldset),
-   ("figcaption"  , tagM Html.figcaption),
-   ("figure"      , tagM Html.figure),
-   ("footer"      , tagM Html.footer),
-   ("form"        , tagM Html.form),
-   ("h1"          , tagM Html.h1),
-   ("h2"          , tagM Html.h2),
-   ("h3"          , tagM Html.h3),
-   ("h4"          , tagM Html.h4),
-   ("h5"          , tagM Html.h5),
-   ("h6"          , tagM Html.h6),
-   ("head"        , tagM Html.head),
-   ("header"      , tagM Html.header),
-   ("hgroup"      , tagM Html.hgroup),
-   ("hr"          , singleTagM Html.hr),
-   ("html"        , tagM Html.html),
-   ("i"           , tagM Html.i),
-   ("iframe"      , tagM Html.iframe),
-   ("img"         , singleTagM Html.img),
-   ("input"       , singleTagM Html.input),
-   ("ins"         , tagM Html.ins),
-   ("kbd"         , tagM Html.kbd),
-   ("keygen"      , singleTagM Html.keygen),
-   ("label"       , tagM Html.label),
-   ("legend"      , tagM Html.legend),
-   ("li"          , tagM Html.li),
-   ("link"        , singleTagM Html.link),
-   ("map"         , tagM Html.map),
-   ("mark"        , tagM Html.mark),
-   ("menu"        , tagM Html.menu),
-   ("meta"        , singleTagM Html.meta),
-   ("meter"       , tagM Html.meter),
-   ("nav"         , tagM Html.nav),
-   ("noscript"    , tagM Html.noscript),
-   ("object"      , tagM Html.object),
-   ("ol"          , tagM Html.ol),
-   ("optgroup"    , tagM Html.optgroup),
-   ("option"      , tagM Html.option),
-   ("output"      , tagM Html.output),
-   ("p"           , tagM Html.p),
-   ("param"       , singleTagM Html.param),
-   ("pre"         , tagM Html.pre),
-   ("progress"    , tagM Html.progress),
-   ("q"           , tagM Html.q),
-   ("rp"          , tagM Html.rp),
-   ("rt"          , tagM Html.rt),
-   ("ruby"        , tagM Html.ruby),
-   ("samp"        , tagM Html.samp),
-   ("script"      , tagM Html.script),
-   ("section"     , tagM Html.section),
-   ("select"      , tagM Html.select),
-   ("small"       , tagM Html.small),
-   ("source"      , singleTagM Html.source),
-   ("span"        , tagM Html.span),
-   ("strong"      , tagM Html.strong),
-   ("style"       , tagM Html.style),
-   -- ("sub"      , tagM Html.sub), -- edit: sub is already bound
-   ("summary"     , tagM Html.summary),
-   ("sup"         , tagM Html.sup),
-   ("table"       , tagM Html.table),
-   ("tbody"       , tagM Html.tbody),
-   ("td"          , tagM Html.td),
-   ("textarea"    , tagM Html.textarea),
-   ("tfoot"       , tagM Html.tfoot),
-   ("th"          , tagM Html.th),
-   ("thead"       , tagM Html.thead),
-   ("time"        , tagM Html.time),
-   ("title"       , tagM Html.title),
-   ("tr"          , tagM Html.tr),
-   ("ul"          , tagM Html.ul),
-   ("var"         , tagM Html.var),
-   ("video"       , tagM Html.video),
+  [("a"           , mkTag Html.a),
+   ("abbr"        , mkTag Html.abbr),
+   ("address"     , mkTag Html.address),
+   ("area"        , mkSingleTag Html.area),
+   ("article"     , mkTag Html.article),
+   ("aside"       , mkTag Html.aside),
+   ("audio"       , mkTag Html.audio),
+   ("b"           , mkTag Html.b),
+   ("base"        , mkSingleTag Html.base),
+   ("bdo"         , mkTag Html.bdo),
+   ("blockquote"  , mkTag Html.blockquote),
+   ("body"        , mkTag Html.body),
+   ("br"          , mkSingleTag Html.br),
+   ("button"      , mkTag Html.button),
+   ("canvas"      , mkTag Html.canvas),
+   ("caption"     , mkTag Html.caption),
+   ("cite"        , mkTag Html.cite),
+   ("code"        , mkTag Html.code),
+   ("col"         , mkSingleTag Html.col),
+   ("colgroup"    , mkTag Html.colgroup),
+   ("command"     , mkTag Html.command),
+   ("datalist"    , mkTag Html.datalist),
+   ("dd"          , mkTag Html.dd),
+   ("del"         , mkTag Html.del),
+   ("details"     , mkTag Html.details),
+   ("dfn"         , mkTag Html.dfn),
+   -- ("div"      , tag Html.div), -- edit: conflicts with 'div'
+   ("dl"          , mkTag Html.dl),
+   ("docType"     , mkSingleTag Html.docType),
+   ("docTypeHtml" , mkTag Html.docTypeHtml),
+   ("dt"          , mkTag Html.dt),
+   ("em"          , mkTag Html.em),
+   ("embed"       , mkSingleTag Html.embed),
+   ("fieldset"    , mkTag Html.fieldset),
+   ("figcaption"  , mkTag Html.figcaption),
+   ("figure"      , mkTag Html.figure),
+   ("footer"      , mkTag Html.footer),
+   ("form"        , mkTag Html.form),
+   ("h1"          , mkTag Html.h1),
+   ("h2"          , mkTag Html.h2),
+   ("h3"          , mkTag Html.h3),
+   ("h4"          , mkTag Html.h4),
+   ("h5"          , mkTag Html.h5),
+   ("h6"          , mkTag Html.h6),
+   ("head"        , mkTag Html.head),
+   ("header"      , mkTag Html.header),
+   ("hgroup"      , mkTag Html.hgroup),
+   ("hr"          , mkSingleTag Html.hr),
+   ("html"        , mkTag Html.html),
+   ("i"           , mkTag Html.i),
+   ("iframe"      , mkTag Html.iframe),
+   ("img"         , mkSingleTag Html.img),
+   ("input"       , mkSingleTag Html.input),
+   ("ins"         , mkTag Html.ins),
+   ("kbd"         , mkTag Html.kbd),
+   ("keygen"      , mkSingleTag Html.keygen),
+   ("label"       , mkTag Html.label),
+   ("legend"      , mkTag Html.legend),
+   ("li"          , mkTag Html.li),
+   ("link"        , mkSingleTag Html.link),
+   ("map"         , mkTag Html.map),
+   ("mark"        , mkTag Html.mark),
+   ("menu"        , mkTag Html.menu),
+   ("meta"        , mkSingleTag Html.meta),
+   ("meter"       , mkTag Html.meter),
+   ("nav"         , mkTag Html.nav),
+   ("noscript"    , mkTag Html.noscript),
+   ("object"      , mkTag Html.object),
+   ("ol"          , mkTag Html.ol),
+   ("optgroup"    , mkTag Html.optgroup),
+   ("option"      , mkTag Html.option),
+   ("output"      , mkTag Html.output),
+   ("p"           , mkTag Html.p),
+   ("param"       , mkSingleTag Html.param),
+   ("pre"         , mkTag Html.pre),
+   ("progress"    , mkTag Html.progress),
+   ("q"           , mkTag Html.q),
+   ("rp"          , mkTag Html.rp),
+   ("rt"          , mkTag Html.rt),
+   ("ruby"        , mkTag Html.ruby),
+   ("samp"        , mkTag Html.samp),
+   ("script"      , mkTag Html.script),
+   ("section"     , mkTag Html.section),
+   ("select"      , mkTag Html.select),
+   ("small"       , mkTag Html.small),
+   ("source"      , mkSingleTag Html.source),
+   ("span"        , mkTag Html.span),
+   ("strong"      , mkTag Html.strong),
+   ("style"       , mkTag Html.style),
+   -- ("sub"      , tag Html.sub), -- edit: sub is already bound
+   ("summary"     , mkTag Html.summary),
+   ("sup"         , mkTag Html.sup),
+   ("table"       , mkTag Html.table),
+   ("tbody"       , mkTag Html.tbody),
+   ("td"          , mkTag Html.td),
+   ("textarea"    , mkTag Html.textarea),
+   ("tfoot"       , mkTag Html.tfoot),
+   ("th"          , mkTag Html.th),
+   ("thead"       , mkTag Html.thead),
+   ("time"        , mkTag Html.time),
+   ("title"       , mkTag Html.title),
+   ("tr"          , mkTag Html.tr),
+   ("ul"          , mkTag Html.ul),
+   ("var"         , mkTag Html.var),
+   ("video"       , mkTag Html.video),
 
    ("serve"       , FnVal serve),
+   ("serveDir" , FnVal serveDir),
    ("string"      , FnVal string),
    ("applyAttribute", FnVal applyAttribute),
-   ("applyTag", FnVal applyTag)]
-
-  -- [("a", (ArrowT DynT DynT, tagM Html.a)),
-  --  ("abbr", (ArrowT DynT DynT, tagM Html.abbr)),
-  --  ("address", (ArrowT DynT DynT, tagM Html.address)),
-  --  -- ("area", (ArrowT DynT DynT, tagM Html.area)),
-  --  ("article", (ArrowT DynT DynT, tagM Html.article)),
-  --  ("aside", (ArrowT DynT DynT, tagM Html.aside)),
-  --  ("audio", (ArrowT DynT DynT, tagM Html.audio)),
-  --  ("b", (ArrowT DynT DynT, tagM Html.b)),
-  --  ("base", (ArrowT DynT DynT, tagM Html.base)),
-  --  ("bdo", (ArrowT DynT DynT, tagM Html.bdo)),
-  --  ("blockquote", (ArrowT DynT DynT, tagM Html.blockquote)),
-  --  ("body", (ArrowT DynT DynT, tagM Html.body)),
-  --  ("br", (ArrowT DynT DynT, singleTagM Html.br)),
-  --  ("button", (ArrowT DynT DynT, tagM Html.button)),
-  --  ("canvas", (ArrowT DynT DynT, tagM Html.canvas)),
-  --  ("caption", (ArrowT DynT DynT, tagM Html.caption)),
-  --  ("cite", (ArrowT DynT DynT, tagM Html.cite)),
-  --  ("code", (ArrowT DynT DynT, tagM Html.code)),
-  --  ("col", (ArrowT DynT DynT, singleTagM Html.col)),
-  --  ("colgroup", (ArrowT DynT DynT, tagM Html.colgroup)),
-  --  ("command", (ArrowT DynT DynT, tagM Html.command)),
-  --  ("datalist", (ArrowT DynT DynT, tagM Html.datalist)),
-  --  ("dd", (ArrowT DynT DynT, tagM Html.dd)),
-  --  ("del", (ArrowT DynT DynT, tagM Html.del)),
-  --  ("details", (ArrowT DynT DynT, tagM Html.details)),
-  --  ("dfn", (ArrowT DynT DynT, tagM Html.dfn)),
-  --  -- ("div", (ArrowT DynT DynT, tagM Html.div)), -- edit: conflicts with 'div'
-  --  ("dl", (ArrowT DynT DynT, tagM Html.dl)),
-  --  -- ("docType", (ArrowT DynT DynT, Html.docType)),
-  --  ("docTypeHtml", (ArrowT DynT DynT, tagM Html.docTypeHtml)),
-  --  ("dt", (ArrowT DynT DynT, tagM Html.dt)),
-  --  ("em", (ArrowT DynT DynT, tagM Html.em)),
-  --  ("embed", (ArrowT DynT DynT, singleTagM Html.embed)),
-  --  ("fieldset", (ArrowT DynT DynT, tagM Html.fieldset)),
-  --  ("figcaption", (ArrowT DynT DynT, tagM Html.figcaption)),
-  --  ("figure", (ArrowT DynT DynT, tagM Html.figure)),
-  --  ("footer", (ArrowT DynT DynT, tagM Html.footer)),
-  --  ("form", (ArrowT DynT DynT, tagM Html.form)),
-  --  ("h1", (ArrowT DynT DynT, tagM Html.h1)),
-  --  ("h2", (ArrowT DynT DynT, tagM Html.h2)),
-  --  ("h3", (ArrowT DynT DynT, tagM Html.h3)),
-  --  ("h4", (ArrowT DynT DynT, tagM Html.h4)),
-  --  ("h5", (ArrowT DynT DynT, tagM Html.h5)),
-  --  ("h6", (ArrowT DynT DynT, tagM Html.h6)),
-  --  ("head", (ArrowT DynT DynT, tagM Html.head)),
-  --  ("header", (ArrowT DynT DynT, tagM Html.header)),
-  --  ("hgroup", (ArrowT DynT DynT, tagM Html.hgroup)),
-  --  ("hr", (ArrowT DynT DynT, singleTagM Html.hr)),
-  --  ("html", (ArrowT DynT DynT, tagM Html.html)),
-  --  ("i", (ArrowT DynT DynT, tagM Html.i)),
-  --  ("iframe", (ArrowT DynT DynT, tagM Html.iframe)),
-  --  ("img", (ArrowT DynT DynT, singleTagM Html.img)),
-  --  ("input", (ArrowT DynT DynT, singleTagM Html.input)),
-  --  ("ins", (ArrowT DynT DynT, tagM Html.ins)),
-  --  ("kbd", (ArrowT DynT DynT, tagM Html.kbd)),
-  --  ("keygen", (ArrowT DynT DynT, tagM Html.keygen)),
-  --  ("label", (ArrowT DynT DynT, tagM Html.label)),
-  --  ("legend", (ArrowT DynT DynT, tagM Html.legend)),
-  --  ("li", (ArrowT DynT DynT, tagM Html.li)),
-  --  ("link", (ArrowT DynT DynT, singleTagM Html.link)),
-  --  ("map", (ArrowT DynT DynT, tagM Html.map)),
-  --  ("mark", (ArrowT DynT DynT, tagM Html.mark)),
-  --  ("menu", (ArrowT DynT DynT, tagM Html.menu)),
-  --  ("meta", (ArrowT DynT DynT, singleTagM Html.meta)),
-  --  ("meter", (ArrowT DynT DynT, tagM Html.meter)),
-  --  ("nav", (ArrowT DynT DynT, tagM Html.nav)),
-  --  ("noscript", (ArrowT DynT DynT, tagM Html.noscript)),
-  --  ("object", (ArrowT DynT DynT, tagM Html.object)),
-  --  ("ol", (ArrowT DynT DynT, tagM Html.ol)),
-  --  ("optgroup", (ArrowT DynT DynT, tagM Html.optgroup)),
-  --  ("option", (ArrowT DynT DynT, tagM Html.option)),
-  --  ("output", (ArrowT DynT DynT, tagM Html.output)),
-  --  ("p", (ArrowT DynT DynT, tagM Html.p)),
-  --  ("param", (ArrowT DynT DynT, singleTagM Html.param)),
-  --  ("pre", (ArrowT DynT DynT, tagM Html.pre)),
-  --  ("progress", (ArrowT DynT DynT, tagM Html.progress)),
-  --  ("q", (ArrowT DynT DynT, tagM Html.q)),
-  --  ("rp", (ArrowT DynT DynT, tagM Html.rp)),
-  --  ("rt", (ArrowT DynT DynT, tagM Html.rt)),
-  --  ("ruby", (ArrowT DynT DynT, tagM Html.ruby)),
-  --  ("samp", (ArrowT DynT DynT, tagM Html.samp)),
-  --  ("script", (ArrowT DynT DynT, tagM Html.script)),
-  --  ("section", (ArrowT DynT DynT, tagM Html.section)),
-  --  ("select", (ArrowT DynT DynT, tagM Html.select)),
-  --  ("small", (ArrowT DynT DynT, tagM Html.small)),
-  --  ("source", (ArrowT DynT DynT, tagM Html.source)),
-  --  ("span", (ArrowT DynT DynT, tagM Html.span)),
-  --  ("strong", (ArrowT DynT DynT, tagM Html.strong)),
-  --  ("style", (ArrowT DynT DynT, tagM Html.style)),
-  --  -- ("sub", (ArrowT DynT DynT, tagM Html.sub)), -- edit: sub is already bound
-  --  ("summary", (ArrowT DynT DynT, tagM Html.summary)),
-  --  ("sup", (ArrowT DynT DynT, tagM Html.sup)),
-  --  ("table", (ArrowT DynT DynT, tagM Html.table)),
-  --  ("tbody", (ArrowT DynT DynT, tagM Html.tbody)),
-  --  ("td", (ArrowT DynT DynT, tagM Html.td)),
-  --  ("textarea", (ArrowT DynT DynT, tagM Html.textarea)),
-  --  ("tfoot", (ArrowT DynT DynT, tagM Html.tfoot)),
-  --  ("th", (ArrowT DynT DynT, tagM Html.th)),
-  --  ("thead", (ArrowT DynT DynT, tagM Html.thead)),
-  --  ("time", (ArrowT DynT DynT, tagM Html.time)),
-  --  ("title", (ArrowT DynT DynT, tagM Html.title)),
-  --  ("tr", (ArrowT DynT DynT, tagM Html.tr)),
-  --  ("ul", (ArrowT DynT DynT, tagM Html.ul)),
-  --  ("var", (ArrowT DynT DynT, tagM Html.var)),
-  --  ("video", (ArrowT DynT DynT, tagM Html.video)),
-
-  --  ("class", (ArrowT DynT DynT, attrM "class")),
-  --  ("href", (ArrowT DynT DynT, attrM "href")),
-  --  ("httpEquiv", (ArrowT DynT DynT, attrM "httpEquiv")),
-  --  ("name", (ArrowT DynT DynT, attrM "name")),
-  --  ("rel", (ArrowT DynT DynT, attrM "rel")),
-  --  ("src", (ArrowT DynT DynT, attrM "src")),
-  --  ("style", (ArrowT DynT DynT, attrM "style")),
-  --  ("type_", (ArrowT DynT DynT, attrM "type_")),
-  --  ("width", (ArrowT DynT DynT, attrM "width")),
-
-  --  ("serve", (ArrowT (SeqT CharT) DynT, FnVal serve))])
+   ("applyTag", FnVal applyTag),
+   ("applyList", FnVal applyList)]
 
 happstackModule :: Module
 happstackModule = mkCoreModule happstackName ["Core"] fnDesc
