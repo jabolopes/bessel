@@ -5,7 +5,7 @@ import qualified Data.PrettyString as PrettyString
 
 devModuleNested :: String -> PrettyString
 devModuleNested me =
-  (PrettyString.text "module" <+>
+  (PrettyString.text "Module" <+>
    PrettyString.text me <+>
    PrettyString.text "occurs nested")
   $+$
@@ -13,7 +13,7 @@ devModuleNested me =
 
 devPattern :: PrettyString -> PrettyString
 devPattern pat =
-  (PrettyString.text "pattern" <+>
+  (PrettyString.text "Pattern" <+>
    pat <+>
    PrettyString.text "occurs in source to be expanded")
   $+$
@@ -21,6 +21,6 @@ devPattern pat =
 
 condMatchPatternsMismatch :: PrettyString -> PrettyString
 condMatchPatternsMismatch ms =
-  PrettyString.text "conditional contains different number of patterns"
+  PrettyString.text "Conditional contains different number of patterns"
   $+$
   PrettyString.nest ms
