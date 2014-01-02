@@ -228,3 +228,7 @@ def ola2 Apple 2
 def adeus1 (Apple x@) = x
 def adeus2 (Apple x@ y@) = x
 def adeus3 (Apple x@isInt) = x
+
+def one
+  x@1 = 1
+| @   = 0
