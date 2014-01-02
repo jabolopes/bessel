@@ -30,7 +30,7 @@ data Module
 
 ensureImplicitUses :: Module -> Module
 ensureImplicitUses mod
-  | modType mod /= SrcT || modName mod == Config.preludeName = mod
+  | modType mod == CoreT || modName mod == Config.preludeName = mod
   | otherwise =
     mod { modUses = ensureElem (Config.coreName, "") .
                       ensureElem (Config.preludeName, "") .
