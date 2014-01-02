@@ -42,7 +42,7 @@ ensureExpr val =
 %token
   -- punctuation
   '@'     { TokenAt }
-  '@id'   { TokenAtId $$ }
+  '@ '    { TokenAtSpace }
   '|'     { TokenBar }
   '.'     { TokenDot }
   ','     { TokenComma }
@@ -78,15 +78,15 @@ ensureExpr val =
   '+'     { TokenAdd $$ }
   '-'     { TokenSub $$ }
 
+  '+>'    { TokenCons $$ }
+  '<+'    { TokenSnoc $$ }
+
   '=='    { TokenEq $$ }
   '/='    { TokenNeq $$ }
   '<'     { TokenLt $$ }
   '>'     { TokenGt $$ }
   '<='    { TokenLe $$ }
   '>='    { TokenGe $$ }
-
-  '+>'    { TokenCons $$ }
-  '<+'    { TokenSnoc $$ }
 
   '&&'    { TokenAnd $$ }
   '||'    { TokenOr $$ }
@@ -100,21 +100,25 @@ ensureExpr val =
 
 
 -- Precedence (lower)
-%right '->'
-%left where                       -- where
-%left lambda_prec                 -- lambda
-%left '&&' '||'                   -- logical
-%left '<+'                        -- snoc
-%right '+>'                       -- cons
-%left '==' '/=' '<' '>' '<=' '>=' -- comparison
-%left '+' '-'                     -- additives
-%left '*' '/'                     -- multiplicatives
-%left 'o'                         -- composition
-%left quotedId                    -- functions as operators
-%nonassoc below_app_prec          -- below application (e.g., single id)
-%left app_prec                    -- application
-%nonassoc '(' '[' '[|' character integer double string id typeId
-%nonassoc '@'
+%left     where                         -- where
+%left     lambda_prec                   -- lambda
+%left     '$'                           -- dollar application
+%left     '||'                          -- or
+%left     '&&'                          -- and
+%left     '==' '/=' '<' '>' '<=' '>='   -- comparison
+%left     '<+'                          -- snoc
+%right    '+>'                          -- cons
+%left     '+' '-'                       -- addition
+%left     '*' '/'                       -- multiplication
+%right    '**'                          -- exponentiation
+%left     'o'                           -- composition
+%left     quotedId                      -- functions as operators
+%nonassoc below_app_prec                -- below application (e.g., single id)
+%left     app_prec                      -- application
+%nonassoc below_at_prec
+%nonassoc '@' '@ '
+%nonassoc '(' '[' character integer double string id typeId
+%nonassoc above_id_prec
 -- /Precedence (greater)
 
 %%
@@ -162,15 +166,15 @@ Expr:
   | Expr '+' Expr   { BinOpS $2 $1 $3 }
   | Expr '-' Expr   { BinOpS $2 $1 $3 }
 
+  | Expr '+>' Expr  { BinOpS $2 $1 $3 }
+  | Expr '<+' Expr  { BinOpS $2 $1 $3 }
+
   | Expr '==' Expr  { BinOpS $2 $1 $3 }
   | Expr '/=' Expr  { BinOpS $2 $1 $3 }
   | Expr '<'  Expr  { BinOpS $2 $1 $3 }
   | Expr '>'  Expr  { BinOpS $2 $1 $3 }
   | Expr '<=' Expr  { BinOpS $2 $1 $3 }
   | Expr '>=' Expr  { BinOpS $2 $1 $3 }
-
-  | Expr '+>' Expr  { BinOpS $2 $1 $3 }
-  | Expr '<+' Expr  { BinOpS $2 $1 $3 }
 
   | Expr '&&' Expr  { AndS $1 $3 }
   | Expr '||' Expr  { OrS $1 $3 }
@@ -204,23 +208,24 @@ AppExpr:
 
 Pat :: { Source }
 Pat:
-    id '@id'         { bindPat $1 (IdS (QualName.mkQualName [$2])) }
-  | id '@' SimplePat { bindPat $1 $3 }
-  | id '@'           { bindPat $1 allPat }
-  |    '@'           { allPat }
-  |        SimplePat { $1 }
+    QualName '@'  SimplePat %prec above_id_prec { bindPat (QualName.fromQualName $1) $3 }
+  | QualName '@ '                               { bindPat (QualName.fromQualName $1) allPat }
+  |          '@ '                               { allPat }
+  | QualName '@'                                { bindPat (QualName.fromQualName $1) allPat }
+  |          '@'                                { allPat }
+  |               SimplePat                     { $1 }
 
 SimplePat :: { Source }
 SimplePat:
-    QualName            { IdS $1 }
-  | character           { CharS $1 }
-  | integer             { IntS $1 }
-  | double              { RealS $1 }
-  | string              { StringS $1 }
-  | '[' ExprList ']'    { SeqS $2 }
-  | '['          ']'    { SeqS [] }
-  | TypeName            { idS (QualName.fromQualName $1) }
-  | '(' Expr ')'        { $2 }
+    QualName %prec below_at_prec { IdS $1 }
+  | character                    { CharS $1 }
+  | integer                      { IntS $1 }
+  | double                       { RealS $1 }
+  | string                       { StringS $1 }
+  | '[' ExprList ']'             { SeqS $2 }
+  | '['          ']'             { SeqS [] }
+  | TypeName                     { idS (QualName.fromQualName $1) }
+  | '(' Expr ')'                 { $2 }
 
 ExprList :: { [Source] }
 ExprList:
@@ -256,15 +261,15 @@ Operator:
   | '+'         { $1 }
   | '-'         { $1 }
 
+  | '+>'        { $1 }
+  | '<+'        { $1 }
+
   | '=='        { $1 }
   | '/='        { $1 }
   | '<'         { $1 }
   | '>'         { $1 }
   | '<='        { $1 }
   | '>='        { $1 }
-
-  | '+>'        { $1 }
-  | '<+'        { $1 }
 
   | '&&'        { $1 }
   | '||'        { $1 }

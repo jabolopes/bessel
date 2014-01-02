@@ -21,7 +21,8 @@ $letter       = [a-zA-Z]
 @symbol = "\\" | "!" | "#" | "$" | "%"
         | "/"  | "'" | "?" | "«" | "»"
         | "+"  | "*" | "´" | "º" | "ª"
-        | "~"  | "^" | ";" | "-"
+        | "~"  | "^" | ";" | "-" | ":"
+        | ">"  | "<"
 
 @id_char = $letter | $digit | @symbol
 
@@ -35,6 +36,7 @@ $letter       = [a-zA-Z]
 @string     = \"[^\"]*\"
 @identifier = $lower_letter (@id_char)*
 @type_id    = $upper_letter (@id_char)*
+@operator   = (@symbol)+
 
 tokens :-
   -- ignore
@@ -42,7 +44,7 @@ tokens :-
   @comment            ;
 
   -- punctuation
-  \@@identifier       { \(_:s) -> TokenAtId s }
+  "@ "                { \_ -> TokenAtSpace }
   "@"                 { \_ -> TokenAt }
   "|"                 { \_ -> TokenBar }
   ","                 { \_ -> TokenComma }
@@ -96,7 +98,7 @@ tokens :-
   @identifier         { \s -> TokenId s }
   "`" @identifier "`" { \s -> TokenQuotedId (init (tail s)) }
   @type_id            { \s -> TokenTypeId s }
-
+  @operator           { \s -> operatorFixity s }
 
 {
 lex :: LexState -> (Token, LexState)

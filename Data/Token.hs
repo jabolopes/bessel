@@ -3,7 +3,7 @@ module Data.Token where
 data Token
   -- punctuation
   = TokenAt
-  | TokenAtId String
+  | TokenAtSpace
   | TokenBar
   | TokenComma
   | TokenDot
@@ -60,3 +60,22 @@ data Token
   -- eof
   | TokenEOF
     deriving (Show)
+
+operatorFixity :: String -> Token
+operatorFixity op =
+  let
+    c = case take 2 op of
+          "+>" -> TokenCons
+          "<+" -> TokenSnoc
+          "/=" -> TokenNeq
+          _ -> case head op of
+                 '*' -> TokenMult
+                 '/' -> TokenDiv
+                 '+' -> TokenAdd
+                 '-' -> TokenSub
+                 '=' -> TokenEq
+                 '<' -> TokenLt
+                 '>' -> TokenGt
+                 _ -> TokenComposition
+    in
+      c op
