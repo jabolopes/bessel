@@ -1,7 +1,7 @@
 {-# LANGUAGE ParallelListComp, TupleSections #-}
 module Stage.Expander where
 
-import Prelude hiding (mod)
+import Prelude hiding (mod, pred)
 
 import Control.Applicative ((<$>), (<*>))
 import Control.Monad.Error.Class (throwError)
@@ -117,6 +117,8 @@ patPred = sourcePred
           | isTypeGuard src =
             let IdS qualName = head . appToList $ src in
             return . Expr.idE . consIsName $ qualName
+        sourcePred (AppS fnPat argPat) =
+          Expr.AppE <$> patPred fnPat <*> patPred argPat
         sourcePred (BinOpS "+>" hdPat tlPat) =
           do hdPred <- sourcePred hdPat
              tlPred <- sourcePred tlPat
