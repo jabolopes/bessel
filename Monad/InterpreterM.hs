@@ -59,8 +59,12 @@ unDynVal (DynVal x) = Dynamic.fromDynamic x
 boxString :: String -> Val
 boxString = SeqVal . map CharVal
 
+isStringVal :: Val -> Bool
+isStringVal (SeqVal cs) = all isCharVal cs
+isStringVal _ = False
+
 unboxString :: Val -> String
-unboxString (SeqVal cs) | all isCharVal cs = map (\(CharVal c) -> c) cs
+unboxString val@(SeqVal cs) | isStringVal val = map (\(CharVal c) -> c) cs
 unboxString val =
     error $ "Monad.InterpreterM.unboxString: expecting character sequence" ++
             "\n\n\t val = " ++ show val ++ "\n\n"

@@ -1,9 +1,11 @@
-{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveDataTypeable, FlexibleInstances, TypeSynonymInstances #-}
 module Core.Happstack where
 
-import Control.Concurrent (killThread, forkIO)
+import Data.Typeable (Typeable)
 
-import Happstack.Server
+import Happstack.Lite (ServerPart, Response, Browsing(..), msum)
+import qualified Happstack.Lite as Happstack
+import qualified Happstack.Server as Server (uriRest)
 
 import qualified Text.Blaze.Internal as Blaze (string)
 import Text.Blaze.Html5 hiding (head, map)
@@ -109,23 +111,58 @@ applyList tag
 string :: Val -> Val
 string = mkSingleTag . Blaze.string . unboxString
 
-serve :: Val -> Val
-serve val
-  | isSingleTag val =
-    IOVal $ do
-      threadId <- forkIO $ simpleHTTP nullConf (ok . toResponse . unSingleTag $ val)
-      waitForTermination
-      killThread threadId
-      return $ SeqVal []
-  | otherwise = happstackError "serve: expected single tag as first argument"
+-- server stuff
 
-serveDir :: Val -> Val
-serveDir file =
+class MonadVal a where
+  runMonadVal :: Val -> a
+
+data Serve
+  = DirectoryServe String
+    deriving (Typeable)
+
+serveType :: Int
+IntVal serveType = Core.link $ boxString $ happstackName ++ ".Serve"
+
+isServe :: Val -> Bool
+isServe (TypeVal (SeqVal [IntVal typeId, _])) = typeId == serveType
+isServe _ = False
+
+mkServe :: Serve -> Val
+mkServe t = TypeVal (SeqVal [IntVal serveType, dynVal t])
+
+unServe :: Val -> Serve
+unServe val@(TypeVal (SeqVal [_, serve]))
+  | isServe  val =
+    let Just serve' = unDynVal serve :: Maybe Serve in
+    serve'
+unServe _ =
+  happstackError "unServe: expected Serve"
+
+instance MonadVal (ServerPart Response) where
+  runMonadVal val
+    | isServe val =
+      case unServe val of
+        DirectoryServe x ->
+          Happstack.serveDirectory DisableBrowsing ["index.html"] x
+    | otherwise =
+      happstackError $ "MonadVal.runMonadVal: expected Serve as first argument"
+
+serveDirectory :: Val -> Val
+serveDirectory val
+  | isStringVal val =
+    mkServe . DirectoryServe . unboxString $ val
+  | otherwise =
+    happstackError $ "serveDirectory: expected string as first argument"
+
+serveApp :: Val -> Val
+serveApp (FnVal fn) =
   IOVal $ do
-    threadId <- forkIO . simpleHTTP nullConf . serveDirectory EnableBrowsing ["index.html"] $ unboxString file
-    waitForTermination
-    killThread threadId
+    Happstack.serve Nothing $
+      msum [ Server.uriRest (runMonadVal . fn . boxString)
+           ]
     return $ SeqVal []
+serveApp _ =
+  happstackError "serveApp: expected (String -> Serve) as first argument"
 
 fnDesc :: FnDesc
 fnDesc =
@@ -235,8 +272,8 @@ fnDesc =
    ("var"         , mkTag Html.var),
    ("video"       , mkTag Html.video),
 
-   ("serve"       , FnVal serve),
-   ("serveDir" , FnVal serveDir),
+   ("serveApp"    , FnVal serveApp),
+   ("serveDirectory" , FnVal serveDirectory),
    ("string"      , FnVal string),
    ("applyAttribute", FnVal applyAttribute),
    ("applyTag", FnVal applyTag),

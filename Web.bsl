@@ -141,5 +141,11 @@ def ul          mkTag Core.Happstack.ul
 def var         mkTag Core.Happstack.var
 def video       mkTag Core.Happstack.video
 
+-- def main
+--   Core.Happstack.serveDir "/home/jose/Projects/jabolopes.github.com/"
+
+def app x@ =
+  Core.Happstack.serveDirectory "/home/jose/Projects/jabolopes.github.com"
+
 def main
-  Core.Happstack.serveDir "/home/jose/Projects/jabolopes.github.com/"
+  Core.Happstack.serveApp app
