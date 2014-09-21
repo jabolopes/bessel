@@ -15,4 +15,4 @@ lexState filename str =
   LexState { filename = filename
   	   , beginLine = 1 
 	   , endLine = 1
-	   , input = ('\n',[],str) }
+	   , input = ('\n', [], str) }
