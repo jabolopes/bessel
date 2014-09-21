@@ -19,8 +19,20 @@ devPattern pat =
   $+$
   PrettyString.nest (PrettyString.text "This should be disallowed by the parser")
 
+devUnhandled :: String -> PrettyString -> PrettyString
+devUnhandled fnName src =
+  (PrettyString.text "Unhandled case in" <+> PrettyString.text fnName)
+  $+$
+  src
+
 condMatchPatternsMismatch :: PrettyString -> PrettyString
 condMatchPatternsMismatch ms =
   PrettyString.text "Conditional contains different number of patterns"
   $+$
   PrettyString.nest ms
+
+whereOutsideCond :: PrettyString -> PrettyString
+whereOutsideCond src =
+  PrettyString.text "Where occurs outside cond"
+  $+$
+  PrettyString.nest src

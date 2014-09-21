@@ -20,7 +20,9 @@ data Token
   -- keywords
   | TokenAs
   | TokenDef
+  | TokenLet
   | TokenMe
+  | TokenIn
   | TokenType
   | TokenUse
   | TokenWhere

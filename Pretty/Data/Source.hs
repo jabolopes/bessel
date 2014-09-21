@@ -41,6 +41,12 @@ docSource (IdS name) =
   PrettyString.text (show name)
 docSource (IntS i) =
   PrettyString.int i
+docSource (LetS defns body) =
+  PrettyString.sep
+  [PrettyString.text "let",
+   PrettyString.vcat (map docSource defns),
+   PrettyString.text "in",
+   docSource body]
 docSource (ModuleS name uses defns) =
   PrettyString.text "me" <+> PrettyString.text name
   $+$
@@ -83,6 +89,7 @@ isParens right AppS {}    = right
 isParens _     CharS {}   = False
 isParens _     IdS {}     = False
 isParens _     IntS {}    = False
+isParens _     LetS {}    = False
 isParens _     PatS {}    = False
 isParens _     RealS {}   = False
 isParens _     SeqS {}    = False

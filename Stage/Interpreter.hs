@@ -66,6 +66,10 @@ evalM (LambdaE arg body) =
                   withEnvM (evalM body)
           in
             fst (runState m env)
+evalM (LetE defn body) =
+  withEnvM $ do
+    _ <- evalM defn
+    withEnvM (evalM body)
 evalM (MergeE vals) =
   TypeVal <$> SeqVal <$> mapM (evalM . snd) vals
 evalM (WhereE expr exprs) =

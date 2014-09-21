@@ -6,10 +6,7 @@ import Utils (flattenId, splitId)
 
 newtype QualName
   = QualName { fromQualName :: String }
-    deriving (Eq, Ord)
-
-instance Show QualName where
-  show QualName { fromQualName = x } = x
+  deriving (Show)
 
 mkQualName :: [String] -> QualName
 mkQualName name =

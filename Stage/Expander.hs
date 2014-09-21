@@ -4,6 +4,7 @@ module Stage.Expander where
 import Prelude hiding (mod, pred)
 
 import Control.Applicative ((<$>), (<*>))
+import Control.Arrow ((***))
 import Control.Monad.Error.Class (throwError)
 
 import Data.Expr (DefnKw(..), Expr(..))
@@ -157,7 +158,7 @@ expandMatchBody args pats body =
     [] -> expandOne body
     defns ->
       do body' <- expandOne body
-         return (WhereE body' defns)
+         return (Expr.letE defns body')
 
 -- |
 -- @
@@ -196,23 +197,51 @@ expandMatches names = loop
         loop ((pats, body):ms) =
           (:) <$> expandMatch names pats body <*> loop ms
 
+invert :: [[a]] -> [[a]]
+invert xs =
+  let cols = length $ head xs in
+  [ column c xs | c <- [0..cols - 1] ]
+  where
+    column n = map (head . drop n)
+
+expandLambda :: [String] -> [[Source]] -> [Expr] -> String -> ExpanderM Expr
+expandLambda args patss branches blame =
+  genLambda args patss
+  where
+    condPred arg pat =
+      AppE <$> patPred pat <*> return (Expr.idE arg)
+
+    condMatches _ [] [] = return []
+    condMatches arg (pat:pats) (branch:branches) =
+      do pred <- condPred arg pat
+         (:) <$> return (pred, branch) <*> condMatches arg pats branches
+
+    genLambda (arg:args) (pats:patss) =
+      do branches' <-
+             case args of
+               [] -> return branches
+               _ -> sequence $ replicate (length pats) (genLambda args patss)
+         LambdaE arg <$>
+           (CondE <$>
+             condMatches arg pats branches' <*> return blame)
+
 expandCond :: [([Source], Source)] -> String -> ExpanderM Expr
-expandCond ms blame =
-  do let args = head . fst . unzip $ ms
-     case checkMatches (length args) ms of
+expandCond matches blame =
+  do let args = head . fst . unzip $ matches
+         patss = invert $ map fst matches
+     case checkMatches (length args) matches of
        Left err -> throwError err
        Right () ->
          do argNames <- genPatNames args
-            ms' <- expandMatches argNames ms
-            return . lambdas argNames . CondE ms' $ blame
+            branches <- condBranches argNames
+            expandLambda argNames patss branches blame
   where checkMatches _ [] = Right ()
-        checkMatches n ((args, _):ms')
-          | length args == n = checkMatches n ms'
-          | otherwise = Left . Pretty.condMatchPatternsMismatch . Pretty.docCond $ ms
+        checkMatches n ((args, _):matches')
+          | length args == n = checkMatches n matches'
+          | otherwise = Left . Pretty.condMatchPatternsMismatch . Pretty.docCond $ matches
 
-        lambdas [] body = body
-        lambdas (arg:args) body =
-          LambdaE arg (lambdas args body)
+        condBranches args =
+          sequence [ expandMatchBody args pats branch | (pats, branch) <- matches ]
 
 -- /expand CondM
 
@@ -309,6 +338,20 @@ expandTypeDecl typeName cons =
 
 -- /expand TypeDeclM
 
+-- 'WhereS' is a special syntax for a 'CondS' with 'LetS'.
+--
+-- @
+-- x@ = y
+-- where
+--   def y = 0
+--
+-- x@ = let y = 0 in
+--      y
+-- @
+expandWhereCondMatches :: Source -> [([Source], Source)]
+expandWhereCondMatches (WhereS (CondS matches) defns) =
+  map (id *** (\branch -> LetS defns branch)) matches
+
 expandOne :: Source -> ExpanderM Expr
 expandOne macro = head <$> expandSource macro
 
@@ -323,14 +366,21 @@ expandSource (CharS c) =
   Utils.returnOne . return . CharE $ c
 expandSource (CondS ms) =
   Utils.returnOne $ expandCond ms "lambda"
+-- Expand FnDeclS together with CondS to get the correct blame.
 expandSource (FnDeclS name (CondS ms)) =
   Utils.returnOne $ expandFnDecl name =<< expandCond ms name
+-- Expand FnDeclS together with WhereS to get the correct blame.
+expandSource (FnDeclS name src@(WhereS CondS {} _)) =
+  Utils.returnOne $ expandFnDecl name =<< expandCond (expandWhereCondMatches src) name
 expandSource (FnDeclS name body) =
   Utils.returnOne $ expandFnDecl name =<< expandOne body
 expandSource (IdS name) =
   Utils.returnOne . return . Expr.IdE $ name
 expandSource (IntS n) =
   Utils.returnOne . return . Expr.intE $ n
+expandSource (LetS defns src) =
+  do defns' <- concat <$> mapM expandSource defns
+     Utils.returnOne $ Expr.letE defns' <$> expandOne src
 expandSource (ModuleS me _ _) =
   throwError (Pretty.devModuleNested me)
 expandSource (OrS m1 m2) =
@@ -345,8 +395,10 @@ expandSource (StringS str) =
   Utils.returnOne . return . expandString $ str
 expandSource (TypeDeclS typeName cons) =
   expandTypeDecl typeName cons
-expandSource (WhereS src srcs) =
-  Utils.returnOne $ WhereE <$> expandOne src <*> (concat <$> mapM expandSource srcs)
+expandSource src@(WhereS CondS {} _) =
+  expandSource . CondS . expandWhereCondMatches $ src
+expandSource src@WhereS {} =
+  throwError . Pretty.whereOutsideCond . Pretty.docSource $ src
 
 expand :: Source -> Either PrettyString [Expr]
 expand src = fst <$> NameM.runNameM (expandSource src) NameM.initialNameState

@@ -152,6 +152,11 @@ renameM expr@(IdE name) =
      else
        Utils.returnOne $ Expr.idE <$> getFnSymbolM (QualName.fromQualName name)
 renameM expr@IntE {} = Utils.returnOne $ return expr
+renameM (LetE defn body) =
+  withScopeM $ do
+    defn' <- renameOneM defn
+    body' <- withScopeM (renameOneM body)
+    Utils.returnOne . return $ LetE defn' body'
 renameM (LambdaE arg body) =
   Utils.returnOne (renameLambdaM arg body)
 renameM (MergeE vals) =

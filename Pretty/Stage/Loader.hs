@@ -41,3 +41,10 @@ moduleContainsDuplicateQualifiers me uses =
    PrettyString.text "contains duplicate qualifiers")
   $+$
   PrettyString.nest (docUses uses)
+
+readFileFail :: String -> String -> PrettyString
+readFileFail me err =
+  (PrettyString.text "module" <+> PrettyString.text me <+>
+   PrettyString.text "not found")
+  $+$
+  PrettyString.nest (PrettyString.text err)

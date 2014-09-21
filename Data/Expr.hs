@@ -34,12 +34,18 @@ data Expr
     -- @
     | LambdaE String Expr
 
+    -- |
+    -- @
+    -- let fn x y = ... in ...
+    -- @
+    | LetE Expr Expr
+
     -- info: initialization vals (1st argument) are sorted in Parser
     | MergeE [(QualName, Expr)]
 
     | RealE Double
     | WhereE Expr [Expr]
-      deriving (Show)
+    deriving (Show)
 
 isAppE :: Expr -> Bool
 isAppE (AppE _ _) = True
@@ -104,6 +110,10 @@ intE n
   | n >= 0 = IntE n
   | otherwise = appE "negInt" (IntE (- n))
 
+letE :: [Expr] -> Expr -> Expr
+letE defs expr =
+  foldr LetE expr defs
+
 orE :: Expr -> Expr -> Expr
 orE expr1 expr2 =
     -- note: not using 'expr1' and 'expr2' directly in the Boolean
@@ -157,6 +167,9 @@ freeVars' env fvars (IdE name)
     | fromQualName name `elem` env = (env, fvars)
     | otherwise = (env, fromQualName name:fvars)
 freeVars' env fvars (IntE _) = (env, fvars)
+freeVars' env fvars (LetE defn body) =
+    let (env', fvars') = freeVars' env fvars defn in
+    freeVars' env' fvars' body
 freeVars' env fvars (LambdaE arg body) =
     freeVars' (arg:env) fvars body
 freeVars' env fvars (MergeE vals) =

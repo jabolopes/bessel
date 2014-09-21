@@ -1,9 +1,10 @@
-module Pretty.Expr where
+module Pretty.Data.Expr where
 
 import Data.Expr
 import Data.PrettyString (PrettyString, (<>), (<+>), ($$), ($+$))
 import qualified Data.PrettyString as PrettyString
 
+-- edit: is this unused?
 data DocType = ExpDocT | RenDocT
 
 isParens :: Bool -> Expr -> Bool
@@ -11,6 +12,7 @@ isParens right AppE {} = right
 isParens _ CharE {}    = False
 isParens _ IdE {}      = False
 isParens _ IntE {}     = False
+isParens _ LetE {}     = False
 isParens _ RealE {}    = False
 isParens _ _           = True
 
@@ -43,6 +45,9 @@ docExpr t (FnDecl kw name body) =
         kwDoc NrDef = PrettyString.text "nrdef"
 docExpr _ (IdE name) = PrettyString.text (show name)
 docExpr _ (IntE i) = PrettyString.int i
+docExpr t (LetE defn body) =
+  PrettyString.sep
+  [PrettyString.text "let", docExpr t defn, PrettyString.text "in", docExpr t body]
 docExpr t (LambdaE arg body) =
   PrettyString.sep [PrettyString.text "\\" <> PrettyString.text arg <+> PrettyString.text "->", PrettyString.nest (docExpr t body)]
 docExpr _ MergeE {} =

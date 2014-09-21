@@ -8,6 +8,7 @@ import qualified Data.List as List (nub)
 import Data.Map (Map)
 import qualified Data.Map as Map ((!), fromList)
 import qualified Data.Set as Set (empty, member, insert)
+import System.IO.Error (tryIOError)
 
 import Data.Exception (throwLoaderException)
 import Data.FileSystem (FileSystem)
@@ -22,7 +23,12 @@ import Parser (parseFile)
 import qualified Pretty.Stage.Loader as Pretty
 
 readFileM :: String -> IO String
-readFileM modName = readFile $ map tr modName ++ ".bsl"
+readFileM modName =
+  do res <- tryIOError . readFile $ map tr modName ++ ".bsl"
+     case res of
+       Left err ->
+         throwLoaderException $ Pretty.readFileFail modName $ show err
+       Right x -> return x
   where tr '.' = '/'
         tr c = c
 

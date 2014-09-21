@@ -59,7 +59,9 @@ ensureExpr val =
   -- keywords
   as      { TokenAs }
   def     { TokenDef }
+  let     { TokenLet }
   me      { TokenMe }
+  in      { TokenIn }
   type    { TokenType }
   use     { TokenUse }
   where   { TokenWhere }
@@ -101,6 +103,7 @@ ensureExpr val =
 
 -- Precedence (lower)
 %left     where                         -- where
+%nonassoc let_prec                      -- let
 %left     lambda_prec                   -- lambda
 %left     '$'                           -- dollar application
 %left     '||'                          -- or
@@ -185,10 +188,15 @@ Expr:
 
   | Cond            { CondS $1 }
 
+  | Let             { $1 }
+
 Cond :: { [([Source], Source)] }
 Cond:
     Cond '|' AppExpr '=' Expr %prec lambda_prec { $1 ++ [($3, $5)] }
   | AppExpr '=' Expr          %prec lambda_prec { [($1, $3)] }
+
+Let:
+    let Name Expr in Expr %prec let_prec { LetS [FnDeclS $2 $3] $5 }
 
 TypeDefn :: { Source }
 TypeDefn:

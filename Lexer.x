@@ -62,7 +62,9 @@ tokens :-
   -- keywords
   "as"                { \_ -> TokenAs }
   "def"               { \_ -> TokenDef }
+  "let"               { \_ -> TokenLet }
   "me"                { \_ -> TokenMe }
+  "in"                { \_ -> TokenIn }
   "type"              { \_ -> TokenType }
   "use"               { \_ -> TokenUse }
   "where"             { \_ -> TokenWhere }

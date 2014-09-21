@@ -58,6 +58,16 @@ data Source
   -- @
   | IntS Int
 
+  -- | LetS
+  -- @
+  -- let
+  --   x = ...
+  --   y = ...
+  -- in
+  --   ...
+  -- @
+  | LetS [Source] Source
+
   -- | ModuleS
   -- @
   -- me Module
@@ -170,6 +180,7 @@ toSource (CondS ms) = CondS <$> mapM toSource' ms
 toSource (FnDeclS name body) = FnDeclS name <$> toSource body
 toSource src@IdS {} = Just src
 toSource src@IntS {} = Just src
+toSource (LetS defns body) = LetS <$> mapM toSource defns <*> toSource body
 toSource (ModuleS name uses decls) = ModuleS name uses <$> mapM toSource decls
 toSource (OrS src1 src2) = OrS <$> toSource src1 <*> toSource src2
 toSource (PatS "" val) = val
