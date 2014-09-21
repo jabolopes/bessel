@@ -87,10 +87,6 @@ mkInteractiveModule mods srcs =
   in
     ensureImplicitUses (initial InteractiveT interactiveName uses) { modDecls = srcs }
 
-mkParsedModule :: String -> [(String, String)] -> [Source] -> Module
-mkParsedModule name uses srcs =
-  (initial SrcT name uses) { modDecls = srcs }
-
 ensureDefinitions :: Module -> [Definition] -> Module
 ensureDefinitions mod defs =
   mod { modDefs = defsMp `Map.union` modDefs mod
