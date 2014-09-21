@@ -101,7 +101,7 @@ idE = IdE . mkQualName . (:[])
 
 intE :: Int -> Expr
 intE n
-  | n > 0 = IntE n
+  | n >= 0 = IntE n
   | otherwise = appE "negInt" (IntE (- n))
 
 orE :: Expr -> Expr -> Expr
@@ -118,7 +118,7 @@ orE expr1 expr2 =
 
 realE :: Double -> Expr
 realE n
-  | n > 0 = RealE n
+  | n >= 0 = RealE n
   | otherwise = appE "negReal" (RealE (- n))
 
 seqE :: [Expr] -> Expr
