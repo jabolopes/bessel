@@ -163,11 +163,6 @@ renameM (MergeE vals) =
   Utils.returnOne $ MergeE <$> mapM renameValsM vals
   where renameValsM (name, expr) =  (name,) <$> renameOneM expr
 renameM expr@RealE {} = Utils.returnOne $ return expr
-renameM (WhereE expr exprs) =
-  withScopeM $ do
-    exprs' <- concat <$> mapM renameM exprs
-    expr' <- withScopeM (renameOneM expr)
-    Utils.returnOne . return $ WhereE expr' exprs'
 
 lookupUnprefixedFreeVar :: FileSystem -> [String] -> String -> [Definition]
 lookupUnprefixedFreeVar fs unprefixed var =

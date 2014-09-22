@@ -47,11 +47,10 @@ docExpr _ (IdE name) = PrettyString.text (show name)
 docExpr _ (IntE i) = PrettyString.int i
 docExpr t (LetE defn body) =
   PrettyString.sep
-  [PrettyString.text "let", docExpr t defn, PrettyString.text "in", docExpr t body]
+  [PrettyString.text "let", PrettyString.nest (docExpr t defn),
+   PrettyString.text "in", docExpr t body]
 docExpr t (LambdaE arg body) =
   PrettyString.sep [PrettyString.text "\\" <> PrettyString.text arg <+> PrettyString.text "->", PrettyString.nest (docExpr t body)]
 docExpr _ MergeE {} =
   error "Doc.Expr.docExpr: unhandled case for MergeE"
 docExpr _ (RealE d) = PrettyString.double d
-docExpr t (WhereE e es) =
-  docExpr t e $$ PrettyString.cat (map (docExpr t) es)

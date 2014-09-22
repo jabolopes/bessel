@@ -72,10 +72,6 @@ evalM (LetE defn body) =
     withEnvM (evalM body)
 evalM (MergeE vals) =
   TypeVal <$> SeqVal <$> mapM (evalM . snd) vals
-evalM (WhereE expr exprs) =
-  withEnvM $ do
-    mapM_ evalM exprs
-    withEnvM (evalM expr)
 
 freeNameDefinitions :: FileSystem -> Definition -> [Definition]
 freeNameDefinitions fs def =

@@ -44,7 +44,6 @@ data Expr
     | MergeE [(QualName, Expr)]
 
     | RealE Double
-    | WhereE Expr [Expr]
     deriving (Show)
 
 isAppE :: Expr -> Bool
@@ -62,10 +61,6 @@ isFnDecl _ = False
 isLambdaE :: Expr -> Bool
 isLambdaE LambdaE {} = True
 isLambdaE _ = False
-
-isWhereE :: Expr -> Bool
-isWhereE WhereE {} = True
-isWhereE _ = False
 
 isValueE :: Expr -> Bool
 isValueE IdE {} = True
@@ -179,13 +174,6 @@ freeVars' env fvars (MergeE vals) =
               let (env', fvars') = freeVars' env fvars expr in
               loop env' fvars' vals
 freeVars' env fvars (RealE _) = (env, fvars)
-freeVars' env fvars (WhereE expr exprs) =
-    let (env', fvars') = loop env fvars exprs in
-    freeVars' env' fvars' expr
-    where loop env fvars [] = (env, fvars)
-          loop env fvars (expr:exprs) =
-              let (env', fvars') = freeVars' env fvars expr in
-              loop env' fvars' exprs
 
 freeVars :: Expr -> [String]
 freeVars = List.nub . snd . freeVars' [] []
