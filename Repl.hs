@@ -52,7 +52,8 @@ stageFiles mods =
         loop fs (mod:mods) (i:is) =
           do putHeader i
              putStrLn (Module.modName mod)
-             case Stage.stageModule fs mod of
+             res <- Stage.stageModule fs mod
+             case res of
                Right (fs', _) -> loop fs' mods is
                Left err ->
                  do putStrLn (PrettyString.toString err)
@@ -69,7 +70,8 @@ importFile fs filename =
 runSnippetM :: String -> ReplM ()
 runSnippetM ln =
   do fs <- fs <$> get
-     case Stage.stageDefinition fs ln of
+     res <- liftIO $ Stage.stageDefinition fs ln
+     case res of
        Left err -> liftIO . putStrLn . PrettyString.toString $ err
        Right (fs', defs) ->
          do modify $ \s -> s { fs = fs' }

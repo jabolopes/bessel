@@ -19,10 +19,11 @@ isBool BoolVal {} = true
 isBool _ = false
 
 eqBool :: Val -> Val
-eqBool (BoolVal b1) = FnVal hof
-  where hof (BoolVal b2)
-          | b1 == b2 = true
-          | otherwise = false
+eqBool (BoolVal b1) = FnVal $ return . eqBoolHof
+  where
+    eqBoolHof (BoolVal b2)
+      | b1 == b2 = true
+      | otherwise = false
 
 -- Int
 
@@ -31,32 +32,33 @@ isInt IntVal {} = true
 isInt _ = false
 
 eqInt :: Val -> Val
-eqInt (IntVal i1) = FnVal eqIntHof
-  where eqIntHof (IntVal i2)
-          | i1 == i2 = true
-          | otherwise = false
+eqInt (IntVal i1) = FnVal $ return . eqIntHof
+  where
+    eqIntHof (IntVal i2)
+      | i1 == i2 = true
+      | otherwise = false
 
 ltInt :: Val -> Val
-ltInt (IntVal i1) = FnVal ltIntHof
+ltInt (IntVal i1) = FnVal $ return . ltIntHof
   where ltIntHof (IntVal i2)
           | i1 < i2 = true
           | otherwise = false
 
 addInt :: Val -> Val
 addInt (IntVal i1) =
-  FnVal $ \(IntVal i2) -> IntVal (i1 + i2)
+  FnVal $ \(IntVal i2) -> return . IntVal $ i1 + i2
 
 subInt :: Val -> Val
 subInt (IntVal i1) =
-  FnVal $ \(IntVal i2) -> IntVal (i1 - i2)
+  FnVal $ \(IntVal i2) -> return . IntVal $ i1 - i2
 
 mulInt :: Val -> Val
 mulInt (IntVal i1) =
-  FnVal $ \(IntVal i2) -> IntVal (i1 * i2)
+  FnVal $ \(IntVal i2) -> return . IntVal $ i1 * i2
 
 divInt :: Val -> Val
 divInt (IntVal i1) =
-  FnVal $ \(IntVal i2) -> IntVal (i1 `div` i2)
+  FnVal $ \(IntVal i2) -> return . IntVal $ i1 `div` i2
 
 absInt :: Val -> Val
 absInt (IntVal i) = IntVal (abs i)
@@ -69,7 +71,7 @@ invInt (IntVal i) = RealVal (1.0 / fromIntegral i)
 
 remInt :: Val -> Val
 remInt (IntVal i1) =
-  FnVal $ \(IntVal i2) -> IntVal (i1 `rem` i2)
+  FnVal $ \(IntVal i2) -> return . IntVal $ i1 `rem` i2
 
 -- Real
 
@@ -78,32 +80,34 @@ isReal RealVal {} = true
 isReal _ = false
 
 eqReal :: Val -> Val
-eqReal (RealVal d1) = FnVal eqRealHof
-  where eqRealHof (RealVal d2)
-          | d1 == d2 = true
-          | otherwise = false
+eqReal (RealVal d1) = FnVal $ return . eqRealHof
+  where
+    eqRealHof (RealVal d2)
+      | d1 == d2 = true
+      | otherwise = false
 
 ltReal :: Val -> Val
-ltReal (RealVal d1) = FnVal ltRealHof
-  where ltRealHof (RealVal d2)
-          | d1 < d2 = true
-          | otherwise = false
+ltReal (RealVal d1) = FnVal $ return . ltRealHof
+  where
+    ltRealHof (RealVal d2)
+      | d1 < d2 = true
+      | otherwise = false
 
 addReal :: Val -> Val
 addReal (RealVal i1) =
-  FnVal $ \(RealVal i2) -> RealVal (i1 + i2)
+  FnVal $ \(RealVal i2) -> return .  RealVal $ i1 + i2
 
 subReal :: Val -> Val
 subReal (RealVal d1) =
-  FnVal $ \(RealVal d2) -> RealVal (d1 - d2)
+  FnVal $ \(RealVal d2) -> return . RealVal $ d1 - d2
 
 mulReal :: Val -> Val
 mulReal (RealVal d1) =
-  FnVal $ \(RealVal d2) -> RealVal (d1 * d2)
+  FnVal $ \(RealVal d2) -> return . RealVal $ d1 * d2
 
 divReal :: Val -> Val
 divReal (RealVal d1) =
-  FnVal $ \(RealVal d2) -> RealVal (d1 / d2)
+  FnVal $ \(RealVal d2) -> return . RealVal $ d1 / d2
 
 absReal :: Val -> Val
 absReal (RealVal d) = RealVal (abs d)
@@ -123,16 +127,18 @@ invReal (RealVal d) = RealVal (1 / d)
 -- Int and Real
 
 ltIntReal :: Val -> Val
-ltIntReal (IntVal i) = FnVal hof
-  where hof (RealVal d)
-          | fromIntegral i < d = true
-          | otherwise = false
+ltIntReal (IntVal i) = FnVal $ return . ltIntRealHof
+  where
+    ltIntRealHof (RealVal d)
+      | fromIntegral i < d = true
+      | otherwise = false
 
 ltRealInt :: Val -> Val
-ltRealInt (RealVal d) = FnVal hof
-  where hof (IntVal i)
-          | d < fromIntegral i = true
-          | otherwise = false
+ltRealInt (RealVal d) = FnVal $ return . ltRealIntHof
+  where
+    ltRealIntHof (IntVal i)
+      | d < fromIntegral i = true
+      | otherwise = false
 
 addIntReal :: Val -> Val
 addIntReal (IntVal i) = addReal (RealVal (fromIntegral i))
@@ -147,56 +153,60 @@ isChar CharVal {} = true
 isChar _ = false
 
 eqChar :: Val -> Val
-eqChar (CharVal c1) = FnVal eqCharHof
-    where eqCharHof (CharVal c2)
-              | c1 == c2 = true
-              | otherwise = false
+eqChar (CharVal c1) = FnVal $ return . eqCharHof
+    where
+      eqCharHof (CharVal c2)
+        | c1 == c2 = true
+        | otherwise = false
 
 ltChar :: Val -> Val
-ltChar (CharVal c1) = FnVal ltCharHof
-    where ltCharHof (CharVal c2)
-              | c1 < c2 = true
-              | otherwise = false
+ltChar (CharVal c1) = FnVal $ return . ltCharHof
+    where
+      ltCharHof (CharVal c2)
+        | c1 < c2 = true
+        | otherwise = false
 
 -- Seq
 
 isTuple :: Val -> Val
-isTuple (SeqVal fns) = FnVal hof
-    where all' [] [] = true
-          all' [] _ = false
-          all' _ [] = false
-          all' (FnVal fn:fns) (val:vals) =
-              let val' = fn val in
-              if isNotFalseVal val' then
-                all' fns vals
-              else
-                false
+isTuple (SeqVal fns) = FnVal isTupleHof
+    where
+      all' [] [] = return true
+      all' [] _ = return false
+      all' _ [] = return false
+      all' (FnVal fn:fns) (val:vals) =
+        do val' <- fn val
+           if isNotFalseVal val'
+             then all' fns vals
+             else return false
 
-          hof (SeqVal vals)
-                   | length fns == length vals = all' fns vals
-                   | otherwise = false
-          hof _ = false
+      isTupleHof (SeqVal vals)
+        | length fns == length vals = all' fns vals
+      isTupleHof _ = return false
 
 isList :: Val -> Val
-isList (FnVal fn1) = FnVal hof
-  where hof (FnVal fn2) = FnVal isList'
-          where isList' (SeqVal (x:xs)) =
-                  let val1 = fn1 x in
-                  if isNotFalseVal val1 then
-                    let val2 = fn2 (SeqVal xs) in
-                    if isNotFalseVal val2 then
-                      true
-                    else
-                      false
-                  else false
-                isList' _ = false
+isList (FnVal fn1) = FnVal isListHof
+  where
+    isListHof (FnVal fn2) = return $ FnVal isListHof'
+      where
+        isListHof' (SeqVal (x:xs)) =
+          do val1 <- fn1 x
+             if isNotFalseVal val1
+               then do
+                 val2 <- fn2 (SeqVal xs)
+                 if isNotFalseVal val2
+                   then return true
+                   else return false
+               else
+                 return false
+        isListHof' _ =
+          return false
 
 null :: Val
 null = SeqVal []
 
 cons :: Val -> Val
-cons val =
-    FnVal $ \(SeqVal vals) -> SeqVal (val:vals)
+cons val = FnVal $ \(SeqVal vals) -> return . SeqVal $ val:vals
 
 hd :: Val -> Val
 hd (SeqVal (val:_)) = val
@@ -218,13 +228,13 @@ isObj _ = false
 
 -- combining forms
 
-apply :: Val -> Val
+apply :: Val -> InterpreterM Val
 apply (SeqVal [FnVal fn, val]) = fn val
 
-
 o :: Val -> Val
-o (FnVal fn1) = FnVal hof
-  where hof (FnVal fn2) = FnVal (fn1 . fn2)
+o (FnVal fn1) = FnVal $ return . oHof
+  where
+    oHof (FnVal fn2) = FnVal $ \val -> fn1 =<< fn2 val
 
 pand :: Val -> Val
 pand val@FnVal {} = val
@@ -255,8 +265,7 @@ por (SeqVal vals) =
 -- environment
 
 m :: (Val -> Val) -> Val
-m = FnVal
-
+m fn = FnVal $ return . fn
 
 fnDesc :: FnDesc
 fnDesc =
@@ -317,7 +326,6 @@ fnDesc =
    ("pand", m pand),
    ("por", m por),
    ("un", m unSharp),
-   ("fix", m fixSharp),
    ("index", m index),
    ("mkCons", m mkCons),
    ("isCons", m isCons),
@@ -327,28 +335,25 @@ fnDesc =
 unSharp :: Val -> Val
 unSharp (TypeVal val) = val
 
-fixSharp :: Val -> Val
-fixSharp (FnVal fn) = FnVal hof
-  where hof val =
-          let FnVal fn' = fn (FnVal hof) in
-          fn' val
-
 index :: Val -> Val
-index (IntVal i) = FnVal hof
-    where hof (SeqVal vals) = vals !! i
+index (IntVal i) = FnVal $ return . indexHof
+  where
+    indexHof (SeqVal vals) = vals !! i
 
 mkCons :: Val -> Val
-mkCons (IntVal typeId) = FnVal hof
-  where hof val = TypeVal $ SeqVal [IntVal typeId, val]
+mkCons (IntVal typeId) = FnVal $ return . mkConsHof
+  where
+    mkConsHof val = TypeVal $ SeqVal [IntVal typeId, val]
 
 unCons :: Val -> Val
 unCons (TypeVal (SeqVal [_, val])) = val
 
 isCons :: Val -> Val
-isCons (IntVal typeId) = FnVal hof
-  where hof (TypeVal (SeqVal [IntVal typeId', _]))
-          | typeId == typeId' = true
-        hof _ = false
+isCons (IntVal typeId) = FnVal $ return . isConsHof
+  where
+    isConsHof (TypeVal (SeqVal [IntVal typeId', _]))
+      | typeId == typeId' = true
+    isConsHof _ = false
 isCons _ = false
 
 link :: Val -> Val

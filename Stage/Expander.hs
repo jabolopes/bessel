@@ -184,95 +184,51 @@ expandMatchBody args pats body =
 expandMatch :: [String] -> [Source] -> Source -> ExpanderM (Expr, Expr)
 expandMatch args pats body =
   (,) <$> andPred <*> expandMatchBody args pats body
-  where applyPred arg pat =
-          do pred <- patPred pat
-             return . AppE pred . Expr.idE $ arg
+  where
+    applyPred arg pat =
+      do pred <- patPred pat
+         return . AppE pred . Expr.idE $ arg
 
-        andPred =
-          foldl1 Expr.andE <$> sequence [ applyPred arg pat | arg <- args | pat <- pats ]
+    andPred =
+      foldl1 Expr.andE <$> sequence [ applyPred arg pat | arg <- args | pat <- pats ]
 
 expandMatches :: [String] -> [([Source], Source)] -> ExpanderM [(Expr, Expr)]
 expandMatches names = loop
-  where loop [] = return []
-        loop ((pats, body):ms) =
-          (:) <$> expandMatch names pats body <*> loop ms
-
-invert :: [[a]] -> [[a]]
-invert xs =
-  let cols = length $ head xs in
-  [ column c xs | c <- [0..cols - 1] ]
   where
-    column n = map (head . drop n)
-
-expandLambda :: [String] -> [[Source]] -> [Expr] -> String -> ExpanderM Expr
-expandLambda args patss branches blame =
-  genLambda args patss
-  where
-    condPred arg pat =
-      AppE <$> patPred pat <*> return (Expr.idE arg)
-
-    condMatches _ [] [] = return []
-    condMatches arg (pat:pats) (branch:branches) =
-      do pred <- condPred arg pat
-         (:) <$> return (pred, branch) <*> condMatches arg pats branches
-
-    genLambda (arg:args) (pats:patss) =
-      do branches' <-
-             case args of
-               [] -> return branches
-               _ -> sequence $ replicate (length pats) (genLambda args patss)
-         LambdaE arg <$>
-           (CondE <$>
-             condMatches arg pats branches' <*> return blame)
+    loop [] = return []
+    loop ((pats, body):ms) =
+      (:) <$> expandMatch names pats body <*> loop ms
 
 expandCond :: [([Source], Source)] -> String -> ExpanderM Expr
 expandCond matches blame =
   do let args = head . fst . unzip $ matches
-         patss = invert $ map fst matches
      case checkMatches (length args) matches of
        Left err -> throwError err
        Right () ->
          do argNames <- genPatNames args
-            branches <- condBranches argNames
-            expandLambda argNames patss branches blame
-  where checkMatches _ [] = Right ()
-        checkMatches n ((args, _):matches')
-          | length args == n = checkMatches n matches'
-          | otherwise = Left . Pretty.condMatchPatternsMismatch . Pretty.docCond $ matches
+            matches' <- expandMatches argNames matches
+            return . lambdas argNames . CondE matches' $ blame
+  where
+    checkMatches _ [] = Right ()
+    checkMatches n ((args, _):matches')
+      | length args == n = checkMatches n matches'
+      | otherwise = Left . Pretty.condMatchPatternsMismatch . Pretty.docCond $ matches
 
-        condBranches args =
-          sequence [ expandMatchBody args pats branch | (pats, branch) <- matches ]
+    lambdas [] body = body
+    lambdas (arg:args) body =
+      LambdaE arg (lambdas args body)
 
 -- /expand CondM
 
 -- expand FnDeclM
 
--- |
--- @
--- def fn : ...
---   x@ = ... fn ...
--- @
---
--- @
--- def fn : ...
---   = fix# (gen#@ x@ = ... gen# ...)
--- @
-fixDecl :: String -> Expr -> Either PrettyString Expr
-fixDecl name body =
-  do FnDecl _ name' body' <- Renamer.renameDeclaration (FnDecl Def name body)
-     let argBody = LambdaE name' body'
-         declBody = Expr.appE "fix#" argBody
-     return $ FnDecl NrDef name declBody
-
-expandFnDecl :: String -> Expr -> ExpanderM Expr
+expandFnDecl :: String -> Expr -> Expr
 expandFnDecl name body =
-  do if name `elem` Expr.freeVars body
-     then
-       case fixDecl name body of
-         Left err -> throwError err
-         Right x -> return x
-     else
-       return $ FnDecl NrDef name body
+  let
+    kw | name `elem` Expr.freeVars body = Def
+       | otherwise = NrDef
+  in
+   FnDecl kw name body
 
 -- /expand FnDeclM
 
@@ -368,12 +324,12 @@ expandSource (CondS ms) =
   Utils.returnOne $ expandCond ms "lambda"
 -- Expand FnDeclS together with CondS to get the correct blame.
 expandSource (FnDeclS name (CondS ms)) =
-  Utils.returnOne $ expandFnDecl name =<< expandCond ms name
+  Utils.returnOne $ expandFnDecl name <$> expandCond ms name
 -- Expand FnDeclS together with WhereS to get the correct blame.
 expandSource (FnDeclS name src@(WhereS CondS {} _)) =
-  Utils.returnOne $ expandFnDecl name =<< expandCond (expandWhereCondMatches src) name
+  Utils.returnOne $ expandFnDecl name <$> expandCond (expandWhereCondMatches src) name
 expandSource (FnDeclS name body) =
-  Utils.returnOne $ expandFnDecl name =<< expandOne body
+  Utils.returnOne $ expandFnDecl name <$> expandOne body
 expandSource (IdS name) =
   Utils.returnOne . return . Expr.IdE $ name
 expandSource (IntS n) =

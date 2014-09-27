@@ -1,18 +1,21 @@
 module Monad.InterpreterM where
 
+import Control.Applicative ((<$>))
 import Control.Monad.State
 import Data.Dynamic (Typeable, Dynamic)
 import qualified Data.Dynamic as Dynamic (fromDynamic, toDyn)
+import Data.IORef
 import qualified Data.List as List (intercalate)
 
 import Data.Env (Env)
 import qualified Data.Env as Env
+import Data.Expr (Expr)
 
 data Val
     = BoolVal Bool
     | CharVal Char
     | DynVal Dynamic
-    | FnVal (Val -> Val)
+    | FnVal (Val -> InterpreterM Val)
     | IntVal Int
     | IOVal (IO Val)
     | RealVal Double
@@ -69,14 +72,14 @@ unboxString val =
     error $ "Monad.InterpreterM.unboxString: expecting character sequence" ++
             "\n\n\t val = " ++ show val ++ "\n\n"
 
-type InterpreterM a = State (Env Val) a
+type InterpreterM a = StateT (Env (IORef Val)) IO a
 
 withEnvM :: InterpreterM a -> InterpreterM a
 withEnvM m =
   do env <- get
      withLexicalEnvM env m
 
-withLexicalEnvM :: Env Val -> InterpreterM a -> InterpreterM a
+withLexicalEnvM :: Env (IORef Val) -> InterpreterM a -> InterpreterM a
 withLexicalEnvM env m =
   do env' <- get
      put $ Env.push env
@@ -87,9 +90,19 @@ withLexicalEnvM env m =
 addBindM :: String -> Val -> InterpreterM ()
 addBindM name val =
   do env <- get
-     put $ Env.addBind env name val
+     ref <- liftIO $ newIORef val
+     put $ Env.addBind env name ref
+
+replaceBindM :: String -> Val -> InterpreterM ()
+replaceBindM name val =
+  do env <- get
+     case Env.findBind env name of
+       Nothing -> error $ "Bind " ++ name ++ " does not exist"
+       Just ref -> liftIO (writeIORef ref val)
 
 findBindM :: String -> InterpreterM (Maybe Val)
 findBindM name =
   do env <- get
-     return $ Env.findBind env name
+     case Env.findBind env name of
+       Nothing -> return Nothing
+       Just ref -> Just <$> liftIO (readIORef ref)

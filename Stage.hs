@@ -2,6 +2,8 @@ module Stage where
 
 import Prelude hiding (mod)
 
+import Control.Applicative ((<$>))
+
 import Data.Definition (Definition(..))
 import qualified Data.Definition as Definition
 import Data.Expr (Expr(..))
@@ -71,18 +73,24 @@ renameSnippet fs def =
     Left err -> Left err
     Right x -> Right x
 
-stageDefinition :: FileSystem -> String -> Either PrettyString (FileSystem, [Definition])
+stageDefinition :: FileSystem -> String -> IO (Either PrettyString (FileSystem, [Definition]))
 stageDefinition fs ln =
-  do macro <- case Parser.parseRepl Module.interactiveName ln of
-                Left err -> Left (PrettyString.text err)
-                Right x -> Right x
-     let interactive = FileSystem.get fs Module.interactiveName
-         def = mkSnippet fs macro
-     expDefs <- expandDefinition interactive def
-     renDefs <- mapM (renameSnippet fs) expDefs
-     let evalDefs = map (Interpreter.interpretDefinition fs) renDefs
-         interactive' = Module.ensureDefinitions interactive evalDefs
-     return (FileSystem.add fs interactive', evalDefs)
+  case stage of
+    Left err -> return $ Left err
+    Right (renDefs, interactive) -> do
+      evalDefs <- mapM (Interpreter.interpretDefinition fs) renDefs
+      let interactive' = Module.ensureDefinitions interactive evalDefs
+      return $ Right (FileSystem.add fs interactive', evalDefs)
+  where
+    stage =
+      do macro <- case Parser.parseRepl Module.interactiveName ln of
+                    Left err -> Left (PrettyString.text err)
+                    Right x -> Right x
+         let interactive = FileSystem.get fs Module.interactiveName
+             def = mkSnippet fs macro
+         expDefs <- expandDefinition interactive def
+         renDefs <- mapM (renameSnippet fs) expDefs
+         Right (renDefs, interactive)
 
 -- * Modules
 
@@ -117,15 +125,19 @@ renameModule fs mod =
   do mod' <- Renamer.rename fs mod
      return (FileSystem.add fs mod', mod')
 
-interpretModule :: FileSystem -> Module -> (FileSystem, Module)
+interpretModule :: FileSystem -> Module -> IO (FileSystem, Module)
 interpretModule fs mod =
-  let mod' = Interpreter.interpret fs mod in
-  (FileSystem.add fs mod', mod')
+  do mod' <- Interpreter.interpret fs mod
+     return (FileSystem.add fs mod', mod')
 
-stageModule :: FileSystem -> Module -> Either PrettyString (FileSystem, Module)
+stageModule :: FileSystem -> Module -> IO (Either PrettyString (FileSystem, Module))
 stageModule fs mod =
-  do (reordFs, reordMod) <- reorderModule fs mod
-     (expFs, expMod) <- expandModule reordFs reordMod
-     (renFs, renMod) <- renameModule expFs expMod
-     let (evalFs, evalMod) = interpretModule renFs renMod
-     return (evalFs, evalMod)
+  case stage of
+    Left err -> return $ Left err
+    Right (renFs, renMod) -> do
+      Right <$> interpretModule renFs renMod
+  where
+    stage =
+      do (reordFs, reordMod) <- reorderModule fs mod
+         (expFs, expMod) <- expandModule reordFs reordMod
+         renameModule expFs expMod

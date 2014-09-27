@@ -5,6 +5,7 @@ import Prelude hiding (mod, pred)
 
 import Control.Monad.State
 import Data.Functor ((<$>))
+import Data.IORef
 import qualified Data.Map as Map (fromList)
 import Data.Maybe (catMaybes, isNothing, isJust, mapMaybe)
 import Data.Either (lefts, rights)
@@ -35,7 +36,8 @@ evalM (AppE expr1 expr2) =
     do val1 <- evalM expr1
        val2 <- evalM expr2
        case val1 of
-         FnVal fn -> return (fn val2)
+         FnVal fn -> fn val2
+
          _ -> error $ "Interpreter.evalM(AppE): application of non-functions must be detected by the renamer" ++
                       "\n\n\t expr1 = " ++ show expr1 ++
                       "\n\n\t -> val1 = " ++ show val1 ++
@@ -50,8 +52,11 @@ evalM (CondE ms blame) = evalMatches ms
                  case pred' of
                    BoolVal False -> evalMatches xs
                    _ -> evalM val
-evalM (FnDecl Def _ _) =
-  error "Interpreter.evalM(FnDecl Def ...): recursive functions must be eliminated in previous stages"
+evalM (FnDecl Def str body) =
+  do addBindM str (FnVal (\_ -> error "loop"))
+     val <- evalM body
+     replaceBindM str val
+     return val
 evalM (FnDecl NrDef str body) =
   do val <- evalM body
      addBindM str val
@@ -59,13 +64,11 @@ evalM (FnDecl NrDef str body) =
 evalM (LambdaE arg body) =
   do env <- get
      return . FnVal $ closure env
-  where closure env val =
-          let
-            m = withLexicalEnvM env $ do
-                  addBindM arg val
-                  withEnvM (evalM body)
-          in
-            fst (runState m env)
+  where
+    closure env val =
+      withLexicalEnvM env $ do
+        addBindM arg val
+        evalM body
 evalM (LetE defn body) =
   withEnvM $ do
     _ <- evalM defn
@@ -81,7 +84,7 @@ freeNameDefinitions fs def =
   else
     error "Interpreter.freeNamesDefinitions: undefined free variables must be caught in previous stages"
 
-interpretDefinition :: FileSystem -> Definition -> Definition
+interpretDefinition :: FileSystem -> Definition -> IO Definition
 interpretDefinition fs def@Definition { defRen = Right expr } =
   do let defs = freeNameDefinitions fs def
      case (filter isNothing (map Definition.defSym defs), lefts (map Definition.defVal defs)) of
@@ -89,28 +92,27 @@ interpretDefinition fs def@Definition { defRen = Right expr } =
          let
            syms = mapMaybe Definition.defSym defs
            vals = rights (map Definition.defVal defs)
-           -- edit: fix: why FnSymbol ?
-           env = Map.fromList [ (sym, v) | FnSymbol sym <- syms | v <- vals ]
-           val = fst $ runState (evalM expr) (Env.initial env)
          in
-           def { defVal = Right val }
+          do -- edit: fix: why FnSymbol ?
+             env <- Map.fromList <$> sequence [ do ref <- newIORef v
+                                                   return (sym, ref) | FnSymbol sym <- syms | v <- vals ]
+             val <- fst <$> runStateT (evalM expr) (Env.initial env)
+             return def { defVal = Right val }
        _ ->
-         def { defVal = Left "definition depends on free names that failed to evaluate" }
-interpretDefinition _ def = def
+         return def { defVal = Left "definition depends on free names that failed to evaluate" }
+interpretDefinition _ def = return def
 
-interpretDefinitions :: FileSystem -> Module -> [Definition] -> Module
-interpretDefinitions _ mod [] = mod
+interpretDefinitions :: FileSystem -> Module -> [Definition] -> IO Module
+interpretDefinitions _ mod [] = return mod
 interpretDefinitions fs mod (def:defs) =
-  either
-    (const $ interpretDefinitions fs mod defs)
-    (let
-      def' = interpretDefinition fs def
-      mod' = Module.ensureDefinitions mod [def']
-      fs' = FileSystem.add fs mod'
-     in
-       const $ interpretDefinitions fs' mod' defs)
-    (Definition.defRen def)
+  case Definition.defRen def of
+    Left _ -> interpretDefinitions fs mod defs
+    Right _ ->
+      do def' <- interpretDefinition fs def
+         let mod' = Module.ensureDefinitions mod [def']
+             fs' = FileSystem.add fs mod'
+         interpretDefinitions fs' mod' defs
 
-interpret :: FileSystem -> Module -> Module
-interpret _ mod@Module { modType = CoreT } = mod
+interpret :: FileSystem -> Module -> IO Module
+interpret _ mod@Module { modType = CoreT } = return mod
 interpret fs mod = interpretDefinitions fs mod (Module.defsAsc mod)
