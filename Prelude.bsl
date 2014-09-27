@@ -15,7 +15,7 @@ def false false#
 def eqBool eqBool#
 
 def not id = false
-      | @ = true
+      | @  = true
 
 -- Int
 
@@ -84,7 +84,8 @@ def eq
 | x@isInt  y@isInt  = eqInt x y
 | x@isReal y@isReal = eqReal x y
 | x@isChar y@isChar = eqChar x y
--- | x@[isDyn] y@[isDyn] = eqSeq x y
+| x@ y@ = eqSeq x y
+--| x@[isDyn] y@[isDyn] = eqSeq x y
 | @ @ = false
   where {
     def eqSeq
@@ -196,7 +197,7 @@ def length
 | (@ +> xs@) = length xs + 1
 
 -- def reverse
---   @[] = []
+--   [] = []
 -- | (x@ +> xs@) = reverse xs <+ x
 
 def ola
@@ -228,6 +229,10 @@ def ola2 Apple 2
 def adeus1 (Apple x@) = x
 def adeus2 (Apple x@ y@) = x
 def adeus3 (Apple x@isInt) = x
+
+def pol
+  x@0 = 0
+| x@  = pol (x - 1) + 1
 
 def one
   x@1 = 1

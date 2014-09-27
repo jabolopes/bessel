@@ -1,14 +1,40 @@
-{-# LANGUAGE DeriveDataTypeable, FlexibleInstances, TypeSynonymInstances #-}
+{-# LANGUAGE DeriveDataTypeable, FlexibleInstances, TypeSynonymInstances,
+  OverloadedStrings, TupleSections #-}
 module Core.Happstack where
 
+import Control.Applicative ((<$>))
 import Data.Typeable (Typeable)
+import qualified System.Directory as Directory
+import Control.Monad.IO.Class (liftIO)
+import System.FilePath ((</>))
+
+import Data.ByteString (ByteString)
+import qualified Data.ByteString as ByteString
+import qualified Data.ByteString.Char8 as ByteStringChar8
+
+import System.IO
+import Control.Exception
+
+import qualified Data.List as List (find, lookup)
+
+import qualified Network.HaskellNet.IMAP as IMAP
+import qualified Network.HaskellNet.IMAP.SSL as IMAP
+
+import Data.MBox (Message)
+import qualified Data.MBox as MBox
+
+import qualified Data.Text as Text
+import qualified Data.Text.IO as Text (readFile)
 
 import Happstack.Lite (ServerPart, Response, Browsing(..), msum)
 import qualified Happstack.Lite as Happstack
 import qualified Happstack.Server as Server (uriRest)
 
+import Happstack.Lite (Method(..), ok, method)
+
 import qualified Text.Blaze.Internal as Blaze (string)
 import Text.Blaze.Html5 hiding (head, map)
+import qualified Text.Blaze.Html5.Attributes as A
 import qualified Text.Blaze.Html5 as Html
 
 import qualified Core as Core
@@ -59,11 +85,10 @@ unSingleTag _ =
 
 applyAttribute :: Val -> Val
 applyAttribute tag
-  | isTag tag || isSingleTag tag = FnVal hof
-  | otherwise =
-    happstackError "applyAttribute: expected tag or single tag as first argument"
+  | isTag tag || isSingleTag tag = FnVal $ return . hof
+  | otherwise = happstackError "applyAttribute: expected tag or single tag as first argument"
   where
-    hof attr = FnVal hof'
+    hof attr = FnVal $ return . hof'
       where
         apply tag attr val =
           tag ! customAttribute attr val
@@ -80,9 +105,8 @@ applyAttribute tag
 
 applyTag :: Val -> Val
 applyTag tag1
-  | isTag tag1 = FnVal hof
-  | otherwise = 
-    happstackError "applyTag: expected tag as first argument"
+  | isTag tag1 = FnVal $ return . hof
+  | otherwise =  happstackError "applyTag: expected tag as first argument"
   where hof tag2
           | isSingleTag tag2 =
             let
@@ -95,7 +119,7 @@ applyTag tag1
 
 applyList :: Val -> Val
 applyList tag
-  | isTag tag = FnVal hof
+  | isTag tag = FnVal $ return . hof
   | otherwise =
     happstackError "applyList: expected tag as first argument"
   where hof (SeqVal tags)
@@ -154,11 +178,27 @@ serveDirectory val
   | otherwise =
     happstackError $ "serveDirectory: expected string as first argument"
 
-serveApp :: Val -> Val
+mailBox :: FilePath
+mailBox = "/home/jose/Projects/bessel/dist/data/mail"
+
+mailSpool :: FilePath
+mailSpool = "/var/spool/mail/jose"
+
+storageDir :: FilePath
+storageDir = "/home/jose/Projects/bessel/dist/data/storage"
+
+serveApp :: Val -> InterpreterM Val
 serveApp (FnVal fn) =
+  return .
   IOVal $ do
     Happstack.serve Nothing $
-      msum [ Server.uriRest (runMonadVal . fn . boxString)
+      msum [ imap
+           -- , mail mailBox mailSpool
+           -- , storage storageDir
+           -- , upload storageDir
+           , Happstack.dir "web" $ Server.uriRest (\uri -> do val <- fn $ boxString uri
+                                                           runMonadVal <$> fn (boxString uri))
+           , top
            ]
     return $ SeqVal []
 serveApp _ =
@@ -272,12 +312,221 @@ fnDesc =
    ("var"         , mkTag Html.var),
    ("video"       , mkTag Html.video),
 
-   ("serveApp"    , FnVal serveApp),
-   ("serveDirectory" , FnVal serveDirectory),
-   ("string"      , FnVal string),
-   ("applyAttribute", FnVal applyAttribute),
-   ("applyTag", FnVal applyTag),
-   ("applyList", FnVal applyList)]
+   ("serveApp"    , primitive serveApp),
+   ("serveDirectory" , primitive serveDirectory),
+   ("string"      , primitive string),
+   ("applyAttribute", primitive applyAttribute),
+   ("applyTag", primitive applyTag),
+   ("applyList", primitive applyList)]
 
 happstackModule :: Module
 happstackModule = mkCoreModule happstackName ["Core"] fnDesc
+
+template :: String -> Html -> Response
+template title body = Happstack.toResponse $
+  Html.html $ do
+    Html.head $ do
+      Html.title (toHtml title)
+    Html.body $ do
+      body
+      Html.p $ Html.a ! A.href "/" $ "back home"
+
+top :: ServerPart Response
+top =
+  ok $ template "Top" $ do
+    Html.p $ Html.a ! A.href "web" $ "Web"
+    Html.p $ Html.a ! A.href "mail" $ "Mail"
+    Html.p $ Html.a ! A.href "storage" $ "Storage"
+    Html.p $ Html.a ! A.href "upload" $ "Upload"
+
+upload :: FilePath -> ServerPart Response
+upload dir =
+  Happstack.dir "upload" $
+  msum [ uploadForm
+       , handleUpload
+       ]
+  where
+    uploadForm :: ServerPart Response
+    uploadForm =
+        do method GET
+           ok $ template "upload form" $ do
+             Html.form ! A.enctype "multipart/form-data" ! A.method "POST" ! A.action "/upload" $ do
+               Html.input ! A.type_ "file" ! A.name "file_upload" ! A.size "40"
+               Html.input ! A.type_ "submit" ! A.value "upload"
+
+    handleUpload :: ServerPart Response
+    handleUpload =
+        do (tmpFile, uploadName, contentType) <- Happstack.lookFile "file_upload"
+           liftIO $ Directory.renameFile tmpFile (dir </> uploadName)
+           ok $ template "file uploaded" $ do
+                p (toHtml $ "temporary file: " ++ tmpFile)
+                p (toHtml $ "uploaded name:  " ++ uploadName)
+                p (toHtml $ "content-type:   " ++ show contentType)
+                p (toHtml $ "permanent file: " ++ (dir </> uploadName))
+
+-- getHeader :: Message -> String -> Maybe String
+-- getHeader msg hd = show . snd <$> (List.find headerFn . MBox.headers $ msg)
+--   where headerFn (x, _)
+--           | x == Text.pack hd = True
+--           | otherwise = False
+
+-- messageHtml :: Message -> Maybe Html
+-- messageHtml msg =
+--   do to <- getHeader msg "To"
+--      from <- getHeader msg "From"
+--      subject <- getHeader msg "Subject"
+--      date <- getHeader msg "Date"
+--      let body = Text.unpack $ MBox.body msg
+--      return $ do
+--        Html.p $ do
+--          toHtml to
+--          Html.br
+--          toHtml from
+--          Html.br
+--          toHtml subject
+--          Html.br
+--          toHtml date
+--          Html.br
+--          Html.br
+--          toHtml body
+
+-- maybeMessageHtml :: Message -> Html
+-- maybeMessageHtml msg =
+--   case messageHtml msg of
+--     Nothing -> toHtml . map (Html.p . toHtml . Text.unpack . fst) . MBox.headers $ msg
+--     Just x -> x
+
+-- mail :: FilePath -> FilePath -> ServerPart Response
+-- mail mailbox mailspool =
+--   Happstack.dir "mail" $ do
+--     liftIO $ do
+--       str <- readFile mailspool
+--       appendFile mailbox str
+--       writeFile mailspool ""
+--     str <- liftIO $ do
+--       txt <- Text.readFile mailbox
+--       let mbox = MBox.parseMBox txt
+--       return $ map maybeMessageHtml mbox
+--     ok $ template "mail" $ do
+--       toHtml str
+
+storage :: FilePath -> ServerPart Response
+storage dir =
+  Happstack.dir "storage" $
+    Happstack.serveDirectory EnableBrowsing [] dir
+
+imapServer :: String
+imapServer = "imap-mail.outlook.com"
+
+imapUsername :: String
+imapUsername = "jabolopes@live.com.pt"
+
+imapPassword :: String
+imapPassword = "movepola123"
+
+withEcho :: Bool -> IO a -> IO a
+withEcho echo action = do
+  old <- hGetEcho stdin
+  bracket_ (hSetEcho stdin echo) (hSetEcho stdin old) action
+
+getPassword :: IO String
+getPassword = do
+  putStr "Password: "
+  hFlush stdout
+  pass <- withEcho False getLine
+  putChar '\n'
+  return pass
+
+breakSubstring :: ByteString -> ByteString -> (ByteString, ByteString)
+breakSubstring pat str =
+  case ByteString.breakSubstring pat str of
+    (x, y) | ByteString.isPrefixOf pat y ->
+      (x,) $ ByteString.drop (ByteString.length pat) y
+    x -> x
+
+parseImapMessage :: ByteString -> Maybe (ByteString, ByteString)
+parseImapMessage msg =
+  case ByteString.breakSubstring unixNewline (normalizeMsg msg) of
+    (_, "") -> Nothing
+    (hds, env) | ByteString.isPrefixOf unixNewline env ->
+      Just . (hds,) $ ByteString.drop (ByteString.length unixNewline) env
+    (hds, env) ->
+      Just (hds, env)
+  where unixNewline = ByteStringChar8.pack "\n\n"
+        normalizeMsg = ByteStringChar8.filter (/= '\r')
+
+headerImapMessage :: String -> ByteString -> Maybe String
+headerImapMessage name hds =
+  ByteStringChar8.unpack <$>
+    (List.lookup (ByteStringChar8.pack name) .
+      map (breakSubstring ":") .
+        ByteStringChar8.lines $ hds)
+
+imapMessageHtml :: ByteString -> Maybe Html
+imapMessageHtml msg =
+  do (hds, env) <- parseImapMessage msg
+     to <- headerImapMessage "To" hds
+     from <- headerImapMessage "From" hds
+     subject <- headerImapMessage "Subject" hds
+     date <- headerImapMessage "Date" hds
+     let body = Html.contents $ Html.unsafeByteString env
+     return $ do
+       Html.p $ do
+         toHtml to
+         Html.br
+         toHtml from
+         Html.br
+         toHtml subject
+         Html.br
+         toHtml date
+         Html.br
+         Html.br
+         body
+
+maybeImapMessageHtml :: ByteString -> Html
+maybeImapMessageHtml msg =
+  case imapMessageHtml msg of
+    Nothing -> Html.p . toHtml . ByteStringChar8.unpack $ msg
+    Just x -> x
+
+mailImap :: IO [ByteString]
+mailImap = do
+  con <- IMAP.connectIMAPSSL imapServer
+
+  IMAP.login con imapUsername imapPassword
+  -- mboxes <- IMAP.list con
+
+  IMAP.examine con "INBOX"
+  msgs <- IMAP.search con [IMAP.ALLs]
+
+  mapM (IMAP.fetch con) msgs
+
+imap :: ServerPart Response
+imap =
+  Happstack.dir "imap" $ do
+    msgs <- liftIO mailImap
+    ok $ template "imap" $
+      toHtml $ map maybeImapMessageHtml msgs
+
+-- Happstack.dir "storage" list
+--   where
+--     blacklist = [".", ".."]
+
+--     list =
+--       do files <- liftIO (Directory.getDirectoryContents dir)
+--          ok $ template "list of files" $
+--            toHtml $
+--              map (Html.p . toHtml) $
+--                filter (`notElem` blacklist) files
+
+--     get file =
+--       do res <- liftIO (Directory.doesFileExist file)
+--          if res
+--          then
+--            ok $ template "download file" $
+--               undefined
+--          else  
+--            ok $ template "download file" $
+--               p $
+--                 toHtml $
+--                   "File " ++ file ++ " does not exist"

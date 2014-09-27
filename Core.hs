@@ -236,101 +236,96 @@ o (FnVal fn1) = FnVal $ return . oHof
   where
     oHof (FnVal fn2) = FnVal $ \val -> fn1 =<< fn2 val
 
-pand :: Val -> Val
-pand val@FnVal {} = val
-pand (SeqVal vals) =
-    FnVal $ \val -> andHof val vals
-    where andHof _ [] = true
-          andHof val [FnVal fn] = fn val
-          andHof val (FnVal fn:vals) =
-              let val' = fn val in
-              if isFalseVal val' then
-                false
-              else
-                andHof val vals
+-- pand :: Val -> Val
+-- pand val@FnVal {} = val
+-- pand (SeqVal vals) =
+--     FnVal $ \val -> andHof val vals
+--     where andHof _ [] = true
+--           andHof val [FnVal fn] = fn val
+--           andHof val (FnVal fn:vals) =
+--               let val' = fn val in
+--               if isFalseVal val' then
+--                 false
+--               else
+--                 andHof val vals
 
-por :: Val -> Val
-por val@FnVal {} = val
-por (SeqVal vals) =
-    FnVal $ \val -> orHof val vals
-    where orHof _ [] = false
-          orHof val [FnVal fn] = fn val
-          orHof val (FnVal fn:vals) =
-              let val' = fn val in
-              if isFalseVal val' then
-                orHof val vals
-              else
-                true
+-- por :: Val -> Val
+-- por val@FnVal {} = val
+-- por (SeqVal vals) =
+--     FnVal $ \val -> orHof val vals
+--     where orHof _ [] = false
+--           orHof val [FnVal fn] = fn val
+--           orHof val (FnVal fn:vals) =
+--               let val' = fn val in
+--               if isFalseVal val' then
+--                 orHof val vals
+--               else
+--                 true
 
 -- environment
-
-m :: (Val -> Val) -> Val
-m fn = FnVal $ return . fn
 
 fnDesc :: FnDesc
 fnDesc =
   map ((++ "#") *** id)
   [-- Bool
-   ("isBool", m isBool),
+   ("isBool", primitive isBool),
    ("false", false),
    ("true", true),
-   ("eqBool", m eqBool),
+   ("eqBool", primitive eqBool),
    -- Int
-   ("isInt", m isInt),
-   ("eqInt", m eqInt),
-   ("ltInt", m ltInt),
-   ("addInt", m addInt),
-   ("subInt", m subInt),
-   ("mulInt", m mulInt),
-   ("divInt", m divInt),
-   ("absInt", m absInt),
-   ("negInt", m negInt),
-   ("invInt", m invInt),
-   ("remInt", m remInt),
+   ("isInt", primitive isInt),
+   ("eqInt", primitive eqInt),
+   ("ltInt", primitive ltInt),
+   ("addInt", primitive addInt),
+   ("subInt", primitive subInt),
+   ("mulInt", primitive mulInt),
+   ("divInt", primitive divInt),
+   ("absInt", primitive absInt),
+   ("negInt", primitive negInt),
+   ("invInt", primitive invInt),
+   ("remInt", primitive remInt),
    -- Real
-   ("isReal", m isReal),
-   ("eqReal", m eqReal),
-   ("ltReal", m ltReal),
-   ("addReal", m addReal),
-   ("subReal", m subReal),
-   ("mulReal", m mulReal),
-   ("divReal", m divReal),
-   ("absReal", m absReal),
-   ("ceilingReal", m ceilingReal),
-   ("floorReal", m floorReal),
-   ("negReal", m negReal),
-   ("invReal", m invReal),
+   ("isReal", primitive isReal),
+   ("eqReal", primitive eqReal),
+   ("ltReal", primitive ltReal),
+   ("addReal", primitive addReal),
+   ("subReal", primitive subReal),
+   ("mulReal", primitive mulReal),
+   ("divReal", primitive divReal),
+   ("absReal", primitive absReal),
+   ("ceilingReal", primitive ceilingReal),
+   ("floorReal", primitive floorReal),
+   ("negReal", primitive negReal),
+   ("invReal", primitive invReal),
    -- Int and Real
-   ("ltIntReal", m ltIntReal),
-   ("ltRealInt", m ltRealInt),
-   ("addIntReal", m addIntReal),
-   ("mulIntReal", m mulIntReal),
+   ("ltIntReal", primitive ltIntReal),
+   ("ltRealInt", primitive ltRealInt),
+   ("addIntReal", primitive addIntReal),
+   ("mulIntReal", primitive mulIntReal),
    -- Char
-   ("isChar", m isChar),
-   ("eqChar", m eqChar),
-   ("ltChar", m ltChar),
+   ("isChar", primitive isChar),
+   ("eqChar", primitive eqChar),
+   ("ltChar", primitive ltChar),
    -- Seq
-   ("isTuple", m isTuple),
-   ("isList", m isList),
+   ("isTuple", primitive isTuple),
+   ("isList", primitive isList),
    ("null", null),
-   ("cons", m cons),
-   ("hd", m hd),
-   ("tl", m tl),
+   ("cons", primitive cons),
+   ("hd", primitive hd),
+   ("tl", primitive tl),
    -- Fn
-   ("isFn", m isFn),
+   ("isFn", primitive isFn),
    -- Obj
-   ("isObj", m isObj),
+   ("isObj", primitive isObj),
    -- combining forms
    ("apply", FnVal apply),
-   ("o", m o),
-   ("pand", m pand),
-   ("por", m por),
-   ("un", m unSharp),
-   ("index", m index),
-   ("mkCons", m mkCons),
-   ("isCons", m isCons),
-   ("unCons", m unCons),
-   ("link", m link)]
+   ("o", primitive o),
+   ("un", primitive unSharp),
+   ("index", primitive index),
+   ("mkCons", primitive mkCons),
+   ("isCons", primitive isCons),
+   ("unCons", primitive unCons),
+   ("link", primitive link)]
 
 unSharp :: Val -> Val
 unSharp (TypeVal val) = val

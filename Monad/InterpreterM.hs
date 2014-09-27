@@ -72,6 +72,9 @@ unboxString val =
     error $ "Monad.InterpreterM.unboxString: expecting character sequence" ++
             "\n\n\t val = " ++ show val ++ "\n\n"
 
+primitive :: (Val -> Val) -> Val
+primitive fn = FnVal $ return . fn
+
 type InterpreterM a = StateT (Env (IORef Val)) IO a
 
 withEnvM :: InterpreterM a -> InterpreterM a
