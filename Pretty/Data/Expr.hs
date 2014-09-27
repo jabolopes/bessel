@@ -1,7 +1,8 @@
 module Pretty.Data.Expr where
 
 import Data.Expr
-import Data.PrettyString (PrettyString, (<>), (<+>), ($$), ($+$))
+import qualified Data.QualName as QualName
+import Data.PrettyString (PrettyString, (<>), (<+>), ($+$))
 import qualified Data.PrettyString as PrettyString
 
 -- edit: is this unused?
@@ -43,7 +44,7 @@ docExpr t (FnDecl kw name body) =
   PrettyString.sep [kwDoc kw <+> PrettyString.text name, PrettyString.nest (docExpr t body)]
   where kwDoc Def = PrettyString.text "def"
         kwDoc NrDef = PrettyString.text "nrdef"
-docExpr _ (IdE name) = PrettyString.text (show name)
+docExpr _ (IdE name) = PrettyString.text (QualName.fromQualName name)
 docExpr _ (IntE i) = PrettyString.int i
 docExpr t (LetE defn body) =
   PrettyString.sep
@@ -54,3 +55,13 @@ docExpr t (LambdaE arg body) =
 docExpr _ MergeE {} =
   error "Doc.Expr.docExpr: unhandled case for MergeE"
 docExpr _ (RealE d) = PrettyString.double d
+
+-- PrettyString for a list of 'Expr's.
+docExprList :: [Expr] -> PrettyString
+docExprList [] = PrettyString.text "[]"
+docExprList (src:srcs) =
+  PrettyString.sep .
+  (++ [PrettyString.text "]"]) .
+  PrettyString.intercalate (PrettyString.text ",") $
+  ((PrettyString.text "[" <+> docExpr ExpDocT src):) $
+  map (\src -> PrettyString.text "," <+> docExpr ExpDocT src) srcs

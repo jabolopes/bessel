@@ -12,24 +12,25 @@ import qualified Data.Expr as Expr
 import Data.QualName (QualName)
 import qualified Data.QualName as QualName (fromQualName, isTypeName)
 import Data.PrettyString (PrettyString)
+import qualified Data.PrettyString as PrettyString
 import Data.Source
 import Monad.NameM (NameM)
 import qualified Monad.Utils as Utils (returnOne)
 import qualified Monad.NameM as NameM
-import qualified Pretty.Stage.Expander as Pretty
 import qualified Pretty.Data.Source as Pretty
-import qualified Stage.Renamer as Renamer
+import qualified Pretty.Stage.Expander as Pretty
 
 type ExpanderM a = NameM (Either PrettyString) a
 
 genPatNames :: [Source] -> ExpanderM [String]
 genPatNames = mapM genPatName
-  where genName name
-          | null name = NameM.genNameM "arg"
-          | otherwise = NameM.genNameM name
+  where
+    genName name
+      | null name = NameM.genNameM "arg"
+      | otherwise = NameM.genNameM name
 
-        genPatName (PatS binder _) = genName binder
-        genPatName _ = genName ""
+    genPatName (PatS binder _) = genName binder
+    genPatName _ = genName ""
 
 -- | Generates a function definition for a pattern, given the
 -- pattern's @binder@ and @mods@
@@ -63,34 +64,40 @@ isTypeGuard _ = False
 -- @
 patDefns :: Expr -> Source -> [Expr]
 patDefns val = sourceDefns []
-  where sourceDefns mods src
-          | isTypeGuard src =
-            concatMap (sourceDefns (Expr.idE "unCons#":mods)) $ tail . appToList $ src
-        sourceDefns mods (BinOpS "+>" hdPat tlPat) =
-          sourceDefns (Expr.idE "hd":mods) hdPat ++
-          sourceDefns (Expr.idE "tl":mods) tlPat
-        sourceDefns mods (PatS binder guard) =
-          hdDefn ++ tlDefn
-          where hdDefn =
-                  case binder of
-                    "" -> []
-                    _ -> (:[]) $ patFnDecl binder mods val
+  where
+    sourceDefns mods src
+      | isTypeGuard src =
+        concatMap (sourceDefns (Expr.idE "unCons#":mods)) $ tail . appToList $ src
+    sourceDefns mods (BinOpS "+>" hdPat tlPat) =
+      sourceDefns (Expr.idE "hd":mods) hdPat ++
+      sourceDefns (Expr.idE "tl":mods) tlPat
+    sourceDefns mods (PatS binder guard) =
+      hdDefn ++ tlDefn
+      where
+        hdDefn =
+          case binder of
+            "" -> []
+            _ -> (:[]) $ patFnDecl binder mods val
 
-                tlDefn =
-                  case guard of
-                    Nothing -> []
-                    Just src -> sourceDefns mods src
-        sourceDefns mods (SeqS pats) =
-          concat [ sourceDefns (mod ++ mods) pat | pat <- pats | mod <- patMods ]
-          where listRef 1 = [Expr.idE "hd"]
-                listRef i = Expr.idE "tl":listRef (i - 1)
-                patMods = map (reverse . listRef) [1..length pats]
-        sourceDefns _ _ = []
+        tlDefn =
+          case guard of
+            Nothing -> []
+            Just src -> sourceDefns mods src
+    sourceDefns mods (SeqS pats) =
+      concat [ sourceDefns (mod ++ mods) pat | pat <- pats | mod <- patMods ]
+      where
+        listRef 1 = [Expr.idE "hd"]
+        listRef i = Expr.idE "tl":listRef (i - 1)
+        patMods = map (reverse . listRef) [1..length pats]
+    sourceDefns _ _ = []
 
 patConstantPred :: Source -> (String, String)
 patConstantPred CharS {} = ("isChar#", "eqChar#")
 patConstantPred IntS {} = ("isInt#", "eqInt#")
 patConstantPred RealS {} = ("isReal#", "eqReal#")
+patConstantPred src =
+  PrettyString.error "Expander.patConstantPred: invalid argument" $
+  (PrettyString.text "src =" PrettyString.<+> Pretty.docSource src)
 
 -- | Generates a predicate for a pattern, according the predicate
 -- guard
@@ -306,7 +313,10 @@ expandTypeDecl typeName cons =
 -- @
 expandWhereCondMatches :: Source -> [([Source], Source)]
 expandWhereCondMatches (WhereS (CondS matches) defns) =
-  map (id *** (\branch -> LetS defns branch)) matches
+  map (id *** (LetS defns)) matches
+expandWhereCondMatches src =
+  PrettyString.error "Expander.expandWhereCondMatches: invalid argument" $
+  (PrettyString.text "src =" PrettyString.<+> Pretty.docSource src)
 
 expandOne :: Source -> ExpanderM Expr
 expandOne macro = head <$> expandSource macro

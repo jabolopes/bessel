@@ -18,9 +18,13 @@ module Data.PrettyString
    PrettyPrint.sep,
    PrettyPrint.text,
    PrettyPrint.vcat,
+   error,
    intercalate,
    nest,
    toString) where
+
+import Prelude hiding (error)
+import qualified Prelude (error)
 
 import Control.Monad.Error
 
@@ -31,6 +35,14 @@ type PrettyString = Doc
 
 instance Error PrettyString where
   strMsg = PrettyPrint.text
+
+error :: String -> PrettyString -> a
+error short long =
+  Prelude.error .
+    toString $
+      PrettyPrint.text short
+      $+$
+      nest long
 
 intercalate :: PrettyString -> [PrettyString] -> [PrettyString]
 intercalate = PrettyPrint.punctuate

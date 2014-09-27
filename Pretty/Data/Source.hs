@@ -38,7 +38,7 @@ docSource (CondS srcs) =
 docSource (FnDeclS name body) =
   PrettyString.sep [PrettyString.text "def" <+> PrettyString.text name, PrettyString.nest (docSource body)]
 docSource (IdS name) =
-  PrettyString.text (show name)
+  PrettyString.text (QualName.fromQualName name)
 docSource (IntS i) =
   PrettyString.int i
 docSource (LetS defns body) =
@@ -80,9 +80,8 @@ docSource (TypeDeclS typeName cons) =
 docSource (WhereS m ms) =
   PrettyString.sep
   [docSource m,
-   PrettyString.sep [PrettyString.text "where {",
-                     PrettyString.nest (PrettyString.vcat (map docSource ms)),
-                     PrettyString.char '}']]
+   PrettyString.sep [PrettyString.text "where",
+                     PrettyString.nest (PrettyString.vcat (map docSource ms))]]
 
 isParens :: Bool -> Source -> Bool
 isParens right AppS {}    = right
@@ -100,3 +99,13 @@ docSourceParens :: Source -> PrettyString
 docSourceParens src
   | isParens True src = PrettyString.parens . docSource $ src
   | otherwise = docSource src
+
+-- PrettyString for a list of 'Source's.
+docSourceList :: [Source] -> PrettyString
+docSourceList [] = PrettyString.text "[]"
+docSourceList (src:srcs) =
+  PrettyString.sep .
+  (++ [PrettyString.text "]"]) .
+  PrettyString.intercalate (PrettyString.text ",") $
+  ((PrettyString.text "[" <+> docSource src):) $
+  map (\x -> PrettyString.text "," <+> docSource x) srcs
