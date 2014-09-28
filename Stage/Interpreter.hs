@@ -6,6 +6,7 @@ import Prelude hiding (mod, pred)
 import Control.Arrow ((***))
 import Control.Monad.State
 import Data.Functor ((<$>))
+import Data.IORef
 import qualified Data.Map as Map (empty, fromList)
 import Data.Maybe (catMaybes, isNothing, isJust, mapMaybe)
 import Data.Either (lefts, rights)
@@ -30,7 +31,7 @@ evalM (RealE d) = return $ RealVal d
 evalM (IdE str) =
     do msym <- findBindM (QualName.fromQualName str)
        case msym of
-         Just val -> return val
+         Just val -> liftIO $ readIORef val
          Nothing -> error $ "Interpreter.evalM(IdE): unbound symbols must be caught by the renamer" ++
                             "\n\n\t str = " ++ QualName.fromQualName str ++ "\n"
 evalM (AppE expr1 expr2) =
@@ -53,13 +54,15 @@ evalM (CondE ms blame) = evalMatches ms
                    BoolVal False -> evalMatches xs
                    _ -> evalM val
 evalM (FnDecl Def str body) =
-  do addBindM str (FnVal (\_ -> error "loop"))
+  do ref <- liftIO . newIORef $ FnVal (\_ -> error $ str ++ ": loop")
+     addBindM str ref
      val <- evalM body
      replaceBindM str val
      return val
 evalM (FnDecl NrDef str body) =
   do val <- evalM body
-     addBindM str val
+     ref <- liftIO $ newIORef val
+     addBindM str ref
      return val
 evalM expr@(LambdaE arg body) =
   do vars <- freeVars
@@ -75,7 +78,7 @@ evalM expr@(LambdaE arg body) =
       withEmptyEnvM $ do
         forM_ vars $ \(name, ref) ->
           addBindM name ref
-        addBindM arg val
+        addBindM arg =<< liftIO (newIORef val)
         evalM body
 evalM (LetE defn body) =
   withEnvM $ do

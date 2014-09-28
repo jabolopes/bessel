@@ -1,6 +1,5 @@
 module Monad.InterpreterM where
 
-import Control.Applicative ((<$>))
 import Control.Monad.State
 import Data.Dynamic (Typeable, Dynamic)
 import qualified Data.Dynamic as Dynamic (fromDynamic, toDyn)
@@ -9,7 +8,6 @@ import qualified Data.List as List (intercalate)
 
 import Data.Env (Env)
 import qualified Data.Env as Env
-import Data.Expr (Expr)
 
 data Val
     = BoolVal Bool
@@ -58,6 +56,9 @@ dynVal = DynVal . Dynamic.toDyn
 
 unDynVal :: Typeable a => Val -> Maybe a
 unDynVal (DynVal x) = Dynamic.fromDynamic x
+unDynVal val =
+  error $ "Monad.InterpreterM.unboxString: expecting dynamic value" ++
+          "\n\n\t val = " ++ show val ++ "\n\n"
 
 boxString :: String -> Val
 boxString = SeqVal . map CharVal
@@ -69,8 +70,8 @@ isStringVal _ = False
 unboxString :: Val -> String
 unboxString val@(SeqVal cs) | isStringVal val = map (\(CharVal c) -> c) cs
 unboxString val =
-    error $ "Monad.InterpreterM.unboxString: expecting character sequence" ++
-            "\n\n\t val = " ++ show val ++ "\n\n"
+  error $ "Monad.InterpreterM.unboxString: expecting character sequence" ++
+          "\n\n\t val = " ++ show val ++ "\n\n"
 
 primitive :: (Val -> Val) -> Val
 primitive fn = FnVal $ return . fn
@@ -99,11 +100,10 @@ withLexicalEnvM env m =
      put env'
      return val
 
-addBindM :: String -> Val -> InterpreterM ()
+addBindM :: String -> IORef Val -> InterpreterM ()
 addBindM name val =
   do env <- get
-     ref <- liftIO $ newIORef val
-     put $ Env.addBind env name ref
+     put $ Env.addBind env name val
 
 replaceBindM :: String -> Val -> InterpreterM ()
 replaceBindM name val =
@@ -112,9 +112,7 @@ replaceBindM name val =
        Nothing -> error $ "Bind " ++ name ++ " does not exist"
        Just ref -> liftIO (writeIORef ref val)
 
-findBindM :: String -> InterpreterM (Maybe Val)
+findBindM :: String -> InterpreterM (Maybe (IORef Val))
 findBindM name =
   do env <- get
-     case Env.findBind env name of
-       Nothing -> return Nothing
-       Just ref -> Just <$> liftIO (readIORef ref)
+     return $ Env.findBind env name
