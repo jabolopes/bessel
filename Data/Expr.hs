@@ -146,13 +146,14 @@ freeVars' env fvars (AppE expr1 expr2) =
 freeVars' env fvars (CharE _) = (env, fvars)
 freeVars' env fvars (CondE ms _) =
     loop env fvars ms
-    where loop env fvars [] = (env, fvars)
-          loop env fvars ((expr1, expr2):exprs) =
-              let
-                  (env', fvars') = freeVars' env fvars expr1
-                  (env'', fvars'') = freeVars' env' fvars' expr2
-              in
-                loop env'' fvars'' exprs
+    where
+      loop env fvars [] = (env, fvars)
+      loop env fvars ((expr1, expr2):exprs) =
+        let
+          (env', fvars') = freeVars' env fvars expr1
+          (env'', fvars'') = freeVars' env' fvars' expr2
+        in
+         loop env'' fvars'' exprs
 freeVars' env fvars (FnDecl Def name expr) =
     freeVars' (name:env) fvars expr
 freeVars' env fvars (FnDecl NrDef name expr) =
