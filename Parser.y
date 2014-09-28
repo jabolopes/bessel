@@ -22,12 +22,6 @@ import Lexer
 import Monad.ParserM
 import qualified Monad.ParserM as ParserM
 import Utils
-
-ensureExpr :: Source -> ParserM Source
-ensureExpr val =
-  case toSource val of
-    Nothing -> failM "expecting expression instead of pattern"
-    Just expr -> return expr
 }
 
 %monad { ParserM }

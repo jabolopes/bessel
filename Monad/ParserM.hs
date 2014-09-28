@@ -3,8 +3,9 @@ module Monad.ParserM where
 import Control.Monad.Error (throwError)
 import Control.Monad.State
 import Data.Functor ((<$>))
-
 import Data.LexState
+import Data.Source (Source)
+import qualified Data.Source as Source
 
 data ParserState
     = ParserState { psLexerState :: LexState }
@@ -19,3 +20,9 @@ failM err =
   do f <- filename . psLexerState <$> get
      n <- beginLine . psLexerState <$> get
      throwError $ f ++ ": line " ++ show n ++ ": " ++ err
+
+ensureExpr :: Source -> ParserM Source
+ensureExpr val =
+  case Source.toSource val of
+    Nothing -> failM "expecting expression instead of pattern"
+    Just expr -> return expr
