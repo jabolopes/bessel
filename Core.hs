@@ -5,12 +5,15 @@ import qualified Prelude
 
 import Control.Arrow ((***))
 import Control.Monad ((<=<))
+import Control.Monad.State
 import Data.Hashable (hash)
+import System.IO as IO
 
 import Config
 import Data.Exception
 import Data.Module
 import Monad.InterpreterM
+import qualified Stage.Interpreter as Interpreter
 
 -- Bool
 
@@ -262,6 +265,17 @@ o (FnVal fn1) = FnVal $ return . oHof
 --               else
 --                 true
 
+-- io
+
+mapFile :: Val -> InterpreterM Val
+mapFile filename =
+  return . FnVal $ return . mapFileHof
+  where
+    mapFileHof (FnVal fn) =
+      IOVal $ do
+        contents <- IO.readFile $ unboxString filename
+        Interpreter.liftInterpreterM (fn (boxString contents))
+
 -- environment
 
 fnDesc :: FnDesc
@@ -320,6 +334,9 @@ fnDesc =
    -- combining forms
    ("apply", FnVal apply),
    ("o", primitive o),
+   -- io
+   ("mapFile", FnVal mapFile),
+   -- misc
    ("un", primitive unSharp),
    ("index", primitive index),
    ("mkCons", primitive mkCons),
@@ -354,5 +371,5 @@ isCons _ = false
 link :: Val -> Val
 link val = IntVal . hash . unboxString $ val
 
-coreModule :: Module
+coreModule :: IO Module
 coreModule = mkCoreModule coreName [] fnDesc

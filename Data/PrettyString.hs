@@ -8,6 +8,7 @@ module Data.PrettyString
    PrettyPrint.cat,
    PrettyPrint.char,
    PrettyPrint.double,
+   PrettyPrint.doubleQuotes,
    PrettyPrint.hcat,
    PrettyPrint.isEmpty,
    PrettyPrint.empty,

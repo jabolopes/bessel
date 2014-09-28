@@ -20,13 +20,15 @@ isParens _ _           = True
 docCond :: (a -> PrettyString) -> DocType -> [(a, Expr)] -> String -> PrettyString
 docCond fn t ms blame =
   foldl1 ($+$) (map docMatch ms ++ docBlame)
-  where docMatch (x, e) =
-          PrettyString.sep [fn x <+> PrettyString.equals, PrettyString.nest (docExpr t e)]
+  where
+    docMatch (x, e) =
+      PrettyString.sep [fn x <+> PrettyString.equals, PrettyString.nest (docExpr t e)]
 
-        docBlame = [PrettyString.text "_" <+>
-                    PrettyString.equals <+>
-                    PrettyString.text "blame" <+>
-                    PrettyString.text blame]
+    docBlame =
+      [PrettyString.text "_" <+>
+       PrettyString.equals <+>
+       PrettyString.text "blame" <+>
+       PrettyString.text blame]
 
 docExpr :: DocType -> Expr -> PrettyString
 docExpr t (AppE e1 e2) =
@@ -53,7 +55,7 @@ docExpr t (LetE defn body) =
 docExpr t (LambdaE arg body) =
   PrettyString.sep [PrettyString.text "\\" <> PrettyString.text arg <+> PrettyString.text "->", PrettyString.nest (docExpr t body)]
 docExpr _ MergeE {} =
-  error "Doc.Expr.docExpr: unhandled case for MergeE"
+  error "Pretty.Data.Expr.docExpr: unhandled case for MergeE"
 docExpr _ (RealE d) = PrettyString.double d
 
 -- PrettyString for a list of 'Expr's.
@@ -64,4 +66,4 @@ docExprList (src:srcs) =
   (++ [PrettyString.text "]"]) .
   PrettyString.intercalate (PrettyString.text ",") $
   ((PrettyString.text "[" <+> docExpr ExpDocT src):) $
-  map (\src -> PrettyString.text "," <+> docExpr ExpDocT src) srcs
+  map (\x -> PrettyString.text "," <+> docExpr ExpDocT x) srcs

@@ -2,6 +2,8 @@ module Data.Module where
 
 import Prelude hiding (mod)
 
+import Control.Applicative ((<$>))
+import Data.IORef
 import qualified Data.List as List (elem, nub, partition)
 import Data.Map (Map)
 import qualified Data.Map as Map (empty, fromList, insert, lookup, union, toList)
@@ -26,7 +28,8 @@ data Module
            , modDecls :: [Source]
            , modDefs :: Map String Definition
            , modDefOrd :: [String]
-           , modUses :: [(String, String)] }
+           , modUses :: [(String, String)]
+           }
 
 ensureImplicitUses :: Module -> Module
 ensureImplicitUses mod
@@ -67,14 +70,21 @@ unprefixedUses = map fst . fst . List.partition (null . snd) . modUses
 
 type FnDesc = [(String, Val)]
 
-mkCoreModule :: String -> [String] -> FnDesc -> Module
+mkCoreModule :: String -> [String] -> FnDesc -> IO Module
 mkCoreModule name deps fnDesc =
-    let uses = [ (dep, "") | dep <- deps ] in
-    ensureDefinitions (initial CoreT name uses) defs
-    where qualName descName = name ++ "." ++ descName
+  let uses = [ (dep, "") | dep <- deps ] in
+  ensureDefinitions (initial CoreT name uses) <$> defs
+  where
+    qualName descName = name ++ "." ++ descName
 
-          defs = [ (Definition.initial (qualName x)) { defSym = Just (FnSymbol (qualName x)),
-                                                       defVal = Right z } | (x, z) <- fnDesc ]
+    defs =
+      sequence
+      [ do let symName = qualName sym
+           ref <- newIORef val
+           return (Definition.initial symName) { defSym = Just (FnSymbol symName)
+                                               , defVal = Right ref
+                                               }
+      | (sym, val) <- fnDesc ]
 
 interactiveName :: String
 interactiveName = "Interactive"
@@ -97,28 +107,30 @@ ensureDefinitions mod defs =
 addDefinitionSymbols :: Module -> Map String Symbol -> Module
 addDefinitionSymbols mod syms =
     mod { modDefs = loop (modDefs mod) (Map.toList syms) }
-    where loop defs [] = defs
-          loop defs ((name, sym):syms) =
-            let
-                def = case Map.lookup name defs of
-                        Nothing -> error $ "Module.addDefinitionSymbols: definition " ++ show name ++ " is not defined"
-                        Just def -> def { defSym = Just sym }
-                defs' = Map.insert name def defs
-            in
-              loop defs' syms
+    where
+      loop defs [] = defs
+      loop defs ((name, sym):xs) =
+        let
+          def = case Map.lookup name defs of
+                  Nothing -> error $ "Module.addDefinitionSymbols: definition " ++ show name ++ " is not defined"
+                  Just x -> x { defSym = Just sym }
+          defs' = Map.insert name def defs
+        in
+         loop defs' xs
 
-addDefinitionVals :: Module -> Map String Val -> Module
+addDefinitionVals :: Module -> Map String (IORef Val) -> Module
 addDefinitionVals mod vals =
     mod { modDefs = loop (modDefs mod) (Map.toList vals) }
-    where loop defs [] = defs
-          loop defs ((name, val):ts) =
-              let
-                  def = case Map.lookup name defs of
-                          Nothing -> error $ "Module.addDefinitionVals: definition " ++ show name ++ " is not defined"
-                          Just x -> x { defVal = Right val }
-                  defs' = Map.insert name def defs
-              in
-                loop defs' ts
+    where
+      loop defs [] = defs
+      loop defs ((name, val):xs) =
+        let
+          def = case Map.lookup name defs of
+                  Nothing -> error $ "Module.addDefinitionVals: definition " ++ show name ++ " is not defined"
+                  Just x -> x { defVal = Right val }
+          defs' = Map.insert name def defs
+        in
+         loop defs' xs
 
 setDefinitionOrder :: Module -> [String] -> Module
 setDefinitionOrder mod defOrd =

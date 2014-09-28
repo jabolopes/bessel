@@ -1,5 +1,7 @@
 module Pretty.Data.Definition where
 
+import Prelude hiding (exp)
+
 import Data.List (intercalate)
 
 import Data.Definition (Definition(..))
@@ -8,34 +10,38 @@ import Data.PrettyString (PrettyString, (<+>), ($+$))
 import qualified Data.PrettyString as PrettyString
 import qualified Pretty.Data.Expr as Pretty (DocType(..), docExpr)
 import qualified Pretty.Data.Source as Pretty
+import qualified Stage.JavascriptCompiler as JavascriptCompiler
 
-definitionOk :: String -> String -> [String] -> PrettyString -> PrettyString -> PrettyString -> PrettyString -> PrettyString
-definitionOk name val freeNames src exp ren err =
-  hdDoc $+$ PrettyString.vcat [freeDoc, srcDoc, expDoc, renDoc, errDoc]
-  where hdDoc = PrettyString.text name <+> PrettyString.equals <+> PrettyString.text val
+definitionOk :: String -> String -> [String] -> PrettyString -> PrettyString -> PrettyString -> PrettyString -> PrettyString -> PrettyString
+definitionOk name val freeNames src exp ren js err =
+  hdDoc $+$ PrettyString.vcat [freeDoc, srcDoc, expDoc, renDoc, jsDoc, errDoc]
+  where
+    hdDoc = PrettyString.text name <+> PrettyString.equals <+> PrettyString.text val
 
-        freeDoc
-          | null freeNames = PrettyString.empty
-          | otherwise = PrettyString.nest $ PrettyString.text "-- free" $+$ PrettyString.text (intercalate ", " freeNames)
+    freeDoc
+      | null freeNames = PrettyString.empty
+      | otherwise = PrettyString.nest $ PrettyString.text "-- free" $+$ PrettyString.text (intercalate ", " freeNames)
 
-        sectionDoc desc expr
-          | PrettyString.isEmpty expr = PrettyString.empty
-          | otherwise = PrettyString.nest $ PrettyString.text desc $+$ expr
+    sectionDoc desc expr
+      | PrettyString.isEmpty expr = PrettyString.empty
+      | otherwise = PrettyString.nest $ PrettyString.text desc $+$ expr
 
-        srcDoc = sectionDoc "-- source" src
-        expDoc = sectionDoc "-- expanded" exp
-        renDoc = sectionDoc "-- renamed" ren
-        errDoc = sectionDoc "-- errors" err 
+    srcDoc = sectionDoc "-- source" src
+    expDoc = sectionDoc "-- expanded" exp
+    renDoc = sectionDoc "-- renamed" ren
+    jsDoc  = sectionDoc "-- javascript" js
+    errDoc = sectionDoc "-- errors" err 
 
-docEither :: Show b => Either a b -> String
-docEither (Right x) = show x
-docEither _ = "?"
+-- docVal :: Show b => Either a b -> String
+docVal (Right x) = "ref"
+docVal _ = "?"
 
 docFree :: Bool -> Definition -> [String]
 docFree showFree def
   | showFree = Definition.defFreeNames def
   | otherwise = []
 
+docSource :: Bool -> Definition -> PrettyString
 docSource showSrc Definition { defSrc = Right src }
   | showSrc = Pretty.docSource src
 docSource _ _ = PrettyString.empty
@@ -49,6 +55,11 @@ docRen :: Bool -> Definition -> PrettyString
 docRen showRen Definition { defRen = Right expr }
   | showRen = Pretty.docExpr Pretty.RenDocT expr
 docRen _ _ = PrettyString.empty
+
+docJs :: Bool -> Definition -> PrettyString
+docJs showJs Definition { defRen = Right expr }
+  | showJs = JavascriptCompiler.compile expr
+docJs _ _ = PrettyString.empty
 
 docErrorSrc :: Either PrettyString a -> PrettyString
 docErrorSrc (Right _) = PrettyString.empty
@@ -78,12 +89,13 @@ docError def =
                      docErrorRen (Definition.defRen def),
                      docErrorVal (Definition.defVal def)]
 
-docDefn :: Bool -> Bool -> Bool -> Bool -> Definition -> PrettyString
-docDefn showFree showSrc showExp showRen def =
+docDefn :: Bool -> Bool -> Bool -> Bool -> Bool -> Definition -> PrettyString
+docDefn showFree showSrc showExp showRen showJs def =
   definitionOk (Definition.defName def)
-               (docEither (Definition.defVal def))
+               (docVal (Definition.defVal def))
                (docFree showFree def)
                (docSource showSrc def)
                (docExp showExp def)
                (docRen showRen def)
+               (docJs showJs def)
                (docError def)

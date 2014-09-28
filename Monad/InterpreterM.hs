@@ -75,14 +75,23 @@ unboxString val =
 primitive :: (Val -> Val) -> Val
 primitive fn = FnVal $ return . fn
 
-type InterpreterM a = StateT (Env (IORef Val)) IO a
+type InterpreterEnv = Env (IORef Val)
+type InterpreterM a = StateT InterpreterEnv IO a
+
+withEmptyEnvM :: InterpreterM a -> InterpreterM a
+withEmptyEnvM m =
+  do env <- get
+     put Env.empty
+     val <- m
+     put env
+     return val
 
 withEnvM :: InterpreterM a -> InterpreterM a
 withEnvM m =
   do env <- get
      withLexicalEnvM env m
 
-withLexicalEnvM :: Env (IORef Val) -> InterpreterM a -> InterpreterM a
+withLexicalEnvM :: InterpreterEnv -> InterpreterM a -> InterpreterM a
 withLexicalEnvM env m =
   do env' <- get
      put $ Env.push env

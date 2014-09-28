@@ -237,3 +237,9 @@ def pol
 def one
   x@1 = 1
 | @   = 0
+
+def oi filename@ =
+  mapFile# filename fn
+  where {
+    def fn str@ = adeus str
+  }

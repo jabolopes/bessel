@@ -1,23 +1,24 @@
-{-# LANGUAGE ParallelListComp #-}
+{-# LANGUAGE ParallelListComp, TupleSections #-}
 module Stage.Interpreter where
 
 import Prelude hiding (mod, pred)
 
+import Control.Arrow ((***))
 import Control.Monad.State
 import Data.Functor ((<$>))
-import Data.IORef
-import qualified Data.Map as Map (fromList)
+import qualified Data.Map as Map (empty, fromList)
 import Data.Maybe (catMaybes, isNothing, isJust, mapMaybe)
 import Data.Either (lefts, rights)
 
 import Data.Definition (Definition(..))
 import qualified Data.Definition as Definition
-import qualified Data.Env as Env (initial)
+import qualified Data.Env as Env (findBind, initial)
 import Data.FileSystem (FileSystem)
 import qualified Data.FileSystem as FileSystem
 import Data.Module
 import qualified Data.Module as Module (defsAsc, ensureDefinitions)
-import Data.Expr
+import Data.Expr (DefnKw(..), Expr(..))
+import qualified Data.Expr as Expr
 import qualified Data.QualName as QualName (fromQualName)
 import Data.Symbol
 import Monad.InterpreterM
@@ -37,7 +38,6 @@ evalM (AppE expr1 expr2) =
        val2 <- evalM expr2
        case val1 of
          FnVal fn -> fn val2
-
          _ -> error $ "Interpreter.evalM(AppE): application of non-functions must be detected by the renamer" ++
                       "\n\n\t expr1 = " ++ show expr1 ++
                       "\n\n\t -> val1 = " ++ show val1 ++
@@ -61,12 +61,20 @@ evalM (FnDecl NrDef str body) =
   do val <- evalM body
      addBindM str val
      return val
-evalM (LambdaE arg body) =
-  do env <- get
-     return . FnVal $ closure env
+evalM expr@(LambdaE arg body) =
+  do vars <- freeVars
+     return . FnVal $ closure vars
   where
-    closure env val =
-      withLexicalEnvM env $ do
+    freeVars =
+      do vals <- mapM (\name -> (name,) <$> findBindM name) $ Expr.freeVars expr
+         if all (isJust . snd) vals
+           then return $ map (id *** (\(Just x) -> x)) vals
+           else error "Interpreter.evalM.freeReferences: undefined free variables must be caught in previous stages"
+
+    closure vars val =
+      withEmptyEnvM $ do
+        forM_ vars $ \(name, ref) ->
+          addBindM name ref
         addBindM arg val
         evalM body
 evalM (LetE defn body) =
@@ -84,8 +92,12 @@ freeNameDefinitions fs def =
   else
     error "Interpreter.freeNamesDefinitions: undefined free variables must be caught in previous stages"
 
+liftInterpreterM :: InterpreterM a -> IO a
+liftInterpreterM m =
+  fst <$> runStateT m (Env.initial Map.empty)
+
 interpretDefinition :: FileSystem -> Definition -> IO Definition
-interpretDefinition fs def@Definition { defRen = Right expr } =
+interpretDefinition fs def@Definition { defSym = Just (FnSymbol symbol), defRen = Right expr } =
   do let defs = freeNameDefinitions fs def
      case (filter isNothing (map Definition.defSym defs), lefts (map Definition.defVal defs)) of
        ([], []) ->
@@ -94,10 +106,11 @@ interpretDefinition fs def@Definition { defRen = Right expr } =
            vals = rights (map Definition.defVal defs)
          in
           do -- edit: fix: why FnSymbol ?
-             env <- Map.fromList <$> sequence [ do ref <- newIORef v
-                                                   return (sym, ref) | FnSymbol sym <- syms | v <- vals ]
-             val <- fst <$> runStateT (evalM expr) (Env.initial env)
-             return def { defVal = Right val }
+             env <- Map.fromList <$> sequence [ do return (sym, v) | FnSymbol sym <- syms | v <- vals ]
+             (_, env') <- runStateT (evalM expr) (Env.initial env)
+             case Env.findBind env' symbol of
+               Nothing -> return def { defVal = Left $ "failed to evaluate " ++ Definition.defName def }
+               Just ref -> return def { defVal = Right ref }
        _ ->
          return def { defVal = Left "definition depends on free names that failed to evaluate" }
 interpretDefinition _ def = return def

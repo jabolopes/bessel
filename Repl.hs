@@ -5,6 +5,7 @@ import Prelude hiding (lex, mod)
 import Control.Monad.State
 import Data.Char (isSpace)
 import Data.Functor ((<$>))
+import Data.IORef
 import Data.List (intercalate)
 import System.Console.GetOpt (OptDescr(..), ArgDescr(..), ArgOrder(..), getOpt, usageInfo)
 import System.Console.Readline
@@ -32,12 +33,12 @@ data ReplState =
 
 type ReplM a = StateT ReplState IO a
 
-putVal :: Either String Val -> IO ()
+putVal :: Either String (IORef Val) -> IO ()
 putVal (Left err) = putStrLn err
-putVal (Right (IOVal m)) =
-  do val <- m
-     print val
-putVal (Right val) = print val
+putVal (Right ref) = putVal' =<< readIORef ref
+  where
+    putVal' (IOVal m) = print =<< m
+    putVal' val = print val
 
 stageFiles :: [Module] -> IO FileSystem
 stageFiles mods =
@@ -77,8 +78,8 @@ runSnippetM ln =
          do modify $ \s -> s { fs = fs' }
             liftIO $ putVal (Definition.defVal (last defs))
 
-showMeM :: Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> String -> StateT ReplState IO ()
-showMeM showAll showBrief showOrd showFree showSrc showExp showRen filename =
+showMeM :: Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> String -> StateT ReplState IO ()
+showMeM showAll showBrief showOrd showFree showSrc showExp showRen showJs filename =
   let
     filesM
       | showAll = FileSystem.toAscList . fs <$> get
@@ -92,7 +93,7 @@ showMeM showAll showBrief showOrd showFree showSrc showExp showRen filename =
              Just mod -> return [mod]
   in
     do mods <- filesM
-       let modDoc = Pretty.docModules showBrief showOrd showFree showSrc showExp showRen mods
+       let modDoc = Pretty.docModules showBrief showOrd showFree showSrc showExp showRen showJs mods
        liftIO $ putStrLn $ PrettyString.toString modDoc
 
 showTokensM :: String -> ReplM ()
@@ -109,6 +110,8 @@ data Flag
   | ShowSrc
   | ShowExp
   | ShowRen
+
+  | ShowJs
     deriving (Eq, Show)
 
 options :: [OptDescr Flag]
@@ -119,7 +122,8 @@ options = [Option "a" [] (NoArg ShowAll) "Show all",
            Option "" ["free"] (NoArg ShowFree) "Show free names of definition",
            Option "" ["src"] (NoArg ShowSrc) "Show source of definition",
            Option "" ["exp"] (NoArg ShowExp) "Show expanded definition",
-           Option "" ["ren"] (NoArg ShowRen) "Show renamed definition"]
+           Option "" ["ren"] (NoArg ShowRen) "Show renamed definition",
+           Option "" ["js"] (NoArg ShowJs) "Show javascript definition"]
 
 runCommandM :: String -> [Flag] -> [String] -> ReplM ()
 runCommandM "def" opts nonOpts
@@ -133,13 +137,13 @@ runCommandM "def" opts nonOpts
       else if not showAll && null me then
              showModuleNamesM
            else
-             showMeM showAll showBrief showOrd showFree showSrc showExp showRen me
+             showMeM showAll showBrief showOrd showFree showSrc showExp showRen showJs me
   | otherwise =
     do let name = last nonOpts
        fs <- fs <$> get
        case FileSystem.lookupDefinition fs name of
          Nothing -> liftIO $ putStrLn $ "definition " ++ show name ++ " does not exist"
-         Just def -> liftIO $ putStrLn $ PrettyString.toString $ Pretty.docDefn showFree showSrc showExp showRen def
+         Just def -> liftIO $ putStrLn $ PrettyString.toString $ Pretty.docDefn showFree showSrc showExp showRen showJs def
   where showAll = ShowAll `elem` opts
         showBrief = ShowBrief `elem` opts
         showHelp = ShowHelp `elem` opts
@@ -148,6 +152,7 @@ runCommandM "def" opts nonOpts
         showSrc = ShowSrc `elem` opts
         showExp = ShowExp `elem` opts
         showRen = ShowRen `elem` opts
+        showJs  = ShowJs `elem` opts
 
         usageM =
           liftIO $ putStr $ usageInfo "def [-b] [--help] [--free] [--src] [--exp] [--ren] [-o] [-a | <me>]" options
@@ -165,7 +170,7 @@ runCommandM "load" _ nonOpts
 runCommandM "l" opts nonOpts =
   runCommandM "load" opts nonOpts
 runCommandM _ _ _ =
-  liftIO $ putStrLn ":def | :load | :me"
+  liftIO $ putStrLn ":def | :load | :me | :js"
 
 dispatchCommandM :: String -> ReplM ()
 dispatchCommandM ln =
