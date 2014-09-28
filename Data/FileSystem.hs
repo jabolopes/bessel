@@ -1,4 +1,13 @@
-module Data.FileSystem where
+module Data.FileSystem
+       ( FileSystem
+       , empty
+       , initial
+       , add
+       , toAscList
+       , lookup
+       , member
+       , lookupDefinition
+       ) where
 
 import Prelude hiding (lookup, mod)
 
@@ -12,13 +21,13 @@ import qualified Data.Module as Module
 import Utils
 
 data FileSystem
-    = FileSystem { files :: Map Int Module
-                 , fileIds :: Map String Int }
+  = FileSystem { fsModules :: Map Int Module
+               , fsModuleIds :: Map String Int }
 
 empty :: FileSystem
 empty =
-    FileSystem { files = Map.empty
-               , fileIds = Map.empty }
+  FileSystem { fsModules = Map.empty
+             , fsModuleIds = Map.empty }
 
 initial :: [Module] -> FileSystem
 initial = foldl add empty
@@ -27,30 +36,22 @@ add :: FileSystem -> Module -> FileSystem
 add fs mod =
   let
     fid = fromMaybe
-            (Map.size (fileIds fs))
-            (Map.lookup (Module.modName mod) (fileIds fs))
+            (Map.size (fsModuleIds fs))
+            (Map.lookup (Module.modName mod) (fsModuleIds fs))
   in
-    fs { files = Map.insert fid mod (files fs)
-       , fileIds = Map.insert (Module.modName mod) fid (fileIds fs) }
-
-get :: FileSystem -> String -> Module
-get fs name =
-    case Map.lookup name (fileIds fs) of
-      Nothing -> error $ "FileSystem.get: mod " ++ show name ++ " has no id in the filesystem"
-      Just modId -> fromMaybe
-                      (error $ "Data.FileSystem.get: mod " ++ show name ++ " is not in the filesystem")
-                      (Map.lookup modId (files fs))
+    fs { fsModules = Map.insert fid mod (fsModules fs)
+       , fsModuleIds = Map.insert (Module.modName mod) fid (fsModuleIds fs) }
 
 toAscList :: FileSystem -> [Module]
-toAscList fs = map snd $ Map.toAscList $ files fs
+toAscList fs = map snd $ Map.toAscList $ fsModules fs
 
 lookup :: FileSystem -> String -> Maybe Module
 lookup fs name =
-    do fid <- name `Map.lookup` fileIds fs
-       fid `Map.lookup` files fs
+  do fid <- name `Map.lookup` fsModuleIds fs
+     fid `Map.lookup` fsModules fs
 
 member :: FileSystem -> String -> Bool
-member fs name = name `Map.member` fileIds fs
+member fs name = name `Map.member` fsModuleIds fs
 
 lookupDefinition :: FileSystem -> String -> Maybe Definition
 lookupDefinition fs name =

@@ -12,7 +12,7 @@ import System.IO.Error (tryIOError)
 
 import Data.Exception (throwLoaderException)
 import Data.FileSystem (FileSystem)
-import qualified Data.FileSystem as FileSystem (get, member)
+import qualified Data.FileSystem as FileSystem (lookup, member)
 import Data.GraphUtils (acyclicTopSort)
 import Data.Module (ModuleT(..), Module(modDecls))
 import qualified Data.Module as Module
@@ -62,8 +62,9 @@ preloadModule fs = preloadModule' [] Set.empty . (:[])
       | filename `Set.member` loaded =
         preloadModule' mods loaded filenames
       | fs `FileSystem.member` filename =
-        do let mod = FileSystem.get fs filename
-           preloadModule' (mod:mods) (Set.insert filename loaded) (Module.dependencies mod ++ filenames)
+        case FileSystem.lookup fs filename of
+          Nothing -> throwLoaderException $ Pretty.moduleNotFound filename
+          Just mod -> preloadModule' (mod:mods) (Set.insert filename loaded) (Module.dependencies mod ++ filenames)
       | otherwise =
         do mod <- loadModule filename
            preloadModule' (mod:mods) (Set.insert filename loaded) (Module.dependencies mod ++ filenames)

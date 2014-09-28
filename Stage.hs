@@ -59,12 +59,11 @@ expandDefinition mod def = expandSrc . Definition.defSrc $ def
 
 mkSnippet :: FileSystem -> Source -> Definition
 mkSnippet fs source@(FnDeclS name _) =
-  let
-    name' = Module.interactiveName ++ "." ++ name
-    mod = FileSystem.get fs Module.interactiveName
-  in
-    (Definition.initial name') { defUses = Module.modUses mod
-                               , defSrc = Right source }
+  let name' = Module.interactiveName ++ "." ++ name in
+  case FileSystem.lookup fs Module.interactiveName of
+    Nothing -> error $ "Stage.mkSnippet: module " ++ Module.interactiveName ++ " not found"
+    Just mod -> (Definition.initial name') { defUses = Module.modUses mod
+                                           , defSrc = Right source }
 mkSnippet fs source = mkSnippet fs $ FnDeclS "val" source
 
 renameSnippet :: FileSystem -> Definition -> Either PrettyString Definition
@@ -86,7 +85,9 @@ stageDefinition fs ln =
       do macro <- case Parser.parseRepl Module.interactiveName ln of
                     Left err -> Left (PrettyString.text err)
                     Right x -> Right x
-         let interactive = FileSystem.get fs Module.interactiveName
+         let interactive = case FileSystem.lookup fs Module.interactiveName of
+                             Nothing -> error $ "Stage.stageDefinition: module " ++ Module.interactiveName ++ " not found"
+                             Just mod -> mod
              def = mkSnippet fs macro
          expDefs <- expandDefinition interactive def
          renDefs <- mapM (renameSnippet fs) expDefs
