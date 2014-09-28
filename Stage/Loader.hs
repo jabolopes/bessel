@@ -1,5 +1,5 @@
 {-# LANGUAGE ParallelListComp #-}
-module Loader where
+module Stage.Loader where
 
 import Prelude hiding (lex, mod)
 
