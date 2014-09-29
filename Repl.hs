@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 module Repl where
 
 import Prelude hiding (lex, mod)
@@ -19,13 +20,12 @@ import qualified Data.FileSystem as FileSystem
 import Data.Module (Module)
 import qualified Data.Module as Module
 import qualified Data.PrettyString as PrettyString
-import Lexer (lexTokens)
-import Loader (preload, readFileM)
 import Monad.InterpreterM (Val(..))
 import qualified Pretty.Data.Definition as Pretty
 import qualified Pretty.Data.Module as Pretty
 import qualified Pretty.Repl as Pretty
 import qualified Stage
+import qualified Stage.Loader as Loader (preload)
 import Utils (split)
 
 data ReplState =
@@ -62,11 +62,14 @@ stageFiles mods =
 
 importFile :: FileSystem -> String -> IO ReplState
 importFile fs filename =
-  do mods <- preload fs filename
-     fs' <- stageFiles mods
-     let interactive = Module.mkInteractiveModule mods []
-         fs'' = FileSystem.add fs' interactive
-     return ReplState { initialFs = fs, fs = fs'' }
+  Loader.preload fs filename >>=
+    \case
+      Left err -> throwLoaderException err
+      Right mods ->
+        do fs' <- stageFiles mods
+           let interactive = Module.mkInteractiveModule mods []
+               fs'' = FileSystem.add fs' interactive
+           return ReplState { initialFs = fs, fs = fs'' }
 
 runSnippetM :: String -> ReplM ()
 runSnippetM ln =
@@ -95,10 +98,6 @@ showMeM showAll showBrief showOrd showFree showSrc showExp showRen showJs filena
     do mods <- filesM
        let modDoc = Pretty.docModules showBrief showOrd showFree showSrc showExp showRen showJs mods
        liftIO $ putStrLn $ PrettyString.toString modDoc
-
-showTokensM :: String -> ReplM ()
-showTokensM filename =
-    liftIO (print . lexTokens filename =<< readFileM filename)
 
 data Flag
   = ShowAll

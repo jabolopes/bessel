@@ -42,6 +42,13 @@ moduleContainsDuplicateQualifiers me uses =
   $+$
   PrettyString.nest (docUses uses)
 
+moduleCycle :: [String] -> PrettyString
+moduleCycle mes =
+  PrettyString.text "module import cycle between" <+>
+  (PrettyString.sep .
+   PrettyString.intercalate (PrettyString.text ",") $
+   map PrettyString.text mes)
+
 moduleNotFound :: String -> PrettyString
 moduleNotFound me =
   PrettyString.text "module" <+> PrettyString.text me <+>

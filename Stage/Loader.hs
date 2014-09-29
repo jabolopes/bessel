@@ -1,9 +1,9 @@
-{-# LANGUAGE ParallelListComp #-}
-module Stage.Loader where
+{-# LANGUAGE LambdaCase, ParallelListComp #-}
+module Stage.Loader (preload) where
 
 import Prelude hiding (lex, mod)
 
-import Control.Monad (when)
+import Control.Monad.Error
 import qualified Data.List as List (nub)
 import Data.Map (Map)
 import qualified Data.Map as Map ((!), fromList)
@@ -16,37 +16,37 @@ import qualified Data.FileSystem as FileSystem (lookup, member)
 import Data.GraphUtils (acyclicTopSort)
 import Data.Module (ModuleT(..), Module(modDecls))
 import qualified Data.Module as Module
-import Data.PrettyString (PrettyString)
+import Data.PrettyString
 import qualified Data.PrettyString as PrettyString
+import Data.Result
 import Data.Source
 import Parser (parseFile)
 import qualified Pretty.Stage.Loader as Pretty
 
-readFileM :: String -> IO String
-readFileM modName =
-  do res <- tryIOError . readFile $ map tr modName ++ ".bsl"
-     case res of
-       Left err ->
-         throwLoaderException $ Pretty.readFileFail modName $ show err
-       Right x -> return x
-  where tr '.' = '/'
-        tr c = c
+type LoaderM a = ResultT IO a
 
-parseModule :: String -> String -> Either PrettyString Source
+readFileM :: String -> LoaderM String
+readFileM modName =
+  do res <- liftIO . tryIOError . readFile $ map tr modName ++ ".bsl"
+     case res of
+       Left err -> throwError . Pretty.readFileFail modName $ show err
+       Right x -> return x
+  where
+    tr '.' = '/'
+    tr c = c
+
+parseModule :: String -> String -> LoaderM Source
 parseModule modName filetext =
   case parseFile modName filetext of
-    Left err -> Left . PrettyString.text $ err
-    Right x -> Right x
+    Left err -> throwError $ PrettyString.text $ err
+    Right x -> return x
 
-loadModule :: String -> IO Module
+loadModule :: String -> LoaderM Module
 loadModule filename =
   do str <- readFileM filename
-     let ModuleS me uses body =
-           case parseModule filename str of
-             Left err -> throwLoaderException err
-             Right x -> x
+     ModuleS me uses body <- parseModule filename str
      when (filename /= me) $
-       throwLoaderException $ Pretty.moduleMeMismatch me filename
+       throwError $ Pretty.moduleMeMismatch me filename
      when (length (map fst uses) /= length (List.nub (map fst uses))) $
        throwLoaderException $ Pretty.moduleContainsDuplicateUses me uses
      let unprefixed = filter (not . null . snd) uses
@@ -54,8 +54,9 @@ loadModule filename =
        throwLoaderException $ Pretty.moduleContainsDuplicateQualifiers me uses
      return (Module.initial SrcT me uses) { modDecls = body }
 
-preloadModule :: FileSystem -> String -> IO [Module]
-preloadModule fs = preloadModule' [] Set.empty . (:[])
+preloadModule :: FileSystem -> String -> LoaderM [Module]
+preloadModule fs =
+  preloadModule' [] Set.empty . (:[])
   where
     preloadModule' mods _ [] = return mods
     preloadModule' mods loaded (filename:filenames)
@@ -82,9 +83,12 @@ buildGraph mods =
   let edges = buildEdges (buildNodes mods) mods in
   acyclicTopSort mods edges
 
-preload :: FileSystem -> String -> IO [Module]
+preload :: FileSystem -> String -> IO (Either PrettyString [Module])
 preload fs filename =
-  do mods <- preloadModule fs filename
-     case buildGraph mods of
-       Left mods' -> error $ "Loader.preload: module cycle in " ++ show (map Module.modName mods')
-       Right mods' -> return mods'
+  runResultT (preloadModule fs filename) >>=
+    \case
+      Bad err -> return $ Left err
+      Ok mods ->
+         case buildGraph mods of
+           Left mods' -> return . Left . Pretty.moduleCycle $ map Module.modName mods'
+           Right mods' -> return $ Right mods'
