@@ -1,10 +1,10 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE LambdaCase, MultiWayIf #-}
 module Repl where
 
 import Prelude hiding (lex, mod)
 
 import Control.Monad.State
-import Data.Char (isSpace)
+import qualified Data.Char as Char (isSpace, isUpper)
 import Data.Functor ((<$>))
 import Data.IORef
 import Data.List (intercalate)
@@ -24,9 +24,10 @@ import Monad.InterpreterM (Val(..))
 import qualified Pretty.Data.Definition as Pretty
 import qualified Pretty.Data.Module as Pretty
 import qualified Pretty.Repl as Pretty
+import Data.Result (Result(..))
 import qualified Stage
 import qualified Stage.Loader as Loader (preload)
-import Utils (split)
+import qualified Utils (split, splitId)
 
 data ReplState =
     ReplState { initialFs :: FileSystem, fs :: FileSystem }
@@ -126,40 +127,46 @@ options = [Option "a" [] (NoArg ShowAll) "Show all",
 
 runCommandM :: String -> [Flag] -> [String] -> ReplM ()
 runCommandM "def" opts nonOpts
-  | null nonOpts || '.' `notElem` last nonOpts =
+  | null nonOpts || isModuleName (last nonOpts) =
     let
       me | null nonOpts = ""
          | otherwise = last nonOpts
     in
-      if showHelp then
-        usageM
-      else if not showAll && null me then
-             showModuleNamesM
-           else
-             showMeM showAll showBrief showOrd showFree showSrc showExp showRen showJs me
+     -- edit: remove parenthesis in GHC 7.8
+      (if | showHelp -> usageM
+          | not showAll && null me -> showModuleNamesM
+          | otherwise -> showMeM showAll showBrief showOrd showFree showSrc showExp showRen showJs me)
   | otherwise =
     do let name = last nonOpts
        fs <- fs <$> get
        case FileSystem.lookupDefinition fs name of
-         Nothing -> liftIO $ putStrLn $ "definition " ++ show name ++ " does not exist"
-         Just def -> liftIO $ putStrLn $ PrettyString.toString $ Pretty.docDefn showFree showSrc showExp showRen showJs def
-  where showAll = ShowAll `elem` opts
-        showBrief = ShowBrief `elem` opts
-        showHelp = ShowHelp `elem` opts
-        showOrd = ShowOrd `elem` opts
-        showFree = ShowFree `elem` opts
-        showSrc = ShowSrc `elem` opts
-        showExp = ShowExp `elem` opts
-        showRen = ShowRen `elem` opts
-        showJs  = ShowJs `elem` opts
+         Bad err -> liftIO . putStrLn $ PrettyString.toString err
+         Ok def -> liftIO . putStrLn . PrettyString.toString $ Pretty.docDefn showFree showSrc showExp showRen showJs def
+  where
+    showAll = ShowAll `elem` opts
+    showBrief = ShowBrief `elem` opts
+    showHelp = ShowHelp `elem` opts
+    showOrd = ShowOrd `elem` opts
+    showFree = ShowFree `elem` opts
+    showSrc = ShowSrc `elem` opts
+    showExp = ShowExp `elem` opts
+    showRen = ShowRen `elem` opts
+    showJs  = ShowJs `elem` opts
 
-        usageM =
-          liftIO $ putStr $ usageInfo "def [-b] [--help] [--free] [--src] [--exp] [--ren] [-o] [-a | <me>]" options
+    isModuleName name =
+      case Utils.splitId name of
+        [] -> False
+        xs -> case last xs of
+                [] -> False
+                (c:_) -> Char.isUpper c
 
-        showModuleNamesM =
-          do fs <- fs <$> get
-             let modNames = map Module.modName . FileSystem.toAscList $ fs
-             liftIO . putStrLn . PrettyString.toString . Pretty.docModuleNames $ modNames
+    usageM =
+      liftIO . putStr $ usageInfo "def [-b] [--help] [--free] [--src] [--exp] [--ren] [--js] [-o] [-a | <me>]" options
+
+    showModuleNamesM =
+      do fs <- fs <$> get
+         let modNames = map Module.modName . FileSystem.toAscList $ fs
+         liftIO . putStrLn . PrettyString.toString . Pretty.docModuleNames $ modNames
 runCommandM "load" _ nonOpts
   | null nonOpts =
     liftIO $ putStrLn ":load [ <me> | <file/me> ]"
@@ -173,7 +180,7 @@ runCommandM _ _ _ =
 
 dispatchCommandM :: String -> ReplM ()
 dispatchCommandM ln =
-    case getOpt Permute options (split ' ' ln) of
+    case getOpt Permute options (Utils.split ' ' ln) of
       (opts, [], []) -> runCommandM "" opts []
       (opts, nonOpts, []) -> runCommandM (head nonOpts) opts (tail nonOpts)
       (_, _, errs) -> liftIO $ putStr $ intercalate "" errs
@@ -192,7 +199,7 @@ replM =
        case mprompt of 
          Nothing -> return True
          Just ln | ln == ":quit" -> return True
-                 | all isSpace ln -> replM
+                 | all Char.isSpace ln -> replM
                  | otherwise -> promptM ln >> return False
 
 putUserException :: UserException -> IO ()
