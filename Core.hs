@@ -4,13 +4,10 @@ import Prelude hiding (concat, null, reverse)
 import qualified Prelude
 
 import Control.Arrow ((***))
-import Control.Monad ((<=<))
-import Control.Monad.State
 import Data.Hashable (hash)
 import System.IO as IO
 
 import Config
-import Data.Exception
 import Data.Module
 import Monad.InterpreterM
 import qualified Stage.Interpreter as Interpreter

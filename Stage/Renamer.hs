@@ -14,7 +14,7 @@ import qualified Data.Definition as Definition
 import Data.Expr (DefnKw(..), Expr(..))
 import qualified Data.Expr as Expr (freeVars, idE)
 import Data.FileSystem (FileSystem)
-import qualified Data.FileSystem as FileSystem (add, lookupDefinition)
+import qualified Data.FileSystem as FileSystem
 import Data.Frame (Frame)
 import qualified Data.Frame as Frame (frId)
 import Data.FrameTree (FrameTree)
@@ -23,10 +23,11 @@ import Data.Module (ModuleT (..), Module(..))
 import qualified Data.Module as Module
 import Data.PrettyString (PrettyString)
 import qualified Data.QualName as QualName (fromQualName)
+import qualified Data.Result as Result
 import Data.Symbol (Symbol (..))
 import qualified Monad.Utils as Utils (returnOne)
 import qualified Pretty.Stage.Renamer as Pretty
-import Utils (rebaseName, flattenId, splitId)
+import qualified Utils
 
 data RenamerState =
   RenamerState { renCurrentFrameId :: Int
@@ -166,14 +167,17 @@ renameM expr@RealE {} = Utils.returnOne $ return expr
 
 lookupUnprefixedFreeVar :: FileSystem -> [String] -> String -> [Definition]
 lookupUnprefixedFreeVar fs unprefixed var =
-  let unprefixedVars = map (++ '.':var) unprefixed in
-  mapMaybe (FileSystem.lookupDefinition fs) unprefixedVars
+  Result.mapResult (\modName -> FileSystem.lookupDefinition' fs modName var) unprefixed
 
 lookupPrefixedFreeVar :: FileSystem -> [(String, String)] -> String -> [Definition]
 lookupPrefixedFreeVar fs prefixed name =
-  mapMaybe (FileSystem.lookupDefinition fs . rebase) $ filter isPrefix prefixed
-  where isPrefix (_, y) = splitId y `isPrefixOf` splitId name
-        rebase (x, y) = rebaseName x y name
+  Result.mapResult lookupDefinition $ filter isPrefix prefixed
+  where
+    isPrefix (_, y) =
+      Utils.splitId y `isPrefixOf` Utils.splitId name
+
+    lookupDefinition (modName, asName) =
+      FileSystem.lookupDefinition' fs modName $ Utils.stripModule asName name
 
 lookupFreeVars :: FileSystem -> [String] -> [(String, String)] -> [String] -> RenamerM [Definition]
 lookupFreeVars _ _ _ [] = return []
@@ -204,7 +208,7 @@ renameDefinitionM fs def@Definition { defExp = Right expr } =
        let syms = mapMaybe Definition.defSym defs
        sequence_ [ addSymbolM name sym | name <- names | sym <- syms ]
        (do expr' <- renameOneM expr
-           sym <- getSymbolM $ flattenId $ tail $ splitId $ Definition.defName def
+           sym <- getSymbolM $ Utils.flattenId $ tail $ Utils.splitId $ Definition.defName def
            return $ def { defFreeNames = map Definition.defName defs
                         , defSym = Just sym
                         , defRen = Right expr' }) `catchError` (\err -> return $ def { defFreeNames = map Definition.defName defs

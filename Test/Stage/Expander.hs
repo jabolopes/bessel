@@ -61,6 +61,7 @@ testExpander =
      expect expected2 $ File "Test/TestData2.bsl"
      expect expected3 $ File "Test/TestData3.bsl"
      expect expected4 $ File "Test/TestData4.bsl"
+     -- expect expected5 $ File "Test/TestData5.bsl"
   where
     expectedSnippet1 =
       FnDecl NrDef "not"
@@ -294,3 +295,15 @@ testExpander =
                  "eqSeq"))))
              (AppE (AppE (IdE (QualName {fromQualName = "eqSeq"})) (IdE (QualName {fromQualName = "x"}))) (IdE (QualName {fromQualName = "y"}))))))]
          "eq")))
+
+    expected5 =
+      FnDecl Def "isString"
+      (LambdaE "arg#0"
+       (CondE
+        [(AppE (AppE (IdE (QualName {fromQualName = "isTuple"})) (IdE (QualName {fromQualName = "null"}))) (IdE (QualName {fromQualName = "arg#0"})),
+          IdE (QualName {fromQualName = "true"})),
+         (AppE (AppE (AppE (IdE (QualName {fromQualName = "isList"})) (IdE (QualName {fromQualName = "isChar"}))) (IdE (QualName {fromQualName = "isString"}))) (IdE (QualName {fromQualName = "arg#0"})),
+          IdE (QualName {fromQualName = "true"})),
+         (AppE (LambdaE "_" (IdE (QualName {fromQualName = "true#"}))) (IdE (QualName {fromQualName = "arg#0"})),
+          IdE (QualName {fromQualName = "false"}))]
+        "isString"))

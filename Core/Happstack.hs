@@ -15,16 +15,10 @@ import qualified Data.ByteString.Char8 as ByteStringChar8
 import System.IO
 import Control.Exception
 
-import qualified Data.List as List (find, lookup)
+import qualified Data.List as List (lookup)
 
 import qualified Network.HaskellNet.IMAP as IMAP
 import qualified Network.HaskellNet.IMAP.SSL as IMAP
-
-import Data.MBox (Message)
-import qualified Data.MBox as MBox
-
-import qualified Data.Text as Text
-import qualified Data.Text.IO as Text (readFile)
 
 import Happstack.Lite (ServerPart, Response, Browsing(..), msum)
 import qualified Happstack.Lite as Happstack
@@ -40,6 +34,7 @@ import qualified Text.Blaze.Html5 as Html
 import qualified Core as Core
 import Data.Module
 import Monad.InterpreterM
+import qualified Stage.Interpreter as Interpreter
 
 happstackName :: String
 happstackName = "Core.Happstack"
@@ -192,14 +187,17 @@ serveApp (FnVal fn) =
   return .
   IOVal $ do
     Happstack.serve Nothing $
-      msum [ imap
-           -- , mail mailBox mailSpool
-           -- , storage storageDir
-           -- , upload storageDir
-           , Happstack.dir "web" $ Server.uriRest (\uri -> do val <- fn $ boxString uri
-                                                           runMonadVal <$> fn (boxString uri))
-           , top
-           ]
+      msum [
+        -- imap
+        -- , mail mailBox mailSpool
+        -- , storage storageDir
+        -- , upload storageDir
+        Happstack.dir "web" $
+          Server.uriRest
+          (\uri -> do val <- liftIO $ Interpreter.liftInterpreterM $ fn (boxString uri)
+                      runMonadVal val)
+        , top
+        ]
     return $ SeqVal []
 serveApp _ =
   happstackError "serveApp: expected (String -> Serve) as first argument"
@@ -312,14 +310,14 @@ fnDesc =
    ("var"         , mkTag Html.var),
    ("video"       , mkTag Html.video),
 
-   ("serveApp"    , primitive serveApp),
+   ("serveApp"    , FnVal serveApp),
    ("serveDirectory" , primitive serveDirectory),
    ("string"      , primitive string),
    ("applyAttribute", primitive applyAttribute),
    ("applyTag", primitive applyTag),
    ("applyList", primitive applyList)]
 
-happstackModule :: Module
+happstackModule :: IO Module
 happstackModule = mkCoreModule happstackName ["Core"] fnDesc
 
 template :: String -> Html -> Response
@@ -410,103 +408,103 @@ upload dir =
 --     ok $ template "mail" $ do
 --       toHtml str
 
-storage :: FilePath -> ServerPart Response
-storage dir =
-  Happstack.dir "storage" $
-    Happstack.serveDirectory EnableBrowsing [] dir
+-- storage :: FilePath -> ServerPart Response
+-- storage dir =
+--   Happstack.dir "storage" $
+--     Happstack.serveDirectory EnableBrowsing [] dir
 
-imapServer :: String
-imapServer = "imap-mail.outlook.com"
+-- imapServer :: String
+-- imapServer = "imap-mail.outlook.com"
 
-imapUsername :: String
-imapUsername = "jabolopes@live.com.pt"
+-- imapUsername :: String
+-- imapUsername = "jabolopes@live.com.pt"
 
-imapPassword :: String
-imapPassword = "movepola123"
+-- imapPassword :: String
+-- imapPassword = "movepola123"
 
-withEcho :: Bool -> IO a -> IO a
-withEcho echo action = do
-  old <- hGetEcho stdin
-  bracket_ (hSetEcho stdin echo) (hSetEcho stdin old) action
+-- withEcho :: Bool -> IO a -> IO a
+-- withEcho echo action = do
+--   old <- hGetEcho stdin
+--   bracket_ (hSetEcho stdin echo) (hSetEcho stdin old) action
 
-getPassword :: IO String
-getPassword = do
-  putStr "Password: "
-  hFlush stdout
-  pass <- withEcho False getLine
-  putChar '\n'
-  return pass
+-- getPassword :: IO String
+-- getPassword = do
+--   putStr "Password: "
+--   hFlush stdout
+--   pass <- withEcho False getLine
+--   putChar '\n'
+--   return pass
 
-breakSubstring :: ByteString -> ByteString -> (ByteString, ByteString)
-breakSubstring pat str =
-  case ByteString.breakSubstring pat str of
-    (x, y) | ByteString.isPrefixOf pat y ->
-      (x,) $ ByteString.drop (ByteString.length pat) y
-    x -> x
+-- breakSubstring :: ByteString -> ByteString -> (ByteString, ByteString)
+-- breakSubstring pat str =
+--   case ByteString.breakSubstring pat str of
+--     (x, y) | ByteString.isPrefixOf pat y ->
+--       (x,) $ ByteString.drop (ByteString.length pat) y
+--     x -> x
 
-parseImapMessage :: ByteString -> Maybe (ByteString, ByteString)
-parseImapMessage msg =
-  case ByteString.breakSubstring unixNewline (normalizeMsg msg) of
-    (_, "") -> Nothing
-    (hds, env) | ByteString.isPrefixOf unixNewline env ->
-      Just . (hds,) $ ByteString.drop (ByteString.length unixNewline) env
-    (hds, env) ->
-      Just (hds, env)
-  where unixNewline = ByteStringChar8.pack "\n\n"
-        normalizeMsg = ByteStringChar8.filter (/= '\r')
+-- parseImapMessage :: ByteString -> Maybe (ByteString, ByteString)
+-- parseImapMessage msg =
+--   case ByteString.breakSubstring unixNewline (normalizeMsg msg) of
+--     (_, "") -> Nothing
+--     (hds, env) | ByteString.isPrefixOf unixNewline env ->
+--       Just . (hds,) $ ByteString.drop (ByteString.length unixNewline) env
+--     (hds, env) ->
+--       Just (hds, env)
+--   where unixNewline = ByteStringChar8.pack "\n\n"
+--         normalizeMsg = ByteStringChar8.filter (/= '\r')
 
-headerImapMessage :: String -> ByteString -> Maybe String
-headerImapMessage name hds =
-  ByteStringChar8.unpack <$>
-    (List.lookup (ByteStringChar8.pack name) .
-      map (breakSubstring ":") .
-        ByteStringChar8.lines $ hds)
+-- headerImapMessage :: String -> ByteString -> Maybe String
+-- headerImapMessage name hds =
+--   ByteStringChar8.unpack <$>
+--     (List.lookup (ByteStringChar8.pack name) .
+--       map (breakSubstring ":") .
+--         ByteStringChar8.lines $ hds)
 
-imapMessageHtml :: ByteString -> Maybe Html
-imapMessageHtml msg =
-  do (hds, env) <- parseImapMessage msg
-     to <- headerImapMessage "To" hds
-     from <- headerImapMessage "From" hds
-     subject <- headerImapMessage "Subject" hds
-     date <- headerImapMessage "Date" hds
-     let body = Html.contents $ Html.unsafeByteString env
-     return $ do
-       Html.p $ do
-         toHtml to
-         Html.br
-         toHtml from
-         Html.br
-         toHtml subject
-         Html.br
-         toHtml date
-         Html.br
-         Html.br
-         body
+-- imapMessageHtml :: ByteString -> Maybe Html
+-- imapMessageHtml msg =
+--   do (hds, env) <- parseImapMessage msg
+--      to <- headerImapMessage "To" hds
+--      from <- headerImapMessage "From" hds
+--      subject <- headerImapMessage "Subject" hds
+--      date <- headerImapMessage "Date" hds
+--      let body = Html.contents $ Html.unsafeByteString env
+--      return $ do
+--        Html.p $ do
+--          toHtml to
+--          Html.br
+--          toHtml from
+--          Html.br
+--          toHtml subject
+--          Html.br
+--          toHtml date
+--          Html.br
+--          Html.br
+--          body
 
-maybeImapMessageHtml :: ByteString -> Html
-maybeImapMessageHtml msg =
-  case imapMessageHtml msg of
-    Nothing -> Html.p . toHtml . ByteStringChar8.unpack $ msg
-    Just x -> x
+-- maybeImapMessageHtml :: ByteString -> Html
+-- maybeImapMessageHtml msg =
+--   case imapMessageHtml msg of
+--     Nothing -> Html.p . toHtml . ByteStringChar8.unpack $ msg
+--     Just x -> x
 
-mailImap :: IO [ByteString]
-mailImap = do
-  con <- IMAP.connectIMAPSSL imapServer
+-- mailImap :: IO [ByteString]
+-- mailImap = do
+--   con <- IMAP.connectIMAPSSL imapServer
 
-  IMAP.login con imapUsername imapPassword
-  -- mboxes <- IMAP.list con
+--   IMAP.login con imapUsername imapPassword
+--   -- mboxes <- IMAP.list con
 
-  IMAP.examine con "INBOX"
-  msgs <- IMAP.search con [IMAP.ALLs]
+--   IMAP.examine con "INBOX"
+--   msgs <- IMAP.search con [IMAP.ALLs]
 
-  mapM (IMAP.fetch con) msgs
+--   mapM (IMAP.fetch con) msgs
 
-imap :: ServerPart Response
-imap =
-  Happstack.dir "imap" $ do
-    msgs <- liftIO mailImap
-    ok $ template "imap" $
-      toHtml $ map maybeImapMessageHtml msgs
+-- imap :: ServerPart Response
+-- imap =
+--   Happstack.dir "imap" $ do
+--     msgs <- liftIO mailImap
+--     ok $ template "imap" $
+--       toHtml $ map maybeImapMessageHtml msgs
 
 -- Happstack.dir "storage" list
 --   where

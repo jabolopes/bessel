@@ -1,6 +1,8 @@
 module Utils where
 
-import Data.List (intercalate)
+import Prelude hiding (mod)
+
+import qualified Data.List as List
 import qualified Data.Set as Set
 
 duplicates :: Ord a => [a] -> Maybe a
@@ -14,7 +16,7 @@ duplicates = loop Set.empty
         loop (Set.insert x s) xs
 
 flattenId :: [String] -> String
-flattenId = intercalate "."
+flattenId = List.intercalate "."
 
 singleton :: [a] -> Bool
 singleton [_] = True
@@ -32,5 +34,13 @@ splitId = split '.'
 
 rebaseName :: [a] -> [a] -> [a] -> [a]
 rebaseName prefix1 prefix2 name =
-    let name' = drop (length prefix2) name in
-    prefix1 ++ name'
+  prefix1 ++ drop (length prefix2) name
+
+stripModule :: String -> String -> String
+stripModule mod def
+  | modPrefix `List.isPrefixOf` def =
+    drop (length modPrefix) def
+  | otherwise =
+    def
+  where
+    modPrefix = mod ++ "."

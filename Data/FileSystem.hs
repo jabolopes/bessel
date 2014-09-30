@@ -11,6 +11,7 @@ module Data.FileSystem
 
 import Prelude hiding (lookup, mod)
 
+import Control.Monad.Error
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe
@@ -18,7 +19,8 @@ import Data.Maybe
 import Data.Definition (Definition)
 import Data.Module (Module)
 import qualified Data.Module as Module
-import Utils
+import Data.Result (Result)
+import qualified Data.PrettyString as PrettyString
 
 data FileSystem
   = FileSystem { fsModules :: Map Int Module
@@ -53,8 +55,12 @@ lookup fs name =
 member :: FileSystem -> String -> Bool
 member fs name = name `Map.member` fsModuleIds fs
 
-lookupDefinition :: FileSystem -> String -> Maybe Definition
-lookupDefinition fs name =
-  do let modName = init (splitId name)
-     mod <- lookup fs (flattenId modName)
-     name `Map.lookup` Module.modDefs mod
+lookupDefinition :: FileSystem -> String -> String -> Result Definition
+lookupDefinition fs modName valName =
+  let defName = modName ++ "." ++ valName in
+  case lookup fs modName of
+    Nothing -> throwError . PrettyString.text $ "module " ++ modName ++ " not found"
+    Just mod ->
+      case defName `Map.lookup` Module.modDefs mod of
+        Nothing -> throwError . PrettyString.text $ "definition " ++ defName ++ " not found in module " ++ modName
+        Just def -> return def

@@ -1,4 +1,4 @@
-{-# LANGUAGE ParallelListComp, TupleSections #-}
+{-# LANGUAGE ParallelListComp, LambdaCase, TupleSections #-}
 module Stage.Interpreter where
 
 import Prelude hiding (mod, pred)
@@ -8,21 +8,23 @@ import Control.Monad.State
 import Data.Functor ((<$>))
 import Data.IORef
 import qualified Data.Map as Map (empty, fromList)
-import Data.Maybe (catMaybes, isNothing, isJust, mapMaybe)
+import Data.Maybe (isNothing, isJust, mapMaybe)
 import Data.Either (lefts, rights)
 
 import Data.Definition (Definition(..))
 import qualified Data.Definition as Definition
 import qualified Data.Env as Env (findBind, initial)
+import Data.Expr (DefnKw(..), Expr(..))
+import qualified Data.Expr as Expr
 import Data.FileSystem (FileSystem)
 import qualified Data.FileSystem as FileSystem
 import Data.Module
 import qualified Data.Module as Module (defsAsc, ensureDefinitions)
-import Data.Expr (DefnKw(..), Expr(..))
-import qualified Data.Expr as Expr
 import qualified Data.QualName as QualName (fromQualName)
+import Data.Result (Result(..))
 import Data.Symbol
 import Monad.InterpreterM
+import qualified Utils
 
 evalM :: Expr -> InterpreterM Val
 evalM (CharE c) = return $ CharVal c
@@ -89,11 +91,12 @@ evalM (MergeE vals) =
 
 freeNameDefinitions :: FileSystem -> Definition -> [Definition]
 freeNameDefinitions fs def =
-  let defs = map (FileSystem.lookupDefinition fs) (Definition.defFreeNames def) in
-  if all isJust defs then
-    catMaybes defs
-  else
-    error "Interpreter.freeNamesDefinitions: undefined free variables must be caught in previous stages"
+  case mapM lookupDefinition (Definition.defFreeNames def) of
+    Bad _ -> error "Interpreter.freeNamesDefinitions: undefined free variables must be caught in previous stages"
+    Ok defs -> defs
+  where
+    lookupDefinition defName =
+      FileSystem.lookupDefinition fs modName $ Utils.stripModule modName defName
 
 liftInterpreterM :: InterpreterM a -> IO a
 liftInterpreterM m =

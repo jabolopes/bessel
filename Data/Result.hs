@@ -18,6 +18,14 @@ result :: (PrettyString -> b) -> (a -> b) -> Result a -> b
 result fn _ (Bad err) = fn err
 result _ fn (Ok x) = fn x
 
+mapResult :: (a -> Result b) -> [a] -> [b]
+mapResult _ [] = []
+mapResult fn (x:xs) =
+  let rs = mapResult fn xs in
+  case fn x of
+    Bad _ -> rs
+    Ok r  -> r:rs
+
 instance Functor Result where
   fmap = liftM
 
