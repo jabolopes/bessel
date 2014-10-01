@@ -271,7 +271,7 @@ mapFile filename =
     mapFileHof (FnVal fn) =
       IOVal $ do
         contents <- IO.readFile $ unboxString filename
-        Interpreter.liftInterpreterM (fn (boxString contents))
+        Interpreter.liftInterpreterM . fn $ boxString contents
 
 -- environment
 
