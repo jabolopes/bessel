@@ -32,16 +32,14 @@ import qualified Utils
 data RenamerState =
   RenamerState { renCurrentFrameId :: Int
                , renFrameTree :: FrameTree
-               , renNameCount :: Int
-               , renSkipFreeVars :: Bool }
+               , renNameCount :: Int }
 
 initialRenamerState :: RenamerState
 initialRenamerState =
   let frameTree = FrameTree.empty in
   RenamerState { renCurrentFrameId = FrameTree.rootId frameTree
                , renFrameTree = frameTree
-               , renNameCount = 0
-               , renSkipFreeVars = False }
+               , renNameCount = 0 }
 
 type RenamerM a = StateT RenamerState (Either PrettyString) a
 
@@ -143,15 +141,7 @@ renameM (FnDecl NrDef name body) =
      addFnSymbolM name name'
      Utils.returnOne . return $ FnDecl NrDef name' body'
 renameM expr@(IdE name) =
-  do b <- renSkipFreeVars <$> get
-     if b
-     then do
-       msym <- lookupSymbolM (QualName.fromQualName name)
-       case msym of
-         Just (FnSymbol sym) -> Utils.returnOne . return $ Expr.idE sym
-         _ -> Utils.returnOne . return $ expr
-     else
-       Utils.returnOne $ Expr.idE <$> getFnSymbolM (QualName.fromQualName name)
+  Utils.returnOne $ Expr.idE <$> getFnSymbolM (QualName.fromQualName name)
 renameM expr@IntE {} = Utils.returnOne $ return expr
 renameM (LetE defn body) =
   withScopeM $ do
@@ -166,8 +156,11 @@ renameM (MergeE vals) =
 renameM expr@RealE {} = Utils.returnOne $ return expr
 
 lookupUnprefixedFreeVar :: FileSystem -> [String] -> String -> [Definition]
-lookupUnprefixedFreeVar fs unprefixed var =
-  Result.mapResult (\modName -> FileSystem.lookupDefinition' fs modName var) unprefixed
+lookupUnprefixedFreeVar fs unprefixed name =
+  Result.mapResult lookupDefinition unprefixed
+  where
+    lookupDefinition modName =
+      FileSystem.lookupDefinition fs modName name
 
 lookupPrefixedFreeVar :: FileSystem -> [(String, String)] -> String -> [Definition]
 lookupPrefixedFreeVar fs prefixed name =
@@ -177,7 +170,8 @@ lookupPrefixedFreeVar fs prefixed name =
       Utils.splitId y `isPrefixOf` Utils.splitId name
 
     lookupDefinition (modName, asName) =
-      FileSystem.lookupDefinition' fs modName $ Utils.stripModule asName name
+      do let defName = Utils.stripModule asName name
+         FileSystem.lookupDefinition fs modName defName
 
 lookupFreeVars :: FileSystem -> [String] -> [(String, String)] -> [String] -> RenamerM [Definition]
 lookupFreeVars _ _ _ [] = return []
@@ -186,34 +180,42 @@ lookupFreeVars fs unprefixed prefixed (name:names) =
      case concatMap ($ name) fns of
        [] -> throwError . Pretty.nameNotDefined . show $ name
        [def] -> (def:) <$> lookupFreeVars fs unprefixed prefixed names
-       defs -> throwError . Pretty.nameMultiplyDefined (show name) . map Definition.defName $ defs
-
-renameDeclaration :: Expr -> Either PrettyString Expr
-renameDeclaration expr@FnDecl {} =
-  let renState = initialRenamerState { renSkipFreeVars = True } in
-  fst <$> runStateT (renameOneM expr) renState
+       defs ->
+         throwError $
+           Pretty.nameMultiplyDefined name $
+             map (\def -> (QualName.fromQualName (Definition.defModule def),
+                           QualName.fromQualName (Definition.defName def))) defs
 
 renameDefinitionM :: FileSystem -> Definition -> RenamerM Definition
 renameDefinitionM fs def@Definition { defExp = Right expr } =
   do let prefixed = Definition.prefixedUses def
          unprefixed = Definition.unprefixedUses def
          names = Expr.freeVars expr
-     defs <- lookupFreeVars fs unprefixed prefixed names
-     if any (isNothing . Definition.defSym) defs then
-       return $ def { defFreeNames = map Definition.defName defs
-                    , defSym = Nothing
-                    , defRen = Left $ let freeNames = [ Definition.defName x | x <- defs, isNothing (Definition.defSym x) ] in
-                                       Pretty.freeNamesFailedToRename freeNames }
-     else do
-       let syms = mapMaybe Definition.defSym defs
-       sequence_ [ addSymbolM name sym | name <- names | sym <- syms ]
-       (do expr' <- renameOneM expr
-           sym <- getSymbolM $ Utils.flattenId $ tail $ Utils.splitId $ Definition.defName def
-           return $ def { defFreeNames = map Definition.defName defs
-                        , defSym = Just sym
-                        , defRen = Right expr' }) `catchError` (\err -> return $ def { defFreeNames = map Definition.defName defs
-                                                                                     , defSym = Nothing
-                                                                                     , defRen = Left err })
+     freeNameDefs <- lookupFreeVars fs unprefixed prefixed names
+     checkFreeNames def freeNameDefs
+     sequence_ [ addSymbolM name sym | name <- names | sym <- mapMaybe Definition.defSym freeNameDefs ]
+     (do expr' <- renameOneM expr
+         sym <- getSymbolM . QualName.fromQualName $ Definition.defName def
+         return $ def { defFreeNames = freeNames freeNameDefs,
+                        defSym = Just sym ,
+                        defRen = Right expr' })
+       `catchError`
+         (\err -> return $ def { defFreeNames = freeNames freeNameDefs
+                               , defSym = Nothing
+                               , defRen = Left err })
+  where
+    freeNames =
+      map (\def -> (Definition.defModule def, Definition.defName def))
+
+    failedFreeNames defs =
+      [ (QualName.fromQualName (Definition.defModule x), QualName.fromQualName (Definition.defName x))
+      | x <- defs, isNothing (Definition.defSym x) ]
+
+    checkFreeNames def freeNameDefs =
+      when (any (isNothing . Definition.defSym) freeNameDefs) $
+        throwError $
+          Pretty.freeNamesFailedToRename (QualName.fromQualName (Definition.defName def)) $
+           failedFreeNames freeNameDefs
 renameDefinitionM _ def = return def
 
 renameDefinition :: FileSystem -> Definition -> Either PrettyString Definition

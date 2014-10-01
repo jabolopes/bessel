@@ -6,13 +6,16 @@ import Data.List as List (partition)
 import Data.Expr (Expr)
 import Data.PrettyString (PrettyString)
 import qualified Data.PrettyString as PrettyString (empty)
+import Data.QualName (QualName)
 import Data.Source (Source)
 import Data.Symbol (Symbol)
 import Monad.InterpreterM (Val)
 
 data Definition
-  = Definition { defName :: String
-               , defFreeNames :: [String]
+  = Definition { defModule :: QualName
+               , defName :: QualName
+                 -- Each free names is the module and definition names.
+               , defFreeNames :: [(QualName, QualName)]
                , defSym :: Maybe Symbol
                , defSrc :: Either PrettyString Source
                , defExp :: Either PrettyString Expr
@@ -20,9 +23,10 @@ data Definition
                , defVal :: Either String (IORef Val)
                , defUses :: [(String, String)] }
 
-initial :: String -> Definition
-initial name =
-  Definition { defName = name
+initial :: QualName -> QualName -> Definition
+initial moduleName name =
+  Definition { defModule = moduleName
+             , defName = name
              , defFreeNames = []
              , defSym = Nothing
              , defSrc = Left PrettyString.empty

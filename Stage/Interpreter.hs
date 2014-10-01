@@ -18,8 +18,8 @@ import Data.Expr (DefnKw(..), Expr(..))
 import qualified Data.Expr as Expr
 import Data.FileSystem (FileSystem)
 import qualified Data.FileSystem as FileSystem
-import Data.Module
-import qualified Data.Module as Module (defsAsc, ensureDefinitions)
+import Data.Module (ModuleT(..), Module(..))
+import qualified Data.Module as Module
 import qualified Data.QualName as QualName (fromQualName)
 import Data.Result (Result(..))
 import Data.Symbol
@@ -95,8 +95,9 @@ freeNameDefinitions fs def =
     Bad _ -> error "Interpreter.freeNamesDefinitions: undefined free variables must be caught in previous stages"
     Ok defs -> defs
   where
-    lookupDefinition defName =
-      FileSystem.lookupDefinition fs modName $ Utils.stripModule modName defName
+    lookupDefinition (modName, defName) =
+      FileSystem.lookupDefinition fs (QualName.fromQualName modName) $
+        Utils.stripModule (QualName.fromQualName modName) (QualName.fromQualName defName)
 
 liftInterpreterM :: InterpreterM a -> IO a
 liftInterpreterM m =
@@ -115,7 +116,7 @@ interpretDefinition fs def@Definition { defSym = Just (FnSymbol symbol), defRen 
              env <- Map.fromList <$> sequence [ do return (sym, v) | FnSymbol sym <- syms | v <- vals ]
              (_, env') <- runStateT (evalM expr) (Env.initial env)
              case Env.findBind env' symbol of
-               Nothing -> return def { defVal = Left $ "failed to evaluate " ++ Definition.defName def }
+               Nothing -> return def { defVal = Left $ "failed to evaluate " ++ QualName.fromQualName (Definition.defName def) }
                Just ref -> return def { defVal = Right ref }
        _ ->
          return def { defVal = Left "definition depends on free names that failed to evaluate" }

@@ -12,9 +12,11 @@ import Data.Maybe (fromMaybe)
 import qualified Config
 import Data.Definition (Definition(..))
 import qualified Data.Definition as Definition
+import qualified Data.QualName as QualName
 import Data.Source
 import Data.Symbol (Symbol (..))
 import Monad.InterpreterM (Val)
+import qualified Utils
 
 data ModuleT
   = CoreT
@@ -75,15 +77,15 @@ mkCoreModule name deps fnDesc =
   let uses = [ (dep, "") | dep <- deps ] in
   ensureDefinitions (initial CoreT name uses) <$> defs
   where
-    qualName descName = name ++ "." ++ descName
+    qualName = QualName.mkQualName . Utils.splitId
 
     defs =
       sequence
-      [ do let symName = qualName sym
+      [ do let sym' = Utils.flattenId [name, sym]
            ref <- newIORef val
-           return (Definition.initial symName) { defSym = Just (FnSymbol symName)
-                                               , defVal = Right ref
-                                               }
+           return (Definition.initial (qualName name) (qualName sym)) { defSym = Just (FnSymbol sym')
+                                                                      , defVal = Right ref
+                                                                      }
       | (sym, val) <- fnDesc ]
 
 interactiveName :: String
@@ -100,9 +102,10 @@ mkInteractiveModule mods srcs =
 ensureDefinitions :: Module -> [Definition] -> Module
 ensureDefinitions mod defs =
   mod { modDefs = defsMp `Map.union` modDefs mod
-      , modDefOrd = List.nub $ modDefOrd mod ++ map Definition.defName defs }
-  where defsMp =
-          Map.fromList [ (Definition.defName def, def) | def <- defs ]
+      , modDefOrd = List.nub $ modDefOrd mod ++ map (QualName.fromQualName . Definition.defName) defs }
+  where
+    defsMp =
+      Map.fromList [ (QualName.fromQualName $ Definition.defName def, def) | def <- defs ]
 
 addDefinitionSymbols :: Module -> Map String Symbol -> Module
 addDefinitionSymbols mod syms =

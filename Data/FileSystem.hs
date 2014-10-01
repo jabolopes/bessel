@@ -56,8 +56,7 @@ member :: FileSystem -> String -> Bool
 member fs name = name `Map.member` fsModuleIds fs
 
 lookupDefinition :: FileSystem -> String -> String -> Result Definition
-lookupDefinition fs modName valName =
-  let defName = modName ++ "." ++ valName in
+lookupDefinition fs modName defName =
   case lookup fs modName of
     Nothing -> throwError . PrettyString.text $ "module " ++ modName ++ " not found"
     Just mod ->

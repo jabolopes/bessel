@@ -127,21 +127,25 @@ options = [Option "a" [] (NoArg ShowAll) "Show all",
 
 runCommandM :: String -> [Flag] -> [String] -> ReplM ()
 runCommandM "def" opts nonOpts
-  | null nonOpts || isModuleName (last nonOpts) =
-    let
-      me | null nonOpts = ""
-         | otherwise = last nonOpts
-    in
-     -- edit: remove parenthesis in GHC 7.8
-      (if | showHelp -> usageM
-          | not showAll && null me -> showModuleNamesM
-          | otherwise -> showMeM showAll showBrief showOrd showFree showSrc showExp showRen showJs me)
-  | otherwise =
-    do let name = last nonOpts
-       fs <- fs <$> get
-       case FileSystem.lookupDefinition fs name of
-         Bad err -> liftIO . putStrLn $ PrettyString.toString err
-         Ok def -> liftIO . putStrLn . PrettyString.toString $ Pretty.docDefn showFree showSrc showExp showRen showJs def
+  | showHelp = usageM
+  | isDefinitionName nonOpts =
+      do let moduleName = last $ init nonOpts
+             definitionName = last nonOpts
+         fs <- fs <$> get
+         liftIO . putStrLn . PrettyString.toString $
+           case FileSystem.lookupDefinition fs moduleName definitionName of
+             Bad err -> err
+             Ok def -> Pretty.docDefn showFree showSrc showExp showRen showJs def
+  | showAll || isModuleName nonOpts =
+      do let moduleName
+               | null nonOpts = ""
+               | otherwise = last nonOpts
+         showMeM showAll showBrief showOrd showFree showSrc showExp showRen showJs moduleName
+  | null nonOpts =
+      do fs <- fs <$> get
+         let moduleNames = map Module.modName . FileSystem.toAscList $ fs
+         liftIO . putStrLn . PrettyString.toString . Pretty.docModuleNames $ moduleNames
+  | otherwise = usageM
   where
     showAll = ShowAll `elem` opts
     showBrief = ShowBrief `elem` opts
@@ -153,20 +157,14 @@ runCommandM "def" opts nonOpts
     showRen = ShowRen `elem` opts
     showJs  = ShowJs `elem` opts
 
-    isModuleName name =
-      case Utils.splitId name of
-        [] -> False
-        xs -> case last xs of
-                [] -> False
-                (c:_) -> Char.isUpper c
+    isDefinitionName (_:_:_) = True
+    isDefinitionName _ = False
+
+    isModuleName (_:_) = True
+    isModuleName _ = False
 
     usageM =
       liftIO . putStr $ usageInfo "def [-b] [--help] [--free] [--src] [--exp] [--ren] [--js] [-o] [-a | <me>]" options
-
-    showModuleNamesM =
-      do fs <- fs <$> get
-         let modNames = map Module.modName . FileSystem.toAscList $ fs
-         liftIO . putStrLn . PrettyString.toString . Pretty.docModuleNames $ modNames
 runCommandM "load" _ nonOpts
   | null nonOpts =
     liftIO $ putStrLn ":load [ <me> | <file/me> ]"

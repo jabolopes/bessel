@@ -13,7 +13,7 @@ import Data.Module (ModuleT(..), Module(..))
 import qualified Data.Module as Module
 import Data.PrettyString (PrettyString)
 import qualified Data.PrettyString as PrettyString (text)
-import qualified Data.QualName as QualName (fromQualName)
+import qualified Data.QualName as QualName
 import Data.Source (Source(..))
 import qualified Stage.Interpreter as Interpreter (interpret, interpretDefinition)
 import qualified Parser (parseRepl)
@@ -27,43 +27,49 @@ import qualified Utils
 qualifiedName :: Module -> String -> String
 qualifiedName mod name = Module.modName mod ++ "." ++ name
 
-defnName :: Source -> String
-defnName (FnDeclS x _) = x
-defnName (TypeDeclS x _) = QualName.fromQualName x
-
 splitDefinition :: Module -> Source -> Definition
 splitDefinition mod source =
   let
-    name = qualifiedName mod (defnName source)
+    moduleName = QualName.mkQualName [Module.modName mod]
+    defName = QualName.mkQualName [defnName source]
     use = (Module.modName mod, "")
     uses
       | use `elem` Module.modUses mod = Module.modUses mod
       | otherwise = use:Module.modUses mod
   in
-    (Definition.initial name) { defSrc = Right source
-                              , defUses = uses }
+    (Definition.initial moduleName defName) { defSrc = Right source
+                                            , defUses = uses }
+  where
+    defnName (FnDeclS x _) = x
+    defnName (TypeDeclS x _) = QualName.fromQualName x
 
 expandDefinition :: Module -> Definition -> Either PrettyString [Definition]
-expandDefinition mod def = expandSrc . Definition.defSrc $ def
-  where mkDef expr@(FnDecl _ fnName _) =
-          def { defName = qualifiedName mod fnName
-              , defExp = Right expr }
-        mkDef _ =
-          error "expandDefinition: expand can only return top-level definitions"
+expandDefinition mod def =
+  expandSrc . Definition.defSrc $ def
+  where
+    mkDef expr@(FnDecl _ defName _) =
+      def { defModule = QualName.mkQualName [Module.modName mod]
+          , defName = QualName.mkQualName [defName]
+          , defExp = Right expr }
+    mkDef _ =
+      error "expandDefinition: expand can only return top-level definitions"
 
-        expandSrc (Left err) =
-          Left (Pretty.definitionContainsNoSource err)
-        expandSrc (Right src) =
-          do exprs <- Expander.expand src
-             Right $ map mkDef exprs
+    expandSrc (Left err) =
+      Left $ Pretty.definitionContainsNoSource err
+    expandSrc (Right src) =
+      do exprs <- Expander.expand src
+         Right $ map mkDef exprs
 
 mkSnippet :: FileSystem -> Source -> Definition
 mkSnippet fs source@(FnDeclS name _) =
-  let name' = Module.interactiveName ++ "." ++ name in
-  case FileSystem.lookup fs Module.interactiveName of
-    Nothing -> error $ "Stage.mkSnippet: module " ++ Module.interactiveName ++ " not found"
-    Just mod -> (Definition.initial name') { defUses = Module.modUses mod
-                                           , defSrc = Right source }
+  let
+    moduleName = QualName.mkQualName [Module.interactiveName]
+    defnName = QualName.mkQualName [name]
+  in
+   case FileSystem.lookup fs Module.interactiveName of
+     Nothing -> error $ "Stage.mkSnippet: module " ++ Module.interactiveName ++ " not found"
+     Just mod -> (Definition.initial moduleName defnName) { defUses = Module.modUses mod
+                                                          , defSrc = Right source }
 mkSnippet fs source = mkSnippet fs $ FnDeclS "val" source
 
 renameSnippet :: FileSystem -> Definition -> Either PrettyString Definition
@@ -101,7 +107,7 @@ reorderModule fs mod =
     defs = map (splitDefinition mod) (Module.modDecls mod)
     mod' = Module.ensureDefinitions mod defs
   in
-    case Utils.duplicates (map Definition.defName defs) of
+    case Utils.duplicates (map (QualName.fromQualName . Definition.defName) defs) of
       Nothing -> Right (FileSystem.add fs mod', mod')
       Just name -> Left $ Pretty.duplicateDefinitions (Module.modName mod) name
 
@@ -111,15 +117,16 @@ expandModule fs mod@Module { modType = CoreT } =
 expandModule fs mod =
   do mod' <- expand mod (Module.defsAsc mod)
      return (FileSystem.add fs mod', mod')
-  where expand mod [] = Right mod
-        expand mod (def:defs) =
-          do defs' <- expandDefinition mod def
-             let ord =
-                   case span (/= Definition.defName def) (Module.modDefOrd mod) of
-                     (xs, y:ys) -> xs ++ [y] ++ map Definition.defName defs' ++ ys
-                 mod' = Module.setDefinitionOrder mod ord
-                 mod'' = Module.ensureDefinitions mod' defs'
-             expand mod'' defs
+  where
+    expand mod [] = Right mod
+    expand mod (def:defs) =
+      do defs' <- expandDefinition mod def
+         let ord =
+               case span (/= QualName.fromQualName (Definition.defName def)) (Module.modDefOrd mod) of
+                 (xs, y:ys) -> xs ++ [y] ++ map (QualName.fromQualName . Definition.defName) defs' ++ ys
+             mod' = Module.setDefinitionOrder mod ord
+             mod'' = Module.ensureDefinitions mod' defs'
+         expand mod'' defs
 
 renameModule :: FileSystem -> Module -> Either PrettyString (FileSystem, Module)
 renameModule fs mod =
