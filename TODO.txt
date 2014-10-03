@@ -87,3 +87,6 @@ typename
 
 
 Type and constructor with the same name have the same type predicate.
+
+
+Renamer should be a NameM monad.
