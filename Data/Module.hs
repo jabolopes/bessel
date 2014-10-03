@@ -40,9 +40,10 @@ ensureImplicitUses mod
     mod { modUses = ensureElem (Config.coreName, "") .
                       ensureElem (Config.preludeName, "") .
                         modUses $ mod }
-  where ensureElem x xs
-          | List.elem x xs = xs
-          | otherwise = x:xs
+  where
+    ensureElem x xs
+      | List.elem x xs = xs
+      | otherwise = x:xs
 
 initial :: ModuleT -> String -> [(String, String)] -> Module
 initial t name uses =
@@ -56,10 +57,11 @@ initial t name uses =
 
 defsAsc :: Module -> [Definition]
 defsAsc mod = map def (modDefOrd mod)
-    where def name =
-            fromMaybe
-              (error $ "Data.Module.defsAsc: definition " ++ show name ++ " is not defined")
-              (Map.lookup name (modDefs mod))
+    where
+      def name =
+        fromMaybe
+          (error $ "Data.Module.defsAsc: definition " ++ show name ++ " is not defined")
+          (Map.lookup name (modDefs mod))
 
 dependencies :: Module -> [String]
 dependencies = List.nub . map fst . modUses
@@ -109,32 +111,32 @@ ensureDefinitions mod defs =
 
 addDefinitionSymbols :: Module -> Map String Symbol -> Module
 addDefinitionSymbols mod syms =
-    mod { modDefs = loop (modDefs mod) (Map.toList syms) }
-    where
-      loop defs [] = defs
-      loop defs ((name, sym):xs) =
-        let
-          def = case Map.lookup name defs of
-                  Nothing -> error $ "Module.addDefinitionSymbols: definition " ++ show name ++ " is not defined"
-                  Just x -> x { defSym = Just sym }
-          defs' = Map.insert name def defs
-        in
-         loop defs' xs
+  mod { modDefs = loop (modDefs mod) (Map.toList syms) }
+  where
+    loop defs [] = defs
+    loop defs ((name, sym):xs) =
+      let
+        def = case Map.lookup name defs of
+                Nothing -> error $ "Module.addDefinitionSymbols: definition " ++ show name ++ " is not defined"
+                Just x -> x { defSym = Just sym }
+        defs' = Map.insert name def defs
+      in
+       loop defs' xs
 
 addDefinitionVals :: Module -> Map String (IORef Val) -> Module
 addDefinitionVals mod vals =
-    mod { modDefs = loop (modDefs mod) (Map.toList vals) }
-    where
-      loop defs [] = defs
-      loop defs ((name, val):xs) =
-        let
-          def = case Map.lookup name defs of
-                  Nothing -> error $ "Module.addDefinitionVals: definition " ++ show name ++ " is not defined"
-                  Just x -> x { defVal = Right val }
-          defs' = Map.insert name def defs
-        in
-         loop defs' xs
+  mod { modDefs = loop (modDefs mod) (Map.toList vals) }
+  where
+    loop defs [] = defs
+    loop defs ((name, val):xs) =
+      let
+        def = case Map.lookup name defs of
+                Nothing -> error $ "Module.addDefinitionVals: definition " ++ show name ++ " is not defined"
+                Just x -> x { defVal = Right val }
+        defs' = Map.insert name def defs
+      in
+       loop defs' xs
 
 setDefinitionOrder :: Module -> [String] -> Module
 setDefinitionOrder mod defOrd =
-    mod { modDefOrd = List.nub defOrd }
+  mod { modDefOrd = List.nub defOrd }
