@@ -1,4 +1,7 @@
-module Data.QualName where
+module Data.QualName (QualName,
+                      mkQualName,
+                      fromQualName,
+                      isTypeName) where
 
 import qualified Data.Char as Char (isUpper)
 
@@ -14,5 +17,6 @@ mkQualName name =
 
 isTypeName :: QualName -> Bool
 isTypeName = isTypeName' . last . splitId . fromQualName
-  where isTypeName' (x:_) = Char.isUpper x
-        isTypeName' _ = False
+  where
+    isTypeName' (x:_) = Char.isUpper x
+    isTypeName' _ = False
