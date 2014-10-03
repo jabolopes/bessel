@@ -125,8 +125,9 @@ renameM (AppE expr1 expr2) =
 renameM expr@CharE {} = return [expr]
 renameM (CondE ms blame) =
   Utils.returnOne $ CondE <$> mapM renameMatch ms <*> return blame
-  where renameMatch (expr1, expr2) =
-          (,) <$> renameOneM expr1 <*> renameOneM expr2
+  where
+    renameMatch (expr1, expr2) =
+      (,) <$> renameOneM expr1 <*> renameOneM expr2
 renameM (FnDecl Def name body) =
   if name `elem` Expr.freeVars body
   then do
