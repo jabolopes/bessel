@@ -194,7 +194,7 @@ renameDefinitionM fs def@Definition { defExp = Right expr } =
          names = Expr.freeVars expr
      freeNameDefs <- lookupFreeVars fs unprefixed prefixed names
      checkFreeNames def freeNameDefs
-     sequence_ [ addSymbolM name sym | name <- names | sym <- mapMaybe Definition.defSym freeNameDefs ]
+     addFreeNameSymbols names freeNameDefs
      (do expr' <- renameOneM expr
          sym <- getSymbolM . QualName.fromQualName $ Definition.defName def
          return $ def { defFreeNames = freeNames freeNameDefs,
@@ -218,10 +218,11 @@ renameDefinitionM fs def@Definition { defExp = Right expr } =
           Pretty.freeNamesFailedToRename (QualName.fromQualName (Definition.defName def)) $
            failedFreeNames freeNameDefs
 
-    addFreeNameSymbols [] = return ()
-    addFreeNameSymbols (def:defs) =
-      do let name = Utils.flattenId [Definition.defModule def, Definition.defName def]
-         addSymbolM name (FnSymbol name)
+    addFreeNameSymbols [] [] = return ()
+    addFreeNameSymbols (name:names) (def:defs) =
+      do let qualName = Utils.flattenId [QualName.fromQualName $ Definition.defModule def, QualName.fromQualName $ Definition.defName def]
+         addSymbolM name (FnSymbol qualName)
+         addFreeNameSymbols names defs
 renameDefinitionM _ def = return def
 
 renameDefinition :: FileSystem -> Definition -> Either PrettyString Definition

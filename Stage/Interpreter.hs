@@ -109,18 +109,19 @@ interpretDefinition fs def@Definition { defSym = Just (FnSymbol symbol), defRen 
   do let defs = freeNameDefinitions fs def
      case (filter isNothing (map Definition.defSym defs), lefts (map Definition.defVal defs)) of
        ([], []) ->
-         let
-           syms = mapMaybe Definition.defSym defs
-           vals = rights (map Definition.defVal defs)
-         in
-          do -- edit: fix: why FnSymbol ?
-             env <- Map.fromList <$> sequence [ do return (sym, v) | FnSymbol sym <- syms | v <- vals ]
-             (_, env') <- runStateT (evalM expr) (Env.initial env)
-             case Env.findBind env' symbol of
-               Nothing -> return def { defVal = Left $ "failed to evaluate " ++ QualName.fromQualName (Definition.defName def) }
-               Just ref -> return def { defVal = Right ref }
+         do let vals = rights (map Definition.defVal defs)
+                env = Env.initial . Map.fromList $ initialEnvironment defs vals
+            (_, env') <- runStateT (evalM expr) env
+            case Env.findBind env' symbol of
+              Nothing -> return def { defVal = Left $ "failed to evaluate " ++ QualName.fromQualName (Definition.defName def) }
+              Just ref -> return def { defVal = Right ref }
        _ ->
          return def { defVal = Left "definition depends on free names that failed to evaluate" }
+  where
+    initialEnvironment [] [] = []
+    initialEnvironment (def:defs) (val:vals) =
+      let qualName = Utils.flattenId [QualName.fromQualName $ Definition.defModule def, QualName.fromQualName $ Definition.defName def] in
+      (qualName, val):initialEnvironment defs vals
 interpretDefinition _ def = return def
 
 interpretDefinitions :: FileSystem -> Module -> [Definition] -> IO Module
