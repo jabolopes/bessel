@@ -74,7 +74,8 @@ evalM expr@(LambdaE arg body) =
       do vals <- mapM (\name -> (name,) <$> findBindM name) $ Expr.freeVars expr
          if all (isJust . snd) vals
            then return $ map (id *** (\(Just x) -> x)) vals
-           else error "Interpreter.evalM.freeReferences: undefined free variables must be caught in previous stages"
+           else error $ "Interpreter.evalM.freeReferences: undefined free variables must be caught in previous stages" ++
+                        "\n\n\t vals = " ++ show (Expr.freeVars expr) ++ "\n\n"
 
     closure vars val =
       withEmptyEnvM $ do
