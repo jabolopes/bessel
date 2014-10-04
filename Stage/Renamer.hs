@@ -217,6 +217,11 @@ renameDefinitionM fs def@Definition { defExp = Right expr } =
         throwError $
           Pretty.freeNamesFailedToRename (QualName.fromQualName (Definition.defName def)) $
            failedFreeNames freeNameDefs
+
+    addFreeNameSymbols [] = return ()
+    addFreeNameSymbols (def:defs) =
+      do let name = Utils.flattenId [Definition.defModule def, Definition.defName def]
+         addSymbolM name (FnSymbol name)
 renameDefinitionM _ def = return def
 
 renameDefinition :: FileSystem -> Definition -> Either PrettyString Definition
