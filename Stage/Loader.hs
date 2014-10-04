@@ -10,7 +10,6 @@ import qualified Data.Map as Map ((!), fromList)
 import qualified Data.Set as Set (empty, member, insert)
 import System.IO.Error (tryIOError)
 
-import Data.Exception (throwLoaderException)
 import Data.FileSystem (FileSystem)
 import qualified Data.FileSystem as FileSystem (lookup, member)
 import Data.GraphUtils (acyclicTopSort)
@@ -48,10 +47,10 @@ loadModule filename =
      when (filename /= me) $
        throwError $ Pretty.moduleMeMismatch me filename
      when (length (map fst uses) /= length (List.nub (map fst uses))) $
-       throwLoaderException $ Pretty.moduleContainsDuplicateUses me uses
+       throwError $ Pretty.moduleContainsDuplicateUses me uses
      let unprefixed = filter (not . null . snd) uses
      when (length (map snd unprefixed) /= length (List.nub (map snd unprefixed))) $
-       throwLoaderException $ Pretty.moduleContainsDuplicateQualifiers me uses
+       throwError $ Pretty.moduleContainsDuplicateQualifiers me uses
      return (Module.initial SrcT me uses) { modDecls = body }
 
 preloadModule :: FileSystem -> String -> LoaderM [Module]
@@ -64,7 +63,7 @@ preloadModule fs =
         preloadModule' mods loaded filenames
       | fs `FileSystem.member` filename =
         case FileSystem.lookup fs filename of
-          Nothing -> throwLoaderException $ Pretty.moduleNotFound filename
+          Nothing -> throwError $ Pretty.moduleNotFound filename
           Just mod -> preloadModule' (mod:mods) (Set.insert filename loaded) (Module.dependencies mod ++ filenames)
       | otherwise =
         do mod <- loadModule filename
