@@ -8,7 +8,6 @@ import Data.PrettyString (PrettyString)
 import qualified Data.PrettyString as PrettyString (empty)
 import Data.QualName (QualName)
 import Data.Source (Source)
-import Data.Symbol (Symbol)
 import Monad.InterpreterM (Val)
 
 data Definition
@@ -16,7 +15,6 @@ data Definition
                , defName :: QualName
                  -- Each free names is the module and definition names.
                , defFreeNames :: [(QualName, QualName)]
-               , defSym :: Maybe Symbol
                , defSrc :: Either PrettyString Source
                , defExp :: Either PrettyString Expr
                , defRen :: Either PrettyString Expr
@@ -28,7 +26,6 @@ initial moduleName name =
   Definition { defModule = moduleName
              , defName = name
              , defFreeNames = []
-             , defSym = Nothing
              , defSrc = Left PrettyString.empty
              , defExp = Left PrettyString.empty
              , defRen = Left PrettyString.empty

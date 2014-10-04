@@ -9,7 +9,7 @@ import Data.Functor ((<$>))
 import Data.IORef
 import qualified Data.Map as Map (empty, fromList)
 import Data.Maybe (isNothing, isJust, mapMaybe)
-import Data.Either (lefts, rights)
+import Data.Either
 
 import Data.Definition (Definition(..))
 import qualified Data.Definition as Definition
@@ -105,14 +105,13 @@ liftInterpreterM m =
   fst <$> runStateT m (Env.initial Map.empty)
 
 interpretDefinition :: FileSystem -> Definition -> IO Definition
-interpretDefinition fs def@Definition { defSym = Just (FnSymbol symbol), defRen = Right expr } =
+interpretDefinition fs def@Definition { defRen = Right expr@(FnDecl _ name _) } =
   do let defs = freeNameDefinitions fs def
-     case (filter isNothing (map Definition.defSym defs), lefts (map Definition.defVal defs)) of
-       ([], []) ->
-         do let vals = rights (map Definition.defVal defs)
-                env = Env.initial . Map.fromList $ initialEnvironment defs vals
+     case partitionEithers $ map Definition.defVal defs of
+       ([], vals) ->
+         do let env = Env.initial . Map.fromList $ initialEnvironment defs vals
             (_, env') <- runStateT (evalM expr) env
-            case Env.findBind env' symbol of
+            case Env.findBind env' name of
               Nothing -> return def { defVal = Left $ "failed to evaluate " ++ QualName.fromQualName (Definition.defName def) }
               Just ref -> return def { defVal = Right ref }
        _ ->

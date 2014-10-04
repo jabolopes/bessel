@@ -14,7 +14,6 @@ import Data.Definition (Definition(..))
 import qualified Data.Definition as Definition
 import qualified Data.QualName as QualName
 import Data.Source
-import Data.Symbol (Symbol (..))
 import Monad.InterpreterM (Val)
 import qualified Utils
 
@@ -83,12 +82,8 @@ mkCoreModule name deps fnDesc =
 
     defs =
       sequence
-      [ do let sym' = Utils.flattenId [name, sym]
-           ref <- newIORef val
-           return (Definition.initial (qualName name) (qualName sym)) { defSym = Just (FnSymbol sym')
-                                                                      , defVal = Right ref
-                                                                      }
-      | (sym, val) <- fnDesc ]
+      [ do ref <- newIORef val
+           return (Definition.initial (qualName name) (qualName sym)) { defVal = Right ref } | (sym, val) <- fnDesc ]
 
 interactiveName :: String
 interactiveName = "Interactive"
@@ -108,20 +103,6 @@ ensureDefinitions mod defs =
   where
     defsMp =
       Map.fromList [ (QualName.fromQualName $ Definition.defName def, def) | def <- defs ]
-
-addDefinitionSymbols :: Module -> Map String Symbol -> Module
-addDefinitionSymbols mod syms =
-  mod { modDefs = loop (modDefs mod) (Map.toList syms) }
-  where
-    loop defs [] = defs
-    loop defs ((name, sym):xs) =
-      let
-        def = case Map.lookup name defs of
-                Nothing -> error $ "Module.addDefinitionSymbols: definition " ++ show name ++ " is not defined"
-                Just x -> x { defSym = Just sym }
-        defs' = Map.insert name def defs
-      in
-       loop defs' xs
 
 addDefinitionVals :: Module -> Map String (IORef Val) -> Module
 addDefinitionVals mod vals =

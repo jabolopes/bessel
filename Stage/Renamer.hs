@@ -7,7 +7,6 @@ import Control.Applicative ((<$>), (<*>))
 import Control.Monad.Error (catchError, throwError)
 import Control.Monad.State
 import Data.List (isPrefixOf)
-import Data.Maybe (isNothing, mapMaybe)
 
 import Data.Definition (Definition(..))
 import qualified Data.Definition as Definition
@@ -141,7 +140,7 @@ renameM (FnDecl NrDef name body) =
      body' <- renameOneM body
      addFnSymbolM name name'
      Utils.returnOne . return $ FnDecl NrDef name' body'
-renameM expr@(IdE name) =
+renameM (IdE name) =
   Utils.returnOne $ Expr.idE <$> getFnSymbolM (QualName.fromQualName name)
 renameM expr@IntE {} = Utils.returnOne $ return expr
 renameM (LetE defn body) =
@@ -193,36 +192,22 @@ renameDefinitionM fs def@Definition { defExp = Right expr } =
          unprefixed = Definition.unprefixedUses def
          names = Expr.freeVars expr
      freeNameDefs <- lookupFreeVars fs unprefixed prefixed names
-     checkFreeNames def freeNameDefs
-     addFreeNameSymbols names freeNameDefs
+     addFreeNames names freeNameDefs
      (do expr' <- renameOneM expr
-         sym <- getSymbolM . QualName.fromQualName $ Definition.defName def
          return $ def { defFreeNames = freeNames freeNameDefs,
-                        defSym = Just sym ,
                         defRen = Right expr' })
        `catchError`
          (\err -> return $ def { defFreeNames = freeNames freeNameDefs
-                               , defSym = Nothing
                                , defRen = Left err })
   where
     freeNames =
       map (\def -> (Definition.defModule def, Definition.defName def))
 
-    failedFreeNames defs =
-      [ (QualName.fromQualName (Definition.defModule x), QualName.fromQualName (Definition.defName x))
-      | x <- defs, isNothing (Definition.defSym x) ]
-
-    checkFreeNames def freeNameDefs =
-      when (any (isNothing . Definition.defSym) freeNameDefs) $
-        throwError $
-          Pretty.freeNamesFailedToRename (QualName.fromQualName (Definition.defName def)) $
-           failedFreeNames freeNameDefs
-
-    addFreeNameSymbols [] [] = return ()
-    addFreeNameSymbols (name:names) (def:defs) =
+    addFreeNames [] [] = return ()
+    addFreeNames (name:names) (def:defs) =
       do let qualName = Utils.flattenId [QualName.fromQualName $ Definition.defModule def, QualName.fromQualName $ Definition.defName def]
          addSymbolM name (FnSymbol qualName)
-         addFreeNameSymbols names defs
+         addFreeNames names defs
 renameDefinitionM _ def = return def
 
 renameDefinition :: FileSystem -> Definition -> Either PrettyString Definition
