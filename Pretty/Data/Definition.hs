@@ -40,7 +40,7 @@ docVal _ = "?"
 
 docFree :: Bool -> Definition -> [String]
 docFree showFree def
-  | showFree = map (\(x, y) -> QualName.fromQualName x ++ "." ++ QualName.fromQualName y) $ Definition.defFreeNames def
+  | showFree = map QualName.fromQualName $ Definition.defFreeNames def
   | otherwise = []
 
 docSource :: Bool -> Definition -> PrettyString

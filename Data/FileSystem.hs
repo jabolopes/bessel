@@ -15,6 +15,8 @@ import Control.Monad.Error
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe
+import Data.QualName (QualName)
+import qualified Data.QualName as QualName
 
 import Data.Definition (Definition)
 import Data.Module (Module)
@@ -55,11 +57,15 @@ lookup fs name =
 member :: FileSystem -> String -> Bool
 member fs name = name `Map.member` fsModuleIds fs
 
-lookupDefinition :: FileSystem -> String -> String -> Result Definition
-lookupDefinition fs modName defName =
-  case lookup fs modName of
-    Nothing -> throwError . PrettyString.text $ "module " ++ modName ++ " not found"
-    Just mod ->
-      case defName `Map.lookup` Module.modDefs mod of
-        Nothing -> throwError . PrettyString.text $ "definition " ++ defName ++ " not found in module " ++ modName
-        Just def -> return def
+lookupDefinition :: FileSystem -> QualName -> Result Definition
+lookupDefinition fs name =
+  let
+    modName = QualName.moduleName name
+    defName = QualName.definitionName name
+  in
+   case lookup fs modName of
+     Nothing -> throwError . PrettyString.text $ "module " ++ modName ++ " not found"
+     Just mod ->
+       case QualName.fromQualName name `Map.lookup` Module.modDefs mod of
+         Nothing -> throwError . PrettyString.text $ "definition " ++ defName ++ " not found in module " ++ modName
+         Just def -> return def

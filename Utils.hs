@@ -35,12 +35,3 @@ splitId = split '.'
 rebaseName :: [a] -> [a] -> [a] -> [a]
 rebaseName prefix1 prefix2 name =
   prefix1 ++ drop (length prefix2) name
-
-stripModule :: String -> String -> String
-stripModule mod def
-  | modPrefix `List.isPrefixOf` def =
-    drop (length modPrefix) def
-  | otherwise =
-    def
-  where
-    modPrefix = mod ++ "."

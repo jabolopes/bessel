@@ -11,20 +11,17 @@ import Data.Source (Source)
 import Monad.InterpreterM (Val)
 
 data Definition
-  = Definition { defModule :: QualName
-               , defName :: QualName
-                 -- Each free names is the module and definition names.
-               , defFreeNames :: [(QualName, QualName)]
+  = Definition { defName :: QualName
+               , defFreeNames :: [QualName]
                , defSrc :: Either PrettyString Source
                , defExp :: Either PrettyString Expr
                , defRen :: Either PrettyString Expr
                , defVal :: Either String (IORef Val)
                , defUses :: [(String, String)] }
 
-initial :: QualName -> QualName -> Definition
-initial moduleName name =
-  Definition { defModule = moduleName
-             , defName = name
+initial :: QualName -> Definition
+initial name =
+  Definition { defName = name
              , defFreeNames = []
              , defSrc = Left PrettyString.empty
              , defExp = Left PrettyString.empty

@@ -20,6 +20,7 @@ import qualified Data.FileSystem as FileSystem
 import Data.Module (Module)
 import qualified Data.Module as Module
 import qualified Data.PrettyString as PrettyString
+import qualified Data.QualName as QualName
 import Monad.InterpreterM (Val(..))
 import qualified Pretty.Data.Definition as Pretty
 import qualified Pretty.Data.Module as Pretty
@@ -133,7 +134,7 @@ runCommandM "def" opts nonOpts
              definitionName = last nonOpts
          fs <- fs <$> get
          liftIO . putStrLn . PrettyString.toString $
-           case FileSystem.lookupDefinition fs moduleName definitionName of
+           case FileSystem.lookupDefinition fs $ QualName.mkQualName [moduleName, definitionName] of
              Bad err -> err
              Ok def -> Pretty.docDefn showFree showSrc showExp showRen showJs def
   | showAll || isModuleName nonOpts =

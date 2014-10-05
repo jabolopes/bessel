@@ -1,4 +1,4 @@
-{-# LANGUAGE BangPatterns, NamedFieldPuns, ParallelListComp, TupleSections #-}
+{-# LANGUAGE BangPatterns, MultiWayIf, NamedFieldPuns, ParallelListComp, TupleSections #-}
 module Stage.Renamer where
 
 import Prelude hiding (mod)
@@ -21,7 +21,7 @@ import qualified Data.FrameTree as FrameTree (empty, rootId, getFrame, getLexica
 import Data.Module (ModuleT (..), Module(..))
 import qualified Data.Module as Module
 import Data.PrettyString (PrettyString)
-import qualified Data.QualName as QualName (fromQualName)
+import qualified Data.QualName as QualName
 import qualified Data.Result as Result
 import Data.Symbol (Symbol (..))
 import qualified Monad.Utils as Utils (returnOne)
@@ -160,7 +160,7 @@ lookupUnprefixedFreeVar fs unprefixed name =
   Result.mapResult lookupDefinition unprefixed
   where
     lookupDefinition modName =
-      FileSystem.lookupDefinition fs modName name
+      FileSystem.lookupDefinition fs $ QualName.mkQualName [modName, name]
 
 lookupPrefixedFreeVar :: FileSystem -> [(String, String)] -> String -> [Definition]
 lookupPrefixedFreeVar fs prefixed name =
@@ -169,9 +169,13 @@ lookupPrefixedFreeVar fs prefixed name =
     isPrefix (_, y) =
       Utils.splitId y `isPrefixOf` Utils.splitId name
 
-    lookupDefinition (modName, asName) =
-      do let defName = Utils.stripModule asName name
-         FileSystem.lookupDefinition fs modName defName
+    lookupDefinition (useName, asName) =
+      do let moduleName = QualName.moduleName $ QualName.mkQualName [name]
+             defName = QualName.definitionName $ QualName.mkQualName [name]
+         if | moduleName == asName ->
+              FileSystem.lookupDefinition fs $ QualName.mkQualName [useName, defName]
+            | otherwise ->
+              fail ""
 
 lookupFreeVars :: FileSystem -> [String] -> [(String, String)] -> [String] -> RenamerM [Definition]
 lookupFreeVars _ _ _ [] = return []
@@ -180,11 +184,7 @@ lookupFreeVars fs unprefixed prefixed (name:names) =
      case concatMap ($ name) fns of
        [] -> throwError . Pretty.nameNotDefined . show $ name
        [def] -> (def:) <$> lookupFreeVars fs unprefixed prefixed names
-       defs ->
-         throwError $
-           Pretty.nameMultiplyDefined name $
-             map (\def -> (QualName.fromQualName (Definition.defModule def),
-                           QualName.fromQualName (Definition.defName def))) defs
+       defs -> throwError . Pretty.nameMultiplyDefined name $ map (QualName.fromQualName . Definition.defName) defs
 
 renameDefinitionM :: FileSystem -> Definition -> RenamerM Definition
 renameDefinitionM fs def@Definition { defExp = Right expr } =
@@ -194,19 +194,15 @@ renameDefinitionM fs def@Definition { defExp = Right expr } =
      freeNameDefs <- lookupFreeVars fs unprefixed prefixed names
      addFreeNames names freeNameDefs
      (do expr' <- renameOneM expr
-         return $ def { defFreeNames = freeNames freeNameDefs,
+         return $ def { defFreeNames = map Definition.defName freeNameDefs,
                         defRen = Right expr' })
        `catchError`
-         (\err -> return $ def { defFreeNames = freeNames freeNameDefs
+         (\err -> return $ def { defFreeNames = map Definition.defName freeNameDefs
                                , defRen = Left err })
   where
-    freeNames =
-      map (\def -> (Definition.defModule def, Definition.defName def))
-
     addFreeNames [] [] = return ()
     addFreeNames (name:names) (def:defs) =
-      do let qualName = Utils.flattenId [QualName.fromQualName $ Definition.defModule def, QualName.fromQualName $ Definition.defName def]
-         addSymbolM name (FnSymbol qualName)
+      do addSymbolM name . FnSymbol . QualName.fromQualName $ Definition.defName def
          addFreeNames names defs
 renameDefinitionM _ def = return def
 

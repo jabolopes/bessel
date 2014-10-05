@@ -92,13 +92,9 @@ evalM (MergeE vals) =
 
 freeNameDefinitions :: FileSystem -> Definition -> [Definition]
 freeNameDefinitions fs def =
-  case mapM lookupDefinition (Definition.defFreeNames def) of
+  case mapM (FileSystem.lookupDefinition fs) $ Definition.defFreeNames def of
     Bad _ -> error "Interpreter.freeNamesDefinitions: undefined free variables must be caught in previous stages"
     Ok defs -> defs
-  where
-    lookupDefinition (modName, defName) =
-      FileSystem.lookupDefinition fs (QualName.fromQualName modName) $
-        Utils.stripModule (QualName.fromQualName modName) (QualName.fromQualName defName)
 
 liftInterpreterM :: InterpreterM a -> IO a
 liftInterpreterM m =
@@ -119,8 +115,7 @@ interpretDefinition fs def@Definition { defRen = Right expr@(FnDecl _ name _) } 
   where
     initialEnvironment [] [] = []
     initialEnvironment (def:defs) (val:vals) =
-      let qualName = Utils.flattenId [QualName.fromQualName $ Definition.defModule def, QualName.fromQualName $ Definition.defName def] in
-      (qualName, val):initialEnvironment defs vals
+      (QualName.fromQualName $ Definition.defName def, val):initialEnvironment defs vals
 interpretDefinition _ def = return def
 
 interpretDefinitions :: FileSystem -> Module -> [Definition] -> IO Module

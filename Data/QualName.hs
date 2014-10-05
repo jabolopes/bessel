@@ -1,7 +1,9 @@
 module Data.QualName (QualName,
                       mkQualName,
                       fromQualName,
-                      isTypeName) where
+                      isTypeName,
+                      moduleName,
+                      definitionName) where
 
 import qualified Data.Char as Char (isUpper)
 
@@ -20,3 +22,9 @@ isTypeName = isTypeName' . last . splitId . fromQualName
   where
     isTypeName' (x:_) = Char.isUpper x
     isTypeName' _ = False
+
+moduleName :: QualName -> String
+moduleName = flattenId . init . splitId . fromQualName
+
+definitionName :: QualName -> String
+definitionName = last . splitId . fromQualName

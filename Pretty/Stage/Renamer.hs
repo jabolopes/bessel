@@ -1,7 +1,5 @@
 module Pretty.Stage.Renamer where
 
-import Data.List (intercalate)
-
 import Data.PrettyString (PrettyString, (<+>))
 import qualified Data.PrettyString as PrettyString
 
@@ -35,14 +33,11 @@ nameNotFunction name =
   PrettyString.text name <+>
   PrettyString.text "is not a function"
 
-nameMultiplyDefined :: String -> [(String, String)] -> PrettyString
+nameMultiplyDefined :: String -> [String] -> PrettyString
 nameMultiplyDefined name names =
   PrettyString.text "name" <+>
   PrettyString.text name <+>
   PrettyString.text "is multiply defined"
   PrettyString.$+$
   PrettyString.nest
-  (PrettyString.vcat (map docName names))
-  where
-    docName (modName, defName) =
-      PrettyString.text defName <+> PrettyString.text "in module" <+> PrettyString.text modName
+  (PrettyString.vcat (map PrettyString.text names))

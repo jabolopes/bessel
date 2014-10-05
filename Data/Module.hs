@@ -15,7 +15,6 @@ import qualified Data.Definition as Definition
 import qualified Data.QualName as QualName
 import Data.Source
 import Monad.InterpreterM (Val)
-import qualified Utils
 
 data ModuleT
   = CoreT
@@ -78,12 +77,10 @@ mkCoreModule name deps fnDesc =
   let uses = [ (dep, "") | dep <- deps ] in
   ensureDefinitions (initial CoreT name uses) <$> defs
   where
-    qualName = QualName.mkQualName . Utils.splitId
-
     defs =
       sequence
       [ do ref <- newIORef val
-           return (Definition.initial (qualName name) (qualName sym)) { defVal = Right ref } | (sym, val) <- fnDesc ]
+           return (Definition.initial (QualName.mkQualName [name, defName])) { defVal = Right ref } | (defName, val) <- fnDesc ]
 
 interactiveName :: String
 interactiveName = "Interactive"

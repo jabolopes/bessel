@@ -30,15 +30,14 @@ qualifiedName mod name = Module.modName mod ++ "." ++ name
 splitDefinition :: Module -> Source -> Definition
 splitDefinition mod source =
   let
-    moduleName = QualName.mkQualName [Module.modName mod]
-    defName = QualName.mkQualName [defnName source]
+    defName = QualName.mkQualName [Module.modName mod, defnName source]
     use = (Module.modName mod, "")
     uses
       | use `elem` Module.modUses mod = Module.modUses mod
       | otherwise = use:Module.modUses mod
   in
-    (Definition.initial moduleName defName) { defSrc = Right source
-                                            , defUses = uses }
+    (Definition.initial defName) { defSrc = Right source
+                                 , defUses = uses }
   where
     defnName (FnDeclS x _) = x
     defnName (TypeDeclS x _) = QualName.fromQualName x
@@ -48,8 +47,7 @@ expandDefinition mod def =
   expandSrc . Definition.defSrc $ def
   where
     mkDef expr@(FnDecl _ defName _) =
-      def { defModule = QualName.mkQualName [Module.modName mod]
-          , defName = QualName.mkQualName [defName]
+      def { defName = QualName.mkQualName [Module.modName mod, defName]
           , defExp = Right expr }
     mkDef _ =
       error "expandDefinition: expand can only return top-level definitions"
@@ -63,13 +61,12 @@ expandDefinition mod def =
 mkSnippet :: FileSystem -> Source -> Definition
 mkSnippet fs source@(FnDeclS name _) =
   let
-    moduleName = QualName.mkQualName [Module.interactiveName]
-    defnName = QualName.mkQualName [name]
+    defName = QualName.mkQualName [Module.interactiveName, name]
   in
    case FileSystem.lookup fs Module.interactiveName of
      Nothing -> error $ "Stage.mkSnippet: module " ++ Module.interactiveName ++ " not found"
-     Just mod -> (Definition.initial moduleName defnName) { defUses = Module.modUses mod
-                                                          , defSrc = Right source }
+     Just mod -> (Definition.initial defName) { defUses = Module.modUses mod
+                                              , defSrc = Right source }
 mkSnippet fs source = mkSnippet fs $ FnDeclS "val" source
 
 renameSnippet :: FileSystem -> Definition -> Either PrettyString Definition
