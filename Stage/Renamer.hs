@@ -6,7 +6,7 @@ import Prelude hiding (mod)
 import Control.Applicative ((<$>), (<*>))
 import Control.Monad.Error (catchError, throwError)
 import Control.Monad.State
-import Data.List (isPrefixOf)
+import qualified Data.List as List
 
 import Data.Definition (Definition(..))
 import qualified Data.Definition as Definition
@@ -155,20 +155,15 @@ renameM (MergeE vals) =
   where renameValsM (name, expr) =  (name,) <$> renameOneM expr
 renameM expr@RealE {} = Utils.returnOne $ return expr
 
-lookupUnprefixedFreeVar :: FileSystem -> [String] -> String -> [Definition]
-lookupUnprefixedFreeVar fs unprefixed name =
-  Result.mapResult lookupDefinition unprefixed
+lookupFreeVar :: FileSystem -> [String] -> [(String, String)] -> String -> [Definition]
+lookupFreeVar fs unprefixed prefixed name =
+  let
+    uses = map (,"") unprefixed ++ prefixed
+    moduleName = QualName.moduleName $ QualName.mkQualName [name]
+    defName = QualName.definitionName $ QualName.mkQualName [name]
+  in
+   Result.mapResult lookupDefinition $ filter ((== moduleName) . snd) uses
   where
-    lookupDefinition modName =
-      FileSystem.lookupDefinition fs $ QualName.mkQualName [modName, name]
-
-lookupPrefixedFreeVar :: FileSystem -> [(String, String)] -> String -> [Definition]
-lookupPrefixedFreeVar fs prefixed name =
-  Result.mapResult lookupDefinition $ filter isPrefix prefixed
-  where
-    isPrefix (_, y) =
-      Utils.splitId y `isPrefixOf` Utils.splitId name
-
     lookupDefinition (useName, asName) =
       do let moduleName = QualName.moduleName $ QualName.mkQualName [name]
              defName = QualName.definitionName $ QualName.mkQualName [name]
@@ -180,8 +175,9 @@ lookupPrefixedFreeVar fs prefixed name =
 lookupFreeVars :: FileSystem -> [String] -> [(String, String)] -> [String] -> RenamerM [Definition]
 lookupFreeVars _ _ _ [] = return []
 lookupFreeVars fs unprefixed prefixed (name:names) =
-  do let fns = [lookupUnprefixedFreeVar fs unprefixed, lookupPrefixedFreeVar fs prefixed]
-     case concatMap ($ name) fns of
+  do -- let fns = [lookupUnprefixedFreeVar fs unprefixed, lookupPrefixedFreeVar fs prefixed]
+    case lookupFreeVar fs unprefixed prefixed name of
+     -- case concatMap ($ name) fns of
        [] -> throwError . Pretty.nameNotDefined . show $ name
        [def] -> (def:) <$> lookupFreeVars fs unprefixed prefixed names
        defs -> throwError . Pretty.nameMultiplyDefined name $ map (QualName.fromQualName . Definition.defName) defs

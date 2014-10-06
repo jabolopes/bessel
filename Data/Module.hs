@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 module Data.Module where
 
 import Prelude hiding (mod)
@@ -15,6 +16,7 @@ import qualified Data.Definition as Definition
 import qualified Data.QualName as QualName
 import Data.Source
 import Monad.InterpreterM (Val)
+import qualified Utils
 
 data ModuleT
   = CoreT
@@ -43,8 +45,25 @@ ensureImplicitUses mod
       | List.elem x xs = xs
       | otherwise = x:xs
 
+expandUnqualifiedUses :: Module -> Module
+expandUnqualifiedUses mod =
+  mod { modUses = List.nub . concatMap expandUnprefixed $ modUses mod }
+  where
+    expandUse :: String -> [String]
+    expandUse use
+      | null use =
+        []
+      | otherwise =
+        (use:) . expandUse . Utils.flattenId . tail $ Utils.splitId use
+
+    expandUnprefixed :: (String, String) -> [(String, String)]
+    expandUnprefixed (use, "") =
+      ((use, ""):) . map (use,) $ expandUse use
+    expandUnprefixed x = [x]
+
 initial :: ModuleT -> String -> [(String, String)] -> Module
 initial t name uses =
+  expandUnqualifiedUses $
   ensureImplicitUses
     Module { modType = t
            , modName = name
