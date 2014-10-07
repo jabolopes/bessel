@@ -28,15 +28,10 @@ module Data.PrettyString
 import Prelude hiding (error)
 import qualified Prelude (error)
 
-import Control.Monad.Error
-
 import Text.PrettyPrint (Doc, (<>), (<+>), ($$), ($+$))
 import qualified Text.PrettyPrint as PrettyPrint
 
 type PrettyString = Doc
-
-instance Error PrettyString where
-  strMsg = PrettyPrint.text
 
 error :: String -> PrettyString -> a
 error short long =

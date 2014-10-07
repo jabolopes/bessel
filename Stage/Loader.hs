@@ -3,7 +3,7 @@ module Stage.Loader (preload) where
 
 import Prelude hiding (lex, mod)
 
-import Control.Monad.Error
+import Control.Monad.Except
 import qualified Data.List as List (nub)
 import Data.Map (Map)
 import qualified Data.Map as Map ((!), fromList)

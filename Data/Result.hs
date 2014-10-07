@@ -4,7 +4,7 @@
 module Data.Result where
 
 import Control.Applicative
-import Control.Monad.Error
+import Control.Monad.Except
 import Control.Monad.State
 
 import Data.PrettyString (PrettyString)

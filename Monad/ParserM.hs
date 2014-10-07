@@ -1,6 +1,6 @@
 module Monad.ParserM where
 
-import Control.Monad.Error (throwError)
+import Control.Monad.Except (throwError)
 import Control.Monad.State
 import Data.Functor ((<$>))
 import Data.LexState

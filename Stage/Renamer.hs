@@ -4,7 +4,7 @@ module Stage.Renamer where
 import Prelude hiding (mod)
 
 import Control.Applicative ((<$>), (<*>))
-import Control.Monad.Error (catchError, throwError)
+import Control.Monad.Except (catchError, throwError)
 import Control.Monad.State
 import qualified Data.List as List
 

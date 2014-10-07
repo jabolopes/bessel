@@ -11,7 +11,7 @@ module Data.FileSystem
 
 import Prelude hiding (lookup, mod)
 
-import Control.Monad.Error
+import Control.Monad.Except
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe
