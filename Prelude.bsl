@@ -4,82 +4,82 @@ use Core
 
 -- Fn
 
-def id x@ = x
-def const x@ @ = x
+let id x@ = x
+let const x@ @ = x
 
 -- Bool
 
-def isBool isBool#
-def true true#
-def false false#
-def eqBool eqBool#
+let isBool isBool#
+let true true#
+let false false#
+let eqBool eqBool#
 
-def not id = false
+let not id = false
       | @  = true
 
 -- Int
 
-def isInt isInt#
-def eqInt eqInt#
-def ltInt ltInt#
-def addInt addInt#
-def subInt subInt#
-def mulInt mulInt#
-def divInt divInt#
-def absInt absInt#
-def negInt negInt#
-def invInt negInt#
-def remInt remInt#
+let isInt isInt#
+let eqInt eqInt#
+let ltInt ltInt#
+let addInt addInt#
+let subInt subInt#
+let mulInt mulInt#
+let divInt divInt#
+let absInt absInt#
+let negInt negInt#
+let invInt negInt#
+let remInt remInt#
 
 -- Real
 
-def isReal isReal#
-def eqReal eqReal#
-def ltReal ltReal#
-def addReal addReal#
-def subReal subReal#
-def mulReal mulReal#
-def divReal divReal#
-def absReal absReal#
-def ceilingReal ceilingReal#
-def floorReal floorReal#
-def negReal negReal#
-def invReal invReal#
+let isReal isReal#
+let eqReal eqReal#
+let ltReal ltReal#
+let addReal addReal#
+let subReal subReal#
+let mulReal mulReal#
+let divReal divReal#
+let absReal absReal#
+let ceilingReal ceilingReal#
+let floorReal floorReal#
+let negReal negReal#
+let invReal invReal#
 
 -- Int and Real
 
-def ltIntReal ltIntReal#
-def ltRealInt ltRealInt#
-def addIntReal addIntReal#
-def addRealInt x@ y@ = addIntReal y x
-def subIntReal x@ y@ = addIntReal x (negReal y)
-def subRealInt x@ y@ = addRealInt x (negInt y)
-def mulIntReal mulIntReal#
-def mulRealInt x@ y@ = mulIntReal y x
-def divIntReal x@ y@ = mulIntReal x (invReal y)
-def divRealInt x@ y@ = mulReal x (invInt y)
+let ltIntReal ltIntReal#
+let ltRealInt ltRealInt#
+let addIntReal addIntReal#
+let addRealInt x@ y@ = addIntReal y x
+let subIntReal x@ y@ = addIntReal x (negReal y)
+let subRealInt x@ y@ = addRealInt x (negInt y)
+let mulIntReal mulIntReal#
+let mulRealInt x@ y@ = mulIntReal y x
+let divIntReal x@ y@ = mulIntReal x (invReal y)
+let divRealInt x@ y@ = mulReal x (invInt y)
 
 -- Char
 
-def isChar isChar#
-def eqChar eqChar#
-def ltChar ltChar#
+let isChar isChar#
+let eqChar eqChar#
+let ltChar ltChar#
 
 -- Seq
 
-def null null#
-def cons cons#
-def isTuple isTuple#
-def isList isList#
-def hd hd#
-def tl tl#
-def (+>) cons
+let null null#
+let cons cons#
+let isTuple isTuple#
+let isList isList#
+let hd hd#
+let tl tl#
+let (+>) cons
 
-def map
+let map
   fn@ [] = []
 | fn@ (x@ +> xs@) = fn x +> map fn xs
 
-def eq
+let eq
   x@isBool y@isBool = eqBool x y
 | x@isInt  y@isInt  = eqInt x y
 | x@isReal y@isReal = eqReal x y
@@ -88,13 +88,13 @@ def eq
 --| x@[isDyn] y@[isDyn] = eqSeq x y
 | @ @ = false
   where {
-    def eqSeq
+    let eqSeq
       [] [] = true
     | (z@ +> zs@) (w@ +> ws@) = eq z w && eqSeq zs ws
     | @ @ = false
   }
 
-def lt
+let lt
   x@isInt  y@isInt  = ltInt x y
 | x@isInt  y@isReal = ltIntReal x y
 | x@isReal y@isInt  = ltRealInt x y
@@ -103,143 +103,143 @@ def lt
 -- | x@[Dyn] y@[Dyn] = ltSeq x y
 | @ @ = false
   where {
-    def ltSeq
+    let ltSeq
       [] [] = true
     | (z@ +> zs@) (w@ +> ws@) = lt z w && ltSeq zs ws
     | @ @ = false
   }
 
-def (==) eq
+let (==) eq
 
-def (/=) x@ y@ = not (x == y)
+let (/=) x@ y@ = not (x == y)
 
-def (<) lt
+let (<) lt
 
-def (<=) x@ y@ = x == y || x < y
+let (<=) x@ y@ = x == y || x < y
 
-def (>) x@ y@ = x /= y && not (x < y)
+let (>) x@ y@ = x /= y && not (x < y)
 
-def (>=) x@ y@ = not (x < y)
+let (>=) x@ y@ = not (x < y)
 
-def isNum x@ = isInt x || isReal x
+let isNum x@ = isInt x || isReal x
 
-def isPos x@ = isNum x && x > 0
+let isPos x@ = isNum x && x > 0
 
-def isNeg x@ = isNum x && x < 0
+let isNeg x@ = isNum x && x < 0
 
-def isZero x@ = x == 0
+let isZero x@ = x == 0
 
-def isNull
+let isNull
   [] = true
 | @ = false
 
-def isPair
+let isPair
   [@,@] = true
 | @ = false
 
-def isString
+let isString
   []                   = true
 | (isChar +> isString) = true
 | @                    = false
 
 -- Number
 
-def add
+let add
   x@isInt  y@isInt  = addInt x y
 | x@isReal y@isReal = addReal x y
 | x@isInt  y@isReal = addIntReal x y
 | x@isReal y@isInt  = addRealInt x y
 
-def sub
+let sub
   x@isInt  y@isInt  = subInt x y
 | x@isReal y@isReal = subReal x y
 | x@isInt  y@isReal = subIntReal x y
 | x@isReal y@isInt  = subRealInt x y
 
-def mul
+let mul
   x@isInt  y@isInt  = mulInt x y
 | x@isReal y@isReal = mulReal x y
 | x@isInt  y@isReal = mulIntReal x y
 | x@isReal y@isInt  = mulRealInt x y
 
-def div
+let div
   x@isInt  y@isInt  = divInt x y
 | x@isReal y@isReal = divReal x y
 | x@isInt  y@isReal = divIntReal x y
 | x@isReal y@isInt  = divRealInt x y
 
-def abs
+let abs
   x@isInt  = absInt x
 | x@isReal = absReal x
 
-def floor
+let floor
   x@isInt  = x
 | x@isReal = floorReal x
 
-def ceiling
+let ceiling
   x@isInt  = x
 | x@isReal = ceilingReal x
 
-def neg
+let neg
   x@isInt  = negInt x
 | x@isReal = negReal x
 
-def rem
+let rem
   x@ y@ = remInt x y
 
-def (+) add
-def (-) sub
-def (*) mul
-def (/) div
+let (+) add
+let (-) sub
+let (*) mul
+let (/) div
 
-def length
+let length
   [] = 0
 | (@ +> xs@) = length xs + 1
 
--- def reverse
+-- let reverse
 --   [] = []
 -- | (x@ +> xs@) = reverse xs <+ x
 
-def ola
+let ola
   1 = true
 | @ = false
 
-def adeus
+let adeus
   "ola" = true
 | @     = false
 
-def case x@ fn@ = fn x
+let case x@ fn@ = fn x
 
-def if x@ then@ else@ = 0
+let if x@ then@ else@ = 0
 
-def foo x@ =
+let foo x@ =
   (isInt = true
  | @     = false) x
 
-def bar x@ =
+let bar x@ =
   case x
     (isInt = true
    | @     = false)
 
 type Fruit Apple isInt
 
-def ola1 Apple 1
-def ola2 Apple 2
+let ola1 Apple 1
+let ola2 Apple 2
 
-def adeus1 (Apple x@) = x
-def adeus2 (Apple x@ y@) = x
-def adeus3 (Apple x@isInt) = x
+let adeus1 (Apple x@) = x
+let adeus2 (Apple x@ y@) = x
+let adeus3 (Apple x@isInt) = x
 
-def pol
+let pol
   x@0 = 0
 | x@  = pol (x - 1) + 1
 
-def one
+let one
   x@1 = 1
 | @   = 0
 
-def oi filename@ =
+let oi filename@ =
   mapFile# filename fn
   where {
-    def fn str@ = adeus str
+    let fn str@ = adeus str
   }

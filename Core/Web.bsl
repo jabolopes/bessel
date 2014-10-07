@@ -4,23 +4,23 @@ use Core.Html
 
 type Attribute Attr [@, @]
 
-def attribute attr@ val@ =
+let attribute attr@ val@ =
   Attr [attr, val]
 
-def class      attribute "class"
-def content    attribute "content"
-def href       attribute "href"
-def http-equiv attribute "httpEquiv"
-def name       attribute "name"
-def rel        attribute "rel"
-def src        attribute "src"
-def style      attribute "style"
-def type#      attribute "type#"
-def width      attribute "width"
+let class      attribute "class"
+let content    attribute "content"
+let href       attribute "href"
+let http-equiv attribute "httpEquiv"
+let name       attribute "name"
+let rel        attribute "rel"
+let src        attribute "src"
+let style      attribute "style"
+let type#      attribute "type#"
+let width      attribute "width"
 
-def mkSingleTag id
+let mkSingleTag id
 
-def mkTag
+let mkTag
   tag@ (Attribute [attr@, val@]) =
     mkTag (Html.applyAttribute tag attr val)
 | tag@ val@isString =
@@ -30,113 +30,113 @@ def mkTag
 | tag@ val@ =
     mkSingleTag (Html.applyTag tag val)
 
-def (!)
+let (!)
   tag@ (Attribute [attr@, val@]) =
     mkSingleTag (Html.applyAttribute tag attr val)
 
-def a           mkTag Html.a
-def abbr        mkTag Html.abbr
-def address     mkTag Html.address
-def area        mkSingleTag Html.area
-def article     mkTag Html.article
-def aside       mkTag Html.aside
-def audio       mkTag Html.audio
-def b           mkTag Html.b
-def base        mkSingleTag Html.base
-def bdo         mkTag Html.bdo
-def blockquote  mkTag Html.blockquote
-def body        mkTag Html.body
-def br          mkSingleTag Html.br
-def button      mkTag Html.button
-def canvas      mkTag Html.canvas
-def caption     mkTag Html.caption
-def cite        mkTag Html.cite
-def code        mkTag Html.code
-def col         mkSingleTag Html.col
-def colgroup    mkTag Html.colgroup
-def command     mkTag Html.command
-def datalist    mkTag Html.datalist
-def dd          mkTag Html.dd
-def del         mkTag Html.del
-def details     mkTag Html.details
-def dfn         mkTag Html.dfn
-def dl          mkTag Html.dl
-def docType     mkSingleTag Html.docType
-def docTypeHtml mkTag Html.docTypeHtml
-def dt          mkTag Html.dt
-def em          mkTag Html.em
-def embed       mkSingleTag Html.embed
-def fieldset    mkTag Html.fieldset
-def figcaption  mkTag Html.figcaption
-def figure      mkTag Html.figure
-def footer      mkTag Html.footer
-def form        mkTag Html.form
-def h1          mkTag Html.h1
-def h2          mkTag Html.h2
-def h3          mkTag Html.h3
-def h4          mkTag Html.h4
-def h5          mkTag Html.h5
-def h6          mkTag Html.h6
-def head        mkTag Html.head
-def header      mkTag Html.header
-def hgroup      mkTag Html.hgroup
-def hr          mkSingleTag Html.hr
-def html        mkTag Html.html
-def i           mkTag Html.i
-def iframe      mkTag Html.iframe
-def img         mkSingleTag Html.img
-def input       mkSingleTag Html.input
-def ins         mkTag Html.ins
-def kbd         mkTag Html.kbd
-def keygen      mkSingleTag Html.keygen
-def label       mkTag Html.label
-def legend      mkTag Html.legend
-def li          mkTag Html.li
-def link        mkSingleTag Html.link
-def map         mkTag Html.map
-def mark        mkTag Html.mark
-def menu        mkTag Html.menu
-def meta        mkSingleTag Html.meta
-def meter       mkTag Html.meter
-def nav         mkTag Html.nav
-def noscript    mkTag Html.noscript
-def object      mkTag Html.object
-def ol          mkTag Html.ol
-def optgroup    mkTag Html.optgroup
-def option      mkTag Html.option
-def output      mkTag Html.output
-def p           mkTag Html.p
-def param       mkSingleTag Html.param
-def pre         mkTag Html.pre
-def progress    mkTag Html.progress
-def q           mkTag Html.q
-def rp          mkTag Html.rp
-def rt          mkTag Html.rt
-def ruby        mkTag Html.ruby
-def samp        mkTag Html.samp
-def script      mkTag Html.script
-def section     mkTag Html.section
-def select      mkTag Html.select
-def small       mkTag Html.small
-def source      mkSingleTag Html.source
-def span        mkTag Html.span
-def strong      mkTag Html.strong
--- def style       tag Html.style
--- def sub         tag Html.sub
-def summary     mkTag Html.summary
-def sup         mkTag Html.sup
-def table       mkTag Html.table
-def tbody       mkTag Html.tbody
-def td          mkTag Html.td
-def textarea    mkTag Html.textarea
-def tfoot       mkTag Html.tfoot
-def th          mkTag Html.th
-def thead       mkTag Html.thead
-def time        mkTag Html.time
-def title       mkTag Html.title
-def tr          mkTag Html.tr
-def ul          mkTag Html.ul
-def var         mkTag Html.var
-def video       mkTag Html.video
+let a           mkTag Html.a
+let abbr        mkTag Html.abbr
+let address     mkTag Html.address
+let area        mkSingleTag Html.area
+let article     mkTag Html.article
+let aside       mkTag Html.aside
+let audio       mkTag Html.audio
+let b           mkTag Html.b
+let base        mkSingleTag Html.base
+let bdo         mkTag Html.bdo
+let blockquote  mkTag Html.blockquote
+let body        mkTag Html.body
+let br          mkSingleTag Html.br
+let button      mkTag Html.button
+let canvas      mkTag Html.canvas
+let caption     mkTag Html.caption
+let cite        mkTag Html.cite
+let code        mkTag Html.code
+let col         mkSingleTag Html.col
+let colgroup    mkTag Html.colgroup
+let command     mkTag Html.command
+let datalist    mkTag Html.datalist
+let dd          mkTag Html.dd
+let del         mkTag Html.del
+let details     mkTag Html.details
+let dfn         mkTag Html.dfn
+let dl          mkTag Html.dl
+let docType     mkSingleTag Html.docType
+let docTypeHtml mkTag Html.docTypeHtml
+let dt          mkTag Html.dt
+let em          mkTag Html.em
+let embed       mkSingleTag Html.embed
+let fieldset    mkTag Html.fieldset
+let figcaption  mkTag Html.figcaption
+let figure      mkTag Html.figure
+let footer      mkTag Html.footer
+let form        mkTag Html.form
+let h1          mkTag Html.h1
+let h2          mkTag Html.h2
+let h3          mkTag Html.h3
+let h4          mkTag Html.h4
+let h5          mkTag Html.h5
+let h6          mkTag Html.h6
+let head        mkTag Html.head
+let header      mkTag Html.header
+let hgroup      mkTag Html.hgroup
+let hr          mkSingleTag Html.hr
+let html        mkTag Html.html
+let i           mkTag Html.i
+let iframe      mkTag Html.iframe
+let img         mkSingleTag Html.img
+let input       mkSingleTag Html.input
+let ins         mkTag Html.ins
+let kbd         mkTag Html.kbd
+let keygen      mkSingleTag Html.keygen
+let label       mkTag Html.label
+let legend      mkTag Html.legend
+let li          mkTag Html.li
+let link        mkSingleTag Html.link
+let map         mkTag Html.map
+let mark        mkTag Html.mark
+let menu        mkTag Html.menu
+let meta        mkSingleTag Html.meta
+let meter       mkTag Html.meter
+let nav         mkTag Html.nav
+let noscript    mkTag Html.noscript
+let object      mkTag Html.object
+let ol          mkTag Html.ol
+let optgroup    mkTag Html.optgroup
+let option      mkTag Html.option
+let output      mkTag Html.output
+let p           mkTag Html.p
+let param       mkSingleTag Html.param
+let pre         mkTag Html.pre
+let progress    mkTag Html.progress
+let q           mkTag Html.q
+let rp          mkTag Html.rp
+let rt          mkTag Html.rt
+let ruby        mkTag Html.ruby
+let samp        mkTag Html.samp
+let script      mkTag Html.script
+let section     mkTag Html.section
+let select      mkTag Html.select
+let small       mkTag Html.small
+let source      mkSingleTag Html.source
+let span        mkTag Html.span
+let strong      mkTag Html.strong
+-- let style       tag Html.style
+-- let sub         tag Html.sub
+let summary     mkTag Html.summary
+let sup         mkTag Html.sup
+let table       mkTag Html.table
+let tbody       mkTag Html.tbody
+let td          mkTag Html.td
+let textarea    mkTag Html.textarea
+let tfoot       mkTag Html.tfoot
+let th          mkTag Html.th
+let thead       mkTag Html.thead
+let time        mkTag Html.time
+let title       mkTag Html.title
+let tr          mkTag Html.tr
+let ul          mkTag Html.ul
+let var         mkTag Html.var
+let video       mkTag Html.video
 
-def renderHtml Html.renderHtml
+let renderHtml Html.renderHtml

@@ -61,7 +61,6 @@ tokens :-
 
   -- keywords
   "as"                { \_ -> TokenAs }
-  "def"               { \_ -> TokenDef }
   "let"               { \_ -> TokenLet }
   "me"                { \_ -> TokenMe }
   "in"                { \_ -> TokenIn }

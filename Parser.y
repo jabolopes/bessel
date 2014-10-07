@@ -52,7 +52,6 @@ import Utils
 
   -- keywords
   as      { TokenAs }
-  def     { TokenDef }
   let     { TokenLet }
   me      { TokenMe }
   in      { TokenIn }
@@ -149,7 +148,7 @@ Defn:
 
 FnDefn :: { Source }
 FnDefn:
-    def Name Expr {% return . FnDeclS $2 =<< ensureExpr $3 }
+    let Pat Expr {% return . FnDefS $2 =<< ensureExpr $3 }
 
 Expr :: { Source }
 Expr:
