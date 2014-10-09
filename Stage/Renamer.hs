@@ -6,7 +6,6 @@ import Prelude hiding (mod)
 import Control.Applicative ((<$>), (<*>))
 import Control.Monad.Except (catchError, throwError)
 import Control.Monad.State
-import qualified Data.List as List
 
 import Data.Definition (Definition(..))
 import qualified Data.Definition as Definition
@@ -26,7 +25,6 @@ import qualified Data.Result as Result
 import Data.Symbol (Symbol (..))
 import qualified Monad.Utils as Utils (returnOne)
 import qualified Pretty.Stage.Renamer as Pretty
-import qualified Utils
 
 data RenamerState =
   RenamerState { renCurrentFrameId :: Int
@@ -160,17 +158,12 @@ lookupFreeVar fs unprefixed prefixed name =
   let
     uses = map (,"") unprefixed ++ prefixed
     moduleName = QualName.moduleName $ QualName.mkQualName [name]
-    defName = QualName.definitionName $ QualName.mkQualName [name]
   in
    Result.mapResult lookupDefinition $ filter ((== moduleName) . snd) uses
   where
-    lookupDefinition (useName, asName) =
-      do let moduleName = QualName.moduleName $ QualName.mkQualName [name]
-             defName = QualName.definitionName $ QualName.mkQualName [name]
-         if | moduleName == asName ->
-              FileSystem.lookupDefinition fs $ QualName.mkQualName [useName, defName]
-            | otherwise ->
-              fail ""
+    lookupDefinition (useName, _) =
+      let defName = QualName.definitionName $ QualName.mkQualName [name] in
+      FileSystem.lookupDefinition fs $ QualName.mkQualName [useName, defName]
 
 lookupFreeVars :: FileSystem -> [String] -> [(String, String)] -> [String] -> RenamerM [Definition]
 lookupFreeVars _ _ _ [] = return []
