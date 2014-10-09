@@ -25,10 +25,7 @@ import qualified Pretty.Data.Source as Pretty
 import qualified Pretty.Stage as Pretty
 import qualified Utils
 
--- Definitions
-
-qualifiedName :: Module -> String -> String
-qualifiedName mod name = Module.modName mod ++ "." ++ name
+-- * Definitions
 
 -- edit: improve by a lot...
 definitionName :: Source -> String
