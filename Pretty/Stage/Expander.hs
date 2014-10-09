@@ -3,6 +3,12 @@ module Pretty.Stage.Expander where
 import Data.PrettyString (PrettyString, (<+>), ($+$))
 import qualified Data.PrettyString as PrettyString
 
+condMatchPatternsMismatch :: PrettyString -> PrettyString
+condMatchPatternsMismatch ms =
+  PrettyString.text "Conditional contains different number of patterns"
+  $+$
+  PrettyString.nest ms
+
 devModuleNested :: String -> PrettyString
 devModuleNested me =
   (PrettyString.text "Module" <+>
@@ -19,17 +25,17 @@ devPattern pat =
   $+$
   PrettyString.nest (PrettyString.text "This should be disallowed by the parser")
 
+devSourceApp :: PrettyString -> PrettyString
+devSourceApp src =
+  PrettyString.text "Application pattern must be an expression"
+  $+$
+  PrettyString.nest src
+
 devUnhandled :: String -> PrettyString -> PrettyString
 devUnhandled fnName src =
   (PrettyString.text "Unhandled case in" <+> PrettyString.text fnName)
   $+$
   src
-
-condMatchPatternsMismatch :: PrettyString -> PrettyString
-condMatchPatternsMismatch ms =
-  PrettyString.text "Conditional contains different number of patterns"
-  $+$
-  PrettyString.nest ms
 
 whereOutsideCond :: PrettyString -> PrettyString
 whereOutsideCond src =

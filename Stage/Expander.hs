@@ -13,7 +13,8 @@ import Data.QualName (QualName)
 import qualified Data.QualName as QualName (fromQualName, isTypeName)
 import Data.PrettyString (PrettyString)
 import qualified Data.PrettyString as PrettyString
-import Data.Source
+import Data.Source (Source(..))
+import qualified Data.Source as Source
 import Monad.NameM (NameM)
 import qualified Monad.Utils as Utils (returnOne)
 import qualified Monad.NameM as NameM
@@ -46,6 +47,10 @@ patFnDecl :: String -> [Expr] -> Expr -> Expr
 patFnDecl binder mods val =
   FnDecl NrDef binder (Expr.foldAppE val mods)
 
+patFnDef :: String -> [Source] -> Source -> Source
+patFnDef binder mods val =
+  FnDefS (Source.idS binder) (Source.foldAppS val mods)
+
 isTypeGuard :: Source -> Bool
 isTypeGuard (AppS fn _) = isTypeGuard fn
 isTypeGuard (IdS name) = QualName.isTypeName name
@@ -67,7 +72,7 @@ patDefns val = sourceDefns []
   where
     sourceDefns mods src
       | isTypeGuard src =
-        concatMap (sourceDefns (Expr.idE "unCons#":mods)) $ tail . appToList $ src
+        concatMap (sourceDefns (Expr.idE "unCons#":mods)) . tail . Source.appToList $ src
     sourceDefns mods (BinOpS "+>" hdPat tlPat) =
       sourceDefns (Expr.idE "hd":mods) hdPat ++
       sourceDefns (Expr.idE "tl":mods) tlPat
@@ -88,6 +93,35 @@ patDefns val = sourceDefns []
       where
         listRef 1 = [Expr.idE "hd"]
         listRef i = Expr.idE "tl":listRef (i - 1)
+        patMods = map (reverse . listRef) [1..length pats]
+    sourceDefns _ _ = []
+
+patDefinitions :: Source -> Source -> [Source]
+patDefinitions val = sourceDefns []
+  where
+    sourceDefns mods src
+      | isTypeGuard src =
+        concatMap (sourceDefns (Source.idS "unCons#":mods)) $ tail . Source.appToList $ src
+    sourceDefns mods (BinOpS "+>" hdPat tlPat) =
+      sourceDefns (Source.idS "hd":mods) hdPat ++
+      sourceDefns (Source.idS "tl":mods) tlPat
+    sourceDefns mods (PatS binder guard) =
+      hdDefn ++ tlDefn
+      where
+        hdDefn =
+          case binder of
+            "" -> []
+            _ -> (:[]) $ patFnDef binder mods val
+
+        tlDefn =
+          case guard of
+            Nothing -> []
+            Just src -> sourceDefns mods src
+    sourceDefns mods (SeqS pats) =
+      concat [ sourceDefns (mod ++ mods) pat | pat <- pats | mod <- patMods ]
+      where
+        listRef 1 = [Source.idS "hd"]
+        listRef i = Source.idS "tl":listRef (i - 1)
         patMods = map (reverse . listRef) [1..length pats]
     sourceDefns _ _ = []
 
@@ -121,32 +155,35 @@ patConstantPred src =
 -- @
 patPred :: Source -> ExpanderM Expr        
 patPred = sourcePred
-  where sourcePred src
-          | isTypeGuard src =
-            let IdS qualName = head . appToList $ src in
-            return . Expr.idE . consIsName $ qualName
-        sourcePred (AppS fnPat argPat) =
-          Expr.AppE <$> patPred fnPat <*> patPred argPat
-        sourcePred (BinOpS "+>" hdPat tlPat) =
-          do hdPred <- sourcePred hdPat
-             tlPred <- sourcePred tlPat
-             return $ Expr.appE "isList" hdPred `AppE` tlPred
-        sourcePred pred@IdS {} =
-          expandOne pred
-        sourcePred (PatS _ Nothing) =
-          return Expr.constTrueE
-        sourcePred (PatS _ (Just src)) =
-          patPred src
-        sourcePred (SeqS pats) =
-          Expr.appE "isTuple" . Expr.seqE <$> mapM sourcePred pats
-        sourcePred (StringS cs) =
-          sourcePred . SeqS . map CharS $ cs
-        sourcePred m =
-          do let (isFn, eqFn) = patConstantPred m
-             arg <- NameM.genNameM "arg"
-             let argId = idS arg
-                 pred = AndS (appS isFn argId) ((appS eqFn m) `AppS` argId)
-             LambdaE arg <$> expandOne pred
+  where
+    sourcePred src
+      | isTypeGuard src =
+        let IdS qualName = head . Source.appToList $ src in
+        return . Expr.idE . consIsName $ qualName
+    sourcePred src@AppS {} =
+      case Source.toSource src of
+        Just x -> expandOne x
+        _ -> throwError . Pretty.devSourceApp $ Pretty.docSource src
+    sourcePred (BinOpS "+>" hdPat tlPat) =
+      do hdPred <- sourcePred hdPat
+         tlPred <- sourcePred tlPat
+         return $ Expr.appE "isList" hdPred `AppE` tlPred
+    sourcePred pred@IdS {} =
+      expandOne pred
+    sourcePred (PatS _ Nothing) =
+      return Expr.constTrueE
+    sourcePred (PatS _ (Just src)) =
+      patPred src
+    sourcePred (SeqS pats) =
+      Expr.appE "isTuple" . Expr.seqE <$> mapM sourcePred pats
+    sourcePred (StringS cs) =
+      sourcePred . SeqS . map CharS $ cs
+    sourcePred m =
+      do let (isFn, eqFn) = patConstantPred m
+         arg <- NameM.genNameM "arg"
+         let argId = Source.idS arg
+             pred = AndS (Source.appS isFn argId) ((Source.appS eqFn m) `AppS` argId)
+         LambdaE arg <$> expandOne pred
 
 -- |
 -- @
@@ -237,6 +274,11 @@ expandFnDecl name body =
   in
    FnDecl kw name body
 
+expandResultPattern :: Source -> Source -> ExpanderM [Source]
+expandResultPattern pat body =
+  do result <- NameM.genNameM "res"
+     return $ FnDefS (Source.idS result) body:patDefinitions (Source.idS result) pat
+
 -- /expand FnDeclM
 
 expandSeq :: [Source] -> ExpanderM Expr
@@ -258,7 +300,7 @@ consPredFn :: QualName -> Source
 consPredFn consName =
   let
     consNameStr = QualName.fromQualName consName
-    body = appS "isCons#" . appS "link#" . StringS $ consNameStr
+    body = Source.appS "isCons#" . Source.appS "link#" . StringS $ consNameStr
   in
     FnDeclS (consIsName consName) body
 
@@ -266,7 +308,7 @@ typePredFn :: QualName -> [QualName] -> Source
 typePredFn typeName consNames =
   let
     fnName = consIsName typeName
-    predNames = map (idS . consIsName) consNames
+    predNames = map (Source.idS . consIsName) consNames
     body = foldl1 OrS predNames
   in
     FnDeclS fnName body
@@ -275,10 +317,10 @@ consConsFn :: QualName -> String -> Source -> Source
 consConsFn consName binder guard =
   let
     consNameStr = QualName.fromQualName consName
-    body = appS "mkCons#" . appS "link#" . StringS $ consNameStr
+    body = Source.appS "mkCons#" . Source.appS "link#" . StringS $ consNameStr
   in
     FnDeclS (consMkName consName) $
-      CondS [([PatS binder (Just guard)], body `AppS` idS binder)]
+      CondS [([PatS binder (Just guard)], body `AppS` Source.idS binder)]
 
 expandConstructor :: (QualName, Source) -> ExpanderM [Expr]
 expandConstructor (consName, pat) =
@@ -287,11 +329,12 @@ expandConstructor (consName, pat) =
          predSource = consPredFn consName
          consSource = consConsFn consName binder guard
      (++) <$> expandSource predSource <*> expandSource consSource
-  where patBinder (PatS binder _) | not (null binder) = return binder
-        patBinder _               = NameM.genNameM "arg"
+  where
+    patBinder (PatS binder _) | not (null binder) = return binder
+    patBinder _               = NameM.genNameM "arg"
         
-        patGuard (PatS _ (Just src)) = patGuard src
-        patGuard src = src
+    patGuard (PatS _ (Just src)) = patGuard src
+    patGuard src = src
 
 expandTypeDecl :: QualName -> [(QualName, Source)] -> ExpanderM [Expr]
 expandTypeDecl typeName cons =
@@ -340,6 +383,10 @@ expandSource (FnDeclS name src@(WhereS CondS {} _)) =
   Utils.returnOne $ expandFnDecl name <$> expandCond (expandWhereCondMatches src) name
 expandSource (FnDeclS name body) =
   Utils.returnOne $ expandFnDecl name <$> expandOne body
+expandSource (FnDefS pat body) =
+  case pat of
+    IdS name -> expandSource (FnDeclS (QualName.fromQualName name) body)
+    _ -> concat <$> (mapM expandSource =<< expandResultPattern pat body)
 expandSource (IdS name) =
   Utils.returnOne . return . Expr.IdE $ name
 expandSource (IntS n) =

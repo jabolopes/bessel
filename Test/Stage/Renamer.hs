@@ -2,6 +2,9 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Test.Stage.Renamer where
 
+import Control.Applicative
+import Control.Monad.State
+
 import Data.Expr
 import qualified Data.PrettyString as PrettyString
 import Data.QualName (QualName (..))
@@ -18,7 +21,7 @@ deriving instance Eq QualName
 renameTestFile :: String -> IO Expr
 renameTestFile filename =
   do expr <- expandFile
-     case Renamer.renameDeclaration expr of
+     case fst <$> runState (Renamer.renameM expr) Renamer.initialRenamerState of
        Left err -> fail $ show err
        Right expr' -> return expr'
   where

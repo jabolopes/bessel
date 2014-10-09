@@ -14,12 +14,12 @@ deriving instance Eq DefnKw
 deriving instance Eq Expr
 deriving instance Eq QualName
 
-expandTestFile :: String -> IO Expr
+expandTestFile :: String -> IO [Expr]
 expandTestFile filename =
   do ModuleS _ _ [src] <- parseFile
      case Expander.expand src of
        Left err -> fail $ show err
-       Right exprs -> return (head exprs)
+       Right exprs -> return exprs
   where
     parseFile =
       do str <- readFile filename
@@ -27,41 +27,43 @@ expandTestFile filename =
            Left err -> fail err
            Right src -> return src
 
-expandSnippet :: Monad m => String -> m Expr
+expandSnippet :: Monad m => String -> m [Expr]
 expandSnippet str =
   do case Parser.parseRepl "" str of
        Left err -> fail $ show err
        Right expr ->
          case Expander.expand expr of
            Left err -> fail $ show err
-           Right exprs -> return (head exprs)
+           Right exprs -> return exprs
 
 data Actual = File String
             | Snippet String
 
 -- edit: Use pretty strings instead
-expect :: Expr -> Actual -> IO ()
+expect :: [Expr] -> Actual -> IO ()
 expect expected actual =
   case actual of
     File filename -> expect' filename =<< expandTestFile filename
     Snippet snippet -> expect' snippet =<< expandSnippet snippet
   where
-    expect' filename expr
-      | expected == expr = return ()
+    expect' filename exprs
+      | expected == exprs = return ()
       | otherwise =
         fail $ "Expander" ++ "\n" ++
                "In: " ++ filename ++ "\n" ++
-               "Expected: " ++ "\n" ++ PrettyString.toString (Pretty.docExpr Pretty.ExpDocT expected) ++ "\n" ++
-               "Expr: " ++ "\n" ++ PrettyString.toString (Pretty.docExpr Pretty.ExpDocT expr)
+               "Expected: " ++ "\n" ++ PrettyString.toString (Pretty.docExprList expected) ++ "\n" ++
+               "Expr: " ++ "\n" ++ PrettyString.toString (Pretty.docExprList exprs)
 
 testExpander :: IO ()
 testExpander =
-  do expect expectedSnippet1 $ Snippet "def not id = false | @  = true"
-     expect expected1 $ File "Test/TestData1.bsl"
-     expect expected2 $ File "Test/TestData2.bsl"
-     expect expected3 $ File "Test/TestData3.bsl"
-     expect expected4 $ File "Test/TestData4.bsl"
-     -- expect expected5 $ File "Test/TestData5.bsl"
+  do expect [expectedSnippet1] $ Snippet "def not id = false | @  = true"
+     expect [expected1] $ File "Test/TestData1.bsl"
+     expect [expected2] $ File "Test/TestData2.bsl"
+     expect [expected3] $ File "Test/TestData3.bsl"
+     expect [expected4] $ File "Test/TestData4.bsl"
+     expect [expected5] $ File "Test/TestData5.bsl"
+     expect [expected6] $ File "Test/TestData6.bsl"
+     expect expected7 $ File "Test/TestData7.bsl"
   where
     expectedSnippet1 =
       FnDecl NrDef "not"
@@ -307,3 +309,43 @@ testExpander =
          (AppE (LambdaE "_" (IdE (QualName {fromQualName = "true#"}))) (IdE (QualName {fromQualName = "arg#0"})),
           IdE (QualName {fromQualName = "false"}))]
         "isString"))
+
+    expected6 =
+      FnDecl NrDef "f"
+      (LambdaE "n#0"
+       (CondE
+        [(AppE (LambdaE "_" (IdE (QualName {fromQualName = "true#"}))) (IdE (QualName {fromQualName = "n#0"})),
+          LetE (FnDecl NrDef "n" (IdE (QualName {fromQualName = "n#0"})))
+          (LetE (FnDecl NrDef "res#1"
+                 (AppE (AppE (IdE (QualName {fromQualName = "cons"})) (IntE 1))
+                  (AppE (AppE (IdE (QualName {fromQualName = "cons"})) (IntE 2))
+                   (IdE (QualName {fromQualName = "null"})))))
+           (LetE (FnDecl NrDef "x"
+                  (AppE (IdE (QualName {fromQualName = "hd"}))
+                   (IdE (QualName {fromQualName = "res#1"}))))
+            (LetE (FnDecl NrDef "y"
+                   (AppE (IdE (QualName {fromQualName = "hd"}))
+                    (AppE (IdE (QualName {fromQualName = "tl"}))
+                     (IdE (QualName {fromQualName = "res#1"})))))
+             (AppE (AppE (IdE (QualName {fromQualName = "case"})) (IdE (QualName {fromQualName = "n"})))
+              (LambdaE "arg#2"
+               (CondE
+                [(AppE (AppE (IdE (QualName {fromQualName = ">"})) (IntE 1)) (IdE (QualName {fromQualName = "arg#2"})),
+                  IdE (QualName {fromQualName = "x"})),
+                 (AppE (LambdaE "_" (IdE (QualName {fromQualName = "true#"}))) (IdE (QualName {fromQualName = "arg#2"})),
+                  IdE (QualName {fromQualName = "y"}))]
+                "lambda")))))))]
+        "f"))
+
+    expected7 =
+      [FnDecl NrDef "res#0"
+       (AppE (AppE (IdE (QualName {fromQualName = "cons"})) (IntE 1))
+        (AppE (AppE (IdE (QualName {fromQualName = "cons"})) (IntE 2))
+         (IdE (QualName {fromQualName = "null"})))),
+       FnDecl NrDef "x"
+       (AppE (IdE (QualName {fromQualName = "hd"}))
+        (IdE (QualName {fromQualName = "res#0"}))),
+       FnDecl NrDef "y"
+       (AppE (IdE (QualName {fromQualName = "hd"}))
+        (AppE (IdE (QualName {fromQualName = "tl"}))
+         (IdE (QualName {fromQualName = "res#0"}))))]

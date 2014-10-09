@@ -243,3 +243,11 @@ let oi filename@ =
   where {
     let fn str@ = adeus str
   }
+
+def f n@ =
+  let [x@, y@] [1, 2] in
+  case n (
+    ((<) 0) = x
+  | @       = y)
+
+def [g@, h@] [1, 2]

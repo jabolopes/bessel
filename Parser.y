@@ -189,7 +189,7 @@ Cond:
   | AppExpr '=' Expr          %prec lambda_prec { [($1, $3)] }
 
 Let:
-    let Name Expr in Expr %prec let_prec { LetS [FnDeclS $2 $3] $5 }
+    let Pat Expr in Expr %prec let_prec { LetS [FnDefS $2 $3] $5 }
 
 TypeDefn :: { Source }
 TypeDefn:

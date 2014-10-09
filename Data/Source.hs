@@ -46,6 +46,14 @@ data Source
   -- @
   | FnDeclS String Source
 
+  -- | FnDeclS
+  -- @
+  -- def x = ...
+  --
+  -- def [x, y] = ...
+  -- @
+  | FnDefS Source Source
+
   -- | IdS
   -- @
   -- x
@@ -144,6 +152,9 @@ data Source
 appS :: String -> Source -> Source
 appS name = AppS (idS name)
 
+foldAppS :: Source -> [Source] -> Source
+foldAppS = foldr AppS
+
 listToApp :: [Source] -> Source
 listToApp = foldl1 AppS
 
@@ -178,6 +189,7 @@ toSource src@CharS {} = Just src
 toSource (CondS ms) = CondS <$> mapM toSource' ms
   where toSource' (args, body) = (args,) <$> toSource body
 toSource (FnDeclS name body) = FnDeclS name <$> toSource body
+toSource (FnDefS pat body) = FnDefS pat <$> toSource body
 toSource src@IdS {} = Just src
 toSource src@IntS {} = Just src
 toSource (LetS defns body) = LetS <$> mapM toSource defns <*> toSource body

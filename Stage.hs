@@ -3,6 +3,7 @@ module Stage where
 import Prelude hiding (mod)
 
 import Control.Applicative ((<$>))
+import qualified Data.List as List
 
 import Data.Definition (Definition(..))
 import qualified Data.Definition as Definition
@@ -12,13 +13,14 @@ import qualified Data.FileSystem as FileSystem
 import Data.Module (ModuleT(..), Module(..))
 import qualified Data.Module as Module
 import Data.PrettyString (PrettyString)
-import qualified Data.PrettyString as PrettyString (text)
+import qualified Data.PrettyString as PrettyString
 import qualified Data.QualName as QualName
 import Data.Source (Source(..))
 import qualified Stage.Interpreter as Interpreter (interpret, interpretDefinition)
 import qualified Parser (parseRepl)
-import qualified Stage.Expander as Expander (expand)
+import qualified Stage.Expander as Expander
 import qualified Stage.Renamer as Renamer (rename, renameDefinition)
+import qualified Pretty.Data.Source as Pretty
 import qualified Pretty.Stage as Pretty
 import qualified Utils
 
@@ -40,7 +42,19 @@ splitDefinition mod source =
                                  , defUses = uses }
   where
     defnName (FnDeclS x _) = x
+    -- edit: fix
+    defnName (FnDefS (IdS name) _) = QualName.fromQualName name
+    defnName (FnDefS pat _) =
+      let defns = Expander.patDefinitions undefined pat in
+      case defns of
+        [] -> error $ "Stage.splitDefinitions.defnName: " ++
+              PrettyString.toString (Pretty.docSource pat) ++
+              PrettyString.toString (Pretty.docSourceList defns)
+        _ -> List.intercalate "+" $ map (\(FnDefS (IdS name) _) -> QualName.fromQualName name) defns
     defnName (TypeDeclS x _) = QualName.fromQualName x
+    defnName src =
+      error $ "Stage.splitDefinition: expecting function or type definition" ++
+              "\n\n\t src = " ++ PrettyString.toString (Pretty.docSource src) ++ "\n\n"
 
 expandDefinition :: Module -> Definition -> Either PrettyString [Definition]
 expandDefinition mod def =
