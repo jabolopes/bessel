@@ -1,9 +1,4 @@
-module Data.QualName (QualName,
-                      mkQualName,
-                      fromQualName,
-                      isTypeName,
-                      moduleName,
-                      definitionName) where
+module Data.QualName where
 
 import qualified Data.Char as Char (isUpper)
 
