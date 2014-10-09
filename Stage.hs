@@ -67,11 +67,10 @@ expandDefinition mod def =
     expandSrc (Left err) =
       Left $ Pretty.definitionContainsNoSource err
     expandSrc (Right src) =
-      do exprs <- Expander.expand src
-         Right $ map mkDef exprs
+      map mkDef <$> Expander.expand src
 
 mkSnippet :: FileSystem -> Source -> Definition
-mkSnippet fs source@(FnDefS pat _) =
+mkSnippet fs source@FnDefS {} =
   let
     defName = QualName.mkQualName [Module.interactiveName, definitionName source]
   in
