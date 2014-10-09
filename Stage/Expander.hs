@@ -67,35 +67,6 @@ isTypeGuard _ = False
 -- def x = hd x1#
 -- def y = hd (tl x1#)
 -- @
-patDefns :: Expr -> Source -> [Expr]
-patDefns val = sourceDefns []
-  where
-    sourceDefns mods src
-      | isTypeGuard src =
-        concatMap (sourceDefns (Expr.idE "unCons#":mods)) . tail . Source.appToList $ src
-    sourceDefns mods (BinOpS "+>" hdPat tlPat) =
-      sourceDefns (Expr.idE "hd":mods) hdPat ++
-      sourceDefns (Expr.idE "tl":mods) tlPat
-    sourceDefns mods (PatS binder guard) =
-      hdDefn ++ tlDefn
-      where
-        hdDefn =
-          case binder of
-            "" -> []
-            _ -> (:[]) $ patFnDecl binder mods val
-
-        tlDefn =
-          case guard of
-            Nothing -> []
-            Just src -> sourceDefns mods src
-    sourceDefns mods (SeqS pats) =
-      concat [ sourceDefns (mod ++ mods) pat | pat <- pats | mod <- patMods ]
-      where
-        listRef 1 = [Expr.idE "hd"]
-        listRef i = Expr.idE "tl":listRef (i - 1)
-        patMods = map (reverse . listRef) [1..length pats]
-    sourceDefns _ _ = []
-
 patDefinitions :: Source -> Source -> [Source]
 patDefinitions val = sourceDefns []
   where
@@ -198,11 +169,10 @@ patPred = sourcePred
 -- @
 expandMatchBody :: [String] -> [Source] -> Source -> ExpanderM Expr
 expandMatchBody args pats body =
-  case concat [ patDefns (Expr.idE arg) pat | arg <- args | pat <- pats ] of
-    [] -> expandOne body
-    defns ->
-      do body' <- expandOne body
-         return (Expr.letE defns body')
+  do defns <- concat <$> (mapM expandSource $ concat [ patDefinitions (Source.idS arg) pat | arg <- args | pat <- pats ])
+     case defns of
+       [] -> expandOne body
+       _ -> Expr.letE defns <$> expandOne body
 
 -- |
 -- @
@@ -302,16 +272,15 @@ consPredFn consName =
     consNameStr = QualName.fromQualName consName
     body = Source.appS "isCons#" . Source.appS "link#" . StringS $ consNameStr
   in
-    FnDeclS (consIsName consName) body
+    FnDefS (Source.idS (consIsName consName)) body
 
 typePredFn :: QualName -> [QualName] -> Source
 typePredFn typeName consNames =
   let
-    fnName = consIsName typeName
     predNames = map (Source.idS . consIsName) consNames
     body = foldl1 OrS predNames
   in
-    FnDeclS fnName body
+    FnDefS (Source.idS (consIsName typeName)) body
 
 consConsFn :: QualName -> String -> Source -> Source
 consConsFn consName binder guard =
@@ -319,7 +288,7 @@ consConsFn consName binder guard =
     consNameStr = QualName.fromQualName consName
     body = Source.appS "mkCons#" . Source.appS "link#" . StringS $ consNameStr
   in
-    FnDeclS (consMkName consName) $
+    FnDefS (Source.idS (consMkName consName)) $
       CondS [([PatS binder (Just guard)], body `AppS` Source.idS binder)]
 
 expandConstructor :: (QualName, Source) -> ExpanderM [Expr]
@@ -376,17 +345,15 @@ expandSource (CharS c) =
 expandSource (CondS ms) =
   Utils.returnOne $ expandCond ms "lambda"
 -- Expand FnDeclS together with CondS to get the correct blame.
-expandSource (FnDeclS name (CondS ms)) =
-  Utils.returnOne $ expandFnDecl name <$> expandCond ms name
+expandSource (FnDefS (IdS name) (CondS ms)) =
+  Utils.returnOne $ expandFnDecl (QualName.fromQualName name) <$> expandCond ms (QualName.fromQualName name)
 -- Expand FnDeclS together with WhereS to get the correct blame.
-expandSource (FnDeclS name src@(WhereS CondS {} _)) =
-  Utils.returnOne $ expandFnDecl name <$> expandCond (expandWhereCondMatches src) name
-expandSource (FnDeclS name body) =
-  Utils.returnOne $ expandFnDecl name <$> expandOne body
+expandSource (FnDefS (IdS name) src@(WhereS CondS {} _)) =
+  Utils.returnOne $ expandFnDecl (QualName.fromQualName name) <$> expandCond (expandWhereCondMatches src) (QualName.fromQualName name)
+expandSource (FnDefS (IdS name) body) =
+  Utils.returnOne $ expandFnDecl (QualName.fromQualName name) <$> expandOne body
 expandSource (FnDefS pat body) =
-  case pat of
-    IdS name -> expandSource (FnDeclS (QualName.fromQualName name) body)
-    _ -> concat <$> (mapM expandSource =<< expandResultPattern pat body)
+  concat <$> (mapM expandSource =<< expandResultPattern pat body)
 expandSource (IdS name) =
   Utils.returnOne . return . Expr.IdE $ name
 expandSource (IntS n) =

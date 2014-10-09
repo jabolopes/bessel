@@ -40,13 +40,7 @@ data Source
   -- @
   | CondS [([Source], Source)]
 
-  -- | FnDeclS
-  -- @
-  -- def x = ...
-  -- @
-  | FnDeclS String Source
-
-  -- | FnDeclS
+  -- | FnDefS
   -- @
   -- def x = ...
   --
@@ -163,6 +157,7 @@ idS = IdS . QualName.mkQualName . Utils.splitId
 
 moduleDeps :: Source -> [String]
 moduleDeps (ModuleS _ uses _) = map fst uses
+moduleDeps _ = error "Source.moduleDeps: expecting a module"
 
 allPat :: Source
 allPat = PatS "" Nothing
@@ -188,7 +183,6 @@ toSource (BinOpS op src1 src2) = BinOpS op <$> toSource src1 <*> toSource src2
 toSource src@CharS {} = Just src
 toSource (CondS ms) = CondS <$> mapM toSource' ms
   where toSource' (args, body) = (args,) <$> toSource body
-toSource (FnDeclS name body) = FnDeclS name <$> toSource body
 toSource (FnDefS pat body) = FnDefS pat <$> toSource body
 toSource src@IdS {} = Just src
 toSource src@IntS {} = Just src

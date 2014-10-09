@@ -16,6 +16,7 @@ import Data.PrettyString (PrettyString)
 import qualified Data.PrettyString as PrettyString
 import qualified Data.QualName as QualName
 import Data.Source (Source(..))
+import qualified Data.Source as Source
 import qualified Stage.Interpreter as Interpreter (interpret, interpretDefinition)
 import qualified Parser (parseRepl)
 import qualified Stage.Expander as Expander
@@ -29,10 +30,25 @@ import qualified Utils
 qualifiedName :: Module -> String -> String
 qualifiedName mod name = Module.modName mod ++ "." ++ name
 
+-- edit: improve by a lot...
+definitionName :: Source -> String
+definitionName (FnDefS (IdS name) _) = QualName.fromQualName name
+definitionName (FnDefS pat _) =
+  let defns = Expander.patDefinitions undefined pat in
+  case defns of
+    [] -> error $ "Stage.definitionName: " ++
+                  PrettyString.toString (Pretty.docSource pat) ++
+                  PrettyString.toString (Pretty.docSourceList defns)
+    _ -> List.intercalate "+" $ map (\(FnDefS (IdS name) _) -> QualName.fromQualName name) defns
+definitionName (TypeDeclS x _) = QualName.fromQualName x
+definitionName src =
+  error $ "Stage.definitionName: expecting function or type definition" ++
+          "\n\n\t src = " ++ PrettyString.toString (Pretty.docSource src) ++ "\n\n"
+
 splitDefinition :: Module -> Source -> Definition
 splitDefinition mod source =
   let
-    defName = QualName.mkQualName [Module.modName mod, defnName source]
+    defName = QualName.mkQualName [Module.modName mod, definitionName source]
     use = (Module.modName mod, "")
     uses
       | use `elem` Module.modUses mod = Module.modUses mod
@@ -40,21 +56,6 @@ splitDefinition mod source =
   in
     (Definition.initial defName) { defSrc = Right source
                                  , defUses = uses }
-  where
-    defnName (FnDeclS x _) = x
-    -- edit: fix
-    defnName (FnDefS (IdS name) _) = QualName.fromQualName name
-    defnName (FnDefS pat _) =
-      let defns = Expander.patDefinitions undefined pat in
-      case defns of
-        [] -> error $ "Stage.splitDefinitions.defnName: " ++
-              PrettyString.toString (Pretty.docSource pat) ++
-              PrettyString.toString (Pretty.docSourceList defns)
-        _ -> List.intercalate "+" $ map (\(FnDefS (IdS name) _) -> QualName.fromQualName name) defns
-    defnName (TypeDeclS x _) = QualName.fromQualName x
-    defnName src =
-      error $ "Stage.splitDefinition: expecting function or type definition" ++
-              "\n\n\t src = " ++ PrettyString.toString (Pretty.docSource src) ++ "\n\n"
 
 expandDefinition :: Module -> Definition -> Either PrettyString [Definition]
 expandDefinition mod def =
@@ -73,15 +74,15 @@ expandDefinition mod def =
          Right $ map mkDef exprs
 
 mkSnippet :: FileSystem -> Source -> Definition
-mkSnippet fs source@(FnDeclS name _) =
+mkSnippet fs source@(FnDefS pat _) =
   let
-    defName = QualName.mkQualName [Module.interactiveName, name]
+    defName = QualName.mkQualName [Module.interactiveName, definitionName source]
   in
    case FileSystem.lookup fs Module.interactiveName of
      Nothing -> error $ "Stage.mkSnippet: module " ++ Module.interactiveName ++ " not found"
      Just mod -> (Definition.initial defName) { defUses = Module.modUses mod
                                               , defSrc = Right source }
-mkSnippet fs source = mkSnippet fs $ FnDeclS "val" source
+mkSnippet fs source = mkSnippet fs $ FnDefS (Source.idS "val") source
 
 renameSnippet :: FileSystem -> Definition -> Either PrettyString Definition
 renameSnippet fs def =
