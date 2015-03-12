@@ -3,7 +3,7 @@
 module Core.Html where
 
 import qualified Text.Blaze.Internal as Blaze (string)
-import Text.Blaze.Html5 hiding (head, map)
+import Text.Blaze.Html5 hiding (head, map, string)
 import qualified Text.Blaze.Html5 as Html
 import qualified Text.Blaze.Html.Renderer.String as Html
 
