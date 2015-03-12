@@ -39,7 +39,7 @@ putVal :: Either String (IORef Val) -> IO ()
 putVal (Left err) = putStrLn err
 putVal (Right ref) = putVal' =<< readIORef ref
   where
-    putVal' (IOVal m) = print =<< m
+    putVal' (IOVal m) = putVal' =<< m
     putVal' val = print val
 
 stageFiles :: [Module] -> IO FileSystem
