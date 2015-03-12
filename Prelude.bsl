@@ -200,6 +200,12 @@ let length
 --   [] = []
 -- | (x@ +> xs@) = reverse xs <+ x
 
+-- Io
+
+let readLine readLine#
+let putLine putLine#
+let (>>) bindIO#
+
 let ola
   1 = true
 | @ = false
@@ -212,6 +218,8 @@ let case x@ fn@ = fn x
 
 let if x@ then@ else@ = 0
 
+let ($) fn@ x@ = fn x
+
 let foo x@ =
   (isInt = true
  | @     = false) x
@@ -220,6 +228,11 @@ let bar x@ =
   case x
     (isInt = true
    | @     = false)
+
+let foobar x@ =
+  case x $
+     isInt = true
+   | @     = false
 
 type Fruit Apple isInt
 
@@ -244,10 +257,10 @@ let oi filename@ =
     let fn str@ = adeus str
   }
 
-def f n@ =
+let f n@ =
   let [x@, y@] [1, 2] in
   case n (
     ((<) 0) = x
   | @       = y)
 
-def [g@, h@] [1, 2]
+let [g@, h@] [1, 2]
