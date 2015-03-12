@@ -3,7 +3,9 @@ module Core where
 import Prelude hiding (concat, null, reverse)
 import qualified Prelude
 
+import Control.Applicative ((<$>))
 import Control.Arrow ((***))
+import Control.Monad.IO.Class
 import Data.Hashable (hash)
 import System.IO as IO
 
@@ -11,6 +13,24 @@ import Config
 import Data.Module
 import Monad.InterpreterM
 import qualified Stage.Interpreter as Interpreter
+
+-- Unit
+
+unitType :: Int
+IntVal unitType = Core.link . boxString $ coreName ++ ".Unit"
+
+isUnit :: Val -> Bool
+isUnit (TypeVal (SeqVal [IntVal typeId, _])) = typeId == unitType
+isUnit _ = False
+
+mkUnit :: Val
+mkUnit = TypeVal (SeqVal [IntVal unitType, dynVal ()])
+
+unUnit :: Val -> ()
+unUnit val@(TypeVal (SeqVal [_, unit]))
+  | isUnit val = let Just () = unDynVal unit :: Maybe () in ()
+unUnit _ =
+  error "Core: expected unit"
 
 -- Bool
 
@@ -273,6 +293,25 @@ mapFile filename =
         contents <- IO.readFile $ unboxString filename
         Interpreter.liftInterpreterM . fn $ boxString contents
 
+readLine :: Val
+readLine =
+  IOVal $ boxString <$> liftIO (hGetLine stdin)
+
+putLine :: Val -> Val
+putLine str =
+  IOVal $ do
+    liftIO . hPutStrLn stdout $ unboxString str
+    return mkUnit
+
+bindIO :: Val -> Val
+bindIO (IOVal m) = FnVal $ return . IOVal . bindIOHof
+  where
+    bindIOHof :: Val -> IO Val
+    bindIOHof (FnVal fn) =
+      do res <- m
+         val <- Interpreter.liftInterpreterM $ fn res
+         return val
+
 -- environment
 
 fnDesc :: FnDesc
@@ -333,6 +372,9 @@ fnDesc =
    ("o", primitive o),
    -- io
    ("mapFile", FnVal mapFile),
+   ("readLine", readLine),
+   ("putLine", primitive putLine),
+   ("bindIO", primitive bindIO),
    -- misc
    ("un", primitive unSharp),
    ("index", primitive index),
