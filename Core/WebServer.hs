@@ -1,8 +1,9 @@
-{-# LANGUAGE DeriveDataTypeable, FlexibleInstances, TypeSynonymInstances,
-  OverloadedStrings, TupleSections #-}
+{-# LANGUAGE DeriveDataTypeable, FlexibleInstances, MultiWayIf,
+             TypeSynonymInstances, OverloadedStrings, TupleSections #-}
 module Core.WebServer where
 
 import Control.Monad.IO.Class (liftIO)
+import qualified Data.Text as Text
 import Data.Typeable (Typeable)
 
 import Happstack.Lite (ServerPart, Response, Browsing(..))
@@ -20,10 +21,8 @@ coreWebServerName = "Core.WebServer"
 coreWebServerError :: String -> a
 coreWebServerError = error . ((coreWebServerName ++ ".") ++)
 
-data Reply
-  = DirectoryReply String
-  | HtmlReply String
-    deriving (Typeable)
+data Reply = Reply (ServerPart Response)
+           deriving (Typeable)
 
 replyType :: Int
 IntVal replyType = Core.link . boxString $ coreWebServerName ++ ".Reply"
@@ -32,13 +31,13 @@ isReply :: Val -> Bool
 isReply (TypeVal (SeqVal [IntVal typeId, _])) = typeId == replyType
 isReply _ = False
 
-mkReply :: Reply -> Val
-mkReply t = TypeVal (SeqVal [IntVal replyType, dynVal t])
+mkReply :: ServerPart Response -> Val
+mkReply t = TypeVal (SeqVal [IntVal replyType, dynVal (Reply t)])
 
-unReply :: Val -> Reply
+unReply :: Val -> ServerPart Response
 unReply val@(TypeVal (SeqVal [_, reply]))
-  | isReply  val =
-    let Just reply' = unDynVal reply :: Maybe Reply in
+  | isReply val =
+    let Just (Reply reply') = unDynVal reply :: Maybe Reply in
     reply'
 unReply _ =
   coreWebServerError "unReply: expected Reply"
@@ -49,35 +48,40 @@ class MonadVal a where
 instance MonadVal (ServerPart Response) where
   runMonadVal val
     | isReply val =
-      case unReply val of
-        DirectoryReply x ->
-          Happstack.serveDirectory DisableBrowsing ["index.html"] x
-        HtmlReply x -> do
-          Happstack.setHeaderM "Content-type" "text/html"
-          Happstack.ok $ Happstack.toResponse x
+      unReply val
     | otherwise =
       coreWebServerError $ "MonadVal.runMonadVal: expected Reply as first argument"
 
 replyDirectory :: Val -> Val
 replyDirectory val
   | isStringVal val =
-    mkReply . DirectoryReply . unboxString $ val
+    mkReply . Happstack.serveDirectory DisableBrowsing ["index.html"] $ unboxString val
   | otherwise =
     coreWebServerError $ "replyDirectory: expected string as first argument"
 
 replyHtml :: Val -> Val
 replyHtml val
   | isStringVal val =
-    mkReply . HtmlReply . unboxString $ val
+    mkReply $ do
+      Happstack.setHeaderM "Content-type" "text/html"
+      Happstack.ok . Happstack.toResponse $ unboxString val
   | otherwise =
     coreWebServerError $ "replyHtml: expected string as first argument"
+
+-- lookText arg =
+--   mkReply $ do
+--     text <- Happstack.lookText arg
+--     return . boxString $ Text.unpack text
 
 serve :: Val -> InterpreterM Val
 serve (FnVal fn) =
   return . IOVal $ do
     Happstack.serve Nothing $
-      Happstack.uriRest $ \uri ->
-        runMonadVal =<< (liftIO . Interpreter.liftInterpreterM . fn $ boxString uri)
+      Happstack.uriRest $ \uri -> do
+        liftIO $ putStrLn uri
+        val <- liftIO . Interpreter.liftInterpreterM . fn $ boxString uri
+        if | isReply val -> unReply val
+           | otherwise -> coreWebServerError $ "serve: expected function of type 'String -> Reply' as first argument"
     return $ SeqVal []
 serve _ =
   coreWebServerError "serveApp: expected (String -> Reply) as first argument"
