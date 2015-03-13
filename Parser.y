@@ -148,7 +148,8 @@ Defn:
 
 FnDefn :: { Source }
 FnDefn:
-    let Pat Expr {% return . FnDefS $2 =<< ensureExpr $3 }
+    let Pat CondExpr                        {% return . FnDefS $2 =<< ensureExpr $3 }
+ |  let Pat CondExpr where '{' DefnList '}' {% return . FnDefS $2 =<< (WhereS `fmap` ensureExpr $3 <*> return $6) }
 
 Expr :: { Source }
 Expr:
@@ -177,11 +178,14 @@ Expr:
 
   | Expr quotedId Expr { BinOpS $2 $1 $3 }
 
-  | Expr where '{' DefnList '}' { WhereS $1 $4 }
-
   | Cond            { CondS $1 }
 
   | Let             { $1 }
+
+CondExpr :: { Source }
+CondExpr:
+    Cond                                        { CondS $1 }
+  | '=' Expr                  %prec lambda_prec { $2 }
 
 Cond :: { [([Source], Source)] }
 Cond:

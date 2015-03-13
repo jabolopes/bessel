@@ -9,71 +9,71 @@ let const x@ @ = x
 
 -- Bool
 
-let isBool isBool#
-let true true#
-let false false#
-let eqBool eqBool#
+let isBool = isBool#
+let true = true#
+let false = false#
+let eqBool = eqBool#
 
 let not id = false
       | @  = true
 
 -- Int
 
-let isInt isInt#
-let eqInt eqInt#
-let ltInt ltInt#
-let addInt addInt#
-let subInt subInt#
-let mulInt mulInt#
-let divInt divInt#
-let absInt absInt#
-let negInt negInt#
-let invInt negInt#
-let remInt remInt#
+let isInt = isInt#
+let eqInt = eqInt#
+let ltInt = ltInt#
+let addInt = addInt#
+let subInt = subInt#
+let mulInt = mulInt#
+let divInt = divInt#
+let absInt = absInt#
+let negInt = negInt#
+let invInt = negInt#
+let remInt = remInt#
 
 -- Real
 
-let isReal isReal#
-let eqReal eqReal#
-let ltReal ltReal#
-let addReal addReal#
-let subReal subReal#
-let mulReal mulReal#
-let divReal divReal#
-let absReal absReal#
-let ceilingReal ceilingReal#
-let floorReal floorReal#
-let negReal negReal#
-let invReal invReal#
+let isReal = isReal#
+let eqReal = eqReal#
+let ltReal = ltReal#
+let addReal = addReal#
+let subReal = subReal#
+let mulReal = mulReal#
+let divReal = divReal#
+let absReal = absReal#
+let ceilingReal = ceilingReal#
+let floorReal = floorReal#
+let negReal = negReal#
+let invReal = invReal#
 
 -- Int and Real
 
-let ltIntReal ltIntReal#
-let ltRealInt ltRealInt#
-let addIntReal addIntReal#
+let ltIntReal = ltIntReal#
+let ltRealInt = ltRealInt#
+let addIntReal = addIntReal#
 let addRealInt x@ y@ = addIntReal y x
 let subIntReal x@ y@ = addIntReal x (negReal y)
 let subRealInt x@ y@ = addRealInt x (negInt y)
-let mulIntReal mulIntReal#
+let mulIntReal = mulIntReal#
 let mulRealInt x@ y@ = mulIntReal y x
 let divIntReal x@ y@ = mulIntReal x (invReal y)
 let divRealInt x@ y@ = mulReal x (invInt y)
 
 -- Char
 
-let isChar isChar#
-let eqChar eqChar#
-let ltChar ltChar#
+let isChar = isChar#
+let eqChar = eqChar#
+let ltChar = ltChar#
 
 -- Seq
 
-let null null#
-let cons cons#
-let isTuple isTuple#
-let isList isList#
-let hd hd#
-let tl tl#
-let (+>) cons
+let null = null#
+let cons = cons#
+let isTuple = isTuple#
+let isList = isList#
+let hd = hd#
+let tl = tl#
+let (+>) = cons
 
 let map
   fn@ [] = []
@@ -109,11 +109,11 @@ let lt
     | @ @ = false
   }
 
-let (==) eq
+let (==) = eq
 
 let (/=) x@ y@ = not (x == y)
 
-let (<) lt
+let (<) = lt
 
 let (<=) x@ y@ = x == y || x < y
 
@@ -187,10 +187,10 @@ let neg
 let rem
   x@ y@ = remInt x y
 
-let (+) add
-let (-) sub
-let (*) mul
-let (/) div
+let (+) = add
+let (-) = sub
+let (*) = mul
+let (/) = div
 
 let length
   [] = 0
@@ -202,9 +202,9 @@ let length
 
 -- Io
 
-let readLine readLine#
-let putLine putLine#
-let (>>) bindIO#
+let readLine = readLine#
+let putLine = putLine#
+let (>>) = bindIO#
 
 let ola
   1 = true
@@ -236,8 +236,8 @@ let foobar x@ =
 
 type Fruit Apple isInt
 
-let ola1 Apple 1
-let ola2 Apple 2
+let ola1 = Apple 1
+let ola2 = Apple 2
 
 let adeus1 (Apple x@) = x
 let adeus2 (Apple x@ y@) = x
@@ -263,4 +263,4 @@ let f n@ =
     ((<) 0) = x
   | @       = y)
 
-let [g@, h@] [1, 2]
+let [g@, h@] = [1, 2]
