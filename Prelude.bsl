@@ -4,8 +4,8 @@ use Core
 
 -- Fn
 
-let id x@ = x
-let const x@ @ = x
+let id x = x
+let const x @ = x
 
 -- Bool
 
@@ -51,13 +51,13 @@ let invReal = invReal#
 let ltIntReal = ltIntReal#
 let ltRealInt = ltRealInt#
 let addIntReal = addIntReal#
-let addRealInt x@ y@ = addIntReal y x
-let subIntReal x@ y@ = addIntReal x (negReal y)
-let subRealInt x@ y@ = addRealInt x (negInt y)
+let addRealInt x y = addIntReal y x
+let subIntReal x y = addIntReal x (negReal y)
+let subRealInt x y = addRealInt x (negInt y)
 let mulIntReal = mulIntReal#
-let mulRealInt x@ y@ = mulIntReal y x
-let divIntReal x@ y@ = mulIntReal x (invReal y)
-let divRealInt x@ y@ = mulReal x (invInt y)
+let mulRealInt x y = mulIntReal y x
+let divIntReal x y = mulIntReal x (invReal y)
+let divRealInt x y = mulReal x (invInt y)
 
 -- Char
 
@@ -76,21 +76,21 @@ let tl = tl#
 let (+>) = cons
 
 let map
-  fn@ [] = []
-| fn@ (x@ +> xs@) = fn x +> map fn xs
+  fn [] = []
+| fn (x +> xs) = fn x +> map fn xs
 
 let eq
   x@isBool y@isBool = eqBool x y
 | x@isInt  y@isInt  = eqInt x y
 | x@isReal y@isReal = eqReal x y
 | x@isChar y@isChar = eqChar x y
-| x@ y@ = eqSeq x y
+| x y = eqSeq x y
 --| x@[isDyn] y@[isDyn] = eqSeq x y
 | @ @ = false
   where {
     let eqSeq
       [] [] = true
-    | (z@ +> zs@) (w@ +> ws@) = eq z w && eqSeq zs ws
+    | (z +> zs) (w +> ws) = eq z w && eqSeq zs ws
     | @ @ = false
   }
 
@@ -105,29 +105,29 @@ let lt
   where {
     let ltSeq
       [] [] = true
-    | (z@ +> zs@) (w@ +> ws@) = lt z w && ltSeq zs ws
+    | (z +> zs) (w +> ws) = lt z w && ltSeq zs ws
     | @ @ = false
   }
 
 let (==) = eq
 
-let (/=) x@ y@ = not (x == y)
+let (/=) x y = not (x == y)
 
 let (<) = lt
 
-let (<=) x@ y@ = x == y || x < y
+let (<=) x y = x == y || x < y
 
-let (>) x@ y@ = x /= y && not (x < y)
+let (>) x y = x /= y && not (x < y)
 
-let (>=) x@ y@ = not (x < y)
+let (>=) x y = not (x < y)
 
-let isNum x@ = isInt x || isReal x
+let isNum x = isInt x || isReal x
 
-let isPos x@ = isNum x && x > 0
+let isPos x = isNum x && x > 0
 
-let isNeg x@ = isNum x && x < 0
+let isNeg x = isNum x && x < 0
 
-let isZero x@ = x == 0
+let isZero x = x == 0
 
 let isNull
   [] = true
@@ -185,7 +185,7 @@ let neg
 | x@isReal = negReal x
 
 let rem
-  x@ y@ = remInt x y
+  x y = remInt x y
 
 let (+) = add
 let (-) = sub
@@ -194,7 +194,7 @@ let (/) = div
 
 let length
   [] = 0
-| (@ +> xs@) = length xs + 1
+| (@ +> xs) = length xs + 1
 
 -- let reverse
 --   [] = []
@@ -214,22 +214,22 @@ let adeus
   "ola" = true
 | @     = false
 
-let case x@ fn@ = fn x
+let case x fn = fn x
 
-let if x@ then@ else@ = 0
+let if x then else = 0
 
-let ($) fn@ x@ = fn x
+let ($) fn x = fn x
 
-let foo x@ =
+let foo x =
   (isInt = true
  | @     = false) x
 
-let bar x@ =
+let bar x =
   case x
     (isInt = true
    | @     = false)
 
-let foobar x@ =
+let foobar x =
   case x $
      isInt = true
    | @     = false
@@ -239,28 +239,28 @@ type Fruit Apple isInt
 let ola1 = Apple 1
 let ola2 = Apple 2
 
-let adeus1 (Apple x@) = x
-let adeus2 (Apple x@ y@) = x
+let adeus1 (Apple x) = x
+let adeus2 (Apple x y) = x
 let adeus3 (Apple x@isInt) = x
 
 let pol
   x@0 = 0
-| x@  = pol (x - 1) + 1
+| x  = pol (x - 1) + 1
 
 let one
   x@1 = 1
 | @   = 0
 
-let oi filename@ =
+let oi filename =
   mapFile# filename fn
   where {
-    let fn str@ = adeus str
+    let fn str = adeus str
   }
 
-let f n@ =
-  let [x@, y@] [1, 2] in
+let f n =
+  let [x, y] [1, 2] in
   case n (
     ((<) 0) = x
   | @       = y)
 
-let [g@, h@] = [1, 2]
+let [g, h] = [1, 2]
