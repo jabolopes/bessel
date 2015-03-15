@@ -1,0 +1,11 @@
+me Test.TestData4
+
+let eq
+  x@isInt y@isInt = eqInt x y
+| x@      y@      = eqSeq x y
+  where {
+    let eqSeq
+      [] [] = true
+    | (z@ +> zs@) (w@ +> ws@) = eq z w && eqSeq zs ws
+    | @ @ = false
+  }
