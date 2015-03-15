@@ -124,7 +124,7 @@ patConstantPred src =
 -- isInt && eqInt 1
 -- isTuple [isChar, isChar, isChar]
 -- @
-patPred :: Source -> ExpanderM Expr        
+patPred :: Source -> ExpanderM Expr
 patPred = sourcePred
   where
     sourcePred src
@@ -301,7 +301,7 @@ expandConstructor (consName, pat) =
   where
     patBinder (PatS binder _) | not (null binder) = return binder
     patBinder _               = NameM.genNameM "arg"
-        
+
     patGuard (PatS _ (Just src)) = patGuard src
     patGuard src = src
 
