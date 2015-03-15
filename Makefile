@@ -13,11 +13,11 @@ all: build
 $(DIST_DIRS):
 	mkdir -p $@
 
-#dist/hs/Parser.hs: Parser.y dist/hs/Lexer.hs | dist/log
-#	happy $< -o $@ -idist/log/Parser.log
-
 dist/hs/Parser.hs: Parser.y dist/hs/Lexer.hs | dist/log
-	happy -a -d $< -o $@ -idist/log/Parser.log
+	happy $< -o $@ -idist/log/Parser.log
+
+#dist/hs/Parser.hs: Parser.y dist/hs/Lexer.hs | dist/log
+#	happy -a -d $< -o $@ -idist/log/Parser.log
 
 dist/hs/Lexer.hs: Lexer.x | dist/hs
 	alex $< -o $@
