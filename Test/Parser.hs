@@ -34,14 +34,15 @@ expect :: Source -> Actual -> IO ()
 expect expected actual =
   case actual of
     File filename -> expect' filename =<< parseTestFile filename
-    Snippet snippet -> expect' snippet =<< parseSnippet snippet
+    Snippet snippet -> expect' ("(Snippet) " ++ snippet) =<< parseSnippet snippet
   where
     expect' filename src
       | expected == src = return ()
       | otherwise =
-        fail $ "In: " ++ filename ++ "\n" ++
+        fail $ "Parser" ++ "\n" ++
+               "In: " ++ filename ++ "\n" ++
                "Expected: " ++ "\n" ++ PrettyString.toString (Pretty.docSource expected) ++ "\n" ++
-               "Src: " ++ "\n" ++ PrettyString.toString (Pretty.docSource src)
+               "Actual: " ++ "\n" ++ PrettyString.toString (Pretty.docSource src)
 
 testParser :: IO ()
 testParser =
@@ -100,7 +101,7 @@ testParser =
     expected7 =
       ModuleS "Test.TestData7" []
         [FnDefS
-         (SeqS [Source.idS "x", Source.idS "y"])
+         (SeqS [PatS "x" Nothing, PatS "y" Nothing])
          (SeqS [IntS 1,IntS 2])]
 
     expected8 =

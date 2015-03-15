@@ -1,6 +1,6 @@
 me Test.TestData5
 
-def isString
+let isString
   []                   = true
 | (isChar +> isString) = true
 | @                    = false

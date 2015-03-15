@@ -2,7 +2,8 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Test.Stage.Expander where
 
-import Data.Expr
+import Data.Expr (DefnKw(..), Expr(..))
+import qualified Data.Expr as Expr
 import Data.QualName (QualName (..))
 import qualified Data.PrettyString as PrettyString
 import Data.Source
@@ -44,7 +45,7 @@ expect :: [Expr] -> Actual -> IO ()
 expect expected actual =
   case actual of
     File filename -> expect' filename =<< expandTestFile filename
-    Snippet snippet -> expect' snippet =<< expandSnippet snippet
+    Snippet snippet -> expect' ("(Snippet) " ++ snippet) =<< expandSnippet snippet
   where
     expect' filename exprs
       | expected == exprs = return ()
@@ -52,11 +53,11 @@ expect expected actual =
         fail $ "Expander" ++ "\n" ++
                "In: " ++ filename ++ "\n" ++
                "Expected: " ++ "\n" ++ PrettyString.toString (Pretty.docExprList expected) ++ "\n" ++
-               "Expr: " ++ "\n" ++ PrettyString.toString (Pretty.docExprList exprs)
+               "Actual: " ++ "\n" ++ PrettyString.toString (Pretty.docExprList exprs)
 
 testExpander :: IO ()
 testExpander =
-  do expect [expectedSnippet1] $ Snippet "def not id = false | @  = true"
+  do expect [expectedSnippet1] $ Snippet "let not id = false | @  = true"
      expect [expected1] $ File "Test/TestData1.bsl"
      expect [expected2] $ File "Test/TestData2.bsl"
      expect [expected3] $ File "Test/TestData3.bsl"
@@ -80,42 +81,39 @@ testExpander =
        (LambdaE "y#1"
         (CondE
          [(CondE
-           [(AppE (IdE (QualName {fromQualName = "isInt"})) (IdE (QualName {fromQualName = "x#0"})),
-             CondE [(AppE (IdE (QualName {fromQualName = "isInt"})) (IdE (QualName {fromQualName = "y#1"})),
-                     IdE (QualName {fromQualName = "true#"})),
-                    (IdE (QualName {fromQualName = "true#"}),
-                     IdE (QualName {fromQualName = "false#"}))]
+           [(AppE (Expr.idE "isInt") (Expr.idE "x#0"),
+             CondE [(AppE (Expr.idE "isInt") (Expr.idE "y#1"), Expr.idE "true#"),
+                    (Expr.idE "true#", Expr.idE "false#")]
              "irrefutable 'and' pattern"),
-            (IdE (QualName {fromQualName = "true#"}),
-             IdE (QualName {fromQualName = "false#"}))]
+            (Expr.idE "true#", Expr.idE "false#")]
            "irrefutable 'and' pattern",
-           LetE (FnDecl NrDef "x" (IdE (QualName {fromQualName = "x#0"})))
-           (LetE (FnDecl NrDef "y" (IdE (QualName {fromQualName = "y#1"})))
+           LetE (FnDecl NrDef "x" (Expr.idE "x#0"))
+           (LetE (FnDecl NrDef "y" (Expr.idE "y#1"))
             (LetE
              (FnDecl NrDef "f2"
               (LambdaE "z#2"
                (CondE
-                [(AppE (LambdaE "_" (IdE (QualName {fromQualName = "true#"}))) (IdE (QualName {fromQualName = "z#2"})),
-                  LetE (FnDecl NrDef "z" (IdE (QualName {fromQualName = "z#2"})))
-                  (AppE (AppE (IdE (QualName {fromQualName = "+"})) (IdE (QualName {fromQualName = "z"}))) (IdE (QualName {fromQualName = "y"}))))]
+                [(AppE (LambdaE "_" (Expr.idE "true#")) (Expr.idE "z#2"),
+                  LetE (FnDecl NrDef "z" (Expr.idE "z#2"))
+                  (AppE (AppE (Expr.idE "+") (Expr.idE "z")) (Expr.idE "y")))]
                 "f2")))
-             (AppE (IdE (QualName {fromQualName = "f2"})) (IdE (QualName {fromQualName = "x"}))))))]
+             (AppE (Expr.idE "f2") (Expr.idE "x")))))]
          "f1")))
 
     expected2 =
       FnDecl NrDef "f1"
       (LambdaE "x#0"
-       (CondE [(AppE (IdE (QualName {fromQualName = "isInt"})) (IdE (QualName {fromQualName = "x#0"})),
-                LetE (FnDecl NrDef "x" (IdE (QualName {fromQualName = "x#0"})))
+       (CondE [(AppE (Expr.idE "isInt") (Expr.idE "x#0"),
+                LetE (FnDecl NrDef "x" (Expr.idE "x#0"))
                 (LetE
                  (FnDecl NrDef "f2"
                   (LambdaE "z#1"
-                   (CondE [(AppE (LambdaE "_" (IdE (QualName {fromQualName = "true#"}))) (IdE (QualName {fromQualName = "z#1"})),
-                            LetE (FnDecl NrDef "z" (IdE (QualName {fromQualName = "z#1"})))
-                            (AppE (AppE (IdE (QualName {fromQualName = "+"})) (IdE (QualName {fromQualName = "z"}))) (IntE 1)))]
+                   (CondE [(AppE (LambdaE "_" (Expr.idE "true#")) (Expr.idE "z#1"),
+                            LetE (FnDecl NrDef "z" (Expr.idE "z#1"))
+                            (AppE (AppE (Expr.idE "+") (Expr.idE "z")) (IntE 1)))]
                     "f2")))
                  (LetE (FnDecl NrDef "y" (IntE 0))
-                  (AppE (IdE (QualName {fromQualName = "f2"})) (IdE (QualName {fromQualName = "y"}))))))]
+                  (AppE (Expr.idE "f2") (Expr.idE "y")))))]
         "f1"))
 
     expected3 =
@@ -124,31 +122,27 @@ testExpander =
        (LambdaE "y#1"
         (CondE
          [(CondE
-           [(AppE (IdE (QualName {fromQualName = "isInt"})) (IdE (QualName {fromQualName = "x#0"})),
-             CondE [(AppE (IdE (QualName {fromQualName = "isInt"})) (IdE (QualName {fromQualName = "y#1"})),
-                     IdE (QualName {fromQualName = "true#"})),
-                    (IdE (QualName {fromQualName = "true#"}),
-                     IdE (QualName {fromQualName = "false#"}))]
+           [(AppE (Expr.idE "isInt") (Expr.idE "x#0"),
+             CondE [(AppE (Expr.idE "isInt") (Expr.idE "y#1"), Expr.idE "true#"),
+                    (Expr.idE "true#", Expr.idE "false#")]
              "irrefutable 'and' pattern"),
-            (IdE (QualName {fromQualName = "true#"}),
-             IdE (QualName {fromQualName = "false#"}))]
+            (Expr.idE "true#",
+             Expr.idE "false#")]
            "irrefutable 'and' pattern",
-           LetE (FnDecl NrDef "x" (IdE (QualName {fromQualName = "x#0"})))
-           (LetE (FnDecl NrDef "y" (IdE (QualName {fromQualName = "y#1"})))
-            (IdE (QualName {fromQualName = "true"})))),
-          (CondE [(AppE (LambdaE "_" (IdE (QualName {fromQualName = "true#"}))) (IdE (QualName {fromQualName = "x#0"})),
+           LetE (FnDecl NrDef "x" (Expr.idE "x#0"))
+           (LetE (FnDecl NrDef "y" (Expr.idE "y#1"))
+            (Expr.idE "true"))),
+          (CondE [(AppE (LambdaE "_" (Expr.idE "true#")) (Expr.idE "x#0"),
                    CondE
-                   [(AppE (LambdaE "_" (IdE (QualName {fromQualName = "true#"}))) (IdE (QualName {fromQualName = "y#1"})),
-                     IdE (QualName {fromQualName = "true#"})),
-                    (IdE (QualName {fromQualName = "true#"}),
-                     IdE (QualName {fromQualName = "false#"}))]
+                   [(AppE (LambdaE "_" (Expr.idE "true#")) (Expr.idE "y#1"), Expr.idE "true#"),
+                    (Expr.idE "true#", Expr.idE "false#")]
                    "irrefutable 'and' pattern"),
-                  (IdE (QualName {fromQualName = "true#"}),
-                   IdE (QualName {fromQualName = "false#"}))]
+                  (Expr.idE "true#",
+                   Expr.idE "false#")]
            "irrefutable 'and' pattern",
-           LetE (FnDecl NrDef "x" (IdE (QualName {fromQualName = "x#0"})))
-           (LetE (FnDecl NrDef "y" (IdE (QualName {fromQualName = "y#1"})))
-            (IdE (QualName {fromQualName = "false"}))))]
+           LetE (FnDecl NrDef "x" (Expr.idE "x#0"))
+           (LetE (FnDecl NrDef "y" (Expr.idE "y#1"))
+            (Expr.idE "false")))]
          "f")))
 
     expected4 =
@@ -157,195 +151,167 @@ testExpander =
        (LambdaE "y#1"
         (CondE
          [(CondE
-           [(AppE (IdE (QualName {fromQualName = "isInt"})) (IdE (QualName {fromQualName = "x#0"})),
-             CondE [(AppE (IdE (QualName {fromQualName = "isInt"})) (IdE (QualName {fromQualName = "y#1"})),
-                     IdE (QualName {fromQualName = "true#"})),
-                    (IdE (QualName {fromQualName = "true#"}),
-                     IdE (QualName {fromQualName = "false#"}))]
+           [(AppE (Expr.idE "isInt") (Expr.idE "x#0"),
+             CondE [(AppE (Expr.idE "isInt") (Expr.idE "y#1"), Expr.idE "true#"),
+                    (Expr.idE "true#", Expr.idE "false#")]
              "irrefutable 'and' pattern"),
-            (IdE (QualName {fromQualName = "true#"}),
-             IdE (QualName {fromQualName = "false#"}))]
+            (Expr.idE "true#",
+             Expr.idE "false#")]
            "irrefutable 'and' pattern",
-           LetE (FnDecl NrDef "x" (IdE (QualName {fromQualName = "x#0"})))
-           (LetE (FnDecl NrDef "y" (IdE (QualName {fromQualName = "y#1"})))
+           LetE (FnDecl NrDef "x" (Expr.idE "x#0"))
+           (LetE (FnDecl NrDef "y" (Expr.idE "y#1"))
             (LetE
              (FnDecl Def "eqSeq"
               (LambdaE "arg#2"
                (LambdaE "arg#3"
                 (CondE
                  [(CondE
-                   [(AppE (AppE (IdE (QualName {fromQualName = "isTuple"})) (IdE (QualName {fromQualName = "null"}))) (IdE (QualName {fromQualName = "arg#2"})),
+                   [(AppE (AppE (Expr.idE "isTuple") (Expr.idE "null")) (Expr.idE "arg#2"),
                      CondE
-                     [(AppE (AppE (IdE (QualName {fromQualName = "isTuple"})) (IdE (QualName {fromQualName = "null"}))) (IdE (QualName {fromQualName = "arg#3"})),
-                       IdE (QualName {fromQualName = "true#"})),
-                      (IdE (QualName {fromQualName = "true#"}),
-                       IdE (QualName {fromQualName = "false#"}))]
+                     [(AppE (AppE (Expr.idE "isTuple") (Expr.idE "null")) (Expr.idE "arg#3"), Expr.idE "true#"),
+                      (Expr.idE "true#", Expr.idE "false#")]
                      "irrefutable 'and' pattern"),
-                    (IdE (QualName {fromQualName = "true#"}),
-                     IdE (QualName {fromQualName = "false#"}))]
+                    (Expr.idE "true#", Expr.idE "false#")]
                    "irrefutable 'and' pattern",
-                   IdE (QualName {fromQualName = "true"})),
+                   Expr.idE "true"),
                   (CondE
                    [(AppE
-                     (AppE (AppE (IdE (QualName {fromQualName = "isList"})) (LambdaE "_" (IdE (QualName {fromQualName = "true#"})))) (LambdaE "_" (IdE (QualName {fromQualName = "true#"})))) (IdE (QualName {fromQualName = "arg#2"})),
+                     (AppE (AppE (Expr.idE "isList") (LambdaE "_" (Expr.idE "true#"))) (LambdaE "_" (Expr.idE "true#"))) (Expr.idE "arg#2"),
                      CondE
-                     [(AppE (AppE (AppE (IdE (QualName {fromQualName = "isList"})) (LambdaE "_" (IdE (QualName {fromQualName = "true#"})))) (LambdaE "_" (IdE (QualName {fromQualName = "true#"})))) (IdE (QualName {fromQualName = "arg#3"})),
-                       IdE (QualName {fromQualName = "true#"})),
-                      (IdE (QualName {fromQualName = "true#"}),
-                       IdE (QualName {fromQualName = "false#"}))]
+                     [(AppE (AppE (AppE (Expr.idE "isList") (LambdaE "_" (Expr.idE "true#"))) (LambdaE "_" (Expr.idE "true#"))) (Expr.idE "arg#3"), Expr.idE "true#"),
+                      (Expr.idE "true#", Expr.idE "false#")]
                      "irrefutable 'and' pattern"),
-                    (IdE (QualName {fromQualName = "true#"}),
-                     IdE (QualName {fromQualName = "false#"}))]
+                    (Expr.idE "true#", Expr.idE "false#")]
                    "irrefutable 'and' pattern",
-                   LetE (FnDecl NrDef "z" (AppE (IdE (QualName {fromQualName = "hd"})) (IdE (QualName {fromQualName = "arg#2"}))))
-                   (LetE (FnDecl NrDef "zs" (AppE (IdE (QualName {fromQualName = "tl"})) (IdE (QualName {fromQualName = "arg#2"}))))
-                    (LetE (FnDecl NrDef "w" (AppE (IdE (QualName {fromQualName = "hd"})) (IdE (QualName {fromQualName = "arg#3"}))))
-                     (LetE (FnDecl NrDef "ws" (AppE (IdE (QualName {fromQualName = "tl"})) (IdE (QualName {fromQualName = "arg#3"}))))
+                   LetE (FnDecl NrDef "z" (AppE (Expr.idE "hd") (Expr.idE "arg#2")))
+                   (LetE (FnDecl NrDef "zs" (AppE (Expr.idE "tl") (Expr.idE "arg#2")))
+                    (LetE (FnDecl NrDef "w" (AppE (Expr.idE "hd") (Expr.idE "arg#3")))
+                     (LetE (FnDecl NrDef "ws" (AppE (Expr.idE "tl") (Expr.idE "arg#3")))
                       (CondE
-                       [(AppE (AppE (IdE (QualName {fromQualName = "eq"})) (IdE (QualName {fromQualName = "z"}))) (IdE (QualName {fromQualName = "w"})),
+                       [(AppE (AppE (Expr.idE "eq") (Expr.idE "z")) (Expr.idE "w"),
                          CondE
-                         [(AppE (AppE (IdE (QualName {fromQualName = "eqSeq"})) (IdE (QualName {fromQualName = "zs"}))) (IdE (QualName {fromQualName = "ws"})),
-                           IdE (QualName {fromQualName = "true#"})),
-                          (IdE (QualName {fromQualName = "true#"}),
-                           IdE (QualName {fromQualName = "false#"}))]
+                         [(AppE (AppE (Expr.idE "eqSeq") (Expr.idE "zs")) (Expr.idE "ws"), Expr.idE "true#"),
+                          (Expr.idE "true#", Expr.idE "false#")]
                          "irrefutable 'and' pattern"),
-                        (IdE (QualName {fromQualName = "true#"}),
-                         IdE (QualName {fromQualName = "false#"}))]
+                        (Expr.idE "true#",
+                         Expr.idE "false#")]
                        "irrefutable 'and' pattern"))))),
                   (CondE
-                   [(AppE (LambdaE "_" (IdE (QualName {fromQualName = "true#"}))) (IdE (QualName {fromQualName = "arg#2"})),
-                     CondE [(AppE (LambdaE "_" (IdE (QualName {fromQualName = "true#"}))) (IdE (QualName {fromQualName = "arg#3"})),
-                             IdE (QualName {fromQualName = "true#"})),
-                            (IdE (QualName {fromQualName = "true#"}),
-                             IdE (QualName {fromQualName = "false#"}))]
+                   [(AppE (LambdaE "_" (Expr.idE "true#")) (Expr.idE "arg#2"),
+                     CondE [(AppE (LambdaE "_" (Expr.idE "true#")) (Expr.idE "arg#3"), Expr.idE "true#"),
+                            (Expr.idE "true#", Expr.idE "false#")]
                      "irrefutable 'and' pattern"),
-                    (IdE (QualName {fromQualName = "true#"}),
-                     IdE (QualName {fromQualName = "false#"}))]
+                    (Expr.idE "true#",
+                     Expr.idE "false#")]
                    "irrefutable 'and' pattern",
-                   IdE (QualName {fromQualName = "false"}))]
+                   Expr.idE "false")]
                  "eqSeq"))))
-             (AppE (AppE (IdE (QualName {fromQualName = "eqInt"})) (IdE (QualName {fromQualName = "x"}))) (IdE (QualName {fromQualName = "y"})))))),
+             (AppE (AppE (Expr.idE "eqInt") (Expr.idE "x")) (Expr.idE "y"))))),
           (CondE
-           [(AppE (LambdaE "_" (IdE (QualName {fromQualName = "true#"}))) (IdE (QualName {fromQualName = "x#0"})),
+           [(AppE (LambdaE "_" (Expr.idE "true#")) (Expr.idE "x#0"),
              CondE
-             [(AppE (LambdaE "_" (IdE (QualName {fromQualName = "true#"}))) (IdE (QualName {fromQualName = "y#1"})),
-               IdE (QualName {fromQualName = "true#"})),
-              (IdE (QualName {fromQualName = "true#"}),
-               IdE (QualName {fromQualName = "false#"}))]
+             [(AppE (LambdaE "_" (Expr.idE "true#")) (Expr.idE "y#1"), Expr.idE "true#"),
+              (Expr.idE "true#", Expr.idE "false#")]
              "irrefutable 'and' pattern"),
-            (IdE (QualName {fromQualName = "true#"}),
-             IdE (QualName {fromQualName = "false#"}))]
+            (Expr.idE "true#",
+             Expr.idE "false#")]
            "irrefutable 'and' pattern",
-           LetE (FnDecl NrDef "x" (IdE (QualName {fromQualName = "x#0"})))
-           (LetE (FnDecl NrDef "y" (IdE (QualName {fromQualName = "y#1"})))
+           LetE (FnDecl NrDef "x" (Expr.idE "x#0"))
+           (LetE (FnDecl NrDef "y" (Expr.idE "y#1"))
             (LetE
              (FnDecl Def "eqSeq"
               (LambdaE "arg#4"
                (LambdaE "arg#5"
                 (CondE
                  [(CondE
-                   [(AppE (AppE (IdE (QualName {fromQualName = "isTuple"})) (IdE (QualName {fromQualName = "null"}))) (IdE (QualName {fromQualName = "arg#4"})),
+                   [(AppE (AppE (Expr.idE "isTuple") (Expr.idE "null")) (Expr.idE "arg#4"),
                      CondE
-                     [(AppE (AppE (IdE (QualName {fromQualName = "isTuple"})) (IdE (QualName {fromQualName = "null"}))) (IdE (QualName {fromQualName = "arg#5"})),
-                       IdE (QualName {fromQualName = "true#"})),
-                      (IdE (QualName {fromQualName = "true#"}),
-                       IdE (QualName {fromQualName = "false#"}))]
+                     [(AppE (AppE (Expr.idE "isTuple") (Expr.idE "null")) (Expr.idE "arg#5"), Expr.idE "true#"),
+                      (Expr.idE "true#", Expr.idE "false#")]
                      "irrefutable 'and' pattern"),
-                    (IdE (QualName {fromQualName = "true#"}),
-                     IdE (QualName {fromQualName = "false#"}))]
+                    (Expr.idE "true#",
+                     Expr.idE "false#")]
                    "irrefutable 'and' pattern",
-                   IdE (QualName {fromQualName = "true"})),
+                   Expr.idE "true"),
                   (CondE
-                   [(AppE (AppE (AppE (IdE (QualName {fromQualName = "isList"})) (LambdaE "_" (IdE (QualName {fromQualName = "true#"})))) (LambdaE "_" (IdE (QualName {fromQualName = "true#"})))) (IdE (QualName {fromQualName = "arg#4"})),
+                   [(AppE (AppE (AppE (Expr.idE "isList") (LambdaE "_" (Expr.idE "true#"))) (LambdaE "_" (Expr.idE "true#"))) (Expr.idE "arg#4"),
                      CondE
-                     [(AppE (AppE (AppE (IdE (QualName {fromQualName = "isList"})) (LambdaE "_" (IdE (QualName {fromQualName = "true#"})))) (LambdaE "_" (IdE (QualName {fromQualName = "true#"})))) (IdE (QualName {fromQualName = "arg#5"})),
-                       IdE (QualName {fromQualName = "true#"})),
-                      (IdE (QualName {fromQualName = "true#"}),
-                       IdE (QualName {fromQualName = "false#"}))]
+                     [(AppE (AppE (AppE (Expr.idE "isList") (LambdaE "_" (Expr.idE "true#"))) (LambdaE "_" (Expr.idE "true#"))) (Expr.idE "arg#5"), Expr.idE "true#"),
+                      (Expr.idE "true#", Expr.idE "false#")]
                      "irrefutable 'and' pattern"),
-                    (IdE (QualName {fromQualName = "true#"}),
-                     IdE (QualName {fromQualName = "false#"}))]
+                    (Expr.idE "true#",
+                     Expr.idE "false#")]
                    "irrefutable 'and' pattern",
                    LetE
-                   (FnDecl NrDef "z" (AppE (IdE (QualName {fromQualName = "hd"})) (IdE (QualName {fromQualName = "arg#4"}))))
-                   (LetE (FnDecl NrDef "zs" (AppE (IdE (QualName {fromQualName = "tl"})) (IdE (QualName {fromQualName = "arg#4"}))))
-                    (LetE (FnDecl NrDef "w" (AppE (IdE (QualName {fromQualName = "hd"})) (IdE (QualName {fromQualName = "arg#5"}))))
-                     (LetE (FnDecl NrDef "ws" (AppE (IdE (QualName {fromQualName = "tl"})) (IdE (QualName {fromQualName = "arg#5"}))))
+                   (FnDecl NrDef "z" (AppE (Expr.idE "hd") (Expr.idE "arg#4")))
+                   (LetE (FnDecl NrDef "zs" (AppE (Expr.idE "tl") (Expr.idE "arg#4")))
+                    (LetE (FnDecl NrDef "w" (AppE (Expr.idE "hd") (Expr.idE "arg#5")))
+                     (LetE (FnDecl NrDef "ws" (AppE (Expr.idE "tl") (Expr.idE "arg#5")))
                       (CondE
-                       [(AppE (AppE (IdE (QualName {fromQualName = "eq"})) (IdE (QualName {fromQualName = "z"}))) (IdE (QualName {fromQualName = "w"})),
+                       [(AppE (AppE (Expr.idE "eq") (Expr.idE "z")) (Expr.idE "w"),
                          CondE
-                         [(AppE (AppE (IdE (QualName {fromQualName = "eqSeq"})) (IdE (QualName {fromQualName = "zs"}))) (IdE (QualName {fromQualName = "ws"})),
-                           IdE (QualName {fromQualName = "true#"})),
-                          (IdE (QualName {fromQualName = "true#"}),
-                           IdE (QualName {fromQualName = "false#"}))]
+                         [(AppE (AppE (Expr.idE "eqSeq") (Expr.idE "zs")) (Expr.idE "ws"), Expr.idE "true#"),
+                          (Expr.idE "true#", Expr.idE "false#")]
                          "irrefutable 'and' pattern"),
-                        (IdE (QualName {fromQualName = "true#"}),
-                         IdE (QualName {fromQualName = "false#"}))]
+                        (Expr.idE "true#", Expr.idE "false#")]
                        "irrefutable 'and' pattern"))))),
                   (CondE
-                   [(AppE (LambdaE "_" (IdE (QualName {fromQualName = "true#"}))) (IdE (QualName {fromQualName = "arg#4"})),
+                   [(AppE (LambdaE "_" (Expr.idE "true#")) (Expr.idE "arg#4"),
                      CondE
-                     [(AppE (LambdaE "_" (IdE (QualName {fromQualName = "true#"}))) (IdE (QualName {fromQualName = "arg#5"})),
-                       IdE (QualName {fromQualName = "true#"})),
-                      (IdE (QualName {fromQualName = "true#"}),
-                       IdE (QualName {fromQualName = "false#"}))]
+                     [(AppE (LambdaE "_" (Expr.idE "true#")) (Expr.idE "arg#5"), Expr.idE "true#"),
+                      (Expr.idE "true#", Expr.idE "false#")]
                      "irrefutable 'and' pattern"),
-                    (IdE (QualName {fromQualName = "true#"}),
-                     IdE (QualName {fromQualName = "false#"}))]
+                    (Expr.idE "true#",
+                     Expr.idE "false#")]
                    "irrefutable 'and' pattern",
-                   IdE (QualName {fromQualName = "false"}))]
+                   Expr.idE "false")]
                  "eqSeq"))))
-             (AppE (AppE (IdE (QualName {fromQualName = "eqSeq"})) (IdE (QualName {fromQualName = "x"}))) (IdE (QualName {fromQualName = "y"}))))))]
+             (AppE (AppE (Expr.idE "eqSeq") (Expr.idE "x")) (Expr.idE "y")))))]
          "eq")))
 
     expected5 =
       FnDecl Def "isString"
       (LambdaE "arg#0"
        (CondE
-        [(AppE (AppE (IdE (QualName {fromQualName = "isTuple"})) (IdE (QualName {fromQualName = "null"}))) (IdE (QualName {fromQualName = "arg#0"})),
-          IdE (QualName {fromQualName = "true"})),
-         (AppE (AppE (AppE (IdE (QualName {fromQualName = "isList"})) (IdE (QualName {fromQualName = "isChar"}))) (IdE (QualName {fromQualName = "isString"}))) (IdE (QualName {fromQualName = "arg#0"})),
-          IdE (QualName {fromQualName = "true"})),
-         (AppE (LambdaE "_" (IdE (QualName {fromQualName = "true#"}))) (IdE (QualName {fromQualName = "arg#0"})),
-          IdE (QualName {fromQualName = "false"}))]
+        [(AppE (AppE (Expr.idE "isTuple") (Expr.idE "null")) (Expr.idE "arg#0"), Expr.idE "true"),
+         (AppE (AppE (AppE (Expr.idE "isList") (Expr.idE "isChar")) (Expr.idE "isString")) (Expr.idE "arg#0"), Expr.idE "true"),
+         (AppE (LambdaE "_" (Expr.idE "true#")) (Expr.idE "arg#0"), Expr.idE "false")]
         "isString"))
 
     expected6 =
       FnDecl NrDef "f"
       (LambdaE "n#0"
        (CondE
-        [(AppE (LambdaE "_" (IdE (QualName {fromQualName = "true#"}))) (IdE (QualName {fromQualName = "n#0"})),
-          LetE (FnDecl NrDef "n" (IdE (QualName {fromQualName = "n#0"})))
+        [(AppE (LambdaE "_" (Expr.idE "true#")) (Expr.idE "n#0"),
+          LetE (FnDecl NrDef "n" (Expr.idE "n#0"))
           (LetE (FnDecl NrDef "res#1"
-                 (AppE (AppE (IdE (QualName {fromQualName = "cons"})) (IntE 1))
-                  (AppE (AppE (IdE (QualName {fromQualName = "cons"})) (IntE 2))
-                   (IdE (QualName {fromQualName = "null"})))))
+                 (AppE (AppE (Expr.idE "cons") (IntE 1))
+                  (AppE (AppE (Expr.idE "cons") (IntE 2))
+                   (Expr.idE "null"))))
            (LetE (FnDecl NrDef "x"
-                  (AppE (IdE (QualName {fromQualName = "hd"}))
-                   (IdE (QualName {fromQualName = "res#1"}))))
+                  (AppE (Expr.idE "hd")
+                   (Expr.idE "res#1")))
             (LetE (FnDecl NrDef "y"
-                   (AppE (IdE (QualName {fromQualName = "hd"}))
-                    (AppE (IdE (QualName {fromQualName = "tl"}))
-                     (IdE (QualName {fromQualName = "res#1"})))))
-             (AppE (AppE (IdE (QualName {fromQualName = "case"})) (IdE (QualName {fromQualName = "n"})))
+                   (AppE (Expr.idE "hd")
+                    (AppE (Expr.idE "tl")
+                     (Expr.idE "res#1"))))
+             (AppE (AppE (Expr.idE "case") (Expr.idE "n"))
               (LambdaE "arg#2"
                (CondE
-                [(AppE (AppE (IdE (QualName {fromQualName = ">"})) (IntE 1)) (IdE (QualName {fromQualName = "arg#2"})),
-                  IdE (QualName {fromQualName = "x"})),
-                 (AppE (LambdaE "_" (IdE (QualName {fromQualName = "true#"}))) (IdE (QualName {fromQualName = "arg#2"})),
-                  IdE (QualName {fromQualName = "y"}))]
+                [(AppE (AppE (Expr.idE ">") (IntE 1)) (Expr.idE "arg#2"), Expr.idE "x"),
+                 (AppE (LambdaE "_" (Expr.idE "true#")) (Expr.idE "arg#2"), Expr.idE "y")]
                 "lambda")))))))]
         "f"))
 
     expected7 =
       [FnDecl NrDef "res#0"
-       (AppE (AppE (IdE (QualName {fromQualName = "cons"})) (IntE 1))
-        (AppE (AppE (IdE (QualName {fromQualName = "cons"})) (IntE 2))
-         (IdE (QualName {fromQualName = "null"})))),
+       (AppE (AppE (Expr.idE "cons") (IntE 1))
+        (AppE (AppE (Expr.idE "cons") (IntE 2))
+         (Expr.idE "null"))),
        FnDecl NrDef "x"
-       (AppE (IdE (QualName {fromQualName = "hd"}))
-        (IdE (QualName {fromQualName = "res#0"}))),
+       (AppE (Expr.idE "hd")
+        (Expr.idE "res#0")),
        FnDecl NrDef "y"
-       (AppE (IdE (QualName {fromQualName = "hd"}))
-        (AppE (IdE (QualName {fromQualName = "tl"}))
-         (IdE (QualName {fromQualName = "res#0"}))))]
+       (AppE (Expr.idE "hd")
+        (AppE (Expr.idE "tl")
+         (Expr.idE "res#0")))]
