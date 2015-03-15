@@ -36,7 +36,7 @@ docSource (CharS c) =
 docSource (CondS srcs) =
   docCond srcs
 docSource (FnDefS pat body) =
-  PrettyString.sep [PrettyString.text "def" <+> docSource pat, PrettyString.nest (docSource body)]
+  PrettyString.sep [PrettyString.text "let" <+> docSource pat, PrettyString.nest (docSource body)]
 docSource (IdS name) =
   PrettyString.text (QualName.fromQualName name)
 docSource (IntS i) =
