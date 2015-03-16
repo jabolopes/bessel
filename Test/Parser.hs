@@ -49,54 +49,80 @@ testParser =
   do expect expectedSnippet1 $ Snippet "let not id = false | @ = true"
      expect expected1 $ File "Test/TestData1.bsl"
      expect expected2 $ File "Test/TestData2.bsl"
+     expect expected3 $ File "Test/TestData3.bsl"
      expect expected4 $ File "Test/TestData4.bsl"
+     expect expected5 $ File "Test/TestData5.bsl"
+     expect expected6 $ File "Test/TestData6.bsl"
      expect expected7 $ File "Test/TestData7.bsl"
      expect expected8 $ File "Test/TestData8.bsl"
   where
     expectedSnippet1 =
       FnDefS (Source.idS "not")
-      (CondS [([IdS (QualName {fromQualName = "id"})], IdS (QualName {fromQualName = "false"})),
-              ([PatS "" Nothing], IdS (QualName {fromQualName = "true"}))])
+      (CondS [([Source.idS "id"], Source.idS "false"),
+              ([PatS "" Nothing], Source.idS "true")])
 
     expected1 =
       ModuleS "Test.TestData1" []
         [FnDefS (Source.idS "f1")
          (WhereS
-          (CondS [([PatS "x" (Just (IdS (QualName {fromQualName = "isInt"}))),
-                    PatS "y" (Just (IdS (QualName {fromQualName = "isInt"})))],
-                   AppS (IdS (QualName {fromQualName = "f2"})) (IdS (QualName {fromQualName = "x"})))])
+          (CondS [([PatS "x" (Just (Source.idS "isInt")),
+                    PatS "y" (Just (Source.idS "isInt"))],
+                   AppS (Source.idS "f2") (Source.idS "x"))])
           [FnDefS (Source.idS "f2")
            (CondS
-            [([PatS "z" Nothing], BinOpS "+" (IdS (QualName {fromQualName = "z"})) (IdS (QualName {fromQualName = "y"})))])])]
+            [([PatS "z" Nothing], BinOpS "+" (Source.idS "z") (Source.idS "y"))])])]
 
     expected2 =
       ModuleS "Test.TestData2" []
         [FnDefS (Source.idS "f1")
          (WhereS
-          (CondS [([PatS "x" (Just (IdS (QualName {fromQualName = "isInt"})))],
+          (CondS [([PatS "x" (Just (Source.idS "isInt"))],
                    LetS [FnDefS (Source.idS "y") (IntS 0)]
-                   (AppS (IdS (QualName {fromQualName = "f2"})) (IdS (QualName {fromQualName = "y"}))))])
+                   (AppS (Source.idS "f2") (Source.idS "y")))])
           [FnDefS (Source.idS "f2")
            (CondS
-            [([PatS "z" Nothing], BinOpS "+" (IdS (QualName {fromQualName = "z"})) (IntS 1))])])]
+            [([PatS "z" Nothing], BinOpS "+" (Source.idS "z") (IntS 1))])])]
+
+    expected3 =
+      ModuleS "Test.TestData3" []
+        [FnDefS (Source.idS "f")
+         (CondS [([PatS "x" (Just (Source.idS "isInt")), PatS "y" (Just (Source.idS "isInt"))], Source.idS "true"),
+                 ([PatS "x" Nothing, PatS "y" Nothing], Source.idS "false")])]
 
     expected4 =
       ModuleS "Test.TestData4" []
         [FnDefS (Source.idS "eq")
          (WhereS
-          (CondS [([PatS "x" (Just (IdS (QualName {fromQualName = "isInt"}))), PatS "y" (Just (IdS (QualName {fromQualName = "isInt"})))],
-                   AppS (AppS (IdS (QualName {fromQualName = "eqInt"})) (IdS (QualName {fromQualName = "x"}))) (IdS (QualName {fromQualName = "y"}))),
+          (CondS [([PatS "x" (Just (Source.idS "isInt")), PatS "y" (Just (Source.idS "isInt"))],
+                   AppS (AppS (Source.idS "eqInt") (Source.idS "x")) (Source.idS "y")),
                   ([PatS "x" Nothing, PatS "y" Nothing],
-                   AppS (AppS (IdS (QualName {fromQualName = "eqSeq"})) (IdS (QualName {fromQualName = "x"}))) (IdS (QualName {fromQualName = "y"})))])
+                   AppS (AppS (Source.idS "eqSeq") (Source.idS "x")) (Source.idS "y"))])
           [FnDefS (Source.idS "eqSeq")
            (CondS [([SeqS [], SeqS []],
-                    IdS (QualName {fromQualName = "true"})),
+                    Source.idS "true"),
                    ([BinOpS "+>" (PatS "z" Nothing) (PatS "zs" Nothing), BinOpS "+>" (PatS "w" Nothing) (PatS "ws" Nothing)],
                     AndS
-                    (AppS (AppS (IdS (QualName {fromQualName = "eq"})) (IdS (QualName {fromQualName = "z"}))) (IdS (QualName {fromQualName = "w"})))
-                    (AppS (AppS (IdS (QualName {fromQualName = "eqSeq"})) (IdS (QualName {fromQualName = "zs"}))) (IdS (QualName {fromQualName = "ws"})))),
+                    (AppS (AppS (Source.idS "eq") (Source.idS "z")) (Source.idS "w"))
+                    (AppS (AppS (Source.idS "eqSeq") (Source.idS "zs")) (Source.idS "ws"))),
                    ([PatS "" Nothing, PatS "" Nothing],
-                    IdS (QualName {fromQualName = "false"}))])])]
+                    Source.idS "false")])])]
+
+    expected5 =
+      ModuleS "Test.TestData5" []
+        [FnDefS (Source.idS "isString")
+         (CondS [([SeqS []],Source.idS "true"),
+                 ([BinOpS "+>" (Source.idS "isChar") (Source.idS "isString")],Source.idS "true"),
+                 ([PatS "" Nothing],Source.idS "false")])]
+
+    expected6 =
+      ModuleS "Test.TestData6" []
+        [FnDefS (Source.idS "f")
+         (CondS
+          [([PatS "n" Nothing],
+            LetS [FnDefS (SeqS [PatS "x" Nothing,PatS "y" Nothing]) (SeqS [IntS 1,IntS 2])]
+            (AppS (AppS (Source.idS "case") (Source.idS "n"))
+             (CondS [([AppS (Source.idS ">") (IntS 1)], Source.idS "x"),
+                     ([PatS "" Nothing], Source.idS "y")])))])]
 
     expected7 =
       ModuleS "Test.TestData7" []
