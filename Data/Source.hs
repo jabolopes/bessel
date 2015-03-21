@@ -4,7 +4,7 @@ module Data.Source where
 import Control.Applicative ((<$>), (<*>))
 
 import Data.QualName (QualName)
-import qualified Data.QualName as QualName (mkQualName)
+import qualified Data.QualName as QualName (mkQualName, isTypeName)
 import qualified Utils
 
 data Source
@@ -171,6 +171,11 @@ bindPat "" src = src
 bindPat name (PatS _ (Just src)) = bindPat name src
 bindPat name (PatS _ guard) = PatS name guard
 bindPat name src = PatS name (Just src)
+
+isTypePat :: Source -> Bool
+isTypePat (AppS fn _) = isTypePat fn
+isTypePat (PatS name _) = QualName.isTypeName $ QualName.mkQualName [name]
+isTypePat _ = False
 
 appToList :: Source -> [Source]
 appToList (AppS fn arg) = appToList fn ++ [arg]

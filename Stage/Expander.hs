@@ -23,6 +23,13 @@ import qualified Pretty.Stage.Expander as Pretty
 
 type ExpanderM a = NameM (Either PrettyString) a
 
+-- | Generates names for the given patterns.
+-- @
+-- genPatName x       = "x#0"
+-- genPatName x@isInt = "x#0"
+-- genPatName  @      = "arg#0"
+-- genPatName  @isInt = "arg#0"
+-- @
 genPatNames :: [Source] -> ExpanderM [String]
 genPatNames = mapM genPatName
   where
@@ -33,42 +40,45 @@ genPatNames = mapM genPatName
     genPatName (PatS binder _) = genName binder
     genPatName _ = genName ""
 
--- | Generates a function definition for a pattern, given the
--- pattern's @binder@ and @mods@
+-- Expand patterns.
+
+-- | Generates a function definition for a pattern.
+--
+-- binder: name of the pattern, used as the definition name.
+-- mods: folded into applications to form the definition body.
+-- val: applied at the end of the applications that form the definition body.
 --
 -- @
--- x@
+-- patFnDef "x" [hd, tl] y
 -- @
 --
 -- @
--- def x = ...
+-- let x = hd (tl y)
 -- @
 patFnDef :: String -> [Source] -> Source -> Source
 patFnDef binder mods val =
   FnDefS (PatS binder Nothing) (Source.foldAppS val mods)
 
-isTypeGuard :: Source -> Bool
-isTypeGuard (AppS fn _) = isTypeGuard fn
-isTypeGuard (PatS name Nothing) = QualName.isTypeName $ QualName.mkQualName [name]
-isTypeGuard _ = False
-
 -- | Generates function definitions for a pattern's bindings
 --
+-- val: name of the outermost pattern to which inner transformations apply,
+-- which is necessary because not all patterns have a name.
+--
 -- @
--- xs@[x@, y@]
+-- xs@[x, y]
 -- @
 --
 -- @
--- def xs = x1#
--- def x = hd x1#
--- def y = hd (tl x1#)
+-- let xs = x1#
+-- let x = hd x1#
+-- let y = hd (tl x1#)
 -- @
 patDefinitions :: Source -> Source -> [Source]
 patDefinitions val = sourceDefns []
   where
     sourceDefns mods src
-      | isTypeGuard src =
-        concatMap (sourceDefns (Source.idS "unCons#":mods)) $ tail . Source.appToList $ src
+      | Source.isTypePat src =
+        concatMap (sourceDefns (Source.idS "unCons#":mods)) . tail . Source.appToList $ src
     sourceDefns mods (BinOpS "+>" hdPat tlPat) =
       sourceDefns (Source.idS "hd":mods) hdPat ++
       sourceDefns (Source.idS "tl":mods) tlPat
@@ -92,6 +102,7 @@ patDefinitions val = sourceDefns []
         patMods = map (reverse . listRef) [1..length pats]
     sourceDefns _ _ = []
 
+-- | Returns the predicate and equality function names for primitive types.
 patConstantPred :: Source -> (String, String)
 patConstantPred CharS {} = ("isChar#", "eqChar#")
 patConstantPred IntS {} = ("isInt#", "eqInt#")
@@ -100,11 +111,10 @@ patConstantPred src =
   PrettyString.error "Expander.patConstantPred: invalid argument" $
   (PrettyString.text "src =" PrettyString.<+> Pretty.docSource src)
 
--- | Generates a predicate for a pattern, according the predicate
--- guard
+-- | Generates a predicate for a pattern, according the predicate guard.
 --
 -- @
--- x@
+-- x
 -- x@isInt
 -- (x@ +> xs@)
 -- x@[@, @]
@@ -124,7 +134,7 @@ patPred :: Source -> ExpanderM Expr
 patPred = sourcePred
   where
     sourcePred src
-      | isTypeGuard src =
+      | Source.isTypePat src =
         let PatS qualName Nothing = head . Source.appToList $ src in
         return . Expr.idE . consIsName $ QualName.mkQualName [qualName]
     sourcePred src@AppS {} =
@@ -152,16 +162,18 @@ patPred = sourcePred
              pred = AndS (Source.appS isFn argId) ((Source.appS eqFn m) `AppS` argId)
          LambdaE arg <$> expandOne pred
 
--- |
+-- Expand conds.
+
+-- | Generates an expression by expanding patterns to their respective definitions.
+--
 -- @
--- x@ y@ = body
+-- x y = body
 -- @
 --
 -- @
--- body where {
---   def x = ...
---   def y = ...
--- }
+-- let x = ... in
+-- let y = ... in
+-- body
 -- @
 expandMatchBody :: [String] -> [Source] -> Source -> ExpanderM Expr
 expandMatchBody args pats body =
@@ -170,7 +182,8 @@ expandMatchBody args pats body =
        [] -> expandOne body
        _ -> Expr.letE defns <$> expandOne body
 
--- |
+-- | Expands the matches of a cond, returning their expanded body and patterns.
+--
 -- @
 -- x@pat1 y@pat1' -> body1
 -- x@pat2 y@pat2' -> body2
@@ -180,17 +193,18 @@ expandMatchBody args pats body =
 -- \x# ->
 --   \y# ->
 --     cond
---       pred1 x# && pred2 y# -> body1
---       pred1 x# && pred2 y# -> body2
+--       pred1 x# && pred2 y# ->
+--         let x = ... in
+--         let y = ... in
+--         body1
+--       pred1 x# && pred2 y# ->
+--         let x = ... in
+--         let y = ... in
+--         body2
 --       _ _ -> blame "..."
---     where {
---       def x = ...
---       def y = ...
---     }
 -- @
 --
--- The above generated code is a simplification because '&&' is
--- encoded through 'CondE'.
+-- The above code is a simplification because '&&' is encoded through 'CondE'.
 expandMatch :: [String] -> [Source] -> Source -> ExpanderM (Expr, Expr)
 expandMatch args pats body =
   (,) <$> andPred <*> expandMatchBody args pats body
@@ -228,9 +242,7 @@ expandCond matches blame =
     lambdas (arg:args) body =
       LambdaE arg (lambdas args body)
 
--- /expand CondM
-
--- expand FnDeclM
+-- Expand function definitions.
 
 expandFnDecl :: String -> Expr -> Expr
 expandFnDecl name body =
@@ -245,15 +257,13 @@ expandResultPattern pat body =
   do result <- NameM.genNameM "res"
      return $ FnDefS (PatS result Nothing) body:patDefinitions (Source.idS result) pat
 
--- /expand FnDeclM
-
 expandSeq :: [Source] -> ExpanderM Expr
 expandSeq ms = Expr.seqE <$> mapM expandOne ms
 
 expandString :: String -> Expr
 expandString = Expr.stringE
 
--- expand TypeDeclM
+-- Expand type definitions.
 
 consIsName :: QualName -> String
 consIsName consName =
@@ -308,17 +318,16 @@ expandTypeDecl typeName cons =
      typeFn <- expandSource . typePredFn typeName $ map fst cons
      return $ consFns ++ typeFn
 
--- /expand TypeDeclM
-
--- 'WhereS' is a special syntax for a 'CondS' with 'LetS'.
+-- | Expands 'WhereS' into 'LetS'. It is special syntax to be used only with 'CondS'.
 --
 -- @
--- x@ = y
--- where
---   def y = 0
+-- let x = y
+--   where
+--     let y = 0
 --
--- x@ = let y = 0 in
---      y
+-- let x =
+--   let y = 0 in
+--   y
 -- @
 expandWhereCondMatches :: Source -> [([Source], Source)]
 expandWhereCondMatches (WhereS (CondS matches) defns) =
@@ -328,7 +337,7 @@ expandWhereCondMatches src =
   (PrettyString.text "src =" PrettyString.<+> Pretty.docSource src)
 
 expandOne :: Source -> ExpanderM Expr
-expandOne macro = head <$> expandSource macro
+expandOne src = head <$> expandSource src
 
 expandSource :: Source -> ExpanderM [Expr]
 expandSource (AndS m1 m2) =
