@@ -10,7 +10,7 @@ import Data.Token
 }
 
 
-%wrapper "basic"
+%wrapper "posn"
 
 
 $digit        = [0-9]
@@ -44,81 +44,95 @@ tokens :-
   @comment            ;
 
   -- punctuation
-  " @"                { \_ -> TokenAtSpace }
-  "@"                 { \_ -> TokenAt }
-  "|"                 { \_ -> TokenBar }
-  ","                 { \_ -> TokenComma }
-  "."                 { \_ -> TokenDot }
-  "="                 { \_ -> TokenEquiv }
+  " @"                { \p _ -> TokenAtSpace (srcloc p) }
+  "@"                 { \p _ -> TokenAt (srcloc p) }
+  "|"                 { \p _ -> TokenBar (srcloc p) }
+  ","                 { \p _ -> TokenComma (srcloc p) }
+  "."                 { \p _ -> TokenDot (srcloc p) }
+  "="                 { \p _ -> TokenEquiv (srcloc p) }
 
   -- grouping
-  "("                 { \_ -> TokenLParen }
-  ")"                 { \_ -> TokenRParen }
-  "["                 { \_ -> TokenLConsParen}
-  "]"                 { \_ -> TokenRConsParen }
-  "{"                 { \_ -> TokenLEnvParen }
-  "}"                 { \_ -> TokenREnvParen }
+  "("                 { \p _ -> TokenLParen (srcloc p) }
+  ")"                 { \p _ -> TokenRParen (srcloc p) }
+  "["                 { \p _ -> TokenLConsParen (srcloc p) }
+  "]"                 { \p _ -> TokenRConsParen (srcloc p) }
+  "{"                 { \p _ -> TokenLEnvParen (srcloc p) }
+  "}"                 { \p _ -> TokenREnvParen (srcloc p) }
 
   -- keywords
-  "as"                { \_ -> TokenAs }
-  "let"               { \_ -> TokenLet }
-  "me"                { \_ -> TokenMe }
-  "in"                { \_ -> TokenIn }
-  "type"              { \_ -> TokenType }
-  "use"               { \_ -> TokenUse }
-  "where"             { \_ -> TokenWhere }
+  "as"                { \p _ -> TokenAs (srcloc p) }
+  "let"               { \p _ -> TokenLet (srcloc p) }
+  "me"                { \p _ -> TokenMe (srcloc p) }
+  "in"                { \p _ -> TokenIn (srcloc p) }
+  "type"              { \p _ -> TokenType (srcloc p) }
+  "use"               { \p _ -> TokenUse (srcloc p) }
+  "where"             { \p _ -> TokenWhere (srcloc p) }
 
   -- literals
-  @character          { \s -> TokenChar (head (tail s)) }
-  @integer            { \s -> TokenInt (read s) }
-  @real               { \s -> TokenDouble (read s) }
-  @string             { \s -> TokenString (init (tail s)) }
+  @character          { \p s -> TokenChar (srcloc p) (head (tail s)) }
+  @integer            { \p s -> TokenInt (srcloc p) (read s) }
+  @real               { \p s -> TokenDouble (srcloc p) (read s) }
+  @string             { \p s -> TokenString (srcloc p) (init (tail s)) }
 
   -- operators
-  "o"                 { \s -> TokenComposition s }
+  "o"                 { \p s -> TokenComposition (srcloc p) s }
 
-  "*" (@id_char)*     { \s -> TokenMult s }
-  "/" (@id_char)*     { \s -> TokenDiv s }
-  "+" (@id_char)*     { \s -> TokenAdd s }
-  "-" (@id_char)*     { \s -> TokenSub s }
+  "*" (@id_char)*     { \p s -> TokenMult (srcloc p) s }
+  "/" (@id_char)*     { \p s -> TokenDiv (srcloc p) s }
+  "+" (@id_char)*     { \p s -> TokenAdd (srcloc p) s }
+  "-" (@id_char)*     { \p s -> TokenSub (srcloc p) s }
 
-  "==" (@id_char)*    { \s -> TokenEq s }
-  "/=" (@id_char)*    { \s -> TokenNeq s }
-  "<"  (@id_char)*    { \s -> TokenLt s }
-  ">"  (@id_char)*    { \s -> TokenGt s }
-  "<=" (@id_char)*    { \s -> TokenLe s }
-  ">=" (@id_char)*    { \s -> TokenGe s }
+  "==" (@id_char)*    { \p s -> TokenEq (srcloc p) s }
+  "/=" (@id_char)*    { \p s -> TokenNeq (srcloc p) s }
+  "<"  (@id_char)*    { \p s -> TokenLt (srcloc p) s }
+  ">"  (@id_char)*    { \p s -> TokenGt (srcloc p) s }
+  "<=" (@id_char)*    { \p s -> TokenLe (srcloc p) s }
+  ">=" (@id_char)*    { \p s -> TokenGe (srcloc p) s }
 
-  "+>" (@id_char)*    { \s -> TokenCons s }
-  "<+" (@id_char)*    { \s -> TokenSnoc s }
+  "+>" (@id_char)*    { \p s -> TokenCons (srcloc p) s }
+  "<+" (@id_char)*    { \p s -> TokenSnoc (srcloc p) s }
 
-  "&&"                { \s -> TokenAnd s }
-  "||"                { \s -> TokenOr s }
+  "&&"                { \p s -> TokenAnd (srcloc p) s }
+  "||"                { \p s -> TokenOr (srcloc p) s }
 
 -- identifier
-  @identifier         { \s -> TokenId s }
-  "`" @identifier "`" { \s -> TokenQuotedId (init (tail s)) }
-  @type_id            { \s -> TokenTypeId s }
-  @operator           { \s -> operatorFixity s }
+  @identifier         { \p s -> TokenId (srcloc p) s }
+  "`" @identifier "`" { \p s -> TokenQuotedId (srcloc p) (init (tail s)) }
+  @type_id            { \p s -> TokenTypeId (srcloc p) s }
+  @operator           { \p s -> operatorFixity (srcloc p) s }
 
 {
+srcloc :: AlexPosn -> Srcloc
+srcloc (AlexPn _ line column) =
+  Srcloc line line column
+
+toLexState :: AlexInput -> (Srcloc, Char, [Word8], String)
+toLexState (pos, previousChar, str1, str2) =
+  (srcloc pos, previousChar, str1, str2)
+
+alexposn :: Srcloc -> AlexPosn
+alexposn (Srcloc line _ column) =
+  AlexPn 0 line column
+
+alexInput :: (Srcloc, Char, [Word8], String) -> AlexInput
+alexInput (srcloc, previousChar, str1, str2) =
+  (alexposn srcloc, previousChar, str1, str2)
+
 lex :: LexState -> (Token, LexState)
-lex state@LexState { lexEndLine = n, lexInput } = lex' n lexInput
-  where lex' n input@(_, _, str) =
-          case alexScan input 0 of
-            AlexEOF -> (TokenEOF, state { lexBeginLine = n, lexEndLine = n, lexInput = input })
-            AlexError _ -> throwLexerException n str
-            AlexSkip  input' len -> lex' (line n (take len str)) input'
-            AlexToken input' len action ->
-              (action (take len str), state { lexBeginLine = n,
-                                              lexEndLine = line n (take len str),
-                                              lexInput = input' })
-
-        line n = (n +) . length . filter (== '\n')
-
+lex state@LexState { lexInput } = lex' (alexInput lexInput)
+  where
+    lex' :: AlexInput -> (Token, LexState)
+    lex' input@(pos@(AlexPn _ line column), _, _, str) =
+       case alexScan input 0 of
+         AlexEOF -> (TokenEOF, state { lexBeginLine = line, lexEndLine = line, lexInput = toLexState input })
+         AlexError _ -> throwLexerException line str
+         AlexSkip  input' len -> lex' input'
+         AlexToken input' len action ->
+           (action pos (take len str), state { lexInput = toLexState input' })
 
 lexTokens :: String -> String -> [Token]
 lexTokens filename str = yield (lex (lexState filename str))
-  where yield (TokenEOF, _) = []
-        yield (tk, state) = tk:yield (lex state)
+  where
+    yield (TokenEOF, _) = []
+    yield (token, state) = token:yield (lex state)
 }

@@ -35,61 +35,61 @@ import Utils
 
 %token
   -- punctuation
-  '@'     { TokenAt }
-  ' @'    { TokenAtSpace }
-  '|'     { TokenBar }
-  '.'     { TokenDot }
-  ','     { TokenComma }
-  '='     { TokenEquiv }
+  '@'     { TokenAt _ }
+  ' @'    { TokenAtSpace _ }
+  '|'     { TokenBar _ }
+  '.'     { TokenDot _ }
+  ','     { TokenComma _ }
+  '='     { TokenEquiv _ }
 
   -- grouping
-  '('     { TokenLParen }
-  ')'     { TokenRParen }
-  '['     { TokenLConsParen }
-  ']'     { TokenRConsParen }
-  '{'     { TokenLEnvParen }
-  '}'     { TokenREnvParen }
+  '('     { TokenLParen _ }
+  ')'     { TokenRParen _ }
+  '['     { TokenLConsParen _ }
+  ']'     { TokenRConsParen _ }
+  '{'     { TokenLEnvParen _ }
+  '}'     { TokenREnvParen _ }
 
   -- keywords
-  as      { TokenAs }
-  let     { TokenLet }
-  me      { TokenMe }
-  in      { TokenIn }
-  type    { TokenType }
-  use     { TokenUse }
-  where   { TokenWhere }
+  as      { TokenAs _ }
+  let     { TokenLet _ }
+  me      { TokenMe _ }
+  in      { TokenIn _ }
+  type    { TokenType _ }
+  use     { TokenUse _ }
+  where   { TokenWhere _ }
 
   -- literals
-  character { TokenChar $$ }
-  integer   { TokenInt $$ }
-  double    { TokenDouble $$ }
-  string    { TokenString $$ }
+  character { TokenChar _ $$ }
+  integer   { TokenInt _ $$ }
+  double    { TokenDouble _ $$ }
+  string    { TokenString _ $$ }
 
   -- operators
-  'o'     { TokenComposition $$ }
+  'o'     { TokenComposition _ $$ }
 
-  '*'     { TokenMult $$ }
-  '/'     { TokenDiv $$ }
-  '+'     { TokenAdd $$ }
-  '-'     { TokenSub $$ }
+  '*'     { TokenMult _ $$ }
+  '/'     { TokenDiv _ $$ }
+  '+'     { TokenAdd _ $$ }
+  '-'     { TokenSub _ $$ }
 
-  '+>'    { TokenCons $$ }
-  '<+'    { TokenSnoc $$ }
+  '+>'    { TokenCons _ $$ }
+  '<+'    { TokenSnoc _ $$ }
 
-  '=='    { TokenEq $$ }
-  '/='    { TokenNeq $$ }
-  '<'     { TokenLt $$ }
-  '>'     { TokenGt $$ }
-  '<='    { TokenLe $$ }
-  '>='    { TokenGe $$ }
+  '=='    { TokenEq _ $$ }
+  '/='    { TokenNeq _ $$ }
+  '<'     { TokenLt _ $$ }
+  '>'     { TokenGt _ $$ }
+  '<='    { TokenLe _ $$ }
+  '>='    { TokenGe _ $$ }
 
-  '&&'    { TokenAnd $$ }
-  '||'    { TokenOr $$ }
+  '&&'    { TokenAnd _ $$ }
+  '||'    { TokenOr _ $$ }
 
   -- identifier
-  id       { TokenId $$ }
-  quotedId { TokenQuotedId $$ }
-  typeId   { TokenTypeId $$ }
+  id       { TokenId _ $$ }
+  quotedId { TokenQuotedId _ $$ }
+  typeId   { TokenTypeId _ $$ }
 
   -- eof   { TokenEOF }
 
