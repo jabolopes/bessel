@@ -10,7 +10,7 @@ import Control.Monad.Error.Class (throwError)
 import Data.Expr (DefnKw(..), Expr(..))
 import qualified Data.Expr as Expr
 import Data.QualName (QualName)
-import qualified Data.QualName as QualName (fromQualName, isTypeName)
+import qualified Data.QualName as QualName
 import Data.PrettyString (PrettyString)
 import qualified Data.PrettyString as PrettyString
 import Data.Source (Source(..))
@@ -43,17 +43,13 @@ genPatNames = mapM genPatName
 -- @
 -- def x = ...
 -- @
-patFnDecl :: String -> [Expr] -> Expr -> Expr
-patFnDecl binder mods val =
-  FnDecl NrDef binder (Expr.foldAppE val mods)
-
 patFnDef :: String -> [Source] -> Source -> Source
 patFnDef binder mods val =
-  FnDefS (Source.idS binder) (Source.foldAppS val mods)
+  FnDefS (PatS binder Nothing) (Source.foldAppS val mods)
 
 isTypeGuard :: Source -> Bool
 isTypeGuard (AppS fn _) = isTypeGuard fn
-isTypeGuard (IdS name) = QualName.isTypeName name
+isTypeGuard (PatS name Nothing) = QualName.isTypeName $ QualName.mkQualName [name]
 isTypeGuard _ = False
 
 -- | Generates function definitions for a pattern's bindings
@@ -129,8 +125,8 @@ patPred = sourcePred
   where
     sourcePred src
       | isTypeGuard src =
-        let IdS qualName = head . Source.appToList $ src in
-        return . Expr.idE . consIsName $ qualName
+        let PatS qualName Nothing = head . Source.appToList $ src in
+        return . Expr.idE . consIsName $ QualName.mkQualName [qualName]
     sourcePred src@AppS {} =
       case Source.toSource src of
         Just x -> expandOne x
@@ -247,7 +243,7 @@ expandFnDecl name body =
 expandResultPattern :: Source -> Source -> ExpanderM [Source]
 expandResultPattern pat body =
   do result <- NameM.genNameM "res"
-     return $ FnDefS (Source.idS result) body:patDefinitions (Source.idS result) pat
+     return $ FnDefS (PatS result Nothing) body:patDefinitions (Source.idS result) pat
 
 -- /expand FnDeclM
 
@@ -272,7 +268,7 @@ consPredFn consName =
     consNameStr = QualName.fromQualName consName
     body = Source.appS "isCons#" . Source.appS "link#" . StringS $ consNameStr
   in
-    FnDefS (Source.idS (consIsName consName)) body
+    FnDefS (PatS (consIsName consName) Nothing) body
 
 typePredFn :: QualName -> [QualName] -> Source
 typePredFn typeName consNames =
@@ -280,16 +276,16 @@ typePredFn typeName consNames =
     predNames = map (Source.idS . consIsName) consNames
     body = foldl1 OrS predNames
   in
-    FnDefS (Source.idS (consIsName typeName)) body
+    FnDefS (PatS (consIsName typeName) Nothing) body
 
-consConsFn :: QualName -> String -> Source -> Source
+consConsFn :: QualName -> String -> Maybe Source -> Source
 consConsFn consName binder guard =
   let
     consNameStr = QualName.fromQualName consName
     body = Source.appS "mkCons#" . Source.appS "link#" . StringS $ consNameStr
   in
-    FnDefS (Source.idS (consMkName consName)) $
-      CondS [([PatS binder (Just guard)], body `AppS` Source.idS binder)]
+    FnDefS (PatS (consMkName consName) Nothing) $
+      CondS [([PatS binder guard], body `AppS` Source.idS binder)]
 
 expandConstructor :: (QualName, Source) -> ExpanderM [Expr]
 expandConstructor (consName, pat) =
@@ -302,13 +298,14 @@ expandConstructor (consName, pat) =
     patBinder (PatS binder _) | not (null binder) = return binder
     patBinder _               = NameM.genNameM "arg"
 
+    patGuard (PatS _ Nothing) = Nothing
     patGuard (PatS _ (Just src)) = patGuard src
-    patGuard src = src
+    patGuard src = Just src
 
 expandTypeDecl :: QualName -> [(QualName, Source)] -> ExpanderM [Expr]
 expandTypeDecl typeName cons =
   do consFns <- concat <$> mapM expandConstructor cons
-     typeFn <- expandSource $ typePredFn typeName $ map fst cons
+     typeFn <- expandSource . typePredFn typeName $ map fst cons
      return $ consFns ++ typeFn
 
 -- /expand TypeDeclM
@@ -345,13 +342,14 @@ expandSource (CharS c) =
 expandSource (CondS ms) =
   Utils.returnOne $ expandCond ms "lambda"
 -- Expand FnDeclS together with CondS to get the correct blame.
-expandSource (FnDefS (IdS name) (CondS ms)) =
-  Utils.returnOne $ expandFnDecl (QualName.fromQualName name) <$> expandCond ms (QualName.fromQualName name)
+expandSource (FnDefS (PatS name _) (CondS ms)) =
+  Utils.returnOne $ expandFnDecl name <$> expandCond ms name
 -- Expand FnDeclS together with WhereS to get the correct blame.
-expandSource (FnDefS (IdS name) src@(WhereS CondS {} _)) =
-  Utils.returnOne $ expandFnDecl (QualName.fromQualName name) <$> expandCond (expandWhereCondMatches src) (QualName.fromQualName name)
-expandSource (FnDefS (IdS name) body) =
-  Utils.returnOne $ expandFnDecl (QualName.fromQualName name) <$> expandOne body
+expandSource (FnDefS (PatS name _) src@(WhereS CondS {} _)) =
+  Utils.returnOne $ expandFnDecl name <$> expandCond (expandWhereCondMatches src) name
+expandSource (FnDefS (PatS name _) body) =
+  Utils.returnOne $ expandFnDecl name <$> expandOne body
+-- TODO: Find a way to get the blame correct in this case.
 expandSource (FnDefS pat body) =
   concat <$> (mapM expandSource =<< expandResultPattern pat body)
 expandSource (IdS name) =

@@ -44,7 +44,7 @@ tokens :-
   @comment            ;
 
   -- punctuation
-  "@ "                { \_ -> TokenAtSpace }
+  " @"                { \_ -> TokenAtSpace }
   "@"                 { \_ -> TokenAt }
   "|"                 { \_ -> TokenBar }
   ","                 { \_ -> TokenComma }

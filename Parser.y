@@ -36,7 +36,7 @@ import Utils
 %token
   -- punctuation
   '@'     { TokenAt }
-  '@ '    { TokenAtSpace }
+  ' @'    { TokenAtSpace }
   '|'     { TokenBar }
   '.'     { TokenDot }
   ','     { TokenComma }
@@ -112,7 +112,7 @@ import Utils
 %nonassoc below_app_prec                -- below application (e.g., single id)
 %left     app_prec                      -- application
 %nonassoc below_at_prec
-%nonassoc '@' '@ '
+%nonassoc '@' ' @'
 %nonassoc '(' '[' character integer double string id typeId
 %nonassoc above_id_prec
 -- /Precedence (greater)
@@ -214,11 +214,13 @@ AppExpr:
 Pat :: { Source }
 Pat:
     QualName '@'  SimplePat %prec above_id_prec { bindPat (QualName.fromQualName $1) $3 }
-  | QualName '@ '                               { bindPat (QualName.fromQualName $1) allPat }
-  |          '@ '                               { allPat }
-  | QualName '@'                                { bindPat (QualName.fromQualName $1) allPat }
+  |          '@'  QualName                      { IdS $2 }
+  |          ' @' QualName                      { IdS $2 }
   |          '@'                                { allPat }
-  |               SimplePat                     { $1 }
+  |          ' @'                               { allPat }
+  |               SimplePat                     { case $1 of
+                                                    IdS name -> bindPat (QualName.fromQualName name) allPat
+                                                    _ -> $1 }
 
 SimplePat :: { Source }
 SimplePat:

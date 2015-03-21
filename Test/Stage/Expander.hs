@@ -1,4 +1,4 @@
-{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE LambdaCase, StandaloneDeriving #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Test.Stage.Expander where
 
@@ -17,10 +17,11 @@ deriving instance Eq QualName
 
 expandTestFile :: String -> IO [Expr]
 expandTestFile filename =
-  do ModuleS _ _ [src] <- parseFile
-     case Expander.expand src of
+  do ModuleS _ _ srcs <- parseFile
+     case concat `fmap` mapM Expander.expand srcs of
        Left err -> fail $ show err
        Right exprs -> return exprs
+
   where
     parseFile =
       do str <- readFile filename
@@ -57,7 +58,7 @@ expect expected actual =
 
 testExpander :: IO ()
 testExpander =
-  do expect [expectedSnippet1] $ Snippet "let not id = false | @  = true"
+  do expect [expectedSnippet1] $ Snippet "let not @id = false | @  = true"
      expect [expected1] $ File "Test/TestData1.bsl"
      expect [expected2] $ File "Test/TestData2.bsl"
      expect [expected3] $ File "Test/TestData3.bsl"
@@ -65,14 +66,14 @@ testExpander =
      expect [expected5] $ File "Test/TestData5.bsl"
      expect [expected6] $ File "Test/TestData6.bsl"
      expect expected7 $ File "Test/TestData7.bsl"
+     expect [expected8] $ File "Test/TestData8.bsl"
+     expect expected9 $ File "Test/TestData9.bsl"
   where
     expectedSnippet1 =
       FnDecl NrDef "not"
       (LambdaE "arg#0"
-       (CondE [(AppE (IdE (QualName {fromQualName = "id"})) (IdE (QualName {fromQualName = "arg#0"})),
-                IdE (QualName {fromQualName = "false"})),
-               (AppE (LambdaE "_" (IdE (QualName {fromQualName = "true#"}))) (IdE (QualName {fromQualName = "arg#0"})),
-                IdE (QualName {fromQualName = "true"}))]
+       (CondE [(AppE (Expr.idE "id") (Expr.idE "arg#0"), Expr.idE "false"),
+               (AppE (LambdaE "_" (Expr.idE "true#")) (Expr.idE "arg#0"), Expr.idE "true")]
         "not"))
 
     expected1 =
@@ -315,3 +316,46 @@ testExpander =
        (AppE (Expr.idE "hd")
         (AppE (Expr.idE "tl")
          (Expr.idE "res#0")))]
+
+    expected8 =
+      FnDecl NrDef "f8"
+      (LambdaE "arg#0"
+       (CondE [(AppE (Expr.idE "isApple") (Expr.idE "arg#0"),
+                LetE
+                (FnDecl NrDef "x" (AppE (Expr.idE "unCons#") (Expr.idE "arg#0")))
+                (IntE 0))]
+        "f8"))
+
+    expected9 =
+      [FnDecl NrDef "isApple" (AppE (Expr.idE "isCons#") (AppE (Expr.idE "link#") (Expr.stringE "Apple"))),
+       FnDecl NrDef "Apple"
+       (LambdaE "x#0"
+        (CondE [(AppE (Expr.idE "isInt") (Expr.idE "x#0"),
+                 LetE (FnDecl NrDef "x" (Expr.idE "x#0"))
+                 (AppE
+                  (AppE (Expr.idE "mkCons#") (AppE (Expr.idE "link#") (Expr.stringE "Apple")))
+                  (Expr.idE "x")))]
+         "Apple")),
+       FnDecl NrDef "isFruit" (Expr.idE "isApple"),
+
+       FnDecl NrDef "isOrange" (AppE (Expr.idE "isCons#") (AppE (Expr.idE "link#") (Expr.stringE "Orange"))),
+       FnDecl NrDef "Orange"
+       (LambdaE "x#0"
+        (CondE [(AppE (LambdaE "_" (Expr.idE "true#")) (Expr.idE "x#0"),
+                 LetE (FnDecl NrDef "x" (Expr.idE "x#0"))
+                  (AppE
+                   (AppE (Expr.idE "mkCons#") (AppE (Expr.idE "link#") (Expr.stringE "Orange")))
+                   (Expr.idE "x")))]
+         "Orange")),
+       FnDecl NrDef "isMoreFruit" (Expr.idE "isOrange"),
+
+       FnDecl NrDef "isBanana" (AppE (Expr.idE "isCons#") (AppE (Expr.idE "link#") (Expr.stringE "Banana"))),
+       FnDecl NrDef "Banana"
+       (LambdaE "arg#0#1"
+        (CondE [(AppE (Expr.idE "isInt") (Expr.idE "arg#0#1"),
+                 LetE (FnDecl NrDef "arg#0" (Expr.idE "arg#0#1"))
+                 (AppE
+                  (AppE (Expr.idE "mkCons#") (AppE (Expr.idE "link#") (Expr.stringE "Banana")))
+                  (Expr.idE "arg#0")))]
+         "Banana")),
+       FnDecl NrDef "isEvenMoreFruit" (Expr.idE "isBanana")]

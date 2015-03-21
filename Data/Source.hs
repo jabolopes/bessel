@@ -190,6 +190,7 @@ toSource (LetS defns body) = LetS <$> mapM toSource defns <*> toSource body
 toSource (ModuleS name uses decls) = ModuleS name uses <$> mapM toSource decls
 toSource (OrS src1 src2) = OrS <$> toSource src1 <*> toSource src2
 toSource (PatS "" val) = val
+toSource (PatS binder Nothing) = Just . IdS $ QualName.mkQualName [binder]
 toSource PatS {} = Nothing
 toSource src@RealS {} = Just src
 toSource (SeqS srcs) = SeqS <$> mapM toSource srcs
