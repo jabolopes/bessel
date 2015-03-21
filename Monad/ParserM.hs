@@ -19,8 +19,8 @@ initial lexerState = ParserState { psLexerState = lexerState }
 
 failM :: String -> ParserM a
 failM err =
-  do f <- filename . psLexerState <$> get
-     n <- beginLine . psLexerState <$> get
+  do f <- lexFilename . psLexerState <$> get
+     n <- lexBeginLine . psLexerState <$> get
      throwError $ f ++ ": line " ++ show n ++ ": " ++ err
 
 ensureExpr :: Source -> ParserM Source

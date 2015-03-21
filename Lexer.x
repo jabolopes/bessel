@@ -103,16 +103,16 @@ tokens :-
 
 {
 lex :: LexState -> (Token, LexState)
-lex state@LexState { endLine = n, input } = lex' n input
+lex state@LexState { lexEndLine = n, lexInput } = lex' n lexInput
   where lex' n input@(_, _, str) =
           case alexScan input 0 of
-            AlexEOF -> (TokenEOF, state { beginLine = n, endLine = n, input = input })
+            AlexEOF -> (TokenEOF, state { lexBeginLine = n, lexEndLine = n, lexInput = input })
             AlexError _ -> throwLexerException n str
             AlexSkip  input' len -> lex' (line n (take len str)) input'
             AlexToken input' len action ->
-              (action (take len str), state { beginLine = n,
-                                              endLine = line n (take len str),
-                                              input = input' })
+              (action (take len str), state { lexBeginLine = n,
+                                              lexEndLine = line n (take len str),
+                                              lexInput = input' })
 
         line n = (n +) . length . filter (== '\n')
 
