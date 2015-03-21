@@ -258,7 +258,7 @@ let oi filename =
   }
 
 let f n =
-  let [x, y] [1, 2] in
+  let [x, y] = [1, 2] in
   case n (
     ((<) 0) = x
   | @       = y)

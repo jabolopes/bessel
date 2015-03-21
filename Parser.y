@@ -148,8 +148,8 @@ Defn:
 
 FnDefn :: { Source }
 FnDefn:
-    let Pat CondExpr                        {% return . FnDefS $2 =<< ensureExpr $3 }
- |  let Pat CondExpr where '{' DefnList '}' {% return . FnDefS $2 =<< (WhereS `fmap` ensureExpr $3 <*> return $6) }
+    let Pat CondExpr                        { FnDefS $2 $3 }
+ |  let Pat CondExpr where '{' DefnList '}' { FnDefS $2 (WhereS $3 $6) }
 
 Expr :: { Source }
 Expr:
@@ -184,8 +184,8 @@ Expr:
 
 CondExpr :: { Source }
 CondExpr:
-    Cond                                        { CondS $1 }
-  | '=' Expr                  %prec lambda_prec { $2 }
+    Cond                                        {% ensureExpr (CondS $1) }
+  | '=' Expr                  %prec lambda_prec {% ensureExpr $2 }
 
 Cond :: { [([Source], Source)] }
 Cond:
@@ -193,7 +193,8 @@ Cond:
   | AppExpr '=' Expr          %prec lambda_prec { [($1, $3)] }
 
 Let:
-    let Pat Expr in Expr %prec let_prec { LetS [FnDefS $2 $3] $5 }
+    let Pat CondExpr in Expr %prec let_prec {% ensureExpr $3 >>= \expr ->
+                                                 return (LetS [FnDefS $2 expr] $5) }
 
 TypeDefn :: { Source }
 TypeDefn:
