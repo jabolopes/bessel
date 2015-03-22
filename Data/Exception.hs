@@ -21,13 +21,13 @@ throwLoaderException = throw . LoaderException
 throwInterpreterException :: String -> a
 throwInterpreterException = throw . InterpreterException
 
--- | 'throwLexerException line str' throws a lexical exception where
--- @line@ is the line number and 'str' is the 'String' containing the
--- source program.
-throwLexerException :: Int -> String -> a
-throwLexerException n str =
-  throw . LexerException $ "line " ++ show n ++ ": " ++
-                           "\n\n\t " ++ (head . lines $ str)
+-- | 'throwLexerException line column str' throws a lexical exception where
+-- @line@ is the line number, @column@ the column number, and 'str' is the
+-- 'String' containing the source program.
+throwLexerException :: Int -> Int -> String -> a
+throwLexerException line column str =
+  throw . LexerException $
+    "line " ++ show line ++ ", column " ++ show column ++ ": " ++ "\n\n\t " ++ head (lines str)
 
 throwSignalException :: String -> a
 throwSignalException = throw . SignalException

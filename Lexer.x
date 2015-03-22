@@ -104,14 +104,14 @@ tokens :-
 {
 srcloc :: AlexPosn -> Srcloc
 srcloc (AlexPn _ line column) =
-  Srcloc line line column
+  Srcloc line column
 
 toLexState :: AlexInput -> (Srcloc, Char, [Word8], String)
 toLexState (pos, previousChar, str1, str2) =
   (srcloc pos, previousChar, str1, str2)
 
 alexposn :: Srcloc -> AlexPosn
-alexposn (Srcloc line _ column) =
+alexposn (Srcloc line column) =
   AlexPn 0 line column
 
 alexInput :: (Srcloc, Char, [Word8], String) -> AlexInput
@@ -124,8 +124,8 @@ lex state@LexState { lexInput } = lex' (alexInput lexInput)
     lex' :: AlexInput -> (Token, LexState)
     lex' input@(pos@(AlexPn _ line column), _, _, str) =
        case alexScan input 0 of
-         AlexEOF -> (TokenEOF, state { lexBeginLine = line, lexEndLine = line, lexInput = toLexState input })
-         AlexError _ -> throwLexerException line str
+         AlexEOF -> (TokenEOF, state { lexInput = toLexState input })
+         AlexError _ -> throwLexerException line column str
          AlexSkip  input' len -> lex' input'
          AlexToken input' len action ->
            (action pos (take len str), state { lexInput = toLexState input' })

@@ -1,8 +1,8 @@
 module Data.Token where
 
--- | Source location contains the begin line, end line, and begin column.
+-- | Source location contains the begin line and begin column.
 data Srcloc
-  = Srcloc !Int !Int !Int
+  = Srcloc !Int !Int
   deriving (Show)
 
 data Token
