@@ -13,6 +13,7 @@ data Token
   | TokenComma Srcloc
   | TokenDot Srcloc
   | TokenEquiv Srcloc
+  | TokenSemicolon Srcloc
 
   -- grouping
   | TokenLParen Srcloc
@@ -85,3 +86,49 @@ operatorFixity srcloc op =
                  _ -> TokenComposition
     in
       c srcloc op
+
+-- | Returns the 'Srcloc' for the given 'Token'. Returns an invalid 'Srcloc' for
+-- 'TokenEOF'
+tokenSrcloc :: Token -> Srcloc
+tokenSrcloc (TokenAt srcloc) = srcloc
+tokenSrcloc (TokenAtSpace srcloc) = srcloc
+tokenSrcloc (TokenBar srcloc) = srcloc
+tokenSrcloc (TokenComma srcloc) = srcloc
+tokenSrcloc (TokenDot srcloc) = srcloc
+tokenSrcloc (TokenEquiv srcloc) = srcloc
+tokenSrcloc (TokenLParen srcloc) = srcloc
+tokenSrcloc (TokenRParen srcloc) = srcloc
+tokenSrcloc (TokenLConsParen srcloc) = srcloc
+tokenSrcloc (TokenRConsParen srcloc) = srcloc
+tokenSrcloc (TokenLEnvParen srcloc) = srcloc
+tokenSrcloc (TokenREnvParen srcloc) = srcloc
+tokenSrcloc (TokenAs srcloc) = srcloc
+tokenSrcloc (TokenLet srcloc) = srcloc
+tokenSrcloc (TokenMe srcloc) = srcloc
+tokenSrcloc (TokenIn srcloc) = srcloc
+tokenSrcloc (TokenType srcloc) = srcloc
+tokenSrcloc (TokenUse srcloc) = srcloc
+tokenSrcloc (TokenWhere srcloc) = srcloc
+tokenSrcloc (TokenChar srcloc _) = srcloc
+tokenSrcloc (TokenInt srcloc _) = srcloc
+tokenSrcloc (TokenDouble srcloc _) = srcloc
+tokenSrcloc (TokenString srcloc _) = srcloc
+tokenSrcloc (TokenComposition srcloc _) = srcloc
+tokenSrcloc (TokenMult srcloc _) = srcloc
+tokenSrcloc (TokenDiv srcloc _) = srcloc
+tokenSrcloc (TokenAdd srcloc _) = srcloc
+tokenSrcloc (TokenSub srcloc _) = srcloc
+tokenSrcloc (TokenEq srcloc _) = srcloc
+tokenSrcloc (TokenNeq srcloc _) = srcloc
+tokenSrcloc (TokenLt srcloc _) = srcloc
+tokenSrcloc (TokenGt srcloc _) = srcloc
+tokenSrcloc (TokenLe srcloc _) = srcloc
+tokenSrcloc (TokenGe srcloc _) = srcloc
+tokenSrcloc (TokenCons srcloc _) = srcloc
+tokenSrcloc (TokenSnoc srcloc _) = srcloc
+tokenSrcloc (TokenAnd srcloc _) = srcloc
+tokenSrcloc (TokenOr srcloc _) = srcloc
+tokenSrcloc (TokenId srcloc _) = srcloc
+tokenSrcloc (TokenQuotedId srcloc _) = srcloc
+tokenSrcloc (TokenTypeId srcloc _) = srcloc
+tokenSrcloc TokenEOF = Srcloc 0 0
