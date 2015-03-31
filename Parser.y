@@ -21,6 +21,7 @@ import Data.Token
 import Lexer
 import Monad.ParserM
 import qualified Monad.ParserM as ParserM
+import qualified Stage.IndentLexer as IndentLexer
 import Utils
 }
 
@@ -150,6 +151,9 @@ FnDefn :: { Source }
 FnDefn:
     let Pat CondExpr                        { FnDefS $2 $3 }
  |  let Pat CondExpr where '{' DefnList '}' { FnDefS $2 (WhereS $3 $6) }
+ -- The following rule is an unfortunate artifact from the 'IndentLexer'.
+ |  let Pat '{' CondExpr '}'                        { FnDefS $2 $4 }
+ |  let Pat '{' CondExpr '}' where '{' DefnList '}' { FnDefS $2 (WhereS $4 $8) }
 
 Expr :: { Source }
 Expr:
@@ -184,13 +188,13 @@ Expr:
 
 CondExpr :: { Source }
 CondExpr:
-    Cond                                        {% ensureExpr (CondS $1) }
-  | '=' Expr                  %prec lambda_prec {% ensureExpr $2 }
+    Cond                               {% ensureExpr (CondS $1) }
+  | '=' '{' Expr '}' %prec lambda_prec {% ensureExpr $3 }
 
 Cond :: { [([Source], Source)] }
 Cond:
-    Cond '|' AppExpr '=' Expr %prec lambda_prec { $1 ++ [($3, $5)] }
-  | AppExpr '=' Expr          %prec lambda_prec { [($1, $3)] }
+    Cond AppExpr '=' '{' Expr '}' %prec lambda_prec { $1 ++ [($2, $5)] }
+  |      AppExpr '=' '{' Expr '}' %prec lambda_prec { [($1, $4)] }
 
 Let:
     let Pat CondExpr in Expr %prec let_prec {% ensureExpr $3 >>= \expr ->
@@ -234,6 +238,7 @@ SimplePat:
   | '['          ']'             { SeqS [] }
   | TypeName                     { idS (QualName.fromQualName $1) }
   | '(' Expr ')'                 { $2 }
+  | '{' Expr '}'                 { $2 }
 
 ExprList :: { [Source] }
 ExprList:
@@ -288,13 +293,16 @@ parseError = failM . show
 
 nextToken :: (Token -> ParserM a) -> ParserM a
 nextToken cont =
-  do (tk, state') <- lex . psLexerState <$> get
-     modify $ \s -> s { psLexerState = state' }
-     cont tk
+  do tokens <- psTokens <$> get
+     case tokens of
+       [] -> cont TokenEOF
+       (token:tokens') ->
+         do modify $ \s -> s { psTokens = tokens' }
+            cont token
 
 runParser :: ParserM Source -> String -> String -> Either String Source
 runParser m filename str =
-  case runStateT m $ ParserM.initial $ lexState filename str of
+  case runStateT m $ ParserM.initial' $ IndentLexer.indentLex str of
     Right (mod, _) -> Right mod
     Left str -> Left str
 

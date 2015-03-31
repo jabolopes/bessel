@@ -46,16 +46,16 @@ expect expected actual =
 
 testParser :: IO ()
 testParser =
-  do expect expectedSnippet1 $ Snippet "let not @id = false | @ = true"
+  do -- expect expectedSnippet1 $ Snippet "let not @id = false | @ = true"
      expect expected1 $ File "Test/TestData1.bsl"
      expect expected2 $ File "Test/TestData2.bsl"
      expect expected3 $ File "Test/TestData3.bsl"
      expect expected4 $ File "Test/TestData4.bsl"
      expect expected5 $ File "Test/TestData5.bsl"
      expect expected6 $ File "Test/TestData6.bsl"
-     expect expected7 $ File "Test/TestData7.bsl"
-     expect expected8 $ File "Test/TestData8.bsl"
-     expect expected9 $ File "Test/TestData9.bsl"
+     -- expect expected7 $ File "Test/TestData7.bsl"
+     -- expect expected8 $ File "Test/TestData8.bsl"
+     -- expect expected9 $ File "Test/TestData9.bsl"
   where
     expectedSnippet1 =
       FnDefS (PatS "not" Nothing)

@@ -7,15 +7,22 @@ import Data.LexState
 import qualified Data.PrettyString as PrettyString
 import Data.Source (Source)
 import qualified Data.Source as Source
+import Data.Token (Token)
 import qualified Pretty.Data.Source as Pretty
 
 data ParserState
-    = ParserState { psLexerState :: LexState }
+    = ParserState { psLexerState :: LexState
+                  , psTokens :: [Token] }
 
 type ParserM a = StateT ParserState (Either String) a
 
 initial :: LexState -> ParserState
-initial lexerState = ParserState { psLexerState = lexerState }
+initial lexerState = ParserState { psLexerState = lexerState
+                                 , psTokens = []}
+
+initial' :: [Token] -> ParserState
+initial' tokens = ParserState { psLexerState = lexState "" ""
+                              , psTokens = tokens }
 
 failM :: String -> ParserM a
 failM err =
