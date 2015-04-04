@@ -3,26 +3,18 @@
 module Test.Stage.Lexer where
 
 import Data.Token (Srcloc(..), Token(..))
-import qualified Data.LexState as LexState
 import qualified Lexer
 
 deriving instance Eq Srcloc
 deriving instance Eq Token
 
-lexTokens :: String -> String -> [Token]
-lexTokens filename str =
-  yield (Lexer.lex (LexState.lexState filename str))
-  where
-    yield (TokenEOF, _) = []
-    yield (token, state) = token:yield (Lexer.lex state)
-
 lexTestFile :: String -> IO [Token]
 lexTestFile filename =
   do str <- readFile filename
-     return $ lexTokens filename str
+     return $ Lexer.lexTokens filename 1 str
 
 lexSnippet :: String -> [Token]
-lexSnippet = lexTokens "(Snippet)"
+lexSnippet = Lexer.lexTokens "(Snippet)" 1
 
 data Actual = File String
             | Snippet String
@@ -74,13 +66,11 @@ testLexer =
        TokenEquiv (Srcloc 3 24),
        TokenId (Srcloc 3 26) "f2",
        TokenId (Srcloc 3 29) "x",
-       TokenWhere (Srcloc 4 3),
-       TokenLEnvParen (Srcloc 4 9),
-       TokenLet (Srcloc 5 5),
-       TokenId (Srcloc 5 9) "f2",
-       TokenId (Srcloc 5 12) "z",
-       TokenEquiv (Srcloc 5 14),
-       TokenId (Srcloc 5 16) "z",
-       TokenAdd (Srcloc 5 18) "+",
-       TokenId (Srcloc 5 20) "y",
-       TokenREnvParen (Srcloc 6 3)]
+       TokenWhere (Srcloc 4 1),
+       TokenLet (Srcloc 5 3),
+       TokenId (Srcloc 5 7) "f2",
+       TokenId (Srcloc 5 10) "z",
+       TokenEquiv (Srcloc 5 12),
+       TokenId (Srcloc 5 14) "z",
+       TokenAdd (Srcloc 5 16) "+",
+       TokenId (Srcloc 5 18) "y"]

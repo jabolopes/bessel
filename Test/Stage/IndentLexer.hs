@@ -3,8 +3,6 @@
 module Test.Stage.IndentLexer where
 
 import Data.Token (Srcloc(..), Token(..))
-import qualified Data.LexState as LexState
-import qualified Lexer
 import qualified Stage.IndentLexer as IndentLexer
 
 deriving instance Eq Srcloc
@@ -13,10 +11,10 @@ deriving instance Eq Token
 lexTestFile :: String -> IO [Token]
 lexTestFile filename =
   do str <- readFile filename
-     return $ IndentLexer.indentLex str
+     return $ IndentLexer.indentLex filename str
 
 lexSnippet :: String -> [Token]
-lexSnippet = IndentLexer.indentLex
+lexSnippet = IndentLexer.indentLex "(Snippet)"
 
 data Actual = File String
             | Snippet String

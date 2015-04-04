@@ -46,7 +46,7 @@ expect expected actual =
 
 testParser :: IO ()
 testParser =
-  do -- expect expectedSnippet1 $ Snippet "let not @id = false | @ = true"
+  do expect expectedSnippet1 $ Snippet "let not\n  @id = false\n  @ = true"
      expect expected1 $ File "Test/TestData1.bsl"
      expect expected2 $ File "Test/TestData2.bsl"
      expect expected3 $ File "Test/TestData3.bsl"
