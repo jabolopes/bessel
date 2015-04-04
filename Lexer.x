@@ -101,23 +101,21 @@ tokens :-
 
 {
 srcloc :: AlexPosn -> Srcloc
-srcloc (AlexPn _ line column) =
-  Srcloc line column
+srcloc (AlexPn _ line column) = Srcloc line column
+
+toAlexPosn :: Srcloc -> AlexPosn
+toAlexPosn (Srcloc line column) = AlexPn 0 line column
 
 toLexState :: AlexInput -> (Srcloc, Char, [Word8], String)
 toLexState (pos, previousChar, str1, str2) =
   (srcloc pos, previousChar, str1, str2)
 
-alexposn :: Srcloc -> AlexPosn
-alexposn (Srcloc line column) =
-  AlexPn 0 line column
-
-alexInput :: (Srcloc, Char, [Word8], String) -> AlexInput
-alexInput (srcloc, previousChar, str1, str2) =
-  (alexposn srcloc, previousChar, str1, str2)
+toAlexInput :: (Srcloc, Char, [Word8], String) -> AlexInput
+toAlexInput (srcloc, previousChar, str1, str2) =
+  (toAlexPosn srcloc, previousChar, str1, str2)
 
 lex :: LexState -> (Token, LexState)
-lex state@LexState { lexInput } = lex' (alexInput lexInput)
+lex state@LexState { lexInput } = lex' (toAlexInput lexInput)
   where
     lex' :: AlexInput -> (Token, LexState)
     lex' input@(pos@(AlexPn _ line column), _, _, str) =
@@ -128,14 +126,8 @@ lex state@LexState { lexInput } = lex' (alexInput lexInput)
          AlexToken input' len action ->
            (action pos (take len str), state { lexInput = toLexState input' })
 
-lexTokens :: String -> String -> [Token]
-lexTokens filename str = yield (lex (lexState filename str))
-  where
-    yield (TokenEOF, _) = []
-    yield (token, state) = token:yield (lex state)
-
-lexTokensAt :: String -> Int -> String -> [Token]
-lexTokensAt filename line str = yield (lex (lexStateAt filename line str))
+lexTokens :: String -> Int -> String -> [Token]
+lexTokens filename line str = yield (lex (lexState filename line str))
   where
     yield (TokenEOF, _) = []
     yield (token, state) = token:yield (lex state)

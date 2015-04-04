@@ -32,7 +32,7 @@ import Utils
 %name parseDefnOrExpr DefnOrExpr
 
 %tokentype { Token }
-%error { parseError }
+%error { failM }
 
 %token
   -- punctuation
@@ -288,9 +288,6 @@ Operator:
   | '||'        { $1 }
 
 {
-parseError :: Token -> ParserM a
-parseError = failM . show
-
 nextToken :: (Token -> ParserM a) -> ParserM a
 nextToken cont =
   do tokens <- psTokens <$> get
@@ -302,7 +299,7 @@ nextToken cont =
 
 runParser :: ParserM Source -> String -> String -> Either String Source
 runParser m filename str =
-  case runStateT m $ ParserM.initial' $ IndentLexer.indentLex str of
+  case runStateT m $ ParserM.initial filename (IndentLexer.indentLex filename str) of
     Right (mod, _) -> Right mod
     Left str -> Left str
 
@@ -311,5 +308,6 @@ parseFile filename str = runParser parseModule filename str
 
 parseRepl :: String -> String -> Either String Source
 parseRepl filename str =
-  evalStateT parseDefnOrExpr $ ParserM.initial $ lexState filename str
+  evalStateT parseDefnOrExpr $ ParserM.initial filename $
+    IndentLexer.indentLex filename str
 }

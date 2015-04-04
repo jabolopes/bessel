@@ -99,7 +99,7 @@ let lt
   x@isReal y@isInt  = ltRealInt x y
   x@isReal y@isReal = ltReal x y
   x@isChar y@isChar = ltChar x y
-  @ @ = false
+  x y = ltSeq x y
 where
   let ltSeq
     [] [] = true

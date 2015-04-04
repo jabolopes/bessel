@@ -7,12 +7,10 @@ data LexState =
      LexState { lexFilename :: String
               , lexInput :: (Srcloc, Char, [Word8], String) }
 
-lexState :: String -> String -> LexState
-lexState filename str =
-  LexState { lexFilename = filename
-           , lexInput = (Srcloc 1 1, '\n', [], str) }
-
-lexStateAt :: String -> Int -> String -> LexState
-lexStateAt filename line str =
+-- Returns a 'LexState' for the given @filename@, @line@, and input 'String'.
+-- The @line@ is given because the lexer might be called for input chunks, not
+-- necessarily for the whole input.
+lexState :: String -> Int -> String -> LexState
+lexState filename line str =
   LexState { lexFilename = filename
            , lexInput = (Srcloc line 1, '\n', [], str) }
