@@ -48,8 +48,8 @@ import Utils
   ')'     { TokenRParen _ }
   '['     { TokenLConsParen _ }
   ']'     { TokenRConsParen _ }
-  '{'     { TokenLEnvParen _ }
-  '}'     { TokenREnvParen _ }
+  '{'     { TokenLEnvParen }
+  '}'     { TokenREnvParen }
 
   -- keywords
   as      { TokenAs _ }

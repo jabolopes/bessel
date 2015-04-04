@@ -18,13 +18,10 @@ push :: Ord a => a -> [a] -> [a]
 push x xs = x:dropWhile (>= x) xs
 
 beginSection :: Token
-beginSection = TokenLEnvParen (Srcloc 0 0)
+beginSection = TokenLEnvParen
 
 endSection :: Token
-endSection = TokenREnvParen (Srcloc 0 0)
-
-semicolon :: Int -> Token
-semicolon column = TokenSemicolon $ Srcloc 0 column
+endSection = TokenREnvParen
 
 -- | 'indentation' @ln@ is the number of space characters at the
 -- begining of @ln@.
@@ -57,11 +54,13 @@ section c (idn1:idns) idn2 =
 blockifyConds :: [Token] -> [Token]
 blockifyConds tokens =
   case List.break isEquiv tokens of
-    (xs, y@TokenEquiv {}:ys) | not (null ys) && not (containsIn ys) ->
-      xs ++ [y, beginSection] ++ ys ++ [endSection]
-    (xs, y@TokenEquiv {}:ys) | not (null ys) && containsIn ys ->
-      let (ys', tokenIn) = dropIn ys in
-      xs ++ [y, beginSection] ++ ys' ++ [endSection, tokenIn]
+    -- (xs, y@TokenEquiv {}:ys) | not (null ys) && not (containsIn ys) ->
+    --   xs ++ [y, beginSection] ++ ys ++ [endSection]
+    -- (xs, y@TokenEquiv {}:ys) | not (null ys) && containsIn ys ->
+    --   let (ys', tokenIn) = dropIn ys in
+    --   xs ++ [y, beginSection] ++ ys' ++ [endSection, tokenIn]
+    (xs, y@TokenEquiv {}:ys) | not (null ys) ->
+      xs ++ [y, beginSection] ++ close 0 ys
     _ ->
       tokens
   where
@@ -80,8 +79,21 @@ blockifyConds tokens =
       case List.break isIn xs of
         (xs, y@TokenIn {}:ys) -> (xs ++ ys, y)
 
+    close _ [] = [endSection]
+    close _ xs@(TokenIn {}:_) =
+      endSection:xs
+    close n (x@TokenLParen {}:xs) =
+      x:close (n + 1) xs
+    close n (x@TokenRParen {}:xs)
+      | n > 0 = x:close (n - 1) xs
+    close 0 xs@(TokenRParen{}:_) =
+      endSection:xs
+    close n (x:xs) =
+      x:close n xs
+
 tokenize :: Int -> [Int] -> String -> [Token]
-tokenize n idns ln = blockifyConds $ Lexer.lexTokens "" ln
+tokenize line idns ln =
+  blockifyConds $ Lexer.lexTokensAt "" line ln
 
 -- 'reduce' @idns ln@ is the 'List' containing the 'Literal' 'Token'
 -- holding @ln@ preceeded by the appropriate section 'Token's as
@@ -92,22 +104,6 @@ reduce idns n ln =
   where
     idn = indentation ln
 
-sectionTBlockStarter :: [Char]
-sectionTBlockStarter = "|"
-
-blockStarterChars :: [Char]
-blockStarterChars = "*\"|>"
-
-blockStarter :: String -> Maybe (String, String)
-blockStarter (c:' ':ln)
-    | c `elem` blockStarterChars = Just ([c], replicate 2 ' ' ++ ln)
-    | otherwise = Nothing
-blockStarter ln =
-    case span isDigit ln of
-      ([], _) -> Nothing
-      (ds, '.':' ':ln) -> Just (ds, replicate (length ds + 2) ' ' ++ ln)
-      _ -> Nothing
-
 -- | 'indentLex' @str@ is the 'List' of 'Token's of @str@.
 indentLex :: String -> [Token]
 indentLex str =
@@ -116,24 +112,10 @@ indentLex str =
     classify' :: [Int] -> [(Int, String)] -> [Token]
     classify' idns [] =
       replicate (length idns - 1) endSection
-
     classify' idns ((n, ln):lns)
       | isEmptyLn ln = classify' idns lns
-      | isJust $ blockStarter (dropWhile isSpace ln) =
-        let
-          pre = takeWhile isSpace ln
-          Just (cs, suf) = blockStarter (dropWhile isSpace ln)
-          ln' = pre ++ suf
-          s1 = section sectionTBlockStarter idns (indentation ln)
-          idns' = drop (length s1) idns
-          s2 = section cs (push (indentation ln) idns') (indentation ln')
-          lns' = classify' (push (indentation ln') idns') $ (n, ln'):lns
-        in
-         s1 ++ s2 ++ lns'
-
     classify' idns [(n, ln)] =
       reduce idns n ln ++ classify' (push (indentation ln) idns) []
-
     classify' idns ((n1, ln1):(n2, ln2):lns)
       | isEmptyLn ln2 =
         let

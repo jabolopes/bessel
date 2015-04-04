@@ -53,9 +53,10 @@ testParser =
      expect expected4 $ File "Test/TestData4.bsl"
      expect expected5 $ File "Test/TestData5.bsl"
      expect expected6 $ File "Test/TestData6.bsl"
-     -- expect expected7 $ File "Test/TestData7.bsl"
-     -- expect expected8 $ File "Test/TestData8.bsl"
-     -- expect expected9 $ File "Test/TestData9.bsl"
+     expect expected7 $ File "Test/TestData7.bsl"
+     expect expected8 $ File "Test/TestData8.bsl"
+     expect expected9 $ File "Test/TestData9.bsl"
+     expect expected10 $ File "Test/TestData10.bsl"
   where
     expectedSnippet1 =
       FnDefS (PatS "not" Nothing)
@@ -140,3 +141,14 @@ testParser =
         [TypeDeclS (QualName {fromQualName = "Fruit"}) [(QualName {fromQualName = "Apple"},PatS "x" (Just (Source.idS "isInt")))],
          TypeDeclS (QualName {fromQualName = "MoreFruit"}) [(QualName {fromQualName = "Orange"},PatS "x" Nothing)],
          TypeDeclS (QualName {fromQualName = "EvenMoreFruit"}) [(QualName {fromQualName = "Banana"},Source.idS "isInt")]]
+
+    expected10 =
+      ModuleS "Test.TestData10" []
+        [FnDefS (PatS "f1" Nothing)
+         (WhereS
+          (CondS [([PatS "x" (Just (Source.idS "isInt"))],AppS (Source.idS "f2") (Source.idS "x"))])
+          [FnDefS (PatS "f2" Nothing)
+           (WhereS
+            (CondS [([PatS "y" Nothing],AppS (Source.idS "f3") (Source.idS "y"))])
+            [FnDefS (PatS "f3" Nothing)
+             (CondS [([PatS "w" Nothing],BinOpS "+" (Source.idS "w") (Source.idS "x"))])])])]

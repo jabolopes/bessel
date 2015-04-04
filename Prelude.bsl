@@ -14,8 +14,9 @@ let true = true#
 let false = false#
 let eqBool = eqBool#
 
-let not id = false
-      | @  = true
+let not
+  id = false
+  @  = true
 
 -- Int
 
@@ -77,37 +78,33 @@ let (+>) = cons
 
 let map
   fn [] = []
-| fn (x +> xs) = fn x +> map fn xs
+  fn (x +> xs) = fn x +> map fn xs
 
 let eq
   x@isBool y@isBool = eqBool x y
-| x@isInt  y@isInt  = eqInt x y
-| x@isReal y@isReal = eqReal x y
-| x@isChar y@isChar = eqChar x y
-| x y = eqSeq x y
---| x@[isDyn] y@[isDyn] = eqSeq x y
-| @ @ = false
-  where {
-    let eqSeq
-      [] [] = true
-    | (z +> zs) (w +> ws) = eq z w && eqSeq zs ws
-    | @ @ = false
-  }
+  x@isInt  y@isInt  = eqInt x y
+  x@isReal y@isReal = eqReal x y
+  x@isChar y@isChar = eqChar x y
+  x y = eqSeq x y
+  @ @ = false
+where
+  let eqSeq
+    [] [] = true
+    (z +> zs) (w +> ws) = eq z w && eqSeq zs ws
+    @ @ = false
 
 let lt
   x@isInt  y@isInt  = ltInt x y
-| x@isInt  y@isReal = ltIntReal x y
-| x@isReal y@isInt  = ltRealInt x y
-| x@isReal y@isReal = ltReal x y
-| x@isChar y@isChar = ltChar x y
--- | x@[Dyn] y@[Dyn] = ltSeq x y
-| @ @ = false
-  where {
-    let ltSeq
-      [] [] = true
-    | (z +> zs) (w +> ws) = lt z w && ltSeq zs ws
-    | @ @ = false
-  }
+  x@isInt  y@isReal = ltIntReal x y
+  x@isReal y@isInt  = ltRealInt x y
+  x@isReal y@isReal = ltReal x y
+  x@isChar y@isChar = ltChar x y
+  @ @ = false
+where
+  let ltSeq
+    [] [] = true
+    (z +> zs) (w +> ws) = lt z w && ltSeq zs ws
+    @ @ = false
 
 let (==) = eq
 
@@ -131,61 +128,60 @@ let isZero x = x == 0
 
 let isNull
   [] = true
-| @ = false
+  @ = false
 
 let isPair
   [@,@] = true
-| @ = false
+  @ = false
 
 let isString
   []                   = true
-| (isChar +> isString) = true
-| @                    = false
+  (isChar +> isString) = true
+  @                    = false
 
 -- Number
 
 let add
   x@isInt  y@isInt  = addInt x y
-| x@isReal y@isReal = addReal x y
-| x@isInt  y@isReal = addIntReal x y
-| x@isReal y@isInt  = addRealInt x y
+  x@isReal y@isReal = addReal x y
+  x@isInt  y@isReal = addIntReal x y
+  x@isReal y@isInt  = addRealInt x y
 
 let sub
   x@isInt  y@isInt  = subInt x y
-| x@isReal y@isReal = subReal x y
-| x@isInt  y@isReal = subIntReal x y
-| x@isReal y@isInt  = subRealInt x y
+  x@isReal y@isReal = subReal x y
+  x@isInt  y@isReal = subIntReal x y
+  x@isReal y@isInt  = subRealInt x y
 
 let mul
   x@isInt  y@isInt  = mulInt x y
-| x@isReal y@isReal = mulReal x y
-| x@isInt  y@isReal = mulIntReal x y
-| x@isReal y@isInt  = mulRealInt x y
+  x@isReal y@isReal = mulReal x y
+  x@isInt  y@isReal = mulIntReal x y
+  x@isReal y@isInt  = mulRealInt x y
 
 let div
   x@isInt  y@isInt  = divInt x y
-| x@isReal y@isReal = divReal x y
-| x@isInt  y@isReal = divIntReal x y
-| x@isReal y@isInt  = divRealInt x y
+  x@isReal y@isReal = divReal x y
+  x@isInt  y@isReal = divIntReal x y
+  x@isReal y@isInt  = divRealInt x y
 
 let abs
   x@isInt  = absInt x
-| x@isReal = absReal x
+  x@isReal = absReal x
 
 let floor
   x@isInt  = x
-| x@isReal = floorReal x
+  x@isReal = floorReal x
 
 let ceiling
   x@isInt  = x
-| x@isReal = ceilingReal x
+  x@isReal = ceilingReal x
 
 let neg
   x@isInt  = negInt x
-| x@isReal = negReal x
+  x@isReal = negReal x
 
-let rem
-  x y = remInt x y
+let rem x y = remInt x y
 
 let (+) = add
 let (-) = sub
@@ -194,11 +190,11 @@ let (/) = div
 
 let length
   [] = 0
-| (@ +> xs) = length xs + 1
+  (@ +> xs) = length xs + 1
 
 -- let reverse
 --   [] = []
--- | (x@ +> xs@) = reverse xs <+ x
+--   (x@ +> xs@) = reverse xs <+ x
 
 -- Io
 
@@ -208,11 +204,11 @@ let (>>) = bindIO#
 
 let ola
   1 = true
-| @ = false
+  @ = false
 
 let adeus
   "ola" = true
-| @     = false
+  @     = false
 
 let case x fn = fn x
 
@@ -222,17 +218,17 @@ let ($) fn x = fn x
 
 let foo x =
   (isInt = true
- | @     = false) x
+  @      = false) x
 
 let bar x =
   case x
     (isInt = true
-   | @     = false)
+    @      = false)
 
 let foobar x =
   case x $
      isInt = true
-   | @     = false
+     @     = false
 
 type Fruit Apple isInt
 
@@ -245,22 +241,21 @@ let adeus3 (Apple x@isInt) = x
 
 let pol
   x@0 = 0
-| x  = pol (x - 1) + 1
+  x  = pol (x - 1) + 1
 
 let one
   x@1 = 1
-| @   = 0
+  @   = 0
 
 let oi filename =
   mapFile# filename fn
-  where {
-    let fn str = adeus str
-  }
+where
+  let fn str = adeus str
 
 let f n =
   let [x, y] = [1, 2] in
-  case n (
+  case n
     ((<) 0) = x
-  | @       = y)
+    @       = y
 
 let [g, h] = [1, 2]

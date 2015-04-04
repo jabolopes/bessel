@@ -11,3 +11,8 @@ lexState :: String -> String -> LexState
 lexState filename str =
   LexState { lexFilename = filename
            , lexInput = (Srcloc 1 1, '\n', [], str) }
+
+lexStateAt :: String -> Int -> String -> LexState
+lexStateAt filename line str =
+  LexState { lexFilename = filename
+           , lexInput = (Srcloc line 1, '\n', [], str) }

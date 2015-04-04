@@ -56,8 +56,6 @@ tokens :-
   ")"                 { \p _ -> TokenRParen (srcloc p) }
   "["                 { \p _ -> TokenLConsParen (srcloc p) }
   "]"                 { \p _ -> TokenRConsParen (srcloc p) }
-  "{"                 { \p _ -> TokenLEnvParen (srcloc p) }
-  "}"                 { \p _ -> TokenREnvParen (srcloc p) }
 
   -- keywords
   "as"                { \p _ -> TokenAs (srcloc p) }
@@ -132,6 +130,12 @@ lex state@LexState { lexInput } = lex' (alexInput lexInput)
 
 lexTokens :: String -> String -> [Token]
 lexTokens filename str = yield (lex (lexState filename str))
+  where
+    yield (TokenEOF, _) = []
+    yield (token, state) = token:yield (lex state)
+
+lexTokensAt :: String -> Int -> String -> [Token]
+lexTokensAt filename line str = yield (lex (lexStateAt filename line str))
   where
     yield (TokenEOF, _) = []
     yield (token, state) = token:yield (lex state)

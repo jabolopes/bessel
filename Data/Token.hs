@@ -13,15 +13,14 @@ data Token
   | TokenComma Srcloc
   | TokenDot Srcloc
   | TokenEquiv Srcloc
-  | TokenSemicolon Srcloc
 
   -- grouping
   | TokenLParen Srcloc
   | TokenRParen Srcloc
   | TokenLConsParen Srcloc
   | TokenRConsParen Srcloc
-  | TokenLEnvParen Srcloc
-  | TokenREnvParen Srcloc
+  | TokenLEnvParen
+  | TokenREnvParen
 
   -- keywords
   | TokenAs Srcloc
@@ -100,8 +99,8 @@ tokenSrcloc (TokenLParen srcloc) = srcloc
 tokenSrcloc (TokenRParen srcloc) = srcloc
 tokenSrcloc (TokenLConsParen srcloc) = srcloc
 tokenSrcloc (TokenRConsParen srcloc) = srcloc
-tokenSrcloc (TokenLEnvParen srcloc) = srcloc
-tokenSrcloc (TokenREnvParen srcloc) = srcloc
+tokenSrcloc TokenLEnvParen = Srcloc 0 0
+tokenSrcloc TokenREnvParen = Srcloc 0 0
 tokenSrcloc (TokenAs srcloc) = srcloc
 tokenSrcloc (TokenLet srcloc) = srcloc
 tokenSrcloc (TokenMe srcloc) = srcloc
