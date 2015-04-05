@@ -9,7 +9,6 @@ data Token
   -- punctuation
   = TokenAt Srcloc
   | TokenAtSpace Srcloc
-  | TokenBar Srcloc
   | TokenComma Srcloc
   | TokenDot Srcloc
   | TokenEquiv Srcloc
@@ -91,7 +90,6 @@ operatorFixity srcloc op =
 tokenSrcloc :: Token -> Srcloc
 tokenSrcloc (TokenAt srcloc) = srcloc
 tokenSrcloc (TokenAtSpace srcloc) = srcloc
-tokenSrcloc (TokenBar srcloc) = srcloc
 tokenSrcloc (TokenComma srcloc) = srcloc
 tokenSrcloc (TokenDot srcloc) = srcloc
 tokenSrcloc (TokenEquiv srcloc) = srcloc

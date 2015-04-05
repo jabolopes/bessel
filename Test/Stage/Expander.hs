@@ -332,9 +332,7 @@ testExpander =
        (LambdaE "x#0"
         (CondE [(AppE (Expr.idE "isInt") (Expr.idE "x#0"),
                  LetE (FnDecl NrDef "x" (Expr.idE "x#0"))
-                 (AppE
-                  (AppE (Expr.idE "mkCons#") (AppE (Expr.idE "link#") (Expr.stringE "Apple")))
-                  (Expr.idE "x")))]
+                 (AppE (AppE (Expr.idE "mkCons#") (AppE (Expr.idE "link#") (Expr.stringE "Apple"))) (Expr.idE "x")))]
          "Apple")),
        FnDecl NrDef "isFruit" (Expr.idE "isApple"),
 
@@ -343,9 +341,7 @@ testExpander =
        (LambdaE "x#0"
         (CondE [(AppE (LambdaE "_" (Expr.idE "true#")) (Expr.idE "x#0"),
                  LetE (FnDecl NrDef "x" (Expr.idE "x#0"))
-                  (AppE
-                   (AppE (Expr.idE "mkCons#") (AppE (Expr.idE "link#") (Expr.stringE "Orange")))
-                   (Expr.idE "x")))]
+                 (AppE (AppE (Expr.idE "mkCons#") (AppE (Expr.idE "link#") (Expr.stringE "Orange"))) (Expr.idE "x")))]
          "Orange")),
        FnDecl NrDef "isMoreFruit" (Expr.idE "isOrange"),
 
@@ -354,8 +350,17 @@ testExpander =
        (LambdaE "arg#0#1"
         (CondE [(AppE (Expr.idE "isInt") (Expr.idE "arg#0#1"),
                  LetE (FnDecl NrDef "arg#0" (Expr.idE "arg#0#1"))
-                 (AppE
-                  (AppE (Expr.idE "mkCons#") (AppE (Expr.idE "link#") (Expr.stringE "Banana")))
-                  (Expr.idE "arg#0")))]
+                 (AppE (AppE (Expr.idE "mkCons#") (AppE (Expr.idE "link#") (Expr.stringE "Banana"))) (Expr.idE "arg#0")))]
          "Banana")),
-       FnDecl NrDef "isEvenMoreFruit" (Expr.idE "isBanana")]
+       FnDecl NrDef "isKiwi" (AppE (Expr.idE "isCons#") (AppE (Expr.idE "link#") (Expr.stringE "Kiwi"))),
+       FnDecl NrDef "Kiwi"
+       (LambdaE "arg#2#3"
+        (CondE [(AppE (Expr.idE "isReal") (Expr.idE "arg#2#3"),
+                 LetE (FnDecl NrDef "arg#2" (Expr.idE "arg#2#3"))
+                 (AppE (AppE (Expr.idE "mkCons#") (AppE (Expr.idE "link#") (Expr.stringE "Kiwi"))) (Expr.idE "arg#2")))]
+         "Kiwi")),
+       FnDecl NrDef "isEvenMoreFruit"
+       (CondE [(Expr.idE "isBanana",Expr.idE "true#"),
+               (Expr.idE "isKiwi",Expr.idE "true#"),
+               (Expr.idE "true#",Expr.idE "false#")]
+        "irrefutable 'or' pattern")]

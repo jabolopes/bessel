@@ -38,7 +38,6 @@ import Utils
   -- punctuation
   '@'     { TokenAt _ }
   ' @'    { TokenAtSpace _ }
-  '|'     { TokenBar _ }
   '.'     { TokenDot _ }
   ','     { TokenComma _ }
   '='     { TokenEquiv _ }
@@ -202,12 +201,12 @@ Let:
 
 TypeDefn :: { Source }
 TypeDefn:
-    type TypeName ConstructorList { TypeDeclS $2 $3 }
+    type TypeName '=' '{' ConstructorList '}' { TypeDeclS $2 $5 }
 
 ConstructorList :: { [(QualName, Source)] }
 ConstructorList:
-    ConstructorList '|' TypeName Pat { $1 ++ [($3, $4)] }
-  | TypeName Pat                     { [($1, $2)] }
+    ConstructorList TypeName Pat { $1 ++ [($2, $3)] }
+  | TypeName Pat             { [($1, $2)] }
 
 -- patterns
 

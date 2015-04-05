@@ -4,7 +4,7 @@ module Repl where
 import Prelude hiding (lex, mod)
 
 import Control.Monad.State
-import qualified Data.Char as Char (isSpace, isUpper)
+import qualified Data.Char as Char (isSpace)
 import Data.Functor ((<$>))
 import Data.IORef
 import Data.List (intercalate)
@@ -195,7 +195,7 @@ promptM ln =
 replM :: ReplM Bool
 replM =
     do mprompt <- liftIO $ readline "bsl$ "
-       case mprompt of 
+       case mprompt of
          Nothing -> return True
          Just ln | ln == ":quit" -> return True
                  | all Char.isSpace ln -> replM

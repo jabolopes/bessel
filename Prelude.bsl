@@ -230,7 +230,7 @@ let foobar x =
      isInt = true
      @     = false
 
-type Fruit Apple isInt
+type Fruit = Apple isInt
 
 let ola1 = Apple 1
 let ola2 = Apple 2

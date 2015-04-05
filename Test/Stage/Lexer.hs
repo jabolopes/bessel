@@ -35,7 +35,7 @@ expect expected actual =
 
 testLexer :: IO ()
 testLexer =
-  do expect expectedSnippet1 $ Snippet "let not @id = false | @ = true"
+  do expect expectedSnippet1 $ Snippet "let not @id = false @ = true"
      expect expected1 $ File "Test/TestData1.bsl"
   where
     expectedSnippet1 =
@@ -45,10 +45,9 @@ testLexer =
        TokenId (Srcloc 1 10) "id",
        TokenEquiv (Srcloc 1 13),
        TokenId (Srcloc 1 15) "false",
-       TokenBar (Srcloc 1 21),
-       TokenAtSpace (Srcloc 1 22),
-       TokenEquiv (Srcloc 1 25),
-       TokenId (Srcloc 1 27) "true"]
+       TokenAtSpace (Srcloc 1 20),
+       TokenEquiv (Srcloc 1 23),
+       TokenId (Srcloc 1 25) "true"]
 
     expected1 =
       [TokenMe (Srcloc 1 1),

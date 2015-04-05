@@ -138,9 +138,10 @@ testParser =
 
     expected9 =
       ModuleS "Test.TestData9" []
-        [TypeDeclS (QualName {fromQualName = "Fruit"}) [(QualName {fromQualName = "Apple"},PatS "x" (Just (Source.idS "isInt")))],
-         TypeDeclS (QualName {fromQualName = "MoreFruit"}) [(QualName {fromQualName = "Orange"},PatS "x" Nothing)],
-         TypeDeclS (QualName {fromQualName = "EvenMoreFruit"}) [(QualName {fromQualName = "Banana"},Source.idS "isInt")]]
+       [TypeDeclS (QualName {fromQualName = "Fruit"}) [(QualName {fromQualName = "Apple"}, PatS "x" (Just (Source.idS "isInt")))],
+        TypeDeclS (QualName {fromQualName = "MoreFruit"}) [(QualName {fromQualName = "Orange"}, PatS "x" Nothing)],
+        TypeDeclS (QualName {fromQualName = "EvenMoreFruit"}) [(QualName {fromQualName = "Banana"}, Source.idS "isInt"),
+                                                               (QualName {fromQualName = "Kiwi"}, Source.idS "isReal")]]
 
     expected10 =
       ModuleS "Test.TestData10" []

@@ -40,6 +40,7 @@ testIndentLexer =
      expect expected3 $ File "Test/TestData3.bsl"
      expect expected4 $ File "Test/TestData4.bsl"
      expect expected6 $ File "Test/TestData6.bsl"
+     expect expected9 $ File "Test/TestData9.bsl"
      expect expected10 $ File "Test/TestData10.bsl"
      expect expected11 $ File "Test/TestData11.bsl"
   where
@@ -250,6 +251,39 @@ testIndentLexer =
        TokenId (Srcloc 7 11) "y",
        TokenREnvParen,
        TokenREnvParen,
+       TokenREnvParen]
+
+    expected9 =
+      [TokenMe (Srcloc 1 1),
+       TokenTypeId (Srcloc 1 4) "Test",
+       TokenDot (Srcloc 1 8),
+       TokenTypeId (Srcloc 1 9) "TestData9",
+       TokenType (Srcloc 3 1),
+       TokenTypeId (Srcloc 3 6) "Fruit",
+       TokenEquiv (Srcloc 3 12),
+       TokenLEnvParen,
+       TokenTypeId (Srcloc 3 14) "Apple",
+       TokenId (Srcloc 3 20) "x",
+       TokenAt (Srcloc 3 21),
+       TokenId (Srcloc 3 22) "isInt",
+       TokenREnvParen,
+       TokenType (Srcloc 4 1),
+       TokenTypeId (Srcloc 4 6) "MoreFruit",
+       TokenEquiv (Srcloc 4 16),
+       TokenLEnvParen,
+       TokenTypeId (Srcloc 4 18) "Orange",
+       TokenId (Srcloc 4 25) "x",
+       TokenREnvParen,
+       TokenType (Srcloc 5 1),
+       TokenTypeId (Srcloc 5 6) "EvenMoreFruit",
+       TokenEquiv (Srcloc 5 20),
+       TokenLEnvParen,
+       TokenTypeId (Srcloc 6 1) "Banana",
+       TokenAtSpace (Srcloc 6 7),
+       TokenId (Srcloc 6 9) "isInt",
+       TokenTypeId (Srcloc 7 1) "Kiwi",
+       TokenAtSpace (Srcloc 7 5),
+       TokenId (Srcloc 7 7) "isReal",
        TokenREnvParen]
 
     expected10 =

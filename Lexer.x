@@ -46,7 +46,6 @@ tokens :-
   -- punctuation
   " @"                { \p _ -> TokenAtSpace (srcloc p) }
   "@"                 { \p _ -> TokenAt (srcloc p) }
-  "|"                 { \p _ -> TokenBar (srcloc p) }
   ","                 { \p _ -> TokenComma (srcloc p) }
   "."                 { \p _ -> TokenDot (srcloc p) }
   "="                 { \p _ -> TokenEquiv (srcloc p) }

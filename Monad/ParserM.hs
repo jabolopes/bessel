@@ -3,7 +3,6 @@ module Monad.ParserM where
 import Control.Monad.Except (throwError)
 import Control.Monad.State
 import Data.Functor ((<$>))
-import Data.LexState
 import qualified Data.PrettyString as PrettyString
 import Data.Source (Source)
 import qualified Data.Source as Source
