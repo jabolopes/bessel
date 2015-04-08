@@ -10,7 +10,7 @@ import Data.PrettyString (PrettyString, (<+>), ($+$))
 import qualified Data.PrettyString as PrettyString
 import Data.QualName (QualName)
 import qualified Data.QualName as QualName
-import qualified Pretty.Data.Expr as Pretty (DocType(..), docExpr)
+import qualified Pretty.Data.Expr as Pretty (docExpr)
 import qualified Pretty.Data.Source as Pretty
 import qualified Stage.JavascriptCompiler as JavascriptCompiler
 
@@ -32,7 +32,7 @@ definitionOk name val freeNames src exp ren js err =
     expDoc = sectionDoc "-- expanded" exp
     renDoc = sectionDoc "-- renamed" ren
     jsDoc  = sectionDoc "-- javascript" js
-    errDoc = sectionDoc "-- errors" err 
+    errDoc = sectionDoc "-- errors" err
 
 docVal :: Either a b -> String
 docVal (Right x) = "ref"
@@ -50,12 +50,12 @@ docSource _ _ = PrettyString.empty
 
 docExp :: Bool -> Definition -> PrettyString
 docExp showExp Definition { defExp = Right expr }
-  | showExp = Pretty.docExpr Pretty.ExpDocT expr
+  | showExp = Pretty.docExpr expr
 docExp _ _ = PrettyString.empty
 
 docRen :: Bool -> Definition -> PrettyString
 docRen showRen Definition { defRen = Right expr }
-  | showRen = Pretty.docExpr Pretty.RenDocT expr
+  | showRen = Pretty.docExpr expr
 docRen _ _ = PrettyString.empty
 
 docJs :: Bool -> Definition -> PrettyString

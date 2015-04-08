@@ -25,6 +25,8 @@ import Data.Result (Result(..))
 import Data.Symbol
 import Monad.InterpreterM
 import qualified Utils
+import qualified Pretty.Data.Expr as Pretty
+import qualified Data.PrettyString as PrettyString
 
 evalM :: Expr -> InterpreterM Val
 evalM (CharE c) = return $ CharVal c
@@ -42,9 +44,9 @@ evalM (AppE expr1 expr2) =
        case val1 of
          FnVal fn -> fn val2
          _ -> error $ "Interpreter.evalM(AppE): application of non-functions must be detected by the renamer" ++
-                      "\n\n\t expr1 = " ++ show expr1 ++
+                      "\n\n\t expr1 = " ++ PrettyString.toString (Pretty.docExpr expr1) ++
                       "\n\n\t -> val1 = " ++ show val1 ++
-                      "\n\n\t expr2 = " ++ show expr2 ++
+                      "\n\n\t expr2 = " ++ PrettyString.toString (Pretty.docExpr expr2) ++
                       "\n\n\t -> val2 = " ++ show val2 ++ "\n"
 evalM (CondE ms blame) = evalMatches ms
     where evalMatches [] =

@@ -41,7 +41,6 @@ data Expr
     | LetE Expr Expr
 
     | RealE Double
-    deriving (Show)
 
 isAppE :: Expr -> Bool
 isAppE (AppE _ _) = True

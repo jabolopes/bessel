@@ -5,9 +5,6 @@ import qualified Data.QualName as QualName
 import Data.PrettyString (PrettyString, (<>), (<+>), ($+$))
 import qualified Data.PrettyString as PrettyString
 
--- edit: is this unused?
-data DocType = ExpDocT | RenDocT
-
 isParens :: Bool -> Expr -> Bool
 isParens right AppE {} = right
 isParens _ CharE {}    = False
@@ -17,12 +14,12 @@ isParens _ LetE {}     = False
 isParens _ RealE {}    = False
 isParens _ _           = True
 
-docCond :: (a -> PrettyString) -> DocType -> [(a, Expr)] -> String -> PrettyString
-docCond fn t ms blame =
+docCond :: (a -> PrettyString) -> [(a, Expr)] -> String -> PrettyString
+docCond fn ms blame =
   foldl1 ($+$) (map docMatch ms ++ docBlame)
   where
     docMatch (x, e) =
-      PrettyString.sep [fn x <+> PrettyString.equals, PrettyString.nest (docExpr t e)]
+      PrettyString.sep [fn x <+> PrettyString.equals, PrettyString.nest (docExpr e)]
 
     docBlame =
       [PrettyString.text "_" <+>
@@ -30,31 +27,31 @@ docCond fn t ms blame =
        PrettyString.text "blame" <+>
        PrettyString.text blame]
 
-docExpr :: DocType -> Expr -> PrettyString
-docExpr t (AppE e1 e2) =
+docExpr :: Expr -> PrettyString
+docExpr (AppE e1 e2) =
   let
-    fn1 | isParens False e1 = PrettyString.parens . docExpr t
-        | otherwise = docExpr t
-    fn2 | isParens True e2 = PrettyString.parens . docExpr t
-        | otherwise = docExpr t
+    fn1 | isParens False e1 = PrettyString.parens . docExpr
+        | otherwise = docExpr
+    fn2 | isParens True e2 = PrettyString.parens . docExpr
+        | otherwise = docExpr
   in
     PrettyString.sep [fn1 e1, PrettyString.nest (fn2 e2)]
-docExpr _ (CharE c) = PrettyString.quotes (PrettyString.char c)
-docExpr t (CondE ms blame) =
-  PrettyString.sep [PrettyString.text "cond", PrettyString.nest (docCond (docExpr t) t ms blame)]
-docExpr t (FnDecl kw name body) =
-  PrettyString.sep [kwDoc kw <+> PrettyString.text name, PrettyString.nest (docExpr t body)]
+docExpr (CharE c) = PrettyString.quotes (PrettyString.char c)
+docExpr (CondE ms blame) =
+  PrettyString.sep [PrettyString.text "cond", PrettyString.nest (docCond docExpr ms blame)]
+docExpr (FnDecl kw name body) =
+  PrettyString.sep [kwDoc kw <+> PrettyString.text name, PrettyString.nest (docExpr body)]
   where kwDoc Def = PrettyString.text "def"
         kwDoc NrDef = PrettyString.text "nrdef"
-docExpr _ (IdE name) = PrettyString.text (QualName.fromQualName name)
-docExpr _ (IntE i) = PrettyString.int i
-docExpr t (LetE defn body) =
+docExpr (IdE name) = PrettyString.text (QualName.fromQualName name)
+docExpr (IntE i) = PrettyString.int i
+docExpr (LetE defn body) =
   PrettyString.sep
-  [PrettyString.text "let", PrettyString.nest (docExpr t defn),
-   PrettyString.text "in", docExpr t body]
-docExpr t (LambdaE arg body) =
-  PrettyString.sep [PrettyString.text "\\" <> PrettyString.text arg <+> PrettyString.text "->", PrettyString.nest (docExpr t body)]
-docExpr _ (RealE d) = PrettyString.double d
+  [PrettyString.text "let", PrettyString.nest (docExpr defn),
+   PrettyString.text "in", docExpr body]
+docExpr (LambdaE arg body) =
+  PrettyString.sep [PrettyString.text "\\" <> PrettyString.text arg <+> PrettyString.text "->", PrettyString.nest (docExpr body)]
+docExpr (RealE d) = PrettyString.double d
 
 -- PrettyString for a list of 'Expr's.
 docExprList :: [Expr] -> PrettyString
@@ -63,5 +60,5 @@ docExprList (src:srcs) =
   PrettyString.sep .
   (++ [PrettyString.text "]"]) .
   PrettyString.intercalate (PrettyString.text ",") $
-  ((PrettyString.text "[" <+> docExpr ExpDocT src):) $
-  map (\x -> PrettyString.text "," <+> docExpr ExpDocT x) srcs
+  ((PrettyString.text "[" <+> docExpr src):) $
+  map (\x -> PrettyString.text "," <+> docExpr x) srcs
