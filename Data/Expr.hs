@@ -40,9 +40,6 @@ data Expr
     -- @
     | LetE Expr Expr
 
-    -- info: initialization vals (1st argument) are sorted in Parser
-    | MergeE [(QualName, Expr)]
-
     | RealE Double
     deriving (Show)
 
@@ -168,12 +165,6 @@ freeVars' env fvars (LetE defn body) =
     freeVars' env' fvars' body
 freeVars' env fvars (LambdaE arg body) =
     freeVars' (arg:env) fvars body
-freeVars' env fvars (MergeE vals) =
-    loop env fvars vals
-    where loop env fvars [] = (env, fvars)
-          loop env fvars ((_, expr):vals) =
-              let (env', fvars') = freeVars' env fvars expr in
-              loop env' fvars' vals
 freeVars' env fvars (RealE _) = (env, fvars)
 
 freeVars :: Expr -> [String]

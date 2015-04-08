@@ -148,9 +148,6 @@ renameM (LetE defn body) =
     Utils.returnOne . return $ LetE defn' body'
 renameM (LambdaE arg body) =
   Utils.returnOne (renameLambdaM arg body)
-renameM (MergeE vals) =
-  Utils.returnOne $ MergeE <$> mapM renameValsM vals
-  where renameValsM (name, expr) =  (name,) <$> renameOneM expr
 renameM expr@RealE {} = Utils.returnOne $ return expr
 
 lookupFreeVar :: FileSystem -> [String] -> [(String, String)] -> String -> [Definition]

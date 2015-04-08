@@ -49,7 +49,7 @@ evalM (AppE expr1 expr2) =
 evalM (CondE ms blame) = evalMatches ms
     where evalMatches [] =
               error $ "Interpreter.evalM(CondE): non-exhaustive patterns in " ++ blame
-                    
+
           evalMatches ((pred, val):xs) =
               do pred' <- evalM pred
                  case pred' of
@@ -87,8 +87,6 @@ evalM (LetE defn body) =
   withEnvM $ do
     _ <- evalM defn
     withEnvM (evalM body)
-evalM (MergeE vals) =
-  TypeVal <$> SeqVal <$> mapM (evalM . snd) vals
 
 freeNameDefinitions :: FileSystem -> Definition -> [Definition]
 freeNameDefinitions fs def =

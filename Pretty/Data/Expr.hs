@@ -54,8 +54,6 @@ docExpr t (LetE defn body) =
    PrettyString.text "in", docExpr t body]
 docExpr t (LambdaE arg body) =
   PrettyString.sep [PrettyString.text "\\" <> PrettyString.text arg <+> PrettyString.text "->", PrettyString.nest (docExpr t body)]
-docExpr _ MergeE {} =
-  error "Pretty.Data.Expr.docExpr: unhandled case for MergeE"
 docExpr _ (RealE d) = PrettyString.double d
 
 -- PrettyString for a list of 'Expr's.
