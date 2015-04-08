@@ -10,45 +10,50 @@ data DefnKw
     deriving (Show)
 
 data Expr
-    = AppE Expr Expr
-    | CharE Char
+  = AppE Expr Expr
+  | CharE Char
 
-    -- |
-    -- This construct is not available in the parser
-    -- @
-    -- case
-    --   pred1 val1 -> val1'
-    --   pred2 val2 -> val2'
-    --   ...
-    --   _ -> blame "..."
-    -- @
-    | CondE [(Expr, Expr)] String
+  -- |
+  -- This construct is not available in the parser
+  -- @
+  -- case
+  --   pred1 val1 -> val1'
+  --   pred2 val2 -> val2'
+  --   ...
+  --   _ -> blame "..."
+  -- @
+  | CondE [(Expr, Expr)] String
 
-    | FnDecl DefnKw QualName Expr
-    | IdE QualName
-    | IntE Int
+  -- |
+  -- @
+  -- let fn ...
+  -- @
+  | FnDecl DefnKw QualName Expr
 
-    -- |
-    -- This construct is not available in the parser
-    -- @
-    -- \x -> ...
-    -- @
-    | LambdaE QualName Expr
+  | IdE QualName
+  | IntE Int
 
-    -- |
-    -- @
-    -- let fn x y = ... in ...
-    -- @
-    | LetE Expr Expr
+  -- |
+  -- This construct is not available in the parser
+  -- @
+  -- \x -> ...
+  -- @
+  | LambdaE QualName Expr
 
-    | RealE Double
+  -- |
+  -- @
+  -- let fn x y = ... in ...
+  -- @
+  | LetE Expr Expr
+
+  | RealE Double
 
 isAppE :: Expr -> Bool
-isAppE (AppE _ _) = True
+isAppE AppE {} = True
 isAppE _ = False
 
 isCharE :: Expr -> Bool
-isCharE (CharE _) = True
+isCharE CharE {} = True
 isCharE _ = False
 
 isFnDecl :: Expr -> Bool
