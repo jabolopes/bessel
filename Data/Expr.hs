@@ -3,6 +3,7 @@ module Data.Expr where
 import qualified Data.List as List (nub)
 
 import Data.QualName
+import qualified Data.QualName as QualName
 
 data DefnKw
   = Def | NrDef
@@ -23,7 +24,7 @@ data Expr
     -- @
     | CondE [(Expr, Expr)] String
 
-    | FnDecl DefnKw String Expr
+    | FnDecl DefnKw QualName Expr
     | IdE QualName
     | IntE Int
 
@@ -32,7 +33,7 @@ data Expr
     -- @
     -- \x -> ...
     -- @
-    | LambdaE String Expr
+    | LambdaE QualName Expr
 
     -- |
     -- @
@@ -85,7 +86,7 @@ binOpE :: String -> Expr -> Expr -> Expr
 binOpE op expr = AppE (appE op expr)
 
 constE :: Expr -> Expr
-constE = LambdaE "_"
+constE = LambdaE $ QualName.unqualified "_"
 
 constTrueE :: Expr
 constTrueE = constE (idE "true#")
@@ -94,7 +95,7 @@ foldAppE :: Expr -> [Expr] -> Expr
 foldAppE = foldr AppE
 
 idE :: String -> Expr
-idE = IdE . mkQualName . (:[])
+idE = IdE . qualified
 
 intE :: Int -> Expr
 intE n
@@ -129,42 +130,40 @@ seqE (e:es) = AppE (appE "cons" e) (seqE es)
 stringE :: String -> Expr
 stringE str = seqE (map CharE str)
 
-freeVarsList :: [String] -> [String] -> [Expr] -> ([String], [String])
-freeVarsList env fvars [] = (env, fvars)
-freeVarsList env fvars (x:xs) =
-    let (env', fvars') = freeVars' env fvars x in
-    freeVarsList env' fvars' xs
-
-freeVars' :: [String] -> [String] -> Expr -> ([String], [String])
-freeVars' env fvars (AppE expr1 expr2) =
-    let (env', fvars') = freeVars' env fvars expr1 in
-    freeVars' env' fvars' expr2
-freeVars' env fvars (CharE _) = (env, fvars)
-freeVars' env fvars (CondE ms _) =
-    loop env fvars ms
-    where
-      loop env fvars [] = (env, fvars)
-      loop env fvars ((expr1, expr2):exprs) =
-        let
-          (env', fvars') = freeVars' env fvars expr1
-          (env'', fvars'') = freeVars' env' fvars' expr2
-        in
-         loop env'' fvars'' exprs
-freeVars' env fvars (FnDecl Def name expr) =
-    freeVars' (name:env) fvars expr
-freeVars' env fvars (FnDecl NrDef name expr) =
-    let (env', fvars') = freeVars' env fvars expr in
-    (name:env', fvars')
-freeVars' env fvars (IdE name)
-    | fromQualName name `elem` env = (env, fvars)
-    | otherwise = (env, fromQualName name:fvars)
-freeVars' env fvars (IntE _) = (env, fvars)
-freeVars' env fvars (LetE defn body) =
-    let (env', fvars') = freeVars' env fvars defn in
-    freeVars' env' fvars' body
-freeVars' env fvars (LambdaE arg body) =
-    freeVars' (arg:env) fvars body
-freeVars' env fvars (RealE _) = (env, fvars)
-
 freeVars :: Expr -> [String]
-freeVars = List.nub . snd . freeVars' [] []
+freeVars = map QualName.fromQualName . List.nub . snd . freeVars' [] []
+  where
+    freeVars' :: [QualName] -> [QualName] -> Expr -> ([QualName], [QualName])
+    freeVars' env fvars (AppE expr1 expr2) =
+      let (env', fvars') = freeVars' env fvars expr1 in
+      freeVars' env' fvars' expr2
+    freeVars' env fvars CharE {} =
+      (env, fvars)
+    freeVars' env fvars (CondE ms _) =
+      loop env fvars ms
+      where
+        loop env fvars [] =
+          (env, fvars)
+        loop env fvars ((expr1, expr2):exprs) =
+          let
+            (env', fvars') = freeVars' env fvars expr1
+            (env'', fvars'') = freeVars' env' fvars' expr2
+          in
+           loop env'' fvars'' exprs
+    freeVars' env fvars (FnDecl Def name expr) =
+      freeVars' (name:env) fvars expr
+    freeVars' env fvars (FnDecl NrDef name expr) =
+      let (env', fvars') = freeVars' env fvars expr in
+      (name:env', fvars')
+    freeVars' env fvars (IdE name)
+      | name `elem` env = (env, fvars)
+      | otherwise = (env, name:fvars)
+    freeVars' env fvars IntE {} =
+      (env, fvars)
+    freeVars' env fvars (LetE defn body) =
+      let (env', fvars') = freeVars' env fvars defn in
+      freeVars' env' fvars' body
+    freeVars' env fvars (LambdaE arg body) =
+      freeVars' (arg:env) fvars body
+    freeVars' env fvars RealE {} =
+      (env, fvars)

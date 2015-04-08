@@ -15,7 +15,7 @@ import Data.Functor ((<$>))
 import Data.LexState
 import Data.Module
 import Data.QualName (QualName)
-import qualified Data.QualName as QualName (mkQualName, fromQualName)
+import qualified Data.QualName as QualName
 import Data.Source
 import Data.Token
 import Lexer
@@ -249,7 +249,7 @@ ExprList:
 QualName :: { QualName }
 QualName:
     LongTypeId '.' Name { QualName.mkQualName ($1 ++ [$3]) }
-  | Name                { QualName.mkQualName [$1] }
+  | Name                { QualName.unqualified $1 }
 
 TypeName :: { QualName }
 TypeName:

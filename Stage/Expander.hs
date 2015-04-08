@@ -136,7 +136,7 @@ patPred = sourcePred
     sourcePred src
       | Source.isTypePat src =
         let PatS qualName Nothing = head . Source.appToList $ src in
-        return . Expr.idE . consIsName $ QualName.mkQualName [qualName]
+        return . Expr.idE . consIsName $ QualName.qualified qualName
     sourcePred src@AppS {} =
       case Source.toSource src of
         Just x -> expandOne x
@@ -160,7 +160,7 @@ patPred = sourcePred
          arg <- NameM.genNameM "arg"
          let argId = Source.idS arg
              pred = AndS (Source.appS isFn argId) ((Source.appS eqFn m) `AppS` argId)
-         LambdaE arg <$> expandOne pred
+         LambdaE (QualName.unqualified arg) <$> expandOne pred
 
 -- Expand conds.
 
@@ -240,7 +240,7 @@ expandCond matches blame =
 
     lambdas [] body = body
     lambdas (arg:args) body =
-      LambdaE arg (lambdas args body)
+      LambdaE (QualName.unqualified arg) (lambdas args body)
 
 -- Expand function definitions.
 
@@ -250,7 +250,7 @@ expandFnDecl name body =
     kw | name `elem` Expr.freeVars body = Def
        | otherwise = NrDef
   in
-   FnDecl kw name body
+   FnDecl kw (QualName.qualified name) body
 
 expandResultPattern :: Source -> Source -> ExpanderM [Source]
 expandResultPattern pat body =

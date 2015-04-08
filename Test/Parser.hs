@@ -9,7 +9,6 @@ import qualified Data.Source as Source
 import qualified Parser
 import qualified Pretty.Data.Source as Pretty
 
-deriving instance Eq QualName
 deriving instance Eq Source
 deriving instance Show Source
 

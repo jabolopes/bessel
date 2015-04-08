@@ -4,7 +4,7 @@ module Data.Source where
 import Control.Applicative ((<$>), (<*>))
 
 import Data.QualName (QualName)
-import qualified Data.QualName as QualName (mkQualName, isTypeName)
+import qualified Data.QualName as QualName
 import qualified Utils
 
 data Source
@@ -153,7 +153,7 @@ listToApp :: [Source] -> Source
 listToApp = foldl1 AppS
 
 idS :: String -> Source
-idS = IdS . QualName.mkQualName . Utils.splitId
+idS = IdS . QualName.qualified
 
 moduleDeps :: Source -> [String]
 moduleDeps (ModuleS _ uses _) = map fst uses
@@ -174,7 +174,7 @@ bindPat name src = PatS name (Just src)
 
 isTypePat :: Source -> Bool
 isTypePat (AppS fn _) = isTypePat fn
-isTypePat (PatS name _) = QualName.isTypeName $ QualName.mkQualName [name]
+isTypePat (PatS name _) = QualName.isTypeName $ QualName.qualified name
 isTypePat _ = False
 
 appToList :: Source -> [Source]
@@ -195,7 +195,7 @@ toSource (LetS defns body) = LetS <$> mapM toSource defns <*> toSource body
 toSource (ModuleS name uses decls) = ModuleS name uses <$> mapM toSource decls
 toSource (OrS src1 src2) = OrS <$> toSource src1 <*> toSource src2
 toSource (PatS "" val) = val
-toSource (PatS binder Nothing) = Just . IdS $ QualName.mkQualName [binder]
+toSource (PatS binder Nothing) = Just $ idS binder
 toSource PatS {} = Nothing
 toSource src@RealS {} = Just src
 toSource (SeqS srcs) = SeqS <$> mapM toSource srcs

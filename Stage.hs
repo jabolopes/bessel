@@ -59,7 +59,7 @@ expandDefinition mod def =
   expandSrc . Definition.defSrc $ def
   where
     mkDef expr@(FnDecl _ defName _) =
-      def { defName = QualName.mkQualName [Module.modName mod, defName]
+      def { defName = QualName.qualified (Module.modName mod) `QualName.joinNames` defName
           , defExp = Right expr }
     mkDef _ =
       error "expandDefinition: expand can only return top-level definitions"

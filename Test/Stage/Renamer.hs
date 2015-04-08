@@ -8,7 +8,7 @@ import Control.Monad.State hiding (state)
 import Data.Expr (DefnKw(..), Expr(..))
 import qualified Data.Expr as Expr
 import qualified Data.PrettyString as PrettyString
-import Data.QualName (QualName (..))
+import qualified Data.QualName as QualName
 import Data.Source
 import qualified Parser
 import qualified Pretty.Data.Expr as Pretty
@@ -18,7 +18,6 @@ import qualified Stage.Renamer as Renamer
 
 deriving instance Eq DefnKw
 deriving instance Eq Expr
-deriving instance Eq QualName
 
 initialRenamerState :: Monad m => m RenamerState
 initialRenamerState =
@@ -71,9 +70,9 @@ testRenamer =
      expect [expected2] "Test/TestData2.bsl"
   where
     expected1 =
-      FnDecl NrDef "f10"
-      (LambdaE "x#01"
-       (LambdaE "y#12"
+      FnDecl NrDef (QualName.unqualified "f10")
+      (LambdaE (QualName.unqualified "x#01")
+       (LambdaE (QualName.unqualified "y#12")
         (CondE
          [(CondE
            [(AppE (Expr.idE "isInt#") (Expr.idE "x#01"),
@@ -82,30 +81,30 @@ testRenamer =
              "irrefutable 'and' pattern"),
             (Expr.idE "true#",Expr.idE "false#")]
            "irrefutable 'and' pattern",
-           LetE (FnDecl NrDef "x3" (Expr.idE "x#01"))
-           (LetE (FnDecl NrDef "y4" (Expr.idE "y#12"))
+           LetE (FnDecl NrDef (QualName.unqualified "x3") (Expr.idE "x#01"))
+           (LetE (FnDecl NrDef (QualName.unqualified "y4") (Expr.idE "y#12"))
             (LetE
-             (FnDecl NrDef "f25"
-              (LambdaE "z#26"
+             (FnDecl NrDef (QualName.unqualified "f25")
+              (LambdaE (QualName.unqualified "z#26")
                (CondE
-                [(AppE (LambdaE "_7" (Expr.idE "true#")) (Expr.idE "z#26"),
-                  LetE (FnDecl NrDef "z8" (Expr.idE "z#26"))
+                [(AppE (LambdaE (QualName.unqualified "_7") (Expr.idE "true#")) (Expr.idE "z#26"),
+                  LetE (FnDecl NrDef (QualName.unqualified "z8") (Expr.idE "z#26"))
                   (AppE (AppE (Expr.idE "+") (Expr.idE "z8")) (Expr.idE "y4")))]
                 "f2")))
              (AppE (Expr.idE "f25") (Expr.idE "x3")))))]
          "f1")))
 
     expected2 =
-      FnDecl NrDef "f10"
-      (LambdaE "x#01"
+      FnDecl NrDef (QualName.unqualified "f10")
+      (LambdaE (QualName.unqualified "x#01")
        (CondE [(AppE (Expr.idE "isInt#") (Expr.idE "x#01"),
-                LetE (FnDecl NrDef "x2" (Expr.idE "x#01"))
-                (LetE (FnDecl NrDef "f23"
-                       (LambdaE "z#14"
-                        (CondE [(AppE (LambdaE "_5" (Expr.idE "true#")) (Expr.idE "z#14"),
-                                 LetE (FnDecl NrDef "z6" (Expr.idE "z#14"))
+                LetE (FnDecl NrDef (QualName.unqualified "x2") (Expr.idE "x#01"))
+                (LetE (FnDecl NrDef (QualName.unqualified "f23")
+                       (LambdaE (QualName.unqualified "z#14")
+                        (CondE [(AppE (LambdaE (QualName.unqualified "_5") (Expr.idE "true#")) (Expr.idE "z#14"),
+                                 LetE (FnDecl NrDef (QualName.unqualified "z6") (Expr.idE "z#14"))
                                  (AppE (AppE (Expr.idE "+") (Expr.idE "z6")) (IntE 1)))]
                          "f2")))
-                 (LetE (FnDecl NrDef "y7" (IntE 0))
+                 (LetE (FnDecl NrDef (QualName.unqualified "y7") (IntE 0))
                   (AppE (Expr.idE "f23") (Expr.idE "y7")))))]
         "f1"))

@@ -57,16 +57,16 @@ evalM (CondE ms blame) = evalMatches ms
                  case pred' of
                    BoolVal False -> evalMatches xs
                    _ -> evalM val
-evalM (FnDecl Def str body) =
-  do ref <- liftIO . newIORef $ FnVal (\_ -> error $ str ++ ": loop")
-     addBindM str ref
+evalM (FnDecl Def name body) =
+  do ref <- liftIO . newIORef $ FnVal (\_ -> error $ QualName.fromQualName name ++ ": loop")
+     addBindM (QualName.fromQualName name) ref
      val <- evalM body
-     replaceBindM str val
+     replaceBindM (QualName.fromQualName name) val
      return val
-evalM (FnDecl NrDef str body) =
+evalM (FnDecl NrDef name body) =
   do val <- evalM body
      ref <- liftIO $ newIORef val
-     addBindM str ref
+     addBindM (QualName.fromQualName name) ref
      return val
 evalM expr@(LambdaE arg body) =
   do vars <- freeVars
@@ -83,7 +83,7 @@ evalM expr@(LambdaE arg body) =
       withEmptyEnvM $ do
         forM_ vars $ \(name, ref) ->
           addBindM name ref
-        addBindM arg =<< liftIO (newIORef val)
+        addBindM (QualName.fromQualName arg) =<< liftIO (newIORef val)
         evalM body
 evalM (LetE defn body) =
   withEnvM $ do
@@ -107,7 +107,7 @@ interpretDefinition fs def@Definition { defRen = Right expr@(FnDecl _ name _) } 
        ([], vals) ->
          do let env = Env.initial . Map.fromList $ initialEnvironment defs vals
             (_, env') <- runStateT (evalM expr) env
-            case Env.findBind env' name of
+            case Env.findBind env' (QualName.fromQualName name) of
               Nothing -> return def { defVal = Left $ "failed to evaluate " ++ QualName.fromQualName (Definition.defName def) }
               Just ref -> return def { defVal = Right ref }
        _ ->

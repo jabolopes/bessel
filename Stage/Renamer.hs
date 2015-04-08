@@ -111,7 +111,7 @@ renameOneM expr = head <$> renameM expr
 renameLambdaM :: String -> Expr -> RenamerM Expr
 renameLambdaM arg body =
   do arg' <- genNameM arg
-     LambdaE arg' <$>
+     LambdaE (QualName.mkQualName [arg']) <$>
        withScopeM
          (do addFnSymbolM arg arg'
              withScopeM (renameOneM body))
@@ -126,18 +126,18 @@ renameM (CondE ms blame) =
     renameMatch (expr1, expr2) =
       (,) <$> renameOneM expr1 <*> renameOneM expr2
 renameM (FnDecl Def name body) =
-  if name `elem` Expr.freeVars body
+  if QualName.fromQualName name `elem` Expr.freeVars body
   then do
-    name' <- genNameM name
-    addFnSymbolM name name'
-    Utils.returnOne $ FnDecl Def name' <$> renameOneM body
+    name' <- genNameM $ QualName.fromQualName name
+    addFnSymbolM (QualName.fromQualName name) name'
+    Utils.returnOne $ FnDecl Def (QualName.mkQualName [name']) <$> renameOneM body
   else
     renameM (FnDecl NrDef name body)
 renameM (FnDecl NrDef name body) =
-  do name' <- genNameM name
+  do name' <- genNameM $ QualName.fromQualName name
      body' <- renameOneM body
-     addFnSymbolM name name'
-     Utils.returnOne . return $ FnDecl NrDef name' body'
+     addFnSymbolM (QualName.fromQualName name) name'
+     Utils.returnOne . return $ FnDecl NrDef (QualName.mkQualName [name']) body'
 renameM (IdE name) =
   Utils.returnOne $ Expr.idE <$> getFnSymbolM (QualName.fromQualName name)
 renameM expr@IntE {} = Utils.returnOne $ return expr
@@ -147,7 +147,7 @@ renameM (LetE defn body) =
     body' <- withScopeM (renameOneM body)
     Utils.returnOne . return $ LetE defn' body'
 renameM (LambdaE arg body) =
-  Utils.returnOne (renameLambdaM arg body)
+  Utils.returnOne (renameLambdaM (QualName.fromQualName arg) body)
 renameM expr@RealE {} = Utils.returnOne $ return expr
 
 lookupFreeVar :: FileSystem -> [String] -> [(String, String)] -> String -> [Definition]

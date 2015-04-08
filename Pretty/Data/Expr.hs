@@ -40,7 +40,7 @@ docExpr (CharE c) = PrettyString.quotes (PrettyString.char c)
 docExpr (CondE ms blame) =
   PrettyString.sep [PrettyString.text "cond", PrettyString.nest (docCond docExpr ms blame)]
 docExpr (FnDecl kw name body) =
-  PrettyString.sep [kwDoc kw <+> PrettyString.text name, PrettyString.nest (docExpr body)]
+  PrettyString.sep [kwDoc kw <+> PrettyString.text (QualName.fromQualName name), PrettyString.nest (docExpr body)]
   where kwDoc Def = PrettyString.text "def"
         kwDoc NrDef = PrettyString.text "nrdef"
 docExpr (IdE name) = PrettyString.text (QualName.fromQualName name)
@@ -50,7 +50,7 @@ docExpr (LetE defn body) =
   [PrettyString.text "let", PrettyString.nest (docExpr defn),
    PrettyString.text "in", docExpr body]
 docExpr (LambdaE arg body) =
-  PrettyString.sep [PrettyString.text "\\" <> PrettyString.text arg <+> PrettyString.text "->", PrettyString.nest (docExpr body)]
+  PrettyString.sep [PrettyString.text "\\" <> PrettyString.text (QualName.fromQualName arg) <+> PrettyString.text "->", PrettyString.nest (docExpr body)]
 docExpr (RealE d) = PrettyString.double d
 
 -- PrettyString for a list of 'Expr's.
