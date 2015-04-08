@@ -68,15 +68,15 @@ isValueE _ = False
 
 andE :: Expr -> Expr -> Expr
 andE expr1 expr2 =
-    -- note: not using 'expr1' and 'expr2' directly in the Boolean
-    -- expression in order to force them to have type 'Bool'.
-    let
-        err = "irrefutable 'and' pattern"
-        m2 = (expr2, idE "true#")
-        m3 = (idE "true#", idE "false#")
-        m1 = (expr1, CondE [m2, m3] err)
-    in
-      CondE [m1, m3] err
+  -- note: not using 'expr1' and 'expr2' directly in the Boolean
+  -- expression in order to force them to have type 'Bool'.
+  let
+    err = "irrefutable 'and' pattern"
+    m2 = (expr2, idE "true#")
+    m3 = (idE "true#", idE "false#")
+    m1 = (expr1, CondE [m2, m3] err)
+  in
+   CondE [m1, m3] err
 
 appE :: String -> Expr -> Expr
 appE str = AppE (idE str)
