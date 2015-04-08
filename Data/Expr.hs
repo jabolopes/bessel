@@ -7,7 +7,6 @@ import qualified Data.QualName as QualName
 
 data DefnKw
   = Def | NrDef
-    deriving (Show)
 
 data Expr
   = AppE Expr Expr
