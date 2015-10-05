@@ -4,10 +4,12 @@ module Stage.IndentLexer where
 import Control.Applicative
 import Control.Monad.State
 import Data.Char (isPunctuation, isSpace, isDigit)
+import qualified Data.List as List
 import Data.Maybe (isJust)
+
+import Data.Name (Name)
 import Data.Token (Srcloc(..), Token(..))
 import qualified Data.Token as Token
-import qualified Data.List as List
 import qualified Lexer
 
 -- 'push' @x xs@ adds @x@ to @xs@ only if the first element in @xs@
@@ -40,7 +42,7 @@ isEmptyLine :: String -> Bool
 isEmptyLine = all isSpace
 
 data IndentLexerState
-  = IndentLexerState { idnFilename :: String }
+  = IndentLexerState { idnModname :: Name }
 
 newtype IndentLexer a
   = IndentLexer { unIndentLexer :: State IndentLexerState a }
@@ -89,8 +91,8 @@ tokenize filename line idns ln =
 -- issued by 'section' according to the indentation stack @idns@.
 reduce :: [Int] -> Int -> String -> IndentLexer [Token]
 reduce idns n ln =
-  do filename <- idnFilename <$> get
-     return $ section "|" idns idn ++ tokenize filename n (push idn idns) (trim ln)
+  do modName <- idnModname <$> get
+     return $ section "|" idns idn ++ tokenize (show modName) n (push idn idns) (trim ln)
   where
     idn = indentation ln
 
@@ -115,11 +117,11 @@ classify idns ((n1, ln1):(n2, ln2):lns)
     idn1 = indentation ln1
     idn2 = indentation ln2
 
--- | 'indentLex' @filename@ @str@ lexes the input @str@ into a list of 'Token's,
--- where @filename@ is the input filename, which is used for error messages.
-indentLex :: String -> String -> [Token]
-indentLex filename str =
-  runMonad (IndentLexerState filename) (classify [0] $ zip [1..] $ lines str)
+-- | 'indentLex' @modName@ @str@ lexes the input @str@ into a list of 'Token's,
+-- where @modName@ is the input module name, which is used for error messages.
+indentLex :: Name -> String -> [Token]
+indentLex modName str =
+  runMonad (IndentLexerState modName) (classify [0] $ zip [1..] $ lines str)
   where
     runMonad s m =
       fst $ runState (unIndentLexer m) s

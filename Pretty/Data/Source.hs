@@ -2,7 +2,7 @@ module Pretty.Data.Source where
 
 import Data.PrettyString (PrettyString, (<>), (<+>), ($+$))
 import qualified Data.PrettyString as PrettyString
-import qualified Data.QualName as QualName (fromQualName)
+import qualified Data.Name as Name
 import Data.Source
 
 docPat :: String -> Maybe Source -> PrettyString
@@ -38,7 +38,7 @@ docSource (CondS srcs) =
 docSource (FnDefS pat body) =
   PrettyString.sep [PrettyString.text "let" <+> docSource pat, PrettyString.nest (docSource body)]
 docSource (IdS name) =
-  PrettyString.text (QualName.fromQualName name)
+  PrettyString.text $ show name
 docSource (IntS i) =
   PrettyString.int i
 docSource (LetS defns body) =
@@ -48,7 +48,7 @@ docSource (LetS defns body) =
    PrettyString.text "in",
    docSource body]
 docSource (ModuleS name uses defns) =
-  PrettyString.text "me" <+> PrettyString.text name
+  PrettyString.text "me" <+> PrettyString.text (show name)
   $+$
   PrettyString.empty
   $+$
@@ -56,10 +56,12 @@ docSource (ModuleS name uses defns) =
   $+$
   PrettyString.vcat
     (PrettyString.intercalate (PrettyString.text "\n") (map docSource defns))
-  where docUse (use, "") =
-          PrettyString.text "use" <+> PrettyString.text use
-        docUse (use, qual) =
-          docUse (use, "") <+> PrettyString.text "as" <+> PrettyString.text qual
+  where
+    docUse (use, asName)
+      | Name.isEmptyName asName =
+        PrettyString.text "use" <+> PrettyString.text (show use)
+    docUse (use, qual) =
+      docUse (use, Name.empty) <+> PrettyString.text "as" <+> PrettyString.text (show qual)
 docSource (OrS src1 src2) =
   docSource src1 <+> PrettyString.text "||" <+> docSource src2
 docSource (PatS binder guard) =
@@ -73,10 +75,12 @@ docSource (SeqS ms) =
 docSource (StringS str) =
   PrettyString.char '"' <> PrettyString.text str <> PrettyString.char '"'
 docSource (TypeDeclS typeName cons) =
-  PrettyString.sep [PrettyString.text "type" <+> PrettyString.text (QualName.fromQualName typeName), PrettyString.nest consDoc]
-  where docConstructor (consName, consPat) =
-          PrettyString.text (QualName.fromQualName consName) <+> docSource consPat
-        consDoc = PrettyString.sep . PrettyString.intercalate (PrettyString.text "|") . map docConstructor $ cons
+  PrettyString.sep [PrettyString.text "type" <+> PrettyString.text (show typeName), PrettyString.nest consDoc]
+  where
+    docConstructor (consName, consPat) =
+      PrettyString.text (show consName) <+> docSource consPat
+    consDoc =
+      PrettyString.sep . PrettyString.intercalate (PrettyString.text "|") . map docConstructor $ cons
 docSource (WhereS m ms) =
   PrettyString.sep
   [docSource m,

@@ -2,14 +2,16 @@ module Data.Expr where
 
 import qualified Data.List as List (nub)
 
-import Data.QualName
-import qualified Data.QualName as QualName
+import Data.Name (Name)
+import qualified Data.Name as Name
+import Typechecker.Type (Type)
 
 data DefnKw
   = Def | NrDef
 
 data Expr
-  = AppE Expr Expr
+  = Annotation Expr Type
+  | AppE Expr Expr
   | CharE Char
 
   -- |
@@ -27,9 +29,9 @@ data Expr
   -- @
   -- let fn ...
   -- @
-  | FnDecl DefnKw QualName Expr
+  | FnDecl DefnKw Name Expr
 
-  | IdE QualName
+  | IdE Name
   | IntE Int
 
   -- |
@@ -37,7 +39,7 @@ data Expr
   -- @
   -- \x -> ...
   -- @
-  | LambdaE QualName Expr
+  | LambdaE Name Expr
 
   -- |
   -- @
@@ -71,40 +73,48 @@ isValueE CharE {} = True
 isValueE LambdaE {} = True
 isValueE _ = False
 
+falseE :: Expr
+falseE = idE "false#"
+
+trueE :: Expr
+trueE = idE "true#"
+
 andE :: Expr -> Expr -> Expr
 andE expr1 expr2 =
   -- note: not using 'expr1' and 'expr2' directly in the Boolean
   -- expression in order to force them to have type 'Bool'.
   let
     err = "irrefutable 'and' pattern"
-    m2 = (expr2, idE "true#")
-    m3 = (idE "true#", idE "false#")
+    m2 = (expr2, trueE)
+    m3 = (trueE, falseE)
     m1 = (expr1, CondE [m2, m3] err)
   in
    CondE [m1, m3] err
 
-appE :: String -> Expr -> Expr
-appE str = AppE (idE str)
+appE :: Name -> Expr -> Expr
+appE name = AppE (IdE name)
 
-binOpE :: String -> Expr -> Expr -> Expr
+binOpE :: Name -> Expr -> Expr -> Expr
 binOpE op expr = AppE (appE op expr)
 
 constE :: Expr -> Expr
-constE = LambdaE $ QualName.unqualified "_"
+constE = LambdaE (Name.untyped "_")
 
 constTrueE :: Expr
-constTrueE = constE (idE "true#")
+constTrueE = constE trueE
 
 foldAppE :: Expr -> [Expr] -> Expr
 foldAppE = foldr AppE
 
 idE :: String -> Expr
-idE = IdE . qualified
+idE = IdE . Name.untyped
 
 intE :: Int -> Expr
 intE n
   | n >= 0 = IntE n
-  | otherwise = appE "negInt" (IntE (- n))
+  | otherwise = appE negInt (IntE (- n))
+  where
+    negInt = Name.untyped "negInt"
 
 letE :: [Expr] -> Expr -> Expr
 letE defs expr =
@@ -116,28 +126,34 @@ orE expr1 expr2 =
     -- expression in order to force them to have type 'Bool'.
     let
         err = "irrefutable 'or' pattern"
-        m1 = (expr1, idE "true#")
-        m2 = (expr2, idE "true#")
-        m3 = (idE "true#", idE "false#")
+        m1 = (expr1, trueE)
+        m2 = (expr2, trueE)
+        m3 = (trueE, falseE)
     in
       CondE [m1, m2, m3] err
 
 realE :: Double -> Expr
 realE n
   | n >= 0 = RealE n
-  | otherwise = appE "negReal" (RealE (- n))
+  | otherwise = appE negReal (RealE (- n))
+  where
+    negReal = Name.untyped "negReal"
 
 seqE :: [Expr] -> Expr
 seqE [] = idE "null"
-seqE (e:es) = AppE (appE "cons" e) (seqE es)
+seqE (e:es) = AppE (appE consE e) (seqE es)
+  where
+    consE = Name.untyped "cons"
 
 stringE :: String -> Expr
 stringE str = seqE (map CharE str)
 
-freeVars :: Expr -> [String]
-freeVars = map QualName.fromQualName . List.nub . snd . freeVars' [] []
+freeVars :: Expr -> [Name]
+freeVars = List.nub . snd . freeVars' [] []
   where
-    freeVars' :: [QualName] -> [QualName] -> Expr -> ([QualName], [QualName])
+    freeVars' :: [Name] -> [Name] -> Expr -> ([Name], [Name])
+    freeVars' env fvars (Annotation expr _) =
+      freeVars' env fvars expr
     freeVars' env fvars (AppE expr1 expr2) =
       let (env', fvars') = freeVars' env fvars expr1 in
       freeVars' env' fvars' expr2

@@ -8,7 +8,7 @@ import Control.Monad.State
 import Data.Functor ((<$>))
 import Data.IORef
 import qualified Data.Map as Map (empty, fromList)
-import Data.Maybe (isNothing, isJust, mapMaybe)
+import Data.Maybe (isJust)
 import Data.Either
 
 import Data.Definition (Definition(..))
@@ -20,11 +20,9 @@ import Data.FileSystem (FileSystem)
 import qualified Data.FileSystem as FileSystem
 import Data.Module (ModuleT(..), Module(..))
 import qualified Data.Module as Module
-import qualified Data.QualName as QualName (fromQualName)
+import qualified Data.Name as Name
 import Data.Result (Result(..))
-import Data.Symbol
 import Monad.InterpreterM
-import qualified Utils
 import qualified Pretty.Data.Expr as Pretty
 import qualified Data.PrettyString as PrettyString
 
@@ -33,11 +31,11 @@ evalM (CharE c) = return $ CharVal c
 evalM (IntE i) = return $ IntVal i
 evalM (RealE d) = return $ RealVal d
 evalM (IdE str) =
-    do msym <- findBindM (QualName.fromQualName str)
+    do msym <- findBindM (Name.nameStr str)
        case msym of
          Just val -> liftIO $ readIORef val
          Nothing -> error $ "Interpreter.evalM(IdE): unbound symbols must be caught by the renamer" ++
-                            "\n\n\t str = " ++ QualName.fromQualName str ++ "\n"
+                            "\n\n\t str = " ++ show str ++ "\n"
 evalM (AppE expr1 expr2) =
     do val1 <- evalM expr1
        val2 <- evalM expr2
@@ -58,22 +56,22 @@ evalM (CondE ms blame) = evalMatches ms
                    BoolVal False -> evalMatches xs
                    _ -> evalM val
 evalM (FnDecl Def name body) =
-  do ref <- liftIO . newIORef $ FnVal (\_ -> error $ QualName.fromQualName name ++ ": loop")
-     addBindM (QualName.fromQualName name) ref
+  do ref <- liftIO . newIORef $ FnVal (\_ -> error $ Name.nameStr name ++ ": loop")
+     addBindM (Name.nameStr name) ref
      val <- evalM body
-     replaceBindM (QualName.fromQualName name) val
+     replaceBindM (Name.nameStr name) val
      return val
 evalM (FnDecl NrDef name body) =
   do val <- evalM body
      ref <- liftIO $ newIORef val
-     addBindM (QualName.fromQualName name) ref
+     addBindM (Name.nameStr name) ref
      return val
 evalM expr@(LambdaE arg body) =
   do vars <- freeVars
      return . FnVal $ closure vars
   where
     freeVars =
-      do vals <- mapM (\name -> (name,) <$> findBindM name) $ Expr.freeVars expr
+      do vals <- mapM (\name -> (name,) <$> findBindM (Name.nameStr name)) $ Expr.freeVars expr
          if all (isJust . snd) vals
            then return $ map (id *** (\(Just x) -> x)) vals
            else error $ "Interpreter.evalM.freeReferences: undefined free variables must be caught in previous stages" ++
@@ -82,8 +80,8 @@ evalM expr@(LambdaE arg body) =
     closure vars val =
       withEmptyEnvM $ do
         forM_ vars $ \(name, ref) ->
-          addBindM name ref
-        addBindM (QualName.fromQualName arg) =<< liftIO (newIORef val)
+          addBindM (Name.nameStr name) ref
+        addBindM (Name.nameStr arg) =<< liftIO (newIORef val)
         evalM body
 evalM (LetE defn body) =
   withEnvM $ do
@@ -107,15 +105,15 @@ interpretDefinition fs def@Definition { defRen = Right expr@(FnDecl _ name _) } 
        ([], vals) ->
          do let env = Env.initial . Map.fromList $ initialEnvironment defs vals
             (_, env') <- runStateT (evalM expr) env
-            case Env.findBind env' (QualName.fromQualName name) of
-              Nothing -> return def { defVal = Left $ "failed to evaluate " ++ QualName.fromQualName (Definition.defName def) }
+            case Env.findBind env' (Name.nameStr name) of
+              Nothing -> return def { defVal = Left $ "failed to evaluate " ++ show (Definition.defName def) }
               Just ref -> return def { defVal = Right ref }
        _ ->
          return def { defVal = Left "definition depends on free names that failed to evaluate" }
   where
     initialEnvironment [] [] = []
     initialEnvironment (def:defs) (val:vals) =
-      (QualName.fromQualName $ Definition.defName def, val):initialEnvironment defs vals
+      (Name.nameStr $ Definition.defName def, val):initialEnvironment defs vals
 interpretDefinition _ def = return def
 
 interpretDefinitions :: FileSystem -> Module -> [Definition] -> IO Module

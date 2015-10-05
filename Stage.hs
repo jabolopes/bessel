@@ -12,9 +12,10 @@ import Data.FileSystem (FileSystem)
 import qualified Data.FileSystem as FileSystem
 import Data.Module (ModuleT(..), Module(..))
 import qualified Data.Module as Module
+import Data.Name (Name)
+import qualified Data.Name as Name
 import Data.PrettyString (PrettyString)
 import qualified Data.PrettyString as PrettyString
-import qualified Data.QualName as QualName
 import Data.Source (Source(..))
 import qualified Data.Source as Source
 import qualified Stage.Interpreter as Interpreter (interpret, interpretDefinition)
@@ -28,16 +29,16 @@ import qualified Utils
 -- * Definitions
 
 -- edit: improve by a lot...
-definitionName :: Source -> String
-definitionName (FnDefS (IdS name) _) = QualName.fromQualName name
+definitionName :: Source -> Name
+definitionName (FnDefS (IdS name) _) = name
 definitionName (FnDefS pat _) =
   let defns = Expander.patDefinitions undefined pat in
   case defns of
     [] -> error $ "Stage.definitionName: " ++
                   PrettyString.toString (Pretty.docSource pat) ++
                   PrettyString.toString (Pretty.docSourceList defns)
-    _ -> List.intercalate "+" $ map (\(FnDefS (PatS name _) _) -> name) defns
-definitionName (TypeDeclS x _) = QualName.fromQualName x
+    _ -> Name.untyped . List.intercalate "+" $ map (\(FnDefS (PatS name _) _) -> name) defns
+definitionName (TypeDeclS x _) = x
 definitionName src =
   error $ "Stage.definitionName: expecting function or type definition" ++
           "\n\n\t src = " ++ PrettyString.toString (Pretty.docSource src) ++ "\n\n"
@@ -45,22 +46,24 @@ definitionName src =
 splitDefinition :: Module -> Source -> Definition
 splitDefinition mod source =
   let
-    defName = QualName.mkQualName [Module.modName mod, definitionName source]
-    use = (Module.modName mod, "")
+    defName = Name.joinNames (Module.modName mod) (definitionName source)
+    use = (Module.modName mod, Name.empty)
     uses
       | use `elem` Module.modUses mod = Module.modUses mod
       | otherwise = use:Module.modUses mod
   in
     (Definition.initial defName) { defSrc = Right source
-                                 , defUses = uses }
+                                 , defUses = uses
+                                 }
 
 expandDefinition :: Module -> Definition -> Either PrettyString [Definition]
 expandDefinition mod def =
   expandSrc . Definition.defSrc $ def
   where
     mkDef expr@(FnDecl _ defName _) =
-      def { defName = QualName.qualified (Module.modName mod) `QualName.joinNames` defName
-          , defExp = Right expr }
+      def { defName = Module.modName mod `Name.joinNames` defName
+          , defExp = Right expr
+          }
     mkDef _ =
       error "expandDefinition: expand can only return top-level definitions"
 
@@ -72,12 +75,13 @@ expandDefinition mod def =
 mkSnippet :: FileSystem -> Source -> Definition
 mkSnippet fs source@FnDefS {} =
   let
-    defName = QualName.mkQualName [Module.interactiveName, definitionName source]
+    defName = Name.joinNames Module.interactiveName $ definitionName source
   in
    case FileSystem.lookup fs Module.interactiveName of
-     Nothing -> error $ "Stage.mkSnippet: module " ++ Module.interactiveName ++ " not found"
+     Nothing -> error $ "Stage.mkSnippet: module " ++ show Module.interactiveName ++ " not found"
      Just mod -> (Definition.initial defName) { defUses = Module.modUses mod
-                                              , defSrc = Right source }
+                                              , defSrc = Right source
+                                              }
 mkSnippet fs source = mkSnippet fs $ FnDefS (Source.idS "val") source
 
 renameSnippet :: FileSystem -> Definition -> Either PrettyString Definition
@@ -100,7 +104,7 @@ stageDefinition fs ln =
                     Left err -> Left (PrettyString.text err)
                     Right x -> Right x
          let interactive = case FileSystem.lookup fs Module.interactiveName of
-                             Nothing -> error $ "Stage.stageDefinition: module " ++ Module.interactiveName ++ " not found"
+                             Nothing -> error $ "Stage.stageDefinition: module " ++ show Module.interactiveName ++ " not found"
                              Just mod -> mod
              def = mkSnippet fs macro
          expDefs <- expandDefinition interactive def
@@ -115,7 +119,7 @@ reorderModule fs mod =
     defs = map (splitDefinition mod) (Module.modDecls mod)
     mod' = Module.ensureDefinitions mod defs
   in
-    case Utils.duplicates (map (QualName.fromQualName . Definition.defName) defs) of
+    case Utils.duplicates (map (Name.nameStr . Definition.defName) defs) of
       Nothing -> Right (FileSystem.add fs mod', mod')
       Just name -> Left $ Pretty.duplicateDefinitions (Module.modName mod) name
 
@@ -130,8 +134,8 @@ expandModule fs mod =
     expand mod (def:defs) =
       do defs' <- expandDefinition mod def
          let ord =
-               case span (/= QualName.fromQualName (Definition.defName def)) (Module.modDefOrd mod) of
-                 (xs, y:ys) -> xs ++ [y] ++ map (QualName.fromQualName . Definition.defName) defs' ++ ys
+               case span (/= Name.nameStr (Definition.defName def)) (Module.modDefOrd mod) of
+                 (xs, y:ys) -> xs ++ [y] ++ map (Name.nameStr . Definition.defName) defs' ++ ys
              mod' = Module.setDefinitionOrder mod ord
              mod'' = Module.ensureDefinitions mod' defs'
          expand mod'' defs

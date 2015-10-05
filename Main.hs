@@ -1,7 +1,7 @@
 module Main where
 
+import Control.Applicative ((<$>))
 import Data.Foldable (forM_)
-import Data.Functor ((<$>))
 
 import Config
 import Core (coreModule)

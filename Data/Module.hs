@@ -9,11 +9,12 @@ import qualified Data.List as List (elem, nub, partition)
 import Data.Map (Map)
 import qualified Data.Map as Map (empty, fromList, insert, lookup, union, toList)
 import Data.Maybe (fromMaybe)
+import Data.Name (Name)
 
 import qualified Config
 import Data.Definition (Definition(..))
 import qualified Data.Definition as Definition
-import qualified Data.QualName as QualName
+import qualified Data.Name as Name
 import Data.Source
 import Monad.InterpreterM (Val)
 import qualified Utils
@@ -26,42 +27,56 @@ data ModuleT
 
 data Module
   = Module { modType :: ModuleT
-           , modName :: String
+           , modName :: Name
            , modDecls :: [Source]
            , modDefs :: Map String Definition
            , modDefOrd :: [String]
-           , modUses :: [(String, String)]
+           , modUses :: [(Name, Name)]
            }
 
 ensureImplicitUses :: Module -> Module
 ensureImplicitUses mod
   | modType mod == CoreT || modName mod == Config.preludeName = mod
   | otherwise =
-    mod { modUses = ensureElem (Config.coreName, "") .
-                      ensureElem (Config.preludeName, "") .
+    mod { modUses = ensureElem (Config.coreName, Name.empty) .
+                      ensureElem (Config.preludeName, Name.empty) .
                         modUses $ mod }
   where
     ensureElem x xs
       | List.elem x xs = xs
       | otherwise = x:xs
 
+-- | Expands unqualified uses into all their component combinations.
+--
+-- For example,
+--
+--   use Data.List
+--
+-- expands to
+--
+--   use Data.List
+--   use List
 expandUnqualifiedUses :: Module -> Module
 expandUnqualifiedUses mod =
   mod { modUses = List.nub . concatMap expandUnprefixed $ modUses mod }
   where
-    expandUse :: String -> [String]
+    dropFirstComponent :: Name -> Name
+    dropFirstComponent =
+      Name.untyped . Utils.flattenId . tail . Utils.splitId . Name.nameStr
+
+    expandUse :: Name -> [Name]
     expandUse use
-      | null use =
-        []
+      | Name.isEmptyName use = []
+      | otherwise = (use:) . expandUse $ dropFirstComponent use
+
+    expandUnprefixed :: (Name, Name) -> [(Name, Name)]
+    expandUnprefixed x@(use, asName)
+      | Name.isEmptyName asName =
+        ((use, Name.empty):) . map (use,) $ expandUse use
       | otherwise =
-        (use:) . expandUse . Utils.flattenId . tail $ Utils.splitId use
+        [x]
 
-    expandUnprefixed :: (String, String) -> [(String, String)]
-    expandUnprefixed (use, "") =
-      ((use, ""):) . map (use,) $ expandUse use
-    expandUnprefixed x = [x]
-
-initial :: ModuleT -> String -> [(String, String)] -> Module
+initial :: ModuleT -> Name -> [(Name, Name)] -> Module
 initial t name uses =
   expandUnqualifiedUses $
   ensureImplicitUses
@@ -80,45 +95,46 @@ defsAsc mod = map def (modDefOrd mod)
           (error $ "Data.Module.defsAsc: definition " ++ show name ++ " is not defined")
           (Map.lookup name (modDefs mod))
 
-dependencies :: Module -> [String]
+dependencies :: Module -> [Name]
 dependencies = List.nub . map fst . modUses
 
-prefixedUses :: Module -> [(String, String)]
-prefixedUses = snd . List.partition (null . snd) . modUses
+prefixedUses :: Module -> [(Name, Name)]
+prefixedUses = snd . List.partition (Name.isEmptyName . snd) . modUses
 
-unprefixedUses :: Module -> [String]
-unprefixedUses = map fst . fst . List.partition (null . snd) . modUses
+unprefixedUses :: Module -> [Name]
+unprefixedUses =
+  map fst . fst . List.partition (Name.isEmptyName . snd) . modUses
 
 type FnDesc = [(String, Val)]
 
-mkCoreModule :: String -> [String] -> FnDesc -> IO Module
+mkCoreModule :: Name -> [Name] -> FnDesc -> IO Module
 mkCoreModule name deps fnDesc =
-  let uses = [ (dep, "") | dep <- deps ] in
+  let uses = [ (dep, Name.empty) | dep <- deps ] in
   ensureDefinitions (initial CoreT name uses) <$> defs
   where
     defs =
       sequence
       [ do ref <- newIORef val
-           return (Definition.initial (QualName.mkQualName [name, defName])) { defVal = Right ref } | (defName, val) <- fnDesc ]
+           return (Definition.initial (name `Name.joinNames` (Name.untyped defName))) { defVal = Right ref } | (defName, val) <- fnDesc ]
 
-interactiveName :: String
-interactiveName = "Interactive"
+interactiveName :: Name
+interactiveName = Name.untyped "Interactive"
 
 mkInteractiveModule :: [Module] -> [Source] -> Module
 mkInteractiveModule mods srcs =
   let
     modNames = map modName mods
-    uses = zip (init modNames) modNames ++ [(last modNames, "")]
+    uses = zip (init modNames) modNames ++ [(last modNames, Name.empty)]
   in
     ensureImplicitUses (initial InteractiveT interactiveName uses) { modDecls = srcs }
 
 ensureDefinitions :: Module -> [Definition] -> Module
 ensureDefinitions mod defs =
   mod { modDefs = defsMp `Map.union` modDefs mod
-      , modDefOrd = List.nub $ modDefOrd mod ++ map (QualName.fromQualName . Definition.defName) defs }
+      , modDefOrd = List.nub $ modDefOrd mod ++ map (Name.nameStr . Definition.defName) defs }
   where
     defsMp =
-      Map.fromList [ (QualName.fromQualName $ Definition.defName def, def) | def <- defs ]
+      Map.fromList [ (Name.nameStr $ Definition.defName def, def) | def <- defs ]
 
 addDefinitionVals :: Module -> Map String (IORef Val) -> Module
 addDefinitionVals mod vals =

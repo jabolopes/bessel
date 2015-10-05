@@ -3,9 +3,8 @@ module Data.Source where
 
 import Control.Applicative ((<$>), (<*>))
 
-import Data.QualName (QualName)
-import qualified Data.QualName as QualName
-import qualified Utils
+import Data.Name (Name)
+import qualified Data.Name as Name
 
 data Source
   -- | AndS
@@ -52,7 +51,7 @@ data Source
   -- @
   -- x
   -- @
-  | IdS QualName
+  | IdS Name
 
   -- | IntS
   -- @
@@ -79,7 +78,7 @@ data Source
   --
   -- ...
   -- @
-  | ModuleS String [(String, String)] [Source]
+  | ModuleS Name [(Name, Name)] [Source]
 
   -- | OrM
   -- @
@@ -135,7 +134,7 @@ data Source
   -- type Type
   --   | Cons [isInt, isReal]
   -- @
-  | TypeDeclS QualName [(QualName, Source)]
+  | TypeDeclS Name [(Name, Source)]
 
   -- | WhereS
   -- @
@@ -143,8 +142,8 @@ data Source
   -- @
   | WhereS Source [Source]
 
-appS :: String -> Source -> Source
-appS name = AppS (idS name)
+appS :: Name -> Source -> Source
+appS name = AppS (IdS name)
 
 foldAppS :: Source -> [Source] -> Source
 foldAppS = foldr AppS
@@ -153,9 +152,9 @@ listToApp :: [Source] -> Source
 listToApp = foldl1 AppS
 
 idS :: String -> Source
-idS = IdS . QualName.qualified
+idS = IdS . Name.untyped
 
-moduleDeps :: Source -> [String]
+moduleDeps :: Source -> [Name]
 moduleDeps (ModuleS _ uses _) = map fst uses
 moduleDeps _ = error "Source.moduleDeps: expecting a module"
 
@@ -174,7 +173,8 @@ bindPat name src = PatS name (Just src)
 
 isTypePat :: Source -> Bool
 isTypePat (AppS fn _) = isTypePat fn
-isTypePat (PatS name _) = QualName.isTypeName $ QualName.qualified name
+isTypePat (PatS name _) = Name.isTypeName $ Name.untyped name
+isTypePat (IdS name) = Name.isTypeName name
 isTypePat _ = False
 
 appToList :: Source -> [Source]
@@ -195,7 +195,7 @@ toSource (LetS defns body) = LetS <$> mapM toSource defns <*> toSource body
 toSource (ModuleS name uses decls) = ModuleS name uses <$> mapM toSource decls
 toSource (OrS src1 src2) = OrS <$> toSource src1 <*> toSource src2
 toSource (PatS "" val) = val
-toSource (PatS binder Nothing) = Just $ idS binder
+toSource (PatS binder Nothing) = return $ idS binder
 toSource PatS {} = Nothing
 toSource src@RealS {} = Just src
 toSource (SeqS srcs) = SeqS <$> mapM toSource srcs

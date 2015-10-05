@@ -14,14 +14,15 @@ import Data.Expr
 import Data.Functor ((<$>))
 import Data.LexState
 import Data.Module
-import Data.QualName (QualName)
-import qualified Data.QualName as QualName
+import Data.Name (Name)
+import qualified Data.Name as Name
 import Data.Source
 import Data.Token
 import Lexer
 import Monad.ParserM
 import qualified Monad.ParserM as ParserM
 import qualified Stage.IndentLexer as IndentLexer
+import Typechecker.Type (Type(..))
 import Utils
 }
 
@@ -91,6 +92,9 @@ import Utils
   quotedId { TokenQuotedId _ $$ }
   typeId   { TokenTypeId _ $$ }
 
+  -- types
+  '->'     { TokenArrow _ }
+
   -- eof   { TokenEOF }
 
 
@@ -111,6 +115,7 @@ import Utils
 %left     quotedId                      -- functions as operators
 %nonassoc below_app_prec                -- below application (e.g., single id)
 %left     app_prec                      -- application
+%right    '->'
 %nonassoc below_at_prec
 %nonassoc '@' ' @'
 %nonassoc '(' '[' character integer double string id typeId
@@ -126,15 +131,15 @@ DefnOrExpr:
 
 Module :: { Source }
 Module:
-    me TypeName UseList DefnList { ModuleS (QualName.fromQualName $2) $3 $4 }
-  | me TypeName DefnList         { ModuleS (QualName.fromQualName $2) [] $3 }
+    me TypeName UseList DefnList { ModuleS $2 $3 $4 }
+  | me TypeName DefnList         { ModuleS $2 [] $3 }
 
-UseList :: { [(String, String)] }
+UseList :: { [(Name, Name)] }
 UseList:
-    UseList use TypeName as TypeName { $1 ++ [(QualName.fromQualName $3, QualName.fromQualName $5)] }
-  | UseList use TypeName             { $1 ++ [(QualName.fromQualName $3, "")] }
-  | use TypeName as TypeName         { [(QualName.fromQualName $2, QualName.fromQualName $4)] }
-  | use TypeName                     { [(QualName.fromQualName $2, "")] }
+    UseList use TypeName as TypeName { $1 ++ [($3, $5)] }
+  | UseList use TypeName             { $1 ++ [($3, Name.empty)] }
+  | use TypeName as TypeName         { [($2, $4)] }
+  | use TypeName                     { [($2, Name.empty)] }
 
 DefnList :: { [Source] }
 DefnList:
@@ -149,10 +154,10 @@ Defn:
 FnDefn :: { Source }
 FnDefn:
     let Pat CondExpr                        { FnDefS $2 $3 }
- |  let Pat CondExpr where '{' DefnList '}' { FnDefS $2 (WhereS $3 $6) }
- -- The following rule is an unfortunate artifact from the 'IndentLexer'.
- |  let Pat '{' CondExpr '}'                        { FnDefS $2 $4 }
- |  let Pat '{' CondExpr '}' where '{' DefnList '}' { FnDefS $2 (WhereS $4 $8) }
+  | let Pat CondExpr where '{' DefnList '}' { FnDefS $2 (WhereS $3 $6) }
+  -- The following rule is an unfortunate artifact from 'IndentLexer'.
+  | let Pat '{' CondExpr '}'                        { FnDefS $2 $4 }
+  | let Pat '{' CondExpr '}' where '{' DefnList '}' { FnDefS $2 (WhereS $4 $8) }
 
 Expr :: { Source }
 Expr:
@@ -203,10 +208,10 @@ TypeDefn :: { Source }
 TypeDefn:
     type TypeName '=' '{' ConstructorList '}' { TypeDeclS $2 $5 }
 
-ConstructorList :: { [(QualName, Source)] }
+ConstructorList :: { [(Name, Source)] }
 ConstructorList:
     ConstructorList TypeName Pat { $1 ++ [($2, $3)] }
-  | TypeName Pat             { [($1, $2)] }
+  | TypeName Pat                 { [($1, $2)] }
 
 -- patterns
 
@@ -217,13 +222,13 @@ AppExpr:
 
 Pat :: { Source }
 Pat:
-    QualName '@'  SimplePat %prec above_id_prec { bindPat (QualName.fromQualName $1) $3 }
+    QualName '@'  SimplePat %prec above_id_prec { bindPat (Name.nameStr $1) $3 }
   |          '@'  QualName                      { IdS $2 }
   |          ' @' QualName                      { IdS $2 }
   |          '@'                                { allPat }
   |          ' @'                               { allPat }
   |               SimplePat                     { case $1 of
-                                                    IdS name -> bindPat (QualName.fromQualName name) allPat
+                                                    IdS name -> bindPat (Name.nameStr name) allPat
                                                     _ -> $1 }
 
 SimplePat :: { Source }
@@ -235,7 +240,7 @@ SimplePat:
   | string                       { StringS $1 }
   | '[' ExprList ']'             { SeqS $2 }
   | '['          ']'             { SeqS [] }
-  | TypeName                     { idS (QualName.fromQualName $1) }
+  | TypeName                     { IdS $1 }
   | '(' Expr ')'                 { $2 }
   | '{' Expr '}'                 { $2 }
 
@@ -246,14 +251,14 @@ ExprList:
 
 -- identifiers
 
-QualName :: { QualName }
+QualName :: { Name }
 QualName:
-    LongTypeId '.' Name { QualName.mkQualName ($1 ++ [$3]) }
-  | Name                { QualName.unqualified $1 }
+    LongTypeId '.' Name { Name.untyped (Utils.flattenId $1 ++ "." ++ $3) }
+  | Name                { Name.untyped $1 }
 
-TypeName :: { QualName }
+TypeName :: { Name }
 TypeName:
-    LongTypeId { QualName.mkQualName $1 }
+    LongTypeId { Name.untyped (Utils.flattenId $1) }
 
 LongTypeId :: { [String] }
 LongTypeId:
@@ -286,6 +291,11 @@ Operator:
   | '&&'        { $1 }
   | '||'        { $1 }
 
+Type :: { Type }
+Type:
+    TypeName                { PrimitiveT (Name.nameStr $1) }
+  | Type '->' Type          { Arrow $1 $3 }
+
 {
 nextToken :: (Token -> ParserM a) -> ParserM a
 nextToken cont =
@@ -296,17 +306,17 @@ nextToken cont =
          do modify $ \s -> s { psTokens = tokens' }
             cont token
 
-runParser :: ParserM Source -> String -> String -> Either String Source
-runParser m filename str =
-  case runStateT m $ ParserM.initial filename (IndentLexer.indentLex filename str) of
+runParser :: ParserM Source -> Name -> String -> Either String Source
+runParser m modName str =
+  case runStateT m $ ParserM.initial modName (IndentLexer.indentLex modName str) of
     Right (mod, _) -> Right mod
     Left str -> Left str
 
-parseFile :: String -> String -> Either String Source
-parseFile filename str = runParser parseModule filename str
+parseFile :: Name -> String -> Either String Source
+parseFile modName str = runParser parseModule modName str
 
-parseRepl :: String -> String -> Either String Source
-parseRepl filename str =
-  evalStateT parseDefnOrExpr $ ParserM.initial filename $
-    IndentLexer.indentLex filename str
+parseRepl :: Name -> String -> Either String Source
+parseRepl modName str =
+  evalStateT parseDefnOrExpr $ ParserM.initial modName $
+    IndentLexer.indentLex modName str
 }

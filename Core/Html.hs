@@ -9,18 +9,20 @@ import qualified Text.Blaze.Html.Renderer.String as Html
 
 import qualified Core as Core
 import Data.Module
+import Data.Name (Name)
+import qualified Data.Name as Name
 import Monad.InterpreterM
 
-coreHtmlName :: String
-coreHtmlName = "Core.Html"
+coreHtmlName :: Name
+coreHtmlName = Name.untyped "Core.Html"
 
 coreHtmlError :: String -> a
-coreHtmlError = error . ((coreHtmlName ++ ".") ++)
+coreHtmlError = error . ((Name.nameStr coreHtmlName ++ ".") ++)
 
 -- Tag.
 
 tagType :: Int
-IntVal tagType = Core.link $ boxString $ coreHtmlName ++ ".Tag"
+IntVal tagType = Core.link $ boxString $ Name.nameStr coreHtmlName ++ ".Tag"
 
 isTag :: Val -> Bool
 isTag (TypeVal (SeqVal [IntVal typeId, _])) = typeId == tagType
@@ -40,7 +42,7 @@ unTag _ =
 -- Single tag.
 
 singleTagType :: Int
-IntVal singleTagType = Core.link $ boxString $ coreHtmlName ++ ".SingleTag"
+IntVal singleTagType = Core.link $ boxString $ Name.nameStr coreHtmlName ++ ".SingleTag"
 
 isSingleTag :: Val -> Bool
 isSingleTag (TypeVal (SeqVal [IntVal typeId, _])) = typeId == singleTagType
@@ -237,4 +239,4 @@ fnDesc =
    ("renderHtml", primitive renderHtml)]
 
 coreHtmlModule :: IO Module
-coreHtmlModule = mkCoreModule coreHtmlName ["Core"] fnDesc
+coreHtmlModule = mkCoreModule coreHtmlName [Name.untyped "Core"] fnDesc

@@ -2,6 +2,7 @@ module Utils where
 
 import Prelude hiding (mod)
 
+import qualified Data.ByteString.Char8 as ByteString
 import qualified Data.List as List
 import qualified Data.Set as Set
 
@@ -24,13 +25,13 @@ singleton _ = False
 
 split :: Char -> String -> [String]
 split c s =
-    case dropWhile (== c) s of
-      "" -> []
-      s' -> w:split c s''
-            where (w, s'') = break (== c) s'
+  case dropWhile (== c) s of
+    "" -> []
+    s' -> w:split c s''
+      where (w, s'') = break (== c) s'
 
 splitId :: String -> [String]
-splitId = split '.'
+splitId = map ByteString.unpack . ByteString.split '.' . ByteString.pack
 
 rebaseName :: [a] -> [a] -> [a] -> [a]
 rebaseName prefix1 prefix2 name =

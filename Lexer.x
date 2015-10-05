@@ -98,6 +98,9 @@ tokens :-
   @type_id            { \p s -> TokenTypeId (srcloc p) s }
   @operator           { \p s -> operatorFixity (srcloc p) s }
 
+-- types
+  "->"                { \p _ -> TokenArrow (srcloc p) }
+
 {
 srcloc :: AlexPosn -> Srcloc
 srcloc (AlexPn _ line column) = Srcloc line column

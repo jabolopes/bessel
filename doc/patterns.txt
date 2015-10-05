@@ -3,7 +3,8 @@ Patterns
 A pattern is defined by an optional binder followed by an '@' sign and
 an optional guard.  A binder is a name to bind the value matched by
 the pattern to.  A guard can be, for example, a literal, such as,
-character, number, or string, a list, and a type.
+character, number, or string, a list, and a type constructor, but it
+cannot be a type.
 
   Pat: id '@' Guard
 

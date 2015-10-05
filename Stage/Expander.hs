@@ -9,8 +9,8 @@ import Control.Monad.Error.Class (throwError)
 
 import Data.Expr (DefnKw(..), Expr(..))
 import qualified Data.Expr as Expr
-import Data.QualName (QualName)
-import qualified Data.QualName as QualName
+import Data.Name (Name)
+import qualified Data.Name as Name
 import Data.PrettyString (PrettyString)
 import qualified Data.PrettyString as PrettyString
 import Data.Source (Source(..))
@@ -76,12 +76,16 @@ patFnDef binder mods val =
 patDefinitions :: Source -> Source -> [Source]
 patDefinitions val = sourceDefns []
   where
+    unConsName = Source.idS "unCons#"
+    hdName = Source.idS "hd"
+    tlName = Source.idS "tl"
+
     sourceDefns mods src
       | Source.isTypePat src =
-        concatMap (sourceDefns (Source.idS "unCons#":mods)) . tail . Source.appToList $ src
+        concatMap (sourceDefns (unConsName:mods)) . tail . Source.appToList $ src
     sourceDefns mods (BinOpS "+>" hdPat tlPat) =
-      sourceDefns (Source.idS "hd":mods) hdPat ++
-      sourceDefns (Source.idS "tl":mods) tlPat
+      sourceDefns (hdName:mods) hdPat ++
+      sourceDefns (tlName:mods) tlPat
     sourceDefns mods (PatS binder guard) =
       hdDefn ++ tlDefn
       where
@@ -97,16 +101,16 @@ patDefinitions val = sourceDefns []
     sourceDefns mods (SeqS pats) =
       concat [ sourceDefns (mod ++ mods) pat | pat <- pats | mod <- patMods ]
       where
-        listRef 1 = [Source.idS "hd"]
-        listRef i = Source.idS "tl":listRef (i - 1)
+        listRef 1 = [hdName]
+        listRef i = tlName:listRef (i - 1)
         patMods = map (reverse . listRef) [1..length pats]
     sourceDefns _ _ = []
 
 -- | Returns the predicate and equality function names for primitive types.
-patConstantPred :: Source -> (String, String)
-patConstantPred CharS {} = ("isChar#", "eqChar#")
-patConstantPred IntS {} = ("isInt#", "eqInt#")
-patConstantPred RealS {} = ("isReal#", "eqReal#")
+patConstantPred :: Source -> (Name, Name)
+patConstantPred CharS {} = (Name.untyped "isChar#", Name.untyped "eqChar#")
+patConstantPred IntS {} = (Name.untyped "isInt#", Name.untyped "eqInt#")
+patConstantPred RealS {} = (Name.untyped "isReal#", Name.untyped "eqReal#")
 patConstantPred src =
   PrettyString.error "Expander.patConstantPred: invalid argument" $
   (PrettyString.text "src =" PrettyString.<+> Pretty.docSource src)
@@ -133,10 +137,19 @@ patConstantPred src =
 patPred :: Source -> ExpanderM Expr
 patPred = sourcePred
   where
+    isListName = Name.untyped "isList"
+    isTupleName = Name.untyped "isTuple"
+
+    sourcePred :: Source -> ExpanderM Expr
     sourcePred src
       | Source.isTypePat src =
-        let PatS qualName Nothing = head . Source.appToList $ src in
-        return . Expr.idE . consIsName $ QualName.qualified qualName
+        let
+          qualName =
+            case head (Source.appToList src) of
+              IdS x -> x
+              PatS x Nothing -> Name.untyped x
+        in
+          return . IdE . consIsName $ qualName
     sourcePred src@AppS {} =
       case Source.toSource src of
         Just x -> expandOne x
@@ -144,7 +157,7 @@ patPred = sourcePred
     sourcePred (BinOpS "+>" hdPat tlPat) =
       do hdPred <- sourcePred hdPat
          tlPred <- sourcePred tlPat
-         return $ Expr.appE "isList" hdPred `AppE` tlPred
+         return $ Expr.appE isListName hdPred `AppE` tlPred
     sourcePred pred@IdS {} =
       expandOne pred
     sourcePred (PatS _ Nothing) =
@@ -152,7 +165,7 @@ patPred = sourcePred
     sourcePred (PatS _ (Just src)) =
       patPred src
     sourcePred (SeqS pats) =
-      Expr.appE "isTuple" . Expr.seqE <$> mapM sourcePred pats
+      Expr.appE isTupleName . Expr.seqE <$> mapM sourcePred pats
     sourcePred (StringS cs) =
       sourcePred . SeqS . map CharS $ cs
     sourcePred m =
@@ -160,7 +173,7 @@ patPred = sourcePred
          arg <- NameM.genNameM "arg"
          let argId = Source.idS arg
              pred = AndS (Source.appS isFn argId) ((Source.appS eqFn m) `AppS` argId)
-         LambdaE (QualName.unqualified arg) <$> expandOne pred
+         LambdaE (Name.untyped arg) <$> expandOne pred
 
 -- Expand conds.
 
@@ -182,7 +195,46 @@ expandMatchBody args pats body =
        [] -> expandOne body
        _ -> Expr.letE defns <$> expandOne body
 
--- | Expands the matches of a cond, returning their expanded body and patterns.
+-- | Expands a match of a cond, returning the expanded body and patterns.
+--
+-- @
+-- x@pat1 y@pat1' -> body1
+-- x@pat2 y@pat2' -> body2
+-- @
+--
+-- @
+-- cond
+--  pred1 x# && pred2 y# ->
+--    let x = ... in
+--    let y = ... in
+--    body1
+--  pred1 x# && pred2 y# ->
+--    let x = ... in
+--    let y = ... in
+--    body2
+--  _ _ -> blame "..."
+-- @
+--
+-- The above code is a simplification because '&&' is encoded through 'CondE'.
+expandMatch :: [String] -> [Source] -> Source -> ExpanderM (Expr, Expr)
+expandMatch args pats body =
+  (,) <$> andPred <*> expandMatchBody args pats body
+  where
+    applyPred arg pat =
+      do pred <- patPred pat
+         return . AppE pred . Expr.idE $ arg
+
+    andPred =
+      foldl1 Expr.andE <$> sequence [ applyPred arg pat | arg <- args | pat <- pats ]
+
+expandMatches :: [String] -> [([Source], Source)] -> ExpanderM [(Expr, Expr)]
+expandMatches names = loop
+  where
+    loop [] = return []
+    loop ((pats, body):ms) =
+      (:) <$> expandMatch names pats body <*> loop ms
+
+-- | Expands a cond, returning the expanded lambdas and cond.
 --
 -- @
 -- x@pat1 y@pat1' -> body1
@@ -205,24 +257,6 @@ expandMatchBody args pats body =
 -- @
 --
 -- The above code is a simplification because '&&' is encoded through 'CondE'.
-expandMatch :: [String] -> [Source] -> Source -> ExpanderM (Expr, Expr)
-expandMatch args pats body =
-  (,) <$> andPred <*> expandMatchBody args pats body
-  where
-    applyPred arg pat =
-      do pred <- patPred pat
-         return . AppE pred . Expr.idE $ arg
-
-    andPred =
-      foldl1 Expr.andE <$> sequence [ applyPred arg pat | arg <- args | pat <- pats ]
-
-expandMatches :: [String] -> [([Source], Source)] -> ExpanderM [(Expr, Expr)]
-expandMatches names = loop
-  where
-    loop [] = return []
-    loop ((pats, body):ms) =
-      (:) <$> expandMatch names pats body <*> loop ms
-
 expandCond :: [([Source], Source)] -> String -> ExpanderM Expr
 expandCond matches blame =
   do let args = head . fst . unzip $ matches
@@ -240,17 +274,17 @@ expandCond matches blame =
 
     lambdas [] body = body
     lambdas (arg:args) body =
-      LambdaE (QualName.unqualified arg) (lambdas args body)
+      LambdaE (Name.untyped arg) (lambdas args body)
 
 -- Expand function definitions.
 
 expandFnDecl :: String -> Expr -> Expr
 expandFnDecl name body =
   let
-    kw | name `elem` Expr.freeVars body = Def
+    kw | Name.untyped name `elem` Expr.freeVars body = Def
        | otherwise = NrDef
   in
-   FnDecl kw (QualName.qualified name) body
+   FnDecl kw (Name.untyped name) body
 
 expandResultPattern :: Source -> Source -> ExpanderM [Source]
 expandResultPattern pat body =
@@ -265,39 +299,44 @@ expandString = Expr.stringE
 
 -- Expand type definitions.
 
-consIsName :: QualName -> String
-consIsName consName =
-  "is" ++ (QualName.fromQualName consName)
+consIsName :: Name -> Name
+consIsName = Name.untyped . ("is" ++) . Name.nameStr
 
-consMkName :: QualName -> String
-consMkName = QualName.fromQualName
+consMkName :: Name -> Name
+consMkName = id
 
-consPredFn :: QualName -> Source
+consPredFn :: Name -> Source
 consPredFn consName =
   let
-    consNameStr = QualName.fromQualName consName
-    body = Source.appS "isCons#" . Source.appS "link#" . StringS $ consNameStr
+    consNameStr = Name.nameStr consName
+    body = Source.appS isConsName . Source.appS linkName . StringS $ consNameStr
   in
-    FnDefS (PatS (consIsName consName) Nothing) body
+    FnDefS (PatS (Name.nameStr (consIsName consName)) Nothing) body
+  where
+    isConsName = Name.untyped "isCons#"
+    linkName = Name.untyped "link#"
 
-typePredFn :: QualName -> [QualName] -> Source
+typePredFn :: Name -> [Name] -> Source
 typePredFn typeName consNames =
   let
-    predNames = map (Source.idS . consIsName) consNames
+    predNames = map (Source.IdS . consIsName) consNames
     body = foldl1 OrS predNames
   in
-    FnDefS (PatS (consIsName typeName) Nothing) body
+    FnDefS (PatS (Name.nameStr (consIsName typeName)) Nothing) body
 
-consConsFn :: QualName -> String -> Maybe Source -> Source
+consConsFn :: Name -> String -> Maybe Source -> Source
 consConsFn consName binder guard =
   let
-    consNameStr = QualName.fromQualName consName
-    body = Source.appS "mkCons#" . Source.appS "link#" . StringS $ consNameStr
+    consNameStr = Name.nameStr consName
+    body = Source.appS mkConsName . Source.appS linkName . StringS $ consNameStr
   in
-    FnDefS (PatS (consMkName consName) Nothing) $
+    FnDefS (PatS (Name.nameStr (consMkName consName)) Nothing) $
       CondS [([PatS binder guard], body `AppS` Source.idS binder)]
+  where
+    mkConsName = Name.untyped "mkCons#"
+    linkName = Name.untyped "link#"
 
-expandConstructor :: (QualName, Source) -> ExpanderM [Expr]
+expandConstructor :: (Name, Source) -> ExpanderM [Expr]
 expandConstructor (consName, pat) =
   do binder <- patBinder pat
      let guard = patGuard pat
@@ -312,7 +351,7 @@ expandConstructor (consName, pat) =
     patGuard (PatS _ (Just src)) = patGuard src
     patGuard src = Just src
 
-expandTypeDecl :: QualName -> [(QualName, Source)] -> ExpanderM [Expr]
+expandTypeDecl :: Name -> [(Name, Source)] -> ExpanderM [Expr]
 expandTypeDecl typeName cons =
   do consFns <- concat <$> mapM expandConstructor cons
      typeFn <- expandSource . typePredFn typeName $ map fst cons
@@ -345,7 +384,7 @@ expandSource (AndS m1 m2) =
 expandSource (AppS m1 m2) =
   Utils.returnOne $ AppE <$> expandOne m1 <*> expandOne m2
 expandSource (BinOpS op m1 m2) =
-  Utils.returnOne $ Expr.binOpE op <$> expandOne m1 <*> expandOne m2
+  Utils.returnOne $ Expr.binOpE (Name.untyped op) <$> expandOne m1 <*> expandOne m2
 expandSource (CharS c) =
   Utils.returnOne . return . CharE $ c
 expandSource (CondS ms) =
@@ -369,7 +408,7 @@ expandSource (LetS defns src) =
   do defns' <- concat <$> mapM expandSource defns
      Utils.returnOne $ Expr.letE defns' <$> expandOne src
 expandSource (ModuleS me _ _) =
-  throwError (Pretty.devModuleNested me)
+  throwError (Pretty.devModuleNested (Name.nameStr me))
 expandSource (OrS m1 m2) =
   Utils.returnOne $ Expr.orE <$> expandOne m1 <*> expandOne m2
 expandSource pat@PatS {} =

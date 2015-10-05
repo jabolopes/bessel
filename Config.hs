@@ -1,13 +1,16 @@
 module Config where
 
-coreName :: String
-coreName = "Core"
+import Data.Name (Name)
+import qualified Data.Name as Name
 
-isCore :: String -> Bool
+coreName :: Name
+coreName = Name.untyped "Core"
+
+isCore :: Name -> Bool
 isCore = (== coreName)
 
-preludeName :: String
-preludeName = "Prelude"
+preludeName :: Name
+preludeName = Name.untyped "Prelude"
 
-isPrelude :: String -> Bool
+isPrelude :: Name -> Bool
 isPrelude = (== preludeName)

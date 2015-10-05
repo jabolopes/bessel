@@ -8,17 +8,17 @@ import Data.Definition (Definition(..))
 import qualified Data.Definition as Definition
 import Data.PrettyString (PrettyString, (<+>), ($+$))
 import qualified Data.PrettyString as PrettyString
-import Data.QualName (QualName)
-import qualified Data.QualName as QualName
+import Data.Name (Name)
+import qualified Data.Name as Name
 import qualified Pretty.Data.Expr as Pretty (docExpr)
 import qualified Pretty.Data.Source as Pretty
 import qualified Stage.JavascriptCompiler as JavascriptCompiler
 
-definitionOk :: QualName -> String -> [String] -> PrettyString -> PrettyString -> PrettyString -> PrettyString -> PrettyString -> PrettyString
+definitionOk :: Name -> String -> [String] -> PrettyString -> PrettyString -> PrettyString -> PrettyString -> PrettyString -> PrettyString
 definitionOk name val freeNames src exp ren js err =
   hdDoc $+$ PrettyString.vcat [freeDoc, srcDoc, expDoc, renDoc, jsDoc, errDoc]
   where
-    hdDoc = PrettyString.text (QualName.fromQualName name) <+> PrettyString.equals <+> PrettyString.text val
+    hdDoc = PrettyString.text (show name) <+> PrettyString.equals <+> PrettyString.text val
 
     freeDoc
       | null freeNames = PrettyString.empty
@@ -40,7 +40,7 @@ docVal _ = "?"
 
 docFree :: Bool -> Definition -> [String]
 docFree showFree def
-  | showFree = map QualName.fromQualName $ Definition.defFreeNames def
+  | showFree = map Name.nameStr $ Definition.defFreeNames def
   | otherwise = []
 
 docSource :: Bool -> Definition -> PrettyString

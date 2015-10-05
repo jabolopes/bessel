@@ -11,13 +11,15 @@ import System.IO as IO
 
 import Config
 import Data.Module
+import Data.Name (Name)
+import qualified Data.Name as Name
 import Monad.InterpreterM
 import qualified Stage.Interpreter as Interpreter
 
 -- Unit
 
 unitType :: Int
-IntVal unitType = Core.link . boxString $ coreName ++ ".Unit"
+IntVal unitType = Core.link . boxString . Name.nameStr . Name.joinNames coreName $ Name.untyped ".Unit"
 
 isUnit :: Val -> Bool
 isUnit (TypeVal (SeqVal [IntVal typeId, _])) = typeId == unitType

@@ -15,8 +15,8 @@ import Control.Monad.Except
 import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe
-import Data.QualName (QualName)
-import qualified Data.QualName as QualName
+import Data.Name (Name)
+import qualified Data.Name as Name
 
 import Data.Definition (Definition)
 import Data.Module (Module)
@@ -26,12 +26,14 @@ import qualified Data.PrettyString as PrettyString
 
 data FileSystem
   = FileSystem { fsModules :: Map Int Module
-               , fsModuleIds :: Map String Int }
+               , fsModuleIds :: Map Name Int
+               }
 
 empty :: FileSystem
 empty =
   FileSystem { fsModules = Map.empty
-             , fsModuleIds = Map.empty }
+             , fsModuleIds = Map.empty
+             }
 
 initial :: [Module] -> FileSystem
 initial = foldl add empty
@@ -44,28 +46,29 @@ add fs mod =
             (Map.lookup (Module.modName mod) (fsModuleIds fs))
   in
     fs { fsModules = Map.insert fid mod (fsModules fs)
-       , fsModuleIds = Map.insert (Module.modName mod) fid (fsModuleIds fs) }
+       , fsModuleIds = Map.insert (Module.modName mod) fid (fsModuleIds fs)
+       }
 
 toAscList :: FileSystem -> [Module]
 toAscList fs = map snd $ Map.toAscList $ fsModules fs
 
-lookup :: FileSystem -> String -> Maybe Module
+lookup :: FileSystem -> Name -> Maybe Module
 lookup fs name =
   do fid <- name `Map.lookup` fsModuleIds fs
      fid `Map.lookup` fsModules fs
 
-member :: FileSystem -> String -> Bool
+member :: FileSystem -> Name -> Bool
 member fs name = name `Map.member` fsModuleIds fs
 
-lookupDefinition :: FileSystem -> QualName -> Result Definition
+lookupDefinition :: FileSystem -> Name -> Result Definition
 lookupDefinition fs name =
   let
-    modName = QualName.moduleName name
-    defName = QualName.definitionName name
+    modName = Name.moduleName name
+    defName = Name.definitionName name
   in
    case lookup fs modName of
-     Nothing -> throwError . PrettyString.text $ "module " ++ modName ++ " not found"
+     Nothing -> throwError . PrettyString.text $ "module " ++ show modName ++ " not found"
      Just mod ->
-       case QualName.fromQualName name `Map.lookup` Module.modDefs mod of
-         Nothing -> throwError . PrettyString.text $ "definition " ++ defName ++ " not found in module " ++ modName
+       case Name.nameStr name `Map.lookup` Module.modDefs mod of
+         Nothing -> throwError . PrettyString.text $ "definition " ++ show defName ++ " not found in module " ++ show modName
          Just def -> return def

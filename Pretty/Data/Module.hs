@@ -7,31 +7,34 @@ import qualified Data.Map as Map
 
 import Data.Module (ModuleT, Module)
 import qualified Data.Module as Module
+import Data.Name (Name)
+import qualified Data.Name as Name
 import Data.PrettyString (PrettyString, (<+>), ($+$))
 import qualified Data.PrettyString as PrettyString
 import qualified Pretty.Data.Definition as Pretty
 
-docHeader :: String -> ModuleT -> PrettyString
+docHeader :: Name -> ModuleT -> PrettyString
 docHeader name typ =
-  PrettyString.text name <+> PrettyString.parens (PrettyString.text (show typ))
+  PrettyString.text (show name) <+> PrettyString.parens (PrettyString.text (show typ))
 
-docUses :: [(String, String)] -> PrettyString
+docUses :: [(Name, Name)] -> PrettyString
 docUses [] = PrettyString.empty
-docUses ((name1, ""):uses) =
-  PrettyString.text "use" <+>
-  PrettyString.text name1 $+$
-  docUses uses
+docUses ((name1, asName):uses)
+  | Name.isEmptyName asName =
+    PrettyString.text "use" <+>
+    PrettyString.text (show name1) $+$
+    docUses uses
 docUses ((name1, name2):uses) =
   PrettyString.text "use" <+>
-  PrettyString.text name1 <+>
+  PrettyString.text (show name1) <+>
   PrettyString.text "as" <+>
-  PrettyString.text name2 $+$
+  PrettyString.text (show name2) $+$
   docUses uses
 
-docDeps :: [String] -> PrettyString
+docDeps :: [Name] -> PrettyString
 docDeps deps
   | null deps = PrettyString.empty
-  | otherwise = PrettyString.text "uses" <+> PrettyString.text (intercalate ", " deps)
+  | otherwise = PrettyString.text "uses" <+> PrettyString.text (intercalate ", " $ map show deps)
 
 docDefns :: Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Module -> PrettyString
 docDefns showOrd showFree showSrc showExp showRen showJs mod

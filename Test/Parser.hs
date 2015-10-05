@@ -2,7 +2,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Test.Parser where
 
-import Data.QualName (QualName(..))
+import qualified Data.Name as Name
 import qualified Data.PrettyString as PrettyString
 import Data.Source (Source(..))
 import qualified Data.Source as Source
@@ -15,13 +15,13 @@ deriving instance Show Source
 parseTestFile :: String -> IO Source
 parseTestFile filename =
   do str <- readFile filename
-     case Parser.parseFile filename str of
+     case Parser.parseFile (Name.untyped filename) str of
        Left err -> fail err
        Right src -> return src
 
 parseSnippet :: Monad m => String -> m Source
 parseSnippet str =
-  do case Parser.parseRepl "" str of
+  do case Parser.parseRepl Name.empty str of
        Left err -> fail $ show err
        Right src -> return src
 
@@ -63,7 +63,7 @@ testParser =
               ([PatS "" Nothing], Source.idS "true")])
 
     expected1 =
-      ModuleS "Test.TestData1" []
+      ModuleS (Name.untyped "Test.TestData1") []
         [FnDefS (PatS "f1" Nothing)
          (WhereS
           (CondS [([PatS "x" (Just (Source.idS "isInt")),
@@ -74,7 +74,7 @@ testParser =
             [([PatS "z" Nothing], BinOpS "+" (Source.idS "z") (Source.idS "y"))])])]
 
     expected2 =
-      ModuleS "Test.TestData2" []
+      ModuleS (Name.untyped "Test.TestData2") []
         [FnDefS (PatS "f1" Nothing)
          (WhereS
           (CondS [([PatS "x" (Just (Source.idS "isInt"))],
@@ -85,13 +85,13 @@ testParser =
             [([PatS "z" Nothing], BinOpS "+" (Source.idS "z") (IntS 1))])])]
 
     expected3 =
-      ModuleS "Test.TestData3" []
+      ModuleS (Name.untyped "Test.TestData3") []
         [FnDefS (PatS "f" Nothing)
          (CondS [([PatS "x" (Just (Source.idS "isInt")), PatS "y" (Just (Source.idS "isInt"))], Source.idS "true"),
                  ([PatS "x" Nothing, PatS "y" Nothing], Source.idS "false")])]
 
     expected4 =
-      ModuleS "Test.TestData4" []
+      ModuleS (Name.untyped "Test.TestData4") []
         [FnDefS (PatS "eq" Nothing)
          (WhereS
           (CondS [([PatS "x" (Just (Source.idS "isInt")), PatS "y" (Just (Source.idS "isInt"))],
@@ -107,14 +107,14 @@ testParser =
                    ([PatS "" Nothing, PatS "" Nothing], Source.idS "false")])])]
 
     expected5 =
-      ModuleS "Test.TestData5" []
+      ModuleS (Name.untyped "Test.TestData5") []
         [FnDefS (PatS "isString" Nothing)
          (CondS [([SeqS []],Source.idS "true"),
                  ([BinOpS "+>" (Source.idS "isChar") (Source.idS "isString")],Source.idS "true"),
                  ([PatS "" Nothing],Source.idS "false")])]
 
     expected6 =
-      ModuleS "Test.TestData6" []
+      ModuleS (Name.untyped "Test.TestData6") []
         [FnDefS (PatS "f" Nothing)
          (CondS
           [([PatS "n" Nothing],
@@ -124,26 +124,26 @@ testParser =
                      ([PatS "" Nothing], Source.idS "y")])))])]
 
     expected7 =
-      ModuleS "Test.TestData7" []
+      ModuleS (Name.untyped "Test.TestData7") []
         [FnDefS
          (SeqS [PatS "x" Nothing, PatS "y" Nothing])
          (SeqS [IntS 1,IntS 2])]
 
     expected8 =
-      ModuleS "Test.TestData8" []
+      ModuleS (Name.untyped "Test.TestData8") []
         [FnDefS (PatS "f8" Nothing)
          (CondS [([AppS (PatS "Apple" Nothing) (PatS "x" (Just (Source.idS "isInt")))],
                   IntS 0)])]
 
     expected9 =
-      ModuleS "Test.TestData9" []
-       [TypeDeclS (QualName {fromQualName = "Fruit"}) [(QualName {fromQualName = "Apple"}, PatS "x" (Just (Source.idS "isInt")))],
-        TypeDeclS (QualName {fromQualName = "MoreFruit"}) [(QualName {fromQualName = "Orange"}, PatS "x" Nothing)],
-        TypeDeclS (QualName {fromQualName = "EvenMoreFruit"}) [(QualName {fromQualName = "Banana"}, Source.idS "isInt"),
-                                                               (QualName {fromQualName = "Kiwi"}, Source.idS "isReal")]]
+      ModuleS (Name.untyped "Test.TestData9") []
+       [TypeDeclS (Name.untyped "Fruit") [(Name.untyped "Apple", PatS "x" (Just (Source.idS "isInt")))],
+        TypeDeclS (Name.untyped "MoreFruit") [(Name.untyped "Orange", PatS "x" Nothing)],
+        TypeDeclS (Name.untyped "EvenMoreFruit") [(Name.untyped "Banana", Source.idS "isInt"),
+                                                  (Name.untyped "Kiwi", Source.idS "isReal")]]
 
     expected10 =
-      ModuleS "Test.TestData10" []
+      ModuleS (Name.untyped "Test.TestData10") []
         [FnDefS (PatS "f1" Nothing)
          (WhereS
           (CondS [([PatS "x" (Just (Source.idS "isInt"))],AppS (Source.idS "f2") (Source.idS "x"))])

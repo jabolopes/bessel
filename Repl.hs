@@ -19,8 +19,9 @@ import Data.FileSystem (FileSystem)
 import qualified Data.FileSystem as FileSystem
 import Data.Module (Module)
 import qualified Data.Module as Module
+import Data.Name (Name)
+import qualified Data.Name as Name
 import qualified Data.PrettyString as PrettyString
-import qualified Data.QualName as QualName
 import Monad.InterpreterM (Val(..))
 import qualified Pretty.Data.Definition as Pretty
 import qualified Pretty.Data.Module as Pretty
@@ -54,7 +55,7 @@ stageFiles mods =
         loop fs [] _ = return fs
         loop fs (mod:mods) (i:is) =
           do putHeader i
-             putStrLn (Module.modName mod)
+             putStrLn . show $ Module.modName mod
              res <- Stage.stageModule fs mod
              case res of
                Right (fs', _) -> loop fs' mods is
@@ -62,9 +63,9 @@ stageFiles mods =
                  do putStrLn (PrettyString.toString err)
                     loop fs mods is
 
-importFile :: FileSystem -> String -> IO ReplState
-importFile fs filename =
-  Loader.preload fs filename >>=
+importFile :: FileSystem -> Name -> IO ReplState
+importFile fs modName =
+  Loader.preload fs modName >>=
     \case
       Left err -> throwLoaderException err
       Right mods ->
@@ -90,10 +91,10 @@ showMeM showAll showBrief showOrd showFree showSrc showExp showRen showJs filena
       | showAll = FileSystem.toAscList . fs <$> get
       | otherwise =
         do fs <- fs <$> get
-           case FileSystem.lookup fs filename of
+           case FileSystem.lookup fs $ Name.untyped filename of
              Nothing -> liftIO $ do
                           putStrLn $ "module " ++ show filename ++ " has not been staged"
-                          putStrLn $ "staged modules are " ++ intercalate ", " (map Module.modName (FileSystem.toAscList fs))
+                          putStrLn $ "staged modules are " ++ intercalate ", " (map (show . Module.modName) (FileSystem.toAscList fs))
                           return []
              Just mod -> return [mod]
   in
@@ -134,7 +135,7 @@ runCommandM "def" opts nonOpts
              definitionName = last nonOpts
          fs <- fs <$> get
          liftIO . putStrLn . PrettyString.toString $
-           case FileSystem.lookupDefinition fs $ QualName.mkQualName [moduleName, definitionName] of
+           case FileSystem.lookupDefinition fs . Name.untyped $ moduleName ++ "." ++ definitionName of
              Bad err -> err
              Ok def -> Pretty.docDefn showFree showSrc showExp showRen showJs def
   | showAll || isModuleName nonOpts =
@@ -171,7 +172,7 @@ runCommandM "load" _ nonOpts
     liftIO $ putStrLn ":load [ <me> | <file/me> ]"
   | otherwise =
     do fs <- initialFs <$> get
-       liftIO (importFile fs (last nonOpts)) >>= put
+       liftIO (importFile fs (Name.untyped (last nonOpts))) >>= put
 runCommandM "l" opts nonOpts =
   runCommandM "load" opts nonOpts
 runCommandM _ _ _ =
