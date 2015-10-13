@@ -222,13 +222,13 @@ AppExpr:
 
 Pat :: { Source }
 Pat:
-    QualName '@'  SimplePat %prec above_id_prec { bindPat (Name.nameStr $1) $3 }
+    QualName '@'  SimplePat %prec above_id_prec { bindPat $1 $3 }
   |          '@'  QualName                      { IdS $2 }
   |          ' @' QualName                      { IdS $2 }
   |          '@'                                { allPat }
   |          ' @'                               { allPat }
   |               SimplePat                     { case $1 of
-                                                    IdS name -> bindPat (Name.nameStr name) allPat
+                                                    IdS name -> bindPat name allPat
                                                     _ -> $1 }
 
 SimplePat :: { Source }

@@ -37,7 +37,7 @@ definitionName (FnDefS pat _) =
     [] -> error $ "Stage.definitionName: " ++
                   PrettyString.toString (Pretty.docSource pat) ++
                   PrettyString.toString (Pretty.docSourceList defns)
-    _ -> Name.untyped . List.intercalate "+" $ map (\(FnDefS (PatS name _) _) -> name) defns
+    _ -> Name.untyped . List.intercalate "+" $ map (\(FnDefS (PatS name _) _) -> Name.nameStr name) defns
 definitionName (TypeDeclS x _) = x
 definitionName src =
   error $ "Stage.definitionName: expecting function or type definition" ++

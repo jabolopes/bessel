@@ -2,17 +2,20 @@ module Pretty.Data.Source where
 
 import Data.PrettyString (PrettyString, (<>), (<+>), ($+$))
 import qualified Data.PrettyString as PrettyString
+import Data.Name (Name)
 import qualified Data.Name as Name
 import Data.Source
 
-docPat :: String -> Maybe Source -> PrettyString
+docPat :: Name -> Maybe Source -> PrettyString
 docPat binder guard =
   docBinder binder <> PrettyString.text "@" <> docGuard guard
-  where docBinder "" = PrettyString.empty
-        docBinder name = PrettyString.text name
+  where
+    docBinder name
+      | Name.isEmptyName name = PrettyString.empty
+      | otherwise = PrettyString.text $ show name
 
-        docGuard Nothing = PrettyString.empty
-        docGuard (Just src) = docSource src
+    docGuard Nothing = PrettyString.empty
+    docGuard (Just src) = docSource src
 
 docMatch :: ([Source], Source) -> PrettyString
 docMatch (args, body) =

@@ -30,15 +30,15 @@ type ExpanderM a = NameM (Either PrettyString) a
 -- genPatName  @      = "arg#0"
 -- genPatName  @isInt = "arg#0"
 -- @
-genPatNames :: [Source] -> ExpanderM [String]
+genPatNames :: [Source] -> ExpanderM [Name]
 genPatNames = mapM genPatName
   where
     genName name
-      | null name = NameM.genNameM "arg"
+      | Name.isEmptyName name = NameM.genNameM $ Name.untyped "arg"
       | otherwise = NameM.genNameM name
 
     genPatName (PatS binder _) = genName binder
-    genPatName _ = genName ""
+    genPatName _ = genName Name.empty
 
 -- Expand patterns.
 
@@ -55,7 +55,7 @@ genPatNames = mapM genPatName
 -- @
 -- let x = hd (tl y)
 -- @
-patFnDef :: String -> [Source] -> Source -> Source
+patFnDef :: Name -> [Source] -> Source -> Source
 patFnDef binder mods val =
   FnDefS (PatS binder Nothing) (Source.foldAppS val mods)
 
@@ -89,10 +89,9 @@ patDefinitions val = sourceDefns []
     sourceDefns mods (PatS binder guard) =
       hdDefn ++ tlDefn
       where
-        hdDefn =
-          case binder of
-            "" -> []
-            _ -> (:[]) $ patFnDef binder mods val
+        hdDefn
+          | Name.isEmptyName binder = []
+          | otherwise = (:[]) $ patFnDef binder mods val
 
         tlDefn =
           case guard of
@@ -147,7 +146,7 @@ patPred = sourcePred
           qualName =
             case head (Source.appToList src) of
               IdS x -> x
-              PatS x Nothing -> Name.untyped x
+              PatS x Nothing -> x
         in
           return . IdE . consIsName $ qualName
     sourcePred src@AppS {} =
@@ -170,10 +169,10 @@ patPred = sourcePred
       sourcePred . SeqS . map CharS $ cs
     sourcePred m =
       do let (isFn, eqFn) = patConstantPred m
-         arg <- NameM.genNameM "arg"
-         let argId = Source.idS arg
+         arg <- NameM.genNameM $ Name.untyped "arg"
+         let argId = IdS arg
              pred = AndS (Source.appS isFn argId) ((Source.appS eqFn m) `AppS` argId)
-         LambdaE (Name.untyped arg) <$> expandOne pred
+         LambdaE arg <$> expandOne pred
 
 -- Expand conds.
 
@@ -188,9 +187,9 @@ patPred = sourcePred
 -- let y = ... in
 -- body
 -- @
-expandMatchBody :: [String] -> [Source] -> Source -> ExpanderM Expr
+expandMatchBody :: [Name] -> [Source] -> Source -> ExpanderM Expr
 expandMatchBody args pats body =
-  do defns <- concat <$> (mapM expandSource $ concat [ patDefinitions (Source.idS arg) pat | arg <- args | pat <- pats ])
+  do defns <- concat <$> (mapM expandSource $ concat [ patDefinitions (IdS arg) pat | arg <- args | pat <- pats ])
      case defns of
        [] -> expandOne body
        _ -> Expr.letE defns <$> expandOne body
@@ -216,18 +215,18 @@ expandMatchBody args pats body =
 -- @
 --
 -- The above code is a simplification because '&&' is encoded through 'CondE'.
-expandMatch :: [String] -> [Source] -> Source -> ExpanderM (Expr, Expr)
+expandMatch :: [Name] -> [Source] -> Source -> ExpanderM (Expr, Expr)
 expandMatch args pats body =
   (,) <$> andPred <*> expandMatchBody args pats body
   where
     applyPred arg pat =
       do pred <- patPred pat
-         return . AppE pred . Expr.idE $ arg
+         return . AppE pred $ IdE arg
 
     andPred =
       foldl1 Expr.andE <$> sequence [ applyPred arg pat | arg <- args | pat <- pats ]
 
-expandMatches :: [String] -> [([Source], Source)] -> ExpanderM [(Expr, Expr)]
+expandMatches :: [Name] -> [([Source], Source)] -> ExpanderM [(Expr, Expr)]
 expandMatches names = loop
   where
     loop [] = return []
@@ -257,7 +256,7 @@ expandMatches names = loop
 -- @
 --
 -- The above code is a simplification because '&&' is encoded through 'CondE'.
-expandCond :: [([Source], Source)] -> String -> ExpanderM Expr
+expandCond :: [([Source], Source)] -> Name -> ExpanderM Expr
 expandCond matches blame =
   do let args = head . fst . unzip $ matches
      case checkMatches (length args) matches of
@@ -265,7 +264,7 @@ expandCond matches blame =
        Right () ->
          do argNames <- genPatNames args
             matches' <- expandMatches argNames matches
-            return . lambdas argNames . CondE matches' $ blame
+            return . lambdas argNames . CondE matches' $ Name.nameStr blame
   where
     checkMatches _ [] = Right ()
     checkMatches n ((args, _):matches')
@@ -274,22 +273,22 @@ expandCond matches blame =
 
     lambdas [] body = body
     lambdas (arg:args) body =
-      LambdaE (Name.untyped arg) (lambdas args body)
+      LambdaE arg (lambdas args body)
 
 -- Expand function definitions.
 
-expandFnDecl :: String -> Expr -> Expr
+expandFnDecl :: Name -> Expr -> Expr
 expandFnDecl name body =
   let
-    kw | Name.untyped name `elem` Expr.freeVars body = Def
+    kw | name `elem` Expr.freeVars body = Def
        | otherwise = NrDef
   in
-   FnDecl kw (Name.untyped name) body
+   FnDecl kw name body
 
 expandResultPattern :: Source -> Source -> ExpanderM [Source]
 expandResultPattern pat body =
-  do result <- NameM.genNameM "res"
-     return $ FnDefS (PatS result Nothing) body:patDefinitions (Source.idS result) pat
+  do result <- NameM.genNameM $ Name.untyped "res"
+     return $ FnDefS (PatS result Nothing) body:patDefinitions (IdS result) pat
 
 expandSeq :: [Source] -> ExpanderM Expr
 expandSeq ms = Expr.seqE <$> mapM expandOne ms
@@ -311,7 +310,7 @@ consPredFn consName =
     consNameStr = Name.nameStr consName
     body = Source.appS isConsName . Source.appS linkName . StringS $ consNameStr
   in
-    FnDefS (PatS (Name.nameStr (consIsName consName)) Nothing) body
+    FnDefS (PatS (consIsName consName) Nothing) body
   where
     isConsName = Name.untyped "isCons#"
     linkName = Name.untyped "link#"
@@ -322,16 +321,16 @@ typePredFn typeName consNames =
     predNames = map (Source.IdS . consIsName) consNames
     body = foldl1 OrS predNames
   in
-    FnDefS (PatS (Name.nameStr (consIsName typeName)) Nothing) body
+    FnDefS (PatS (consIsName typeName) Nothing) body
 
-consConsFn :: Name -> String -> Maybe Source -> Source
+consConsFn :: Name -> Name -> Maybe Source -> Source
 consConsFn consName binder guard =
   let
     consNameStr = Name.nameStr consName
     body = Source.appS mkConsName . Source.appS linkName . StringS $ consNameStr
   in
-    FnDefS (PatS (Name.nameStr (consMkName consName)) Nothing) $
-      CondS [([PatS binder guard], body `AppS` Source.idS binder)]
+    FnDefS (PatS (consMkName consName) Nothing) $
+      CondS [([PatS binder guard], body `AppS` IdS binder)]
   where
     mkConsName = Name.untyped "mkCons#"
     linkName = Name.untyped "link#"
@@ -344,8 +343,8 @@ expandConstructor (consName, pat) =
          consSource = consConsFn consName binder guard
      (++) <$> expandSource predSource <*> expandSource consSource
   where
-    patBinder (PatS binder _) | not (null binder) = return binder
-    patBinder _               = NameM.genNameM "arg"
+    patBinder (PatS binder _) | not (Name.isEmptyName binder) = return binder
+    patBinder _               = NameM.genNameM $ Name.untyped "arg"
 
     patGuard (PatS _ Nothing) = Nothing
     patGuard (PatS _ (Just src)) = patGuard src
@@ -388,7 +387,7 @@ expandSource (BinOpS op m1 m2) =
 expandSource (CharS c) =
   Utils.returnOne . return . CharE $ c
 expandSource (CondS ms) =
-  Utils.returnOne $ expandCond ms "lambda"
+  Utils.returnOne . expandCond ms $ Name.untyped "lambda"
 -- Expand FnDeclS together with CondS to get the correct blame.
 expandSource (FnDefS (PatS name _) (CondS ms)) =
   Utils.returnOne $ expandFnDecl name <$> expandCond ms name

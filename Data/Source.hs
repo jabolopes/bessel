@@ -104,7 +104,7 @@ data Source
   --
   -- The following does not make sense:
   --   PatS "" (Just ...)
-  | PatS String (Maybe Source)
+  | PatS Name (Maybe Source)
 
   -- | RealS
   -- @
@@ -159,21 +159,22 @@ moduleDeps (ModuleS _ uses _) = map fst uses
 moduleDeps _ = error "Source.moduleDeps: expecting a module"
 
 allPat :: Source
-allPat = PatS "" Nothing
+allPat = PatS Name.empty Nothing
 
 isPatAll :: Source -> Bool
-isPatAll (PatS "" Nothing) = True
+isPatAll (PatS binder Nothing) = Name.isEmptyName binder
 isPatAll _ = False
 
-bindPat :: String -> Source -> Source
-bindPat "" src = src
-bindPat name (PatS _ (Just src)) = bindPat name src
-bindPat name (PatS _ guard) = PatS name guard
-bindPat name src = PatS name (Just src)
+bindPat :: Name -> Source -> Source
+bindPat binder src
+  | Name.isEmptyName binder = src
+bindPat binder (PatS _ (Just src)) = bindPat binder src
+bindPat binder (PatS _ guard) = PatS binder guard
+bindPat binder src = PatS binder (Just src)
 
 isTypePat :: Source -> Bool
 isTypePat (AppS fn _) = isTypePat fn
-isTypePat (PatS name _) = Name.isTypeName $ Name.untyped name
+isTypePat (PatS name _) = Name.isTypeName name
 isTypePat (IdS name) = Name.isTypeName name
 isTypePat _ = False
 
@@ -194,8 +195,9 @@ toSource src@IntS {} = Just src
 toSource (LetS defns body) = LetS <$> mapM toSource defns <*> toSource body
 toSource (ModuleS name uses decls) = ModuleS name uses <$> mapM toSource decls
 toSource (OrS src1 src2) = OrS <$> toSource src1 <*> toSource src2
-toSource (PatS "" val) = val
-toSource (PatS binder Nothing) = return $ idS binder
+toSource (PatS binder val)
+  | Name.isEmptyName binder = val
+toSource (PatS binder Nothing) = return $ IdS binder
 toSource PatS {} = Nothing
 toSource src@RealS {} = Just src
 toSource (SeqS srcs) = SeqS <$> mapM toSource srcs
