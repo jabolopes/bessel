@@ -1,10 +1,13 @@
 {-# LANGUAGE TupleSections #-}
 module Data.Source where
 
+import Prelude hiding ((<>))
+
 import Control.Applicative ((<$>), (<*>))
 
 import Data.Name (Name)
 import qualified Data.Name as Name
+import Typechecker.Type (Type)
 
 data Source
   -- | AndS
@@ -39,13 +42,24 @@ data Source
   -- @
   | CondS [([Source], Source)]
 
-  -- | FnDefS
-  -- @
-  -- def x = ...
+  -- | FnDefS pat type body whereClause
+  -- @pat@ must be a pattern, which includes 'IdS', 'PatS', or any kind of
+  -- 'Source' that makes sense for a pattern.
+  -- @type@ is an optional type annotation for the body.
+  -- @body@ must be a 'Source' that evaluates to a value.
+  -- @defns@ must contains 'FnDefS' and corresponds to a where clause.
   --
-  -- def [x, y] = ...
+  -- Examples:
   -- @
-  | FnDefS Source Source
+  -- let x = ...
+  --
+  -- let [x, y] = ...
+  --
+  -- let x = ...
+  -- where
+  --   let y = ...
+  -- @
+  | FnDefS Source (Maybe Type) Source [Source]
 
   -- | IdS
   -- @
@@ -136,12 +150,6 @@ data Source
   -- @
   | TypeDeclS Name [(Name, Source)]
 
-  -- | WhereS
-  -- @
-  -- x where x = 10
-  -- @
-  | WhereS Source [Source]
-
 appS :: Name -> Source -> Source
 appS name = AppS (IdS name)
 
@@ -189,7 +197,8 @@ toSource (BinOpS op src1 src2) = BinOpS op <$> toSource src1 <*> toSource src2
 toSource src@CharS {} = Just src
 toSource (CondS ms) = CondS <$> mapM toSource' ms
   where toSource' (args, body) = (args,) <$> toSource body
-toSource (FnDefS pat body) = FnDefS pat <$> toSource body
+toSource (FnDefS pat typ body defns) =
+  FnDefS pat typ <$> toSource body <*> mapM toSource defns
 toSource src@IdS {} = Just src
 toSource src@IntS {} = Just src
 toSource (LetS defns body) = LetS <$> mapM toSource defns <*> toSource body
@@ -203,4 +212,3 @@ toSource src@RealS {} = Just src
 toSource (SeqS srcs) = SeqS <$> mapM toSource srcs
 toSource src@StringS {} = Just src
 toSource src@TypeDeclS {} = Just src
-toSource (WhereS src srcs) = WhereS <$> toSource src <*> mapM toSource srcs
