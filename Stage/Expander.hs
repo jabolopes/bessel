@@ -1,4 +1,4 @@
-{-# LANGUAGE ParallelListComp, TupleSections #-}
+{-# LANGUAGE LambdaCase, ParallelListComp, TupleSections #-}
 module Stage.Expander where
 
 import Prelude hiding (mod, pred)
@@ -16,10 +16,11 @@ import qualified Data.PrettyString as PrettyString
 import Data.Source (Source(..))
 import qualified Data.Source as Source
 import Monad.NameM (NameM)
-import qualified Monad.Utils as Utils (returnOne)
 import qualified Monad.NameM as NameM
+import qualified Monad.Utils as Utils (returnOne)
 import qualified Pretty.Data.Source as Pretty
 import qualified Pretty.Stage.Expander as Pretty
+import Typechecker.Type (Type)
 
 type ExpanderM a = NameM (Either PrettyString) a
 
@@ -57,7 +58,7 @@ genPatNames = mapM genPatName
 -- @
 patFnDef :: Name -> [Source] -> Source -> Source
 patFnDef binder mods val =
-  FnDefS (PatS binder Nothing) (Source.foldAppS val mods)
+  FnDefS (PatS binder Nothing) Nothing (Source.foldAppS val mods) []
 
 -- | Generates function definitions for a pattern's bindings
 --
@@ -142,13 +143,15 @@ patPred = sourcePred
     sourcePred :: Source -> ExpanderM Expr
     sourcePred src
       | Source.isTypePat src =
-        let
-          qualName =
-            case head (Source.appToList src) of
-              IdS x -> x
-              PatS x Nothing -> x
-        in
-          return . IdE . consIsName $ qualName
+        do qualName <-
+             case head (Source.appToList src) of
+               IdS x ->
+                 return x
+               PatS x Nothing ->
+                 return x
+               _ ->
+                 throwError . Pretty.devTypePat $ Pretty.docSource src
+           return . IdE . consIsName $ qualName
     sourcePred src@AppS {} =
       case Source.toSource src of
         Just x -> expandOne x
@@ -234,12 +237,12 @@ expandMatches names = loop
       (:) <$> expandMatch names pats body <*> loop ms
 
 -- | Expands a cond, returning the expanded lambdas and cond.
---
+-- Example:
 -- @
 -- x@pat1 y@pat1' -> body1
 -- x@pat2 y@pat2' -> body2
 -- @
---
+-- expands into:
 -- @
 -- \x# ->
 --   \y# ->
@@ -256,11 +259,12 @@ expandMatches names = loop
 -- @
 --
 -- The above code is a simplification because '&&' is encoded through 'CondE'.
-expandCond :: [([Source], Source)] -> Name -> ExpanderM Expr
-expandCond matches blame =
+expandCond :: Source -> Name -> ExpanderM Expr
+expandCond (CondS matches) blame =
   do let args = head . fst . unzip $ matches
      case checkMatches (length args) matches of
-       Left err -> throwError err
+       Left err ->
+         throwError err
        Right () ->
          do argNames <- genPatNames args
             matches' <- expandMatches argNames matches
@@ -274,21 +278,76 @@ expandCond matches blame =
     lambdas [] body = body
     lambdas (arg:args) body =
       LambdaE arg (lambdas args body)
+expandCond src _ =
+  PrettyString.error "Expander.expandCond: invalid argument" $
+  PrettyString.text "src =" PrettyString.<+> Pretty.docSource src
 
 -- Expand function definitions.
 
-expandFnDecl :: Name -> Expr -> Expr
-expandFnDecl name body =
+-- | Builds a function definition expression. It finds whether the function is
+-- recursive or not, and handles also optional type annotations.
+expandFnDecl :: Name -> Maybe Type -> Expr -> Expr
+expandFnDecl name typ body =
   let
     kw | name `elem` Expr.freeVars body = Def
        | otherwise = NrDef
   in
-   FnDecl kw name body
+    case typ of
+      Nothing -> FnDecl kw name body
+      Just x -> FnDecl kw name (AnnotationE body x)
 
-expandResultPattern :: Source -> Source -> ExpanderM [Source]
-expandResultPattern pat body =
+-- | Expands a pattern on the left side of a '=' sign.
+-- Example:
+-- @
+-- [x, y] = [1, 2]
+-- @
+-- expands into:
+-- @
+-- res#0 = [1, 2]
+-- x = hd res#0
+-- y = hd (tl res#0)
+-- @
+expandResultPattern :: Source -> Maybe Type -> Source -> [Source] -> ExpanderM [Source]
+expandResultPattern pat typ body whereClause =
   do result <- NameM.genNameM $ Name.untyped "res"
-     return $ FnDefS (PatS result Nothing) body:patDefinitions (IdS result) pat
+     return $ FnDefS (PatS result Nothing) typ body whereClause:patDefinitions (IdS result) pat
+
+-- | Expands where clauses into 'LetS' and applies them in each match of a
+-- 'CondS'.
+-- Example:
+-- @
+-- let x = y
+-- where
+--   let y = 0
+-- @
+-- expand into:
+-- @
+-- let x =
+--   let y = 0 in
+--   y
+-- @
+expandWhereClause :: Source -> [Source] -> Source
+expandWhereClause src [] =
+  src
+expandWhereClause (CondS matches) defns =
+  CondS $ map (id *** (LetS defns)) matches
+expandWhereClause src defns =
+  LetS defns src
+
+-- | Expands 'FnDefS'. Expands function definitions together with
+-- 'CondS' to get the right blame for incomplete pattern matching.
+expandFunctionDefinition :: Source -> ExpanderM [Expr]
+expandFunctionDefinition (FnDefS (PatS name _) typ body@CondS {} whereClause) =
+  Utils.returnOne $ expandFnDecl name typ <$> expandCond (expandWhereClause body whereClause) name
+expandFunctionDefinition (FnDefS (PatS name _) typ body whereClause) =
+  Utils.returnOne $ expandFnDecl name typ <$> expandOne (expandWhereClause body whereClause)
+expandFunctionDefinition (FnDefS pat typ body whereClause) =
+  concat <$> (mapM expandFunctionDefinition =<< expandResultPattern pat typ body whereClause)
+expandFunctionDefinition src =
+  PrettyString.error "Expander.expandFunctionDefinition: invalid argument" $
+  PrettyString.text "src =" PrettyString.<+> Pretty.docSource src
+
+-- Expand sequences.
 
 expandSeq :: [Source] -> ExpanderM Expr
 expandSeq ms = Expr.seqE <$> mapM expandOne ms
@@ -310,7 +369,7 @@ consPredFn consName =
     consNameStr = Name.nameStr consName
     body = Source.appS isConsName . Source.appS linkName . StringS $ consNameStr
   in
-    FnDefS (PatS (consIsName consName) Nothing) body
+    FnDefS (PatS (consIsName consName) Nothing) Nothing body []
   where
     isConsName = Name.untyped "isCons#"
     linkName = Name.untyped "link#"
@@ -321,7 +380,7 @@ typePredFn typeName consNames =
     predNames = map (Source.IdS . consIsName) consNames
     body = foldl1 OrS predNames
   in
-    FnDefS (PatS (consIsName typeName) Nothing) body
+    FnDefS (PatS (consIsName typeName) Nothing) Nothing body []
 
 consConsFn :: Name -> Name -> Maybe Source -> Source
 consConsFn consName binder guard =
@@ -329,8 +388,11 @@ consConsFn consName binder guard =
     consNameStr = Name.nameStr consName
     body = Source.appS mkConsName . Source.appS linkName . StringS $ consNameStr
   in
-    FnDefS (PatS (consMkName consName) Nothing) $
-      CondS [([PatS binder guard], body `AppS` IdS binder)]
+    FnDefS
+      (PatS (consMkName consName) Nothing)
+      Nothing
+      (CondS [([PatS binder guard], body `AppS` IdS binder)])
+      []
   where
     mkConsName = Name.untyped "mkCons#"
     linkName = Name.untyped "link#"
@@ -356,24 +418,6 @@ expandTypeDecl typeName cons =
      typeFn <- expandSource . typePredFn typeName $ map fst cons
      return $ consFns ++ typeFn
 
--- | Expands 'WhereS' into 'LetS'. It is special syntax to be used only with 'CondS'.
---
--- @
--- let x = y
---   where
---     let y = 0
---
--- let x =
---   let y = 0 in
---   y
--- @
-expandWhereCondMatches :: Source -> [([Source], Source)]
-expandWhereCondMatches (WhereS (CondS matches) defns) =
-  map (id *** (LetS defns)) matches
-expandWhereCondMatches src =
-  PrettyString.error "Expander.expandWhereCondMatches: invalid argument" $
-  (PrettyString.text "src =" PrettyString.<+> Pretty.docSource src)
-
 expandOne :: Source -> ExpanderM Expr
 expandOne src = head <$> expandSource src
 
@@ -386,19 +430,10 @@ expandSource (BinOpS op m1 m2) =
   Utils.returnOne $ Expr.binOpE (Name.untyped op) <$> expandOne m1 <*> expandOne m2
 expandSource (CharS c) =
   Utils.returnOne . return . CharE $ c
-expandSource (CondS ms) =
-  Utils.returnOne . expandCond ms $ Name.untyped "lambda"
--- Expand FnDeclS together with CondS to get the correct blame.
-expandSource (FnDefS (PatS name _) (CondS ms)) =
-  Utils.returnOne $ expandFnDecl name <$> expandCond ms name
--- Expand FnDeclS together with WhereS to get the correct blame.
-expandSource (FnDefS (PatS name _) src@(WhereS CondS {} _)) =
-  Utils.returnOne $ expandFnDecl name <$> expandCond (expandWhereCondMatches src) name
-expandSource (FnDefS (PatS name _) body) =
-  Utils.returnOne $ expandFnDecl name <$> expandOne body
--- TODO: Find a way to get the blame correct in this case.
-expandSource (FnDefS pat body) =
-  concat <$> (mapM expandSource =<< expandResultPattern pat body)
+expandSource src@CondS {} =
+  Utils.returnOne . expandCond src $ Name.untyped "lambda"
+expandSource src@FnDefS {} =
+  expandFunctionDefinition src
 expandSource (IdS name) =
   Utils.returnOne . return . Expr.IdE $ name
 expandSource (IntS n) =
@@ -420,10 +455,6 @@ expandSource (StringS str) =
   Utils.returnOne . return . expandString $ str
 expandSource (TypeDeclS typeName cons) =
   expandTypeDecl typeName cons
-expandSource src@(WhereS CondS {} _) =
-  expandSource . CondS . expandWhereCondMatches $ src
-expandSource src@WhereS {} =
-  throwError . Pretty.whereOutsideCond . Pretty.docSource $ src
 
 expand :: Source -> Either PrettyString [Expr]
 expand src = fst <$> NameM.runNameM (expandSource src) NameM.initialNameState
