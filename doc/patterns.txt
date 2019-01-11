@@ -1,30 +1,41 @@
-Patterns
+# Patterns
 
 A pattern is defined by an optional binder followed by an '@' sign and
-an optional guard.  A binder is a name to bind the value matched by
-the pattern to.  A guard can be, for example, a literal, such as,
-character, number, or string, a list, and a type constructor, but it
+an optional guard. A binder is a name to bind the value matched by the
+pattern to. A guard describes the constraints of that value and it
 cannot be a type.
 
-  Pat: id '@' Guard
+## General form
 
-Binders
+  Pat: binder '@' guard
 
-The binder is optional.  If the binder is supplied, the '@' sign must
-also be supplied.
+## Syntax
 
-  Bind 'x' to a value that matches an integer
+  Pat: binder '@' guard
+  Pat: binder
+  Pat: '@' guard
+  Pat: '@'
+
+A binder and a '@' and a guard can be supplied.
+A binder can be supplied without '@' and without guard.
+An '@' and guard can be supplied.
+A '@' can be supplied without binder and without guard.
+
+## Binders
+
+Bind 'x' to a value that matches an integer
 
   x@isInt
 
-  Bind 'x' to any value
+Bind 'x' to any value
 
-  x@
+  x
 
-Guards
+## Guards
 
-The guard can be a type predicate expression (e.g., an identifier), a
-literal, a list, an operator guard, or an algebraic datatype guard.
+The guard can be a type predicate expression (e.g., an identifier or a
+function application), a literal, a list, a tuple, an operator guard,
+or an algebraic datatype guard.
 
   Guard: type predicate expression
        | character
@@ -32,71 +43,82 @@ literal, a list, an operator guard, or an algebraic datatype guard.
        | real
        | string
        | List
+       | Tuple
        | operator guard
        | algebraic datatype guard
 
+### Type predicate expression
 
-  Type predicate expression
+Match an integer and bind it to 'x' in the first case and do not bind
+it in the second case.
 
-  Match an integer and bind it to 'x' in the first case and do not
-  bind it in the second case.
+  x@isInt
+   @isInt
 
-    x@isInt
-    isInt
+Match the string prefixed by "ola" with and without a binder.
 
-  Match the string prefixed by "ola" with and without a binder.
+  x@(isPrefix "ola")
+   @(isPrefix "ola")
 
-    x@(isPrefix "ola")
-    (isPrefix "ola")
+### Literals
 
+Match literals, such as, characters, numbers, and strings, with and
+without binders, but always with '@'.
 
-  Literals
+  x@'a'
+   @'a'
 
-  Match literals, such as, characters, numbers, and strings, with and
-  without binders.
+  x@1
+   @1
 
-    x@'a'
-      'a'
+  x@2.0
+   @2.0
 
-    x@1
-      1
+  x@"hello"
+   @"hello"
 
-    x@2.0
-      2.0
+### Lists
 
-    x@"hello"
-      "hello"
+Match empty and non-empty lists with and without binders, with and
+without guards, etc.
 
+  x@[i@isInt, r@isReal]
+   @[i@isInt, r@isReal]
+   @[i@isInt, r]
+   @[@isInt, @isReal]
 
-  Lists
+  x@[]
+   @[]
 
-  Match empty and non-empty lists with and without binders, with and
-  without guards, etc.
+### Tuples
 
-    x@[i@isInt, r@isReal]
-      [i@isInt, r@isReal]
-      [i@isInt, r@]
-      [isInt, isReal]
+Match empty tuples (i.e., unit) and 2-tuple or larger, with and
+without binders, with and without guards.
 
-    x@[]
-      []
+  t@()
+   @()
 
+  t@(x, y@isInt)
+   @(x, y@isInt)
+   @(x, y)
+   @(@isInt, @isReal)
 
-  Operators
+  t@(x, y, z)
+   @(@isInt, @isReal, @isString)
 
-  Match using the '+>' (i.e., 'cons') operator, with and without
-  binders, with and without guards, etc.
+### Operators
 
-    l@(x@ +> xs@)
-    l@(x@isInt +> xs@isInt)
-      (x@ +> xs@)
-      (isInt +> isInt)
+Match using the '+>' (i.e., 'cons') operator, with and without
+binders, with and without guards, etc.
 
+  l@(x +> xs)
+  l@(x@isInt +> xs@isInt)
+    (x +> xs)
+    (@isInt +> @isInt)
 
-  Algebraic datatypes
+### Algebraic datatypes
 
-  Match on an algebraic datatype constructor 'Apple' with one
-  argument.
+Match on an algebraic datatype constructor 'Apple' with one argument.
 
-    f@(Apple x@)
-      (Apple x@)
+  f@(Apple x)
+    (Apple x)
