@@ -1,15 +1,12 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Stage.IndentLexer where
 
-import Control.Applicative
 import Control.Monad.State
-import Data.Char (isPunctuation, isSpace, isDigit)
+import Data.Char (isSpace)
 import qualified Data.List as List
-import Data.Maybe (isJust)
 
 import Data.Name (Name)
-import Data.Token (Srcloc(..), Token(..))
-import qualified Data.Token as Token
+import Data.Token (Token(..))
 import qualified Lexer
 
 -- 'push' @x xs@ adds @x@ to @xs@ only if the first element in @xs@
@@ -51,13 +48,13 @@ newtype IndentLexer a
 -- | 'section' @idns idn@ is the 'List' of 'BeginSection' and
 -- 'EndSection' 'Token's issued according the indentation stack @idns@
 -- and current indentation @idn@.
-section :: String -> [Int] -> Int -> [Token]
-section _ [] _ = error "section: idns is empty"
-section c (idn1:idns) idn2 =
+section :: [Int] -> Int -> [Token]
+section [] _ = error "section: idns is empty"
+section (idn1:idns) idn2 =
   case compare idn1 idn2 of
     EQ -> []
     LT -> [beginSection]
-    GT -> endSection:section c (dropWhile (> idn1) idns) idn2
+    GT -> endSection:section (dropWhile (> idn1) idns) idn2
 
 blockifyConds :: [Token] -> [Token]
 blockifyConds tokens =
@@ -70,6 +67,7 @@ blockifyConds tokens =
     isEquiv TokenEquiv {} = True
     isEquiv _ = False
 
+    close :: Int -> [Token] -> [Token]
     close _ [] = [endSection]
     close _ xs@(TokenIn {}:_) =
       endSection:xs
@@ -82,8 +80,8 @@ blockifyConds tokens =
     close n (x:xs) =
       x:close n xs
 
-tokenize :: String -> Int -> [Int] -> String -> [Token]
-tokenize filename line idns ln =
+tokenize :: String -> Int -> String -> [Token]
+tokenize filename line ln =
   blockifyConds $ Lexer.lexTokens filename line ln
 
 -- 'reduce' @idns ln@ is the 'List' containing the 'Literal' 'Token'
@@ -92,14 +90,14 @@ tokenize filename line idns ln =
 reduce :: [Int] -> Int -> String -> IndentLexer [Token]
 reduce idns n ln =
   do modName <- idnModname <$> get
-     return $ section "|" idns idn ++ tokenize (show modName) n (push idn idns) (trim ln)
+     return $ section idns idn ++ tokenize (show modName) n (trim ln)
   where
     idn = indentation ln
 
 classify :: [Int] -> [(Int, String)] -> IndentLexer [Token]
 classify idns [] =
   return $ replicate (length idns - 1) endSection
-classify idns ((n, ln):lns)
+classify idns ((_, ln):lns)
   | isEmptyLine ln = classify idns lns
 classify idns [(n, ln)] =
   (++) <$> reduce idns n ln <*> classify (push (indentation ln) idns) []
@@ -109,13 +107,12 @@ classify idns ((n1, ln1):(n2, ln2):lns)
        lns' <- classify (push idn1 idns) lns
        case lns' of
          [] -> return ln1'
-         [endSection] -> return $ ln1' ++ [endSection]
-         endSection:lns'' -> return $ ln1' ++ [endSection] ++ lns''
+         [finishSection] -> return $ ln1' ++ [finishSection]
+         finishSection:lns'' -> return $ ln1' ++ [finishSection] ++ lns''
   | otherwise =
     (++) <$> reduce idns n1 ln1 <*> classify (push idn1 idns) ((n2, ln2):lns)
   where
     idn1 = indentation ln1
-    idn2 = indentation ln2
 
 -- | 'indentLex' @modName@ @str@ lexes the input @str@ into a list of 'Token's,
 -- where @modName@ is the input module name, which is used for error messages.
