@@ -1,5 +1,7 @@
 module Pretty.Data.Expr where
 
+import Prelude hiding ((<>))
+
 import Data.Expr
 import Data.PrettyString (PrettyString, (<>), (<+>), ($+$))
 import qualified Data.PrettyString as PrettyString
