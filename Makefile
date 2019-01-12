@@ -14,13 +14,13 @@ $(DIST_DIRS):
 	mkdir -p $@
 
 dist/hs/Parser.hs: Parser.y dist/hs/Lexer.hs | dist/log
-	happy $< -o $@ -idist/log/Parser.log
+	.cabal-sandbox/bin/happy $< -o $@ -idist/log/Parser.log
 
 #dist/hs/Parser.hs: Parser.y dist/hs/Lexer.hs | dist/log
 #	happy -a -d $< -o $@ -idist/log/Parser.log
 
 dist/hs/Lexer.hs: Lexer.x | dist/hs
-	alex $< -o $@
+	.cabal-sandbox/bin/alex $< -o $@
 
 .PHONY: dist/bin/bsl
 dist/bin/bsl: dist/hs/Parser.hs dist/hs/Lexer.hs | dist/bin dist/hs dist/obj
