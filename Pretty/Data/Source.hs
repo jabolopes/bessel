@@ -1,5 +1,7 @@
 module Pretty.Data.Source where
 
+import Prelude hiding ((<>))
+
 import Data.PrettyString (PrettyString, (<>), (<+>), ($+$))
 import qualified Data.PrettyString as PrettyString
 import Data.Name (Name)
@@ -84,11 +86,6 @@ docSource (TypeDeclS typeName cons) =
       PrettyString.text (show consName) <+> docSource consPat
     consDoc =
       PrettyString.sep . PrettyString.intercalate (PrettyString.text "|") . map docConstructor $ cons
-docSource (WhereS m ms) =
-  PrettyString.sep
-  [docSource m,
-   PrettyString.sep [PrettyString.text "where",
-                     PrettyString.nest (PrettyString.vcat (map docSource ms))]]
 
 isParens :: Bool -> Source -> Bool
 isParens right AppS {}    = right
