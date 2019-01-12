@@ -14,12 +14,14 @@ cannot be a type.
   Pat: binder '@' guard
   Pat: binder
   Pat: '@' guard
+  Pat: guard  // Applies only to a subset of the guards.
   Pat: '@'
 
 A binder and a '@' and a guard can be supplied.
 A binder can be supplied without '@' and without guard.
 An '@' and guard can be supplied.
 A '@' can be supplied without binder and without guard.
+Some guards can be supplied without '@' but not all.
 
 ## Binders
 
@@ -63,53 +65,63 @@ Match the string prefixed by "ola" with and without a binder.
 ### Literals
 
 Match literals, such as, characters, numbers, and strings, with and
-without binders, but always with '@'.
+without binders, with and without '@'.
 
   x@'a'
    @'a'
+    'a'
 
   x@1
    @1
+    1
 
   x@2.0
    @2.0
+    2.0
 
   x@"hello"
    @"hello"
+    "hello"
 
 ### Lists
 
 Match empty and non-empty lists with and without binders, with and
-without guards, etc.
+without '@', with and without nested guards, etc.
 
   x@[i@isInt, r@isReal]
    @[i@isInt, r@isReal]
    @[i@isInt, r]
    @[@isInt, @isReal]
+    [@, @]
 
   x@[]
    @[]
+    []
 
 ### Tuples
 
 Match empty tuples (i.e., unit) and 2-tuple or larger, with and
-without binders, with and without guards.
+without binders, with and without '@', with and without nested guards,
+etc.
 
   t@()
    @()
+    ()
 
   t@(x, y@isInt)
    @(x, y@isInt)
    @(x, y)
    @(@isInt, @isReal)
+    (@, @)
 
   t@(x, y, z)
    @(@isInt, @isReal, @isString)
+    (@isInt, @, @)
 
 ### Operators
 
 Match using the '+>' (i.e., 'cons') operator, with and without
-binders, with and without guards, etc.
+binders, with and without '@', with and without nested guards, etc.
 
   l@(x +> xs)
   l@(x@isInt +> xs@isInt)
