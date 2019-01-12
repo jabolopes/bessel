@@ -35,7 +35,7 @@ definitionOk name val freeNames src exp ren js err =
     errDoc = sectionDoc "-- errors" err
 
 docVal :: Either a b -> String
-docVal (Right x) = "ref"
+docVal (Right _) = "ref"
 docVal _ = "?"
 
 docFree :: Bool -> Definition -> [String]
