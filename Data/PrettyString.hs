@@ -25,7 +25,7 @@ module Data.PrettyString
    nest,
    toString) where
 
-import Prelude hiding (error)
+import Prelude hiding (error, (<>))
 import qualified Prelude (error)
 
 import Text.PrettyPrint (Doc, (<>), (<+>), ($$), ($+$))
