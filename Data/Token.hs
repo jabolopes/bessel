@@ -64,6 +64,7 @@ data Token
 
   -- types
   | TokenArrow Srcloc
+  | TokenColon Srcloc
 
   -- eof
   | TokenEOF
@@ -132,4 +133,5 @@ tokenSrcloc (TokenId srcloc _) = srcloc
 tokenSrcloc (TokenQuotedId srcloc _) = srcloc
 tokenSrcloc (TokenTypeId srcloc _) = srcloc
 tokenSrcloc (TokenArrow srcloc) = srcloc
+tokenSrcloc (TokenColon srcloc) = srcloc
 tokenSrcloc TokenEOF = Srcloc 0 0

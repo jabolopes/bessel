@@ -166,9 +166,9 @@ testExpander =
                (LambdaE (Name.untyped "arg#3")
                 (CondE
                  [(CondE
-                   [(AppE (AppE (Expr.idE "isTuple") (Expr.idE "null")) (Expr.idE "arg#2"),
+                   [(AppE (AppE (Expr.idE "isList") (Expr.idE "null")) (Expr.idE "arg#2"),
                      CondE
-                     [(AppE (AppE (Expr.idE "isTuple") (Expr.idE "null")) (Expr.idE "arg#3"), Expr.idE "true#"),
+                     [(AppE (AppE (Expr.idE "isList") (Expr.idE "null")) (Expr.idE "arg#3"), Expr.idE "true#"),
                       (Expr.idE "true#", Expr.idE "false#")]
                      "irrefutable 'and' pattern"),
                     (Expr.idE "true#", Expr.idE "false#")]
@@ -176,9 +176,9 @@ testExpander =
                    Expr.idE "true"),
                   (CondE
                    [(AppE
-                     (AppE (AppE (Expr.idE "isList") (LambdaE (Name.untyped "_") (Expr.idE "true#"))) (LambdaE (Name.untyped "_") (Expr.idE "true#"))) (Expr.idE "arg#2"),
+                     (AppE (AppE (Expr.idE "isHeadTail") (LambdaE (Name.untyped "_") (Expr.idE "true#"))) (LambdaE (Name.untyped "_") (Expr.idE "true#"))) (Expr.idE "arg#2"),
                      CondE
-                     [(AppE (AppE (AppE (Expr.idE "isList") (LambdaE (Name.untyped "_") (Expr.idE "true#"))) (LambdaE (Name.untyped "_") (Expr.idE "true#"))) (Expr.idE "arg#3"), Expr.idE "true#"),
+                     [(AppE (AppE (AppE (Expr.idE "isHeadTail") (LambdaE (Name.untyped "_") (Expr.idE "true#"))) (LambdaE (Name.untyped "_") (Expr.idE "true#"))) (Expr.idE "arg#3"), Expr.idE "true#"),
                       (Expr.idE "true#", Expr.idE "false#")]
                      "irrefutable 'and' pattern"),
                     (Expr.idE "true#", Expr.idE "false#")]
@@ -224,9 +224,9 @@ testExpander =
                (LambdaE (Name.untyped "arg#5")
                 (CondE
                  [(CondE
-                   [(AppE (AppE (Expr.idE "isTuple") (Expr.idE "null")) (Expr.idE "arg#4"),
+                   [(AppE (AppE (Expr.idE "isList") (Expr.idE "null")) (Expr.idE "arg#4"),
                      CondE
-                     [(AppE (AppE (Expr.idE "isTuple") (Expr.idE "null")) (Expr.idE "arg#5"), Expr.idE "true#"),
+                     [(AppE (AppE (Expr.idE "isList") (Expr.idE "null")) (Expr.idE "arg#5"), Expr.idE "true#"),
                       (Expr.idE "true#", Expr.idE "false#")]
                      "irrefutable 'and' pattern"),
                     (Expr.idE "true#",
@@ -234,9 +234,9 @@ testExpander =
                    "irrefutable 'and' pattern",
                    Expr.idE "true"),
                   (CondE
-                   [(AppE (AppE (AppE (Expr.idE "isList") (LambdaE (Name.untyped "_") (Expr.idE "true#"))) (LambdaE (Name.untyped "_") (Expr.idE "true#"))) (Expr.idE "arg#4"),
+                   [(AppE (AppE (AppE (Expr.idE "isHeadTail") (LambdaE (Name.untyped "_") (Expr.idE "true#"))) (LambdaE (Name.untyped "_") (Expr.idE "true#"))) (Expr.idE "arg#4"),
                      CondE
-                     [(AppE (AppE (AppE (Expr.idE "isList") (LambdaE (Name.untyped "_") (Expr.idE "true#"))) (LambdaE (Name.untyped "_") (Expr.idE "true#"))) (Expr.idE "arg#5"), Expr.idE "true#"),
+                     [(AppE (AppE (AppE (Expr.idE "isHeadTail") (LambdaE (Name.untyped "_") (Expr.idE "true#"))) (LambdaE (Name.untyped "_") (Expr.idE "true#"))) (Expr.idE "arg#5"), Expr.idE "true#"),
                       (Expr.idE "true#", Expr.idE "false#")]
                      "irrefutable 'and' pattern"),
                     (Expr.idE "true#",
@@ -273,8 +273,8 @@ testExpander =
       FnDecl Def (Name.untyped "isString")
       (LambdaE (Name.untyped "arg#0")
        (CondE
-        [(AppE (AppE (Expr.idE "isTuple") (Expr.idE "null")) (Expr.idE "arg#0"), Expr.idE "true"),
-         (AppE (AppE (AppE (Expr.idE "isList") (Expr.idE "isChar")) (Expr.idE "isString")) (Expr.idE "arg#0"), Expr.idE "true"),
+        [(AppE (AppE (Expr.idE "isList") (Expr.idE "null")) (Expr.idE "arg#0"), Expr.idE "true"),
+         (AppE (AppE (AppE (Expr.idE "isHeadTail") (Expr.idE "isChar")) (Expr.idE "isString")) (Expr.idE "arg#0"), Expr.idE "true"),
          (AppE (LambdaE (Name.untyped "_") (Expr.idE "true#")) (Expr.idE "arg#0"), Expr.idE "false")]
         "isString"))
 
@@ -322,7 +322,7 @@ testExpander =
        (CondE [(AppE (Expr.idE "isApple") (Expr.idE "arg#0"),
                 LetE
                 (FnDecl NrDef (Name.untyped "x") (AppE (Expr.idE "unCons#") (Expr.idE "arg#0")))
-                (IntE 0))]
+                (Expr.idE "x"))]
         "f8"))
 
     expected9 =

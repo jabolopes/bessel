@@ -21,8 +21,8 @@ $letter       = [a-zA-Z]
 @symbol = "\\" | "!" | "#" | "$" | "%"
         | "/"  | "'" | "?" | "«" | "»"
         | "+"  | "*" | "´" | "º" | "ª"
-        | "~"  | "^" | ";" | "-" | ":"
-        | ">"  | "<"
+        | "~"  | "^" | ";" | "-" | ">"
+        | "<"
 
 @id_char = $letter | $digit | @symbol
 
@@ -71,6 +71,10 @@ tokens :-
   @real               { \p s -> TokenDouble (srcloc p) (read s) }
   @string             { \p s -> TokenString (srcloc p) (init (tail s)) }
 
+  -- types
+  "->"                { \p _ -> TokenArrow (srcloc p) }
+  ":"                 { \p _ -> TokenColon (srcloc p) }
+
   -- operators
   "o"                 { \p s -> TokenComposition (srcloc p) s }
 
@@ -97,9 +101,6 @@ tokens :-
   "`" @identifier "`" { \p s -> TokenQuotedId (srcloc p) (init (tail s)) }
   @type_id            { \p s -> TokenTypeId (srcloc p) s }
   @operator           { \p s -> operatorFixity (srcloc p) s }
-
--- types
-  "->"                { \p _ -> TokenArrow (srcloc p) }
 
 {
 srcloc :: AlexPosn -> Srcloc

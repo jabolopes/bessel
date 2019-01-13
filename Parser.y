@@ -94,6 +94,7 @@ import Utils
 
   -- types
   '->'     { TokenArrow _ }
+  ':'     { TokenColon _ }
 
   -- eof   { TokenEOF }
 
@@ -153,11 +154,15 @@ Defn:
 
 FnDefn :: { Source }
 FnDefn:
-    let Pat CondExpr                        { FnDefS $2 $3 }
-  | let Pat CondExpr where '{' DefnList '}' { FnDefS $2 (WhereS $3 $6) }
-  -- The following rule is an unfortunate artifact from 'IndentLexer'.
-  | let Pat '{' CondExpr '}'                        { FnDefS $2 $4 }
-  | let Pat '{' CondExpr '}' where '{' DefnList '}' { FnDefS $2 (WhereS $4 $8) }
+    let Pat CondExpr                                 { FnDefS $2 Nothing $3 [] }
+  | let Pat ':' Type CondExpr                        { FnDefS $2 (Just $4) $5 [] }
+  | let Pat CondExpr where '{' DefnList '}'          { FnDefS $2 Nothing $3 $6 }
+  | let Pat ':' Type CondExpr where '{' DefnList '}' { FnDefS $2 (Just $4) $5 $8 }
+  -- The following rules are an unfortunate artifact from 'IndentLexer'.
+  | let Pat '{' CondExpr '}'                         { FnDefS $2 Nothing $4 [] }
+  | let Pat ':' Type '{' CondExpr '}'                { FnDefS $2 (Just $4) $6 [] }
+  | let Pat '{' CondExpr '}' where '{' DefnList '}'  { FnDefS $2 Nothing $4 $8 }
+  | let Pat ':' Type'{' CondExpr '}' where '{' DefnList '}' { FnDefS $2 (Just $4) $6 $10 }
 
 Expr :: { Source }
 Expr:
@@ -202,7 +207,7 @@ Cond:
 
 Let:
     let Pat CondExpr in Expr %prec let_prec {% ensureExpr $3 >>= \expr ->
-                                                 return (LetS [FnDefS $2 expr] $5) }
+                                                 return (LetS [FnDefS $2 Nothing expr []] $5) }
 
 TypeDefn :: { Source }
 TypeDefn:

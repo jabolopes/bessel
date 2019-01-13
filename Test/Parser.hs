@@ -15,6 +15,16 @@ deriving instance Show Source
 patS :: String -> Maybe Source -> Source
 patS binder = PatS (Name.untyped binder)
 
+-- | Convenience function that creates a function definition without
+-- type annotation and where clause.
+fnDefS :: Source -> Source -> Source
+fnDefS pat body = FnDefS pat Nothing body []
+
+-- | Convenience function that creates a function definition without
+-- type annotation.
+fnDefSWhere :: Source -> Source -> [Source] -> Source
+fnDefSWhere pat body whereClause = FnDefS pat Nothing body whereClause
+
 parseTestFile :: String -> IO Source
 parseTestFile filename =
   do str <- readFile filename
@@ -60,83 +70,80 @@ testParser =
      expect expected9 $ File "Test/TestData9.bsl"
      expect expected10 $ File "Test/TestData10.bsl"
   where
+    expectedSnippet1 :: Source
     expectedSnippet1 =
-      FnDefS (patS "not" Nothing)
+      fnDefS (patS "not" Nothing)
       (CondS [([Source.idS "id"], Source.idS "false"),
               ([patS "" Nothing], Source.idS "true")])
 
     expected1 =
       ModuleS (Name.untyped "Test.TestData1") []
-        [FnDefS (patS "f1" Nothing)
-         (WhereS
-          (CondS [([patS "x" (Just (Source.idS "isInt")),
-                    patS "y" (Just (Source.idS "isInt"))],
-                   AppS (Source.idS "f2") (Source.idS "x"))])
-          [FnDefS (patS "f2" Nothing)
-           (CondS
-            [([patS "z" Nothing], BinOpS "+" (Source.idS "z") (Source.idS "y"))])])]
+        [fnDefSWhere (patS "f1" Nothing)
+         (CondS [([patS "x" (Just (Source.idS "isInt")),
+                   patS "y" (Just (Source.idS "isInt"))],
+                  AppS (Source.idS "f2") (Source.idS "x"))])
+         [fnDefS (patS "f2" Nothing)
+          (CondS
+           [([patS "z" Nothing], BinOpS "+" (Source.idS "z") (Source.idS "y"))])]]
 
     expected2 =
       ModuleS (Name.untyped "Test.TestData2") []
-        [FnDefS (patS "f1" Nothing)
-         (WhereS
-          (CondS [([patS "x" (Just (Source.idS "isInt"))],
-                   LetS [FnDefS (patS "y" Nothing) (IntS 0)]
+        [fnDefSWhere (patS "f1" Nothing)
+         (CondS [([patS "x" (Just (Source.idS "isInt"))],
+                   LetS [fnDefS (patS "y" Nothing) (IntS 0)]
                    (AppS (Source.idS "f2") (Source.idS "y")))])
-          [FnDefS (patS "f2" Nothing)
-           (CondS
-            [([patS "z" Nothing], BinOpS "+" (Source.idS "z") (IntS 1))])])]
+         [fnDefS (patS "f2" Nothing)
+          (CondS
+           [([patS "z" Nothing], BinOpS "+" (Source.idS "z") (IntS 1))])]]
 
     expected3 =
       ModuleS (Name.untyped "Test.TestData3") []
-        [FnDefS (patS "f" Nothing)
+        [fnDefS (patS "f" Nothing)
          (CondS [([patS "x" (Just (Source.idS "isInt")), patS "y" (Just (Source.idS "isInt"))], Source.idS "true"),
                  ([patS "x" Nothing, patS "y" Nothing], Source.idS "false")])]
 
     expected4 =
       ModuleS (Name.untyped "Test.TestData4") []
-        [FnDefS (patS "eq" Nothing)
-         (WhereS
-          (CondS [([patS "x" (Just (Source.idS "isInt")), patS "y" (Just (Source.idS "isInt"))],
+        [fnDefSWhere (patS "eq" Nothing)
+         (CondS [([patS "x" (Just (Source.idS "isInt")), patS "y" (Just (Source.idS "isInt"))],
                    AppS (AppS (Source.idS "eqInt") (Source.idS "x")) (Source.idS "y")),
                   ([patS "x" Nothing, patS "y" Nothing],
                    AppS (AppS (Source.idS "eqSeq") (Source.idS "x")) (Source.idS "y"))])
-          [FnDefS (patS "eqSeq" Nothing)
-           (CondS [([SeqS [], SeqS []], Source.idS "true"),
-                   ([BinOpS "+>" (patS "z" Nothing) (patS "zs" Nothing), BinOpS "+>" (patS "w" Nothing) (patS "ws" Nothing)],
-                    AndS
-                      (AppS (AppS (Source.idS "eq") (Source.idS "z")) (Source.idS "w"))
-                      (AppS (AppS (Source.idS "eqSeq") (Source.idS "zs")) (Source.idS "ws"))),
-                   ([patS "" Nothing, patS "" Nothing], Source.idS "false")])])]
+         [fnDefS (patS "eqSeq" Nothing)
+          (CondS [([SeqS [], SeqS []], Source.idS "true"),
+                  ([BinOpS "+>" (patS "z" Nothing) (patS "zs" Nothing), BinOpS "+>" (patS "w" Nothing) (patS "ws" Nothing)],
+                   AndS
+                     (AppS (AppS (Source.idS "eq") (Source.idS "z")) (Source.idS "w"))
+                     (AppS (AppS (Source.idS "eqSeq") (Source.idS "zs")) (Source.idS "ws"))),
+                  ([patS "" Nothing, patS "" Nothing], Source.idS "false")])]]
 
     expected5 =
       ModuleS (Name.untyped "Test.TestData5") []
-        [FnDefS (patS "isString" Nothing)
+        [fnDefS (patS "isString" Nothing)
          (CondS [([SeqS []],Source.idS "true"),
                  ([BinOpS "+>" (Source.idS "isChar") (Source.idS "isString")],Source.idS "true"),
                  ([patS "" Nothing],Source.idS "false")])]
 
     expected6 =
       ModuleS (Name.untyped "Test.TestData6") []
-        [FnDefS (patS "f" Nothing)
+        [fnDefS (patS "f" Nothing)
          (CondS
           [([patS "n" Nothing],
-            LetS [FnDefS (SeqS [patS "x" Nothing,patS "y" Nothing]) (SeqS [IntS 1,IntS 2])]
+            LetS [fnDefS (SeqS [patS "x" Nothing,patS "y" Nothing]) (SeqS [IntS 1,IntS 2])]
             (AppS (AppS (Source.idS "case") (Source.idS "n"))
              (CondS [([AppS (patS ">" Nothing) (IntS 1)], Source.idS "x"),
                      ([patS "" Nothing], Source.idS "y")])))])]
 
     expected7 =
       ModuleS (Name.untyped "Test.TestData7") []
-        [FnDefS
-         (SeqS [patS "x" Nothing, patS "y" Nothing])
-         (SeqS [IntS 1,IntS 2])]
+        [fnDefS (SeqS [patS "x" Nothing, patS "y" Nothing])
+         (SeqS [IntS 1, IntS 2])]
 
     expected8 =
       ModuleS (Name.untyped "Test.TestData8") []
-        [FnDefS (patS "f8" Nothing)
+        [fnDefS (patS "f8" Nothing)
          (CondS [([AppS (patS "Apple" Nothing) (patS "x" (Just (Source.idS "isInt")))],
-                  IntS 0)])]
+                  Source.idS "x")])]
 
     expected9 =
       ModuleS (Name.untyped "Test.TestData9") []
@@ -145,13 +152,12 @@ testParser =
         TypeDeclS (Name.untyped "EvenMoreFruit") [(Name.untyped "Banana", Source.idS "isInt"),
                                                   (Name.untyped "Kiwi", Source.idS "isReal")]]
 
+    expected10 :: Source
     expected10 =
       ModuleS (Name.untyped "Test.TestData10") []
-        [FnDefS (patS "f1" Nothing)
-         (WhereS
-          (CondS [([patS "x" (Just (Source.idS "isInt"))],AppS (Source.idS "f2") (Source.idS "x"))])
-          [FnDefS (patS "f2" Nothing)
-           (WhereS
-            (CondS [([patS "y" Nothing],AppS (Source.idS "f3") (Source.idS "y"))])
-            [FnDefS (patS "f3" Nothing)
-             (CondS [([patS "w" Nothing],BinOpS "+" (Source.idS "w") (Source.idS "x"))])])])]
+        [fnDefSWhere (patS "f1" Nothing)
+         (CondS [([patS "x" (Just (Source.idS "isInt"))],AppS (Source.idS "f2") (Source.idS "x"))])
+         [fnDefSWhere (patS "f2" Nothing)
+          (CondS [([patS "y" Nothing],AppS (Source.idS "f3") (Source.idS "y"))])
+          [fnDefS (patS "f3" Nothing)
+           (CondS [([patS "w" Nothing],BinOpS "+" (Source.idS "w") (Source.idS "x"))])]]]

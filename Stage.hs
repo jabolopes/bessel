@@ -30,14 +30,14 @@ import qualified Utils
 
 -- edit: improve by a lot...
 definitionName :: Source -> Name
-definitionName (FnDefS (IdS name) _) = name
-definitionName (FnDefS pat _) =
+definitionName (FnDefS (IdS name) _ _ _) = name
+definitionName (FnDefS pat _ _ _) =
   let defns = Expander.patDefinitions undefined pat in
   case defns of
     [] -> error $ "Stage.definitionName: " ++
                   PrettyString.toString (Pretty.docSource pat) ++
                   PrettyString.toString (Pretty.docSourceList defns)
-    _ -> Name.untyped . List.intercalate "+" $ map (\(FnDefS (PatS name _) _) -> Name.nameStr name) defns
+    _ -> Name.untyped . List.intercalate "+" $ map (\(FnDefS (PatS name _) _ _ _) -> Name.nameStr name) defns
 definitionName (TypeDeclS x _) = x
 definitionName src =
   error $ "Stage.definitionName: expecting function or type definition" ++
@@ -82,7 +82,8 @@ mkSnippet fs source@FnDefS {} =
      Just mod -> (Definition.initial defName) { defUses = Module.modUses mod
                                               , defSrc = Right source
                                               }
-mkSnippet fs source = mkSnippet fs $ FnDefS (Source.idS "val") source
+mkSnippet fs source =
+  mkSnippet fs $ FnDefS (Source.idS "val") Nothing source []
 
 renameSnippet :: FileSystem -> Definition -> Either PrettyString Definition
 renameSnippet fs def =
