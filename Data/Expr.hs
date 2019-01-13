@@ -104,7 +104,7 @@ constTrueE :: Expr
 constTrueE = constE trueE
 
 foldAppE :: Expr -> [Expr] -> Expr
-foldAppE = foldr AppE
+foldAppE = foldl AppE
 
 idE :: String -> Expr
 idE = IdE . Name.untyped
