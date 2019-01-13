@@ -118,6 +118,8 @@ renameLambdaM arg body =
              withScopeM (renameOneM body))
 
 renameM :: Expr -> RenamerM [Expr]
+renameM (AnnotationE expr typ) =
+  Utils.returnOne $ AnnotationE <$> renameOneM expr <*> return typ
 renameM (AppE expr1 expr2) =
   Utils.returnOne $ AppE <$> renameOneM expr1 <*> renameOneM expr2
 renameM expr@CharE {} = return [expr]

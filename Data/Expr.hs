@@ -10,7 +10,7 @@ data DefnKw
   = Def | NrDef
 
 data Expr
-  = Annotation Expr Type
+  = AnnotationE Expr Type
   | AppE Expr Expr
   | CharE Char
 
@@ -152,7 +152,7 @@ freeVars :: Expr -> [Name]
 freeVars = List.nub . snd . freeVars' [] []
   where
     freeVars' :: [Name] -> [Name] -> Expr -> ([Name], [Name])
-    freeVars' env fvars (Annotation expr _) =
+    freeVars' env fvars (AnnotationE expr _) =
       freeVars' env fvars expr
     freeVars' env fvars (AppE expr1 expr2) =
       let (env', fvars') = freeVars' env fvars expr1 in

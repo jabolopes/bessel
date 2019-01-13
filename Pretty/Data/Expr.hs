@@ -29,6 +29,9 @@ docCond fn ms blame =
        PrettyString.text blame]
 
 docExpr :: Expr -> PrettyString
+docExpr (AnnotationE expr typ) =
+  -- TODO: replace show typ with pretty typ
+  PrettyString.sep [PrettyString.text (show typ) <+> PrettyString.text ":", PrettyString.nest (docExpr expr)]
 docExpr (AppE e1 e2) =
   let
     fn1 | isParens False e1 = PrettyString.parens . docExpr

@@ -33,8 +33,6 @@ def Banana x#0@isInt = mkCons# (link# "Banana") x#0
 def Fig x#0@[isInt, isReal] = mkCons# (link# "Fig") x#0
 def Orange x#0@Fruit = mkCons# (link# "Orange") x#0
 
-  def Orange x#0@isFruit = ...
-
 def show
   isApple  = "apple"
   isBanana = "banana"
