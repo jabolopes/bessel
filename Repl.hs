@@ -84,8 +84,8 @@ runSnippetM ln =
          do modify $ \s -> s { fs = fs' }
             liftIO $ putVal (Definition.defVal (last defs))
 
-showMeM :: Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> String -> StateT ReplState IO ()
-showMeM showAll showBrief showOrd showFree showSrc showExp showRen showJs filename =
+showMeM :: Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> String -> StateT ReplState IO ()
+showMeM showAll showBrief showOrd showFree showSrc showExp showRen filename =
   let
     filesM
       | showAll = FileSystem.toAscList . fs <$> get
@@ -99,7 +99,7 @@ showMeM showAll showBrief showOrd showFree showSrc showExp showRen showJs filena
              Just mod -> return [mod]
   in
     do mods <- filesM
-       let modDoc = Pretty.docModules showBrief showOrd showFree showSrc showExp showRen showJs mods
+       let modDoc = Pretty.docModules showBrief showOrd showFree showSrc showExp showRen mods
        liftIO $ putStrLn $ PrettyString.toString modDoc
 
 data Flag
@@ -112,8 +112,6 @@ data Flag
   | ShowSrc
   | ShowExp
   | ShowRen
-
-  | ShowJs
     deriving (Eq, Show)
 
 options :: [OptDescr Flag]
@@ -124,8 +122,7 @@ options = [Option "a" [] (NoArg ShowAll) "Show all",
            Option "" ["free"] (NoArg ShowFree) "Show free names of definition",
            Option "" ["src"] (NoArg ShowSrc) "Show source of definition",
            Option "" ["exp"] (NoArg ShowExp) "Show expanded definition",
-           Option "" ["ren"] (NoArg ShowRen) "Show renamed definition",
-           Option "" ["js"] (NoArg ShowJs) "Show javascript definition"]
+           Option "" ["ren"] (NoArg ShowRen) "Show renamed definition"]
 
 runCommandM :: String -> [Flag] -> [String] -> ReplM ()
 runCommandM "def" opts nonOpts
@@ -137,12 +134,12 @@ runCommandM "def" opts nonOpts
          liftIO . putStrLn . PrettyString.toString $
            case FileSystem.lookupDefinition fs . Name.untyped $ moduleName ++ "." ++ definitionName of
              Bad err -> err
-             Ok def -> Pretty.docDefn showFree showSrc showExp showRen showJs def
+             Ok def -> Pretty.docDefn showFree showSrc showExp showRen def
   | showAll || isModuleName nonOpts =
       do let moduleName
                | null nonOpts = ""
                | otherwise = last nonOpts
-         showMeM showAll showBrief showOrd showFree showSrc showExp showRen showJs moduleName
+         showMeM showAll showBrief showOrd showFree showSrc showExp showRen moduleName
   | null nonOpts =
       do fs <- fs <$> get
          let moduleNames = map Module.modName . FileSystem.toAscList $ fs
@@ -157,7 +154,6 @@ runCommandM "def" opts nonOpts
     showSrc = ShowSrc `elem` opts
     showExp = ShowExp `elem` opts
     showRen = ShowRen `elem` opts
-    showJs  = ShowJs `elem` opts
 
     isDefinitionName (_:_:_) = True
     isDefinitionName _ = False
@@ -166,7 +162,7 @@ runCommandM "def" opts nonOpts
     isModuleName _ = False
 
     usageM =
-      liftIO . putStr $ usageInfo "def [-b] [--help] [--free] [--src] [--exp] [--ren] [--js] [-o] [-a | <me>]" options
+      liftIO . putStr $ usageInfo "def [-b] [--help] [--free] [--src] [--exp] [--ren] [-o] [-a | <me>]" options
 runCommandM "load" _ nonOpts
   | null nonOpts =
     liftIO $ putStrLn ":load [ <me> | <file/me> ]"
@@ -176,7 +172,7 @@ runCommandM "load" _ nonOpts
 runCommandM "l" opts nonOpts =
   runCommandM "load" opts nonOpts
 runCommandM _ _ _ =
-  liftIO $ putStrLn ":def | :load | :me | :js"
+  liftIO $ putStrLn ":def | :load | :me"
 
 dispatchCommandM :: String -> ReplM ()
 dispatchCommandM ln =

@@ -12,11 +12,10 @@ import Data.Name (Name)
 import qualified Data.Name as Name
 import qualified Pretty.Data.Expr as Pretty (docExpr)
 import qualified Pretty.Data.Source as Pretty
-import qualified Stage.JavascriptCompiler as JavascriptCompiler
 
-definitionOk :: Name -> String -> [String] -> PrettyString -> PrettyString -> PrettyString -> PrettyString -> PrettyString -> PrettyString
-definitionOk name val freeNames src exp ren js err =
-  hdDoc $+$ PrettyString.vcat [freeDoc, srcDoc, expDoc, renDoc, jsDoc, errDoc]
+definitionOk :: Name -> String -> [String] -> PrettyString -> PrettyString -> PrettyString -> PrettyString -> PrettyString
+definitionOk name val freeNames src exp ren err =
+  hdDoc $+$ PrettyString.vcat [freeDoc, srcDoc, expDoc, renDoc, errDoc]
   where
     hdDoc = PrettyString.text (show name) <+> PrettyString.equals <+> PrettyString.text val
 
@@ -31,7 +30,6 @@ definitionOk name val freeNames src exp ren js err =
     srcDoc = sectionDoc "-- source" src
     expDoc = sectionDoc "-- expanded" exp
     renDoc = sectionDoc "-- renamed" ren
-    jsDoc  = sectionDoc "-- javascript" js
     errDoc = sectionDoc "-- errors" err
 
 docVal :: Either a b -> String
@@ -57,11 +55,6 @@ docRen :: Bool -> Definition -> PrettyString
 docRen showRen Definition { defRen = Right expr }
   | showRen = Pretty.docExpr expr
 docRen _ _ = PrettyString.empty
-
-docJs :: Bool -> Definition -> PrettyString
-docJs showJs Definition { defRen = Right expr }
-  | showJs = JavascriptCompiler.compile expr
-docJs _ _ = PrettyString.empty
 
 docErrorSrc :: Either PrettyString a -> PrettyString
 docErrorSrc (Right _) = PrettyString.empty
@@ -91,13 +84,12 @@ docError def =
                      docErrorRen (Definition.defRen def),
                      docErrorVal (Definition.defVal def)]
 
-docDefn :: Bool -> Bool -> Bool -> Bool -> Bool -> Definition -> PrettyString
-docDefn showFree showSrc showExp showRen showJs def =
+docDefn :: Bool -> Bool -> Bool -> Bool -> Definition -> PrettyString
+docDefn showFree showSrc showExp showRen def =
   definitionOk (Definition.defName def)
                (docVal (Definition.defVal def))
                (docFree showFree def)
                (docSource showSrc def)
                (docExp showExp def)
                (docRen showRen def)
-               (docJs showJs def)
                (docError def)
