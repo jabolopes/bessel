@@ -131,16 +131,18 @@ renameM (CondE ms blame) =
 renameM (FnDecl Def name body) =
   if name `elem` Expr.freeVars body
   then do
-    name' <- genNameM $ Name.nameStr name
-    addFnSymbolM (Name.nameStr name) name'
-    Utils.returnOne $ FnDecl Def (Name.untyped name') <$> renameOneM body
+    newName <- genNameM $ Name.nameStr name
+    name' <- Name.name newName $ Name.nameType name
+    addFnSymbolM (Name.nameStr name) (Name.nameStr name')
+    Utils.returnOne $ FnDecl Def name' <$> renameOneM body
   else
     renameM (FnDecl NrDef name body)
 renameM (FnDecl NrDef name body) =
-  do name' <- genNameM $ Name.nameStr name
+  do newName <- genNameM $ Name.nameStr name
+     name' <- Name.name newName $ Name.nameType name
      body' <- renameOneM body
-     addFnSymbolM (Name.nameStr name) name'
-     Utils.returnOne . return $ FnDecl NrDef (Name.untyped name') body'
+     addFnSymbolM (Name.nameStr name) (Name.nameStr name')
+     Utils.returnOne . return $ FnDecl NrDef name' body'
 renameM (IdE name) =
   Utils.returnOne $ Expr.idE <$> getFnSymbolM (Name.nameStr name)
 renameM expr@IntE {} = Utils.returnOne $ return expr
