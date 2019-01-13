@@ -32,7 +32,7 @@ unUnit :: Val -> ()
 unUnit val@(TypeVal (SeqVal [_, unit]))
   | isUnit val = let Just () = unDynVal unit :: Maybe () in ()
 unUnit _ =
-  error "Core: expected unit"
+  error "Core.unUnit: expected unit"
 
 -- Bool
 
@@ -201,6 +201,7 @@ isTuple (SeqVal fns) = FnVal isTupleHof
            if isNotFalseVal val'
              then all' fns vals
              else return false
+isList _ = error "Core.isList: expected forall a. [a -> Bool]"
 
       isTupleHof (SeqVal vals)
         | length fns == length vals = all' fns vals

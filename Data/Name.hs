@@ -2,8 +2,8 @@ module Data.Name where
 
 import qualified Data.Char as Char
 
-import qualified Utils
 import Typechecker.Type (Type)
+import qualified Utils
 
 data Name
   = Name { nameStr:: String
@@ -19,8 +19,8 @@ instance Ord Name where
     name1 `compare` name2
 
 instance Show Name where
-  show (Name name Nothing) = name
-  show (Name name (Just typ)) = name ++ " :: " ++ show typ
+  show (Name str Nothing) = str
+  show (Name str (Just typ)) = str ++ " :: " ++ show typ
 
 isValidName :: String -> Bool
 isValidName "" = True
@@ -29,25 +29,32 @@ isValidName str = all (/= "") $ Utils.splitId str
 empty :: Name
 empty = Name "" Nothing
 
+name :: Monad m => String -> Maybe Type -> m Name
+name str typ
+  | isValidName str = return $ Name str typ
+  | otherwise = fail $ "Invalid name " ++ show str
+
 -- TODO: make monadic smart constructor.
 untyped :: String -> Name
-untyped str
-  | isValidName str = Name str Nothing
-  | otherwise = error $ "Invalid name " ++ show str
+untyped str =
+  case name str Nothing of
+    Left err -> error err
+    Right x -> x
 
 -- TODO: make monadic smart constructor.
 typed :: String -> Type -> Name
-typed str typ
-  | isValidName str = Name str $ Just typ
-  | otherwise = error $ "Invalid name " ++ show str
+typed str typ =
+  case name str (Just typ) of
+    Left err -> error err
+    Right x -> x
 
 isEmptyName :: Name -> Bool
 isEmptyName = null . nameStr
 
 isTypeName :: Name -> Bool
-isTypeName name
-  | isEmptyName name = False
-  | otherwise = isTypeName' . last . Utils.splitId $ nameStr name
+isTypeName n
+  | isEmptyName n = False
+  | otherwise = isTypeName' . last . Utils.splitId $ nameStr n
   where
     isTypeName' (x:_) = Char.isUpper x
     isTypeName' _ = False
