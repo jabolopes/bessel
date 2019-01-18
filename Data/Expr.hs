@@ -148,6 +148,14 @@ seqE (e:es) = AppE (appE consE e) (seqE es)
 stringE :: String -> Expr
 stringE str = seqE (map CharE str)
 
+tupleE :: [Expr] -> Expr
+tupleE [] = idE "unit"
+tupleE exprs = foldAppE (IdE . mkTupleName $ length exprs) exprs
+  where
+    mkTupleName 0 = error "mkTupleName undefined for length 0"
+    mkTupleName 1 = error "mkTupleName undefined for length 1"
+    mkTupleName len = Name.untyped $ "mkTuple" ++ show len
+
 freeVars :: Expr -> [Name]
 freeVars = List.nub . snd . freeVars' [] []
   where

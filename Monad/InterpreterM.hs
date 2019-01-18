@@ -1,6 +1,8 @@
 module Monad.InterpreterM where
 
 import Control.Monad.State
+import Data.Array (Array)
+import qualified Data.Array as Array
 import Data.Dynamic (Typeable, Dynamic)
 import qualified Data.Dynamic as Dynamic (fromDynamic, toDyn)
 import Data.IORef
@@ -18,6 +20,7 @@ data Val
     | IOVal (IO Val)
     | RealVal Double
     | SeqVal [Val]
+    | TupleVal (Array Int Val)
     | TypeVal Val
 
 instance Show Val where
@@ -32,6 +35,7 @@ instance Show Val where
     show (SeqVal vals)
         | not (null vals) && all isCharVal vals = show $ map (\(CharVal c) -> c) vals
         | otherwise = "[" ++ List.intercalate "," (map show vals) ++ "]"
+    show (TupleVal vals) = "(" ++ List.intercalate ", " (map show $ Array.elems vals) ++ ")"
     show (TypeVal val) = "{" ++ show val ++ "}"
 
 isFalseVal :: Val -> Bool

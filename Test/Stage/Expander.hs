@@ -15,18 +15,19 @@ deriving instance Eq DefnKw
 deriving instance Eq Expr
 
 expandTestFile :: String -> IO [Expr]
-expandTestFile filename =
-  do ModuleS _ _ srcs <- parseFile
-     case concat `fmap` mapM Expander.expand srcs of
-       Left err -> fail $ show err
-       Right exprs -> return exprs
-
+expandTestFile filename = expandFile
   where
     parseFile =
       do str <- readFile filename
          case Parser.parseFile (Name.untyped filename) str of
            Left err -> fail err
            Right src -> return src
+
+    expandFile =
+      do ModuleS _ _ srcs <- parseFile
+         case concat `fmap` mapM Expander.expand srcs of
+           Left err -> fail $ show err
+           Right exprs -> return exprs
 
 expandSnippet :: Monad m => String -> m [Expr]
 expandSnippet str =
@@ -67,6 +68,9 @@ testExpander =
      expect expected7 $ File "Test/TestData7.bsl"
      expect [expected8] $ File "Test/TestData8.bsl"
      expect expected9 $ File "Test/TestData9.bsl"
+     expect [expected12] $ File "Test/TestData12.bsl"
+     expect [expectedTuple] $ File "Test/Tuple.bsl"
+     expect expectedUnit $ File "Test/Unit.bsl"
   where
     expectedSnippet1 =
       FnDecl NrDef (Name.untyped "not")
@@ -363,3 +367,30 @@ testExpander =
                (Expr.idE "isKiwi",Expr.idE "true#"),
                (Expr.idE "true#",Expr.idE "false#")]
         "irrefutable 'or' pattern")]
+
+    expected12 =
+      FnDecl NrDef (Name.untyped "f")
+      (LambdaE (Name.untyped "arg#0")
+       (CondE [(AppE (Expr.appE (Name.untyped "isList") (Expr.seqE [Expr.idE "isInt"])) (Expr.idE "arg#0"), IntE 0),
+               (AppE (Expr.appE (Name.untyped "isList") (Expr.seqE [Expr.idE "isReal", Expr.idE "isString"])) (Expr.idE "arg#0"), IntE 1),
+               (AppE Expr.constTrueE (Expr.idE "arg#0"), IntE 2)]
+         "f"))
+
+    expectedTuple =
+      FnDecl NrDef (Name.untyped "f1") $
+       LambdaE (Name.untyped "t#0") $
+        CondE [(Expr.idE "isTuple2" `AppE` (Expr.idE "mkTuple2" `AppE` Expr.idE "isInt" `AppE` Expr.idE "isReal") `AppE` Expr.idE "t#0",
+                (LetE (FnDecl NrDef (Name.untyped "t") (Expr.idE "t#0"))
+                 (LetE (FnDecl NrDef (Name.untyped "x") (Expr.idE "tuple2Ref0" `AppE` Expr.idE "t#0"))
+                  (LetE (FnDecl NrDef (Name.untyped "y") (Expr.idE "tuple2Ref1" `AppE` Expr.idE "t#0"))
+                   (Expr.idE "addIntReal" `AppE` Expr.idE "x" `AppE` Expr.idE "y")))))]
+         "f1"
+
+    expectedUnit =
+      [FnDecl NrDef (Name.untyped "f1") $
+        LambdaE (Name.untyped "t#0") $
+         CondE [(Expr.idE "isTuple0" `AppE` Expr.idE "t#0",
+                 (LetE (FnDecl NrDef (Name.untyped "t") (Expr.idE "t#0"))
+                  (Expr.idE "mkTuple0")))]
+         "f1",
+       FnDecl NrDef (Name.untyped "f2") (Expr.idE "mkTuple0")]

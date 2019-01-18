@@ -245,8 +245,11 @@ SimplePat:
   | string                       { StringS $1 }
   | '[' ExprList ']'             { SeqS $2 }
   | '['          ']'             { SeqS [] }
+  | '(' ExprList ')'             { case $2 of
+                                     [src] -> src
+                                     _ -> TupleS $2 }
+  | '('          ')'             { TupleS [] }
   | TypeName                     { IdS $1 }
-  | '(' Expr ')'                 { $2 }
   | '{' Expr '}'                 { $2 }
 
 ExprList :: { [Source] }

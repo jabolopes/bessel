@@ -6,6 +6,8 @@ import qualified Prelude
 import Control.Applicative ((<$>))
 import Control.Arrow ((***))
 import Control.Monad.IO.Class
+import Data.Array (Array(..), (!))
+import qualified Data.Array as Array
 import Data.Hashable (hash)
 import System.IO as IO
 
@@ -190,40 +192,43 @@ ltChar (CharVal c1) = FnVal $ return . ltCharHof
 
 -- Seq
 
-isTuple :: Val -> Val
-isTuple (SeqVal fns) = FnVal isTupleHof
+isList :: Val -> Val
+isList (SeqVal fns) = FnVal arg2
     where
-      all' [] [] = return true
-      all' [] _ = return false
-      all' _ [] = return false
-      all' (FnVal fn:fns) (val:vals) =
+      arg2 (SeqVal vals) | length fns == length vals = apply fns vals
+      arg2 _ = return false
+
+      apply [] [] = return true
+      apply [] _ = return false
+      apply _ [] = return false
+      apply (FnVal fn:fns) (val:vals) =
         do val' <- fn val
            if isNotFalseVal val'
-             then all' fns vals
+             then apply fns vals
              else return false
 isList _ = error "Core.isList: expected forall a. [a -> Bool]"
 
-      isTupleHof (SeqVal vals)
-        | length fns == length vals = all' fns vals
-      isTupleHof _ = return false
-
-isList :: Val -> Val
-isList (FnVal fn1) = FnVal isListHof
+isHeadTail :: Val -> Val
+isHeadTail (FnVal fn1) = FnVal arg2
   where
-    isListHof (FnVal fn2) = return $ FnVal isListHof'
-      where
-        isListHof' (SeqVal (x:xs)) =
-          do val1 <- fn1 x
-             if isNotFalseVal val1
-               then do
-                 val2 <- fn2 (SeqVal xs)
-                 if isNotFalseVal val2
-                   then return true
-                   else return false
-               else
-                 return false
-        isListHof' _ =
-          return false
+    arg2 (FnVal fn2) = return $ FnVal $ arg3 fn2
+    arg2 _ = error "Core.isHeadTail: expected forall a. -> Bool"
+
+    arg3 fn2 (SeqVal vals) = apply fn1 fn2 vals
+    arg3 _ _ = error "Core.isHeadTail: expected list"
+
+    apply _ _ [] =
+      return false
+    apply fn1 fn2 (x:xs) =
+      do val1 <- fn1 x
+         if isNotFalseVal val1
+           then do
+             val2 <- fn2 (SeqVal xs)
+             if isNotFalseVal val2
+               then return true
+               else return false
+           else
+             return false
 
 null :: Val
 null = SeqVal []
@@ -236,6 +241,63 @@ hd (SeqVal (val:_)) = val
 
 tl :: Val -> Val
 tl (SeqVal (_:vals)) = SeqVal vals
+
+-- Tuple
+
+arrayLength :: Array Int a -> Int
+arrayLength array =
+  let (x, y) = Array.bounds array in
+  y - x + 1
+
+isTuple0 :: Val -> Val
+isTuple0 (TupleVal vals)
+  | arrayLength vals == 0 = true
+  | otherwise = false
+isTuple0 _ = error "Core.isTuple0: expected unit"
+
+isTuple :: Val -> Val
+isTuple (TupleVal fns) = FnVal arg2
+    where
+      arg2 (TupleVal vals) | arrayLength fns == arrayLength vals = apply [0..arrayLength fns - 1] vals
+      arg2 _ = return false
+
+      apply :: [Int] -> Array Int Val -> InterpreterM Val
+      apply [] _ = return true
+      apply (index:indexes) vals =
+        do let fn = fns ! index
+           let val = vals ! index
+           case fn of
+             FnVal predicate ->
+               do val' <- predicate val
+                  if isNotFalseVal val'
+                    then apply indexes vals
+                    else return false
+             _ ->
+               error "Core.isTuple: expected forall a. -> Bool"
+isTuple _ = error "Core.isTuple: expected forall a b ... . (a -> Bool, b -> Bool, ...)"
+
+mkTuple0 :: Val
+mkTuple0 = TupleVal emptyArray
+  where
+    emptyArray = Array.array (0, -1) []
+
+mkTuple2 :: Val -> Val
+mkTuple2 val1 = FnVal $
+  \val2 -> return . TupleVal $ Array.listArray (0, 1) [val1, val2]
+
+mkTuple3 :: Val -> Val
+mkTuple3 val1 = FnVal $
+  \val2 -> return . FnVal $
+    \val3 -> return . TupleVal $ Array.listArray (0, 2) [val1, val2, val3]
+
+tupleRef0 :: Val -> Val
+tupleRef0 (TupleVal vals) = vals ! 0
+
+tupleRef1 :: Val -> Val
+tupleRef1 (TupleVal vals) = vals ! 1
+
+tupleRef2 :: Val -> Val
+tupleRef2 (TupleVal vals) = vals ! 2
 
 -- Fn
 
@@ -360,12 +422,24 @@ fnDesc =
    ("eqChar", primitive eqChar),
    ("ltChar", primitive ltChar),
    -- Seq
-   ("isTuple", primitive isTuple),
    ("isList", primitive isList),
+   ("isHeadTail", primitive isHeadTail),
    ("null", null),
    ("cons", primitive cons),
    ("hd", primitive hd),
    ("tl", primitive tl),
+   -- Tuple
+   ("isTuple0", primitive isTuple0),
+   ("isTuple2", primitive isTuple),
+   ("isTuple3", primitive isTuple),
+   ("mkTuple0", mkTuple0),
+   ("mkTuple2", primitive mkTuple2),
+   ("mkTuple3", primitive mkTuple3),
+   ("tuple2Ref0", primitive tupleRef0),
+   ("tuple2Ref1", primitive tupleRef1),
+   ("tuple3Ref0", primitive tupleRef0),
+   ("tuple3Ref1", primitive tupleRef1),
+   ("tuple3Ref2", primitive tupleRef2),
    -- Fn
    ("isFn", primitive isFn),
    -- Obj

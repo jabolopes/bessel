@@ -92,6 +92,12 @@ docSource (SeqS ms) =
   PrettyString.char ']'
 docSource (StringS str) =
   PrettyString.char '"' <> PrettyString.text str <> PrettyString.char '"'
+docSource (TupleS [src]) =
+  docSource src
+docSource (TupleS srcs) =
+  PrettyString.char '(' <>
+  PrettyString.sep (PrettyString.intercalate (PrettyString.text ",") (map docSource srcs)) <>
+  PrettyString.char ')'
 docSource (TypeDeclS typeName cons) =
   PrettyString.sep [PrettyString.text "type" <+> PrettyString.text (show typeName), PrettyString.nest consDoc]
   where

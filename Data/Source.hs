@@ -138,6 +138,12 @@ data Source
   -- @
   | StringS String
 
+  -- | TupleS
+  -- @
+  -- (1, 2.0, "ola")
+  -- @
+  | TupleS [Source]
+
   -- | TypeDeclS
   -- @
   -- type Type
@@ -211,4 +217,5 @@ toSource PatS {} = Nothing
 toSource src@RealS {} = Just src
 toSource (SeqS srcs) = SeqS <$> mapM toSource srcs
 toSource src@StringS {} = Just src
+toSource (TupleS srcs) = TupleS <$> mapM toSource srcs
 toSource src@TypeDeclS {} = Just src

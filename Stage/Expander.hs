@@ -81,6 +81,8 @@ patDefinitions val = sourceDefns []
     hdName = Source.idS "hd"
     tlName = Source.idS "tl"
 
+    tupleRefName len index = Source.idS $ "tuple" ++ show len ++ "Ref" ++ show index
+
     sourceDefns mods src
       | Source.isTypePat src =
         concatMap (sourceDefns (unConsName:mods)) . tail . Source.appToList $ src
@@ -99,11 +101,18 @@ patDefinitions val = sourceDefns []
             Nothing -> []
             Just src -> sourceDefns mods src
     sourceDefns mods (SeqS pats) =
-      concat [ sourceDefns (mod ++ mods) pat | pat <- pats | mod <- patMods ]
+      concat [ sourceDefns (mod ++ mods) pat | mod <- patMods | pat <- pats ]
       where
         listRef 1 = [hdName]
         listRef i = tlName:listRef (i - 1)
+
         patMods = map (reverse . listRef) [1..length pats]
+    sourceDefns mods (TupleS [pat]) =
+      sourceDefns mods pat
+    sourceDefns mods (TupleS pats) =
+      concat [ sourceDefns (patMod index:mods) pat | index <- [0..length pats - 1] | pat <- pats ]
+      where
+        patMod index = tupleRefName (length pats) index
     sourceDefns _ _ = []
 
 -- | Returns the predicate and equality function names for primitive types.
@@ -124,21 +133,29 @@ patConstantPred src =
 -- x@[@, @]
 -- x@1
 -- x@"ola"
+-- ()
+-- (x@isInt, y@isReal)
 -- @
 --
 -- @
 -- const true
 -- isInt
--- isList (const true) (const true)
--- isTuple [const true, const true]
+-- isHeadTail (const true) (const true)
+-- isList [const true, const true]
 -- isInt && eqInt 1
--- isTuple [isChar, isChar, isChar]
+-- isList [isChar, isChar, isChar]
+-- isTuple ()
+-- isTuple (isInt, isReal)
 -- @
 patPred :: Source -> ExpanderM Expr
 patPred = sourcePred
   where
+    isHeadTailName = Name.untyped "isHeadTail"
     isListName = Name.untyped "isList"
-    isTupleName = Name.untyped "isTuple"
+
+    isTupleName :: Int -> Name
+    isTupleName 1 = error "isTupleName undefined for length 1"
+    isTupleName len = Name.untyped $ "isTuple" ++ show len
 
     sourcePred :: Source -> ExpanderM Expr
     sourcePred src
@@ -159,15 +176,21 @@ patPred = sourcePred
     sourcePred (BinOpS "+>" hdPat tlPat) =
       do hdPred <- sourcePred hdPat
          tlPred <- sourcePred tlPat
-         return $ Expr.appE isListName hdPred `AppE` tlPred
+         return $ Expr.appE isHeadTailName hdPred `AppE` tlPred
     sourcePred pred@IdS {} =
       expandOne pred
     sourcePred (PatS _ Nothing) =
       return Expr.constTrueE
     sourcePred (PatS _ (Just src)) =
-      patPred src
+      sourcePred src
     sourcePred (SeqS pats) =
-      Expr.appE isTupleName . Expr.seqE <$> mapM sourcePred pats
+      Expr.appE isListName . Expr.seqE <$> mapM sourcePred pats
+    sourcePred (TupleS []) =
+      return . IdE $ isTupleName 0
+    sourcePred (TupleS [pat]) =
+      sourcePred pat
+    sourcePred (TupleS pats) =
+      Expr.appE (isTupleName $ length pats) . Expr.tupleE <$> mapM sourcePred pats
     sourcePred (StringS cs) =
       sourcePred . SeqS . map CharS $ cs
     sourcePred m =
@@ -355,6 +378,32 @@ expandSeq ms = Expr.seqE <$> mapM expandOne ms
 expandString :: String -> Expr
 expandString = Expr.stringE
 
+-- Expand tuples.
+
+-- | Expands a tuple constructor into the corresponding size-dependent
+-- functions (e.g., mkTuple2, mkTuple3, etc).
+--
+-- Example:
+-- @
+-- ()
+-- (1, 2.0)
+-- (1, 2.0, "hello")
+-- ...
+-- @
+-- expands to:
+-- @
+-- mkTuple0
+-- mkTuple2 1 2.0
+-- mkTuple3 1 2.0 "hello"
+-- ...
+-- @
+expandTuple :: [Source] -> ExpanderM Expr
+expandTuple [src] =
+  expandOne src
+expandTuple srcs =
+  do let mkTupleName = "mkTuple" ++ show (length srcs)
+     Expr.foldAppE (Expr.idE mkTupleName) <$> mapM expandOne srcs
+
 -- Expand type definitions.
 
 consIsName :: Name -> Name
@@ -453,6 +502,8 @@ expandSource (SeqS ms) =
   Utils.returnOne $ expandSeq ms
 expandSource (StringS str) =
   Utils.returnOne . return . expandString $ str
+expandSource (TupleS srcs) =
+  Utils.returnOne $ expandTuple srcs
 expandSource (TypeDeclS typeName cons) =
   expandTypeDecl typeName cons
 

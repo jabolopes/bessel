@@ -29,7 +29,14 @@ initialRenamerState =
       do Renamer.addFnSymbolM "true#" "true#"
          Renamer.addFnSymbolM "false#" "false#"
          Renamer.addFnSymbolM "+" "+"
+         Renamer.addFnSymbolM "addIntReal" "addIntReal#"
          Renamer.addFnSymbolM "isInt" "isInt#"
+         Renamer.addFnSymbolM "isReal" "isReal#"
+         -- Tuple
+         Renamer.addFnSymbolM "isTuple2" "isTuple2#"
+         Renamer.addFnSymbolM "mkTuple2" "mkTuple2#"
+         Renamer.addFnSymbolM "tuple2Ref0" "tuple2Ref0#"
+         Renamer.addFnSymbolM "tuple2Ref1" "tuple2Ref1#"
 
 renameTestFile :: String -> IO [Expr]
 renameTestFile filename =
@@ -68,6 +75,7 @@ testRenamer :: IO ()
 testRenamer =
   do expect [expected1] "Test/TestData1.bsl"
      expect [expected2] "Test/TestData2.bsl"
+     expect [expectedTuple] "Test/Tuple.bsl"
   where
     expected1 =
       FnDecl NrDef (Name.untyped "f10")
@@ -108,3 +116,13 @@ testRenamer =
                  (LetE (FnDecl NrDef (Name.untyped "y7") (IntE 0))
                   (AppE (Expr.idE "f23") (Expr.idE "y7")))))]
         "f1"))
+
+    expectedTuple =
+      FnDecl NrDef (Name.untyped "f10") $
+       LambdaE (Name.untyped "t#01") $
+        CondE [(Expr.idE "isTuple2#" `AppE` (Expr.idE "mkTuple2#" `AppE` Expr.idE "isInt#" `AppE` Expr.idE "isReal#") `AppE` Expr.idE "t#01",
+                (LetE (FnDecl NrDef (Name.untyped "t2") (Expr.idE "t#01"))
+                 (LetE (FnDecl NrDef (Name.untyped "x3") (Expr.idE "tuple2Ref0#" `AppE` Expr.idE "t#01"))
+                  (LetE (FnDecl NrDef (Name.untyped "y4") (Expr.idE "tuple2Ref1#" `AppE` Expr.idE "t#01"))
+                   (Expr.idE "addIntReal#" `AppE` Expr.idE "x3" `AppE` Expr.idE "y4")))))]
+         "f1"
