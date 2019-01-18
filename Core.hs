@@ -1,40 +1,19 @@
 module Core where
 
-import Prelude hiding (concat, null, reverse)
-import qualified Prelude
+import Prelude hiding (null)
 
 import Control.Applicative ((<$>))
 import Control.Arrow ((***))
 import Control.Monad.IO.Class
-import Data.Array (Array(..), (!))
+import Data.Array (Array, (!))
 import qualified Data.Array as Array
 import Data.Hashable (hash)
 import System.IO as IO
 
 import Config
 import Data.Module
-import Data.Name (Name)
-import qualified Data.Name as Name
 import Monad.InterpreterM
 import qualified Stage.Interpreter as Interpreter
-
--- Unit
-
-unitType :: Int
-IntVal unitType = Core.link . boxString . Name.nameStr . Name.joinNames coreName $ Name.untyped ".Unit"
-
-isUnit :: Val -> Bool
-isUnit (TypeVal (SeqVal [IntVal typeId, _])) = typeId == unitType
-isUnit _ = False
-
-mkUnit :: Val
-mkUnit = TypeVal (SeqVal [IntVal unitType, dynVal ()])
-
-unUnit :: Val -> ()
-unUnit val@(TypeVal (SeqVal [_, unit]))
-  | isUnit val = let Just () = unDynVal unit :: Maybe () in ()
-unUnit _ =
-  error "Core.unUnit: expected unit"
 
 -- Bool
 
@@ -366,7 +345,7 @@ putLine :: Val -> Val
 putLine str =
   IOVal $ do
     liftIO . hPutStrLn stdout $ unboxString str
-    return mkUnit
+    return $ mkTuple0
 
 bindIO :: Val -> Val
 bindIO (IOVal m) = FnVal $ return . IOVal . bindIOHof
