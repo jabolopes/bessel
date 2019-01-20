@@ -20,11 +20,11 @@ docCond fn ms blame =
   foldl1 ($+$) (map docMatch ms ++ docBlame)
   where
     docMatch (x, e) =
-      PrettyString.sep [fn x <+> PrettyString.equals, PrettyString.nest (docExpr e)]
+      PrettyString.sep [fn x <+> PrettyString.text "->", PrettyString.nest (docExpr e)]
 
     docBlame =
       [PrettyString.text "_" <+>
-       PrettyString.equals <+>
+       PrettyString.text "->" <+>
        PrettyString.text "blame" <+>
        PrettyString.text blame]
 
@@ -44,15 +44,15 @@ docExpr (CharE c) = PrettyString.quotes (PrettyString.char c)
 docExpr (CondE ms blame) =
   PrettyString.sep [PrettyString.text "cond", PrettyString.nest (docCond docExpr ms blame)]
 docExpr (FnDecl kw name body) =
-  PrettyString.sep [kwDoc kw <+> PrettyString.text (show name), PrettyString.nest (docExpr body)]
-  where kwDoc Def = PrettyString.text "def"
-        kwDoc NrDef = PrettyString.text "nrdef"
+  PrettyString.sep [kwDoc kw <+> PrettyString.text (show name) <+> PrettyString.equals, PrettyString.nest (docExpr body)]
+  where
+    kwDoc Def = PrettyString.text "rec"
+    kwDoc NrDef = PrettyString.text "nonrec"
 docExpr (IdE name) = PrettyString.text (show name)
 docExpr (IntE i) = PrettyString.int i
 docExpr (LetE defn body) =
-  PrettyString.sep
-  [PrettyString.text "let", PrettyString.nest (docExpr defn),
-   PrettyString.text "in", docExpr body]
+  PrettyString.vcat
+  [PrettyString.text "let" <+> PrettyString.nest (docExpr defn) <+> PrettyString.text "in", docExpr body]
 docExpr (LambdaE arg body) =
   PrettyString.sep [PrettyString.text "\\" <> PrettyString.text (show arg) <+>
                     PrettyString.text "->", PrettyString.nest (docExpr body)]
