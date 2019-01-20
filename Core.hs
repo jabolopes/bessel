@@ -278,6 +278,46 @@ tupleRef1 (TupleVal vals) = vals ! 1
 tupleRef2 :: Val -> Val
 tupleRef2 (TupleVal vals) = vals ! 2
 
+-- Variant (i.e., algebraic datatype)
+
+isVariant :: Val -> Val
+isVariant typeName@SeqVal {} = FnVal arg2
+  where
+    arg2 (IntVal isCons) = return . FnVal $ arg3 isCons
+    arg2 _ = fail $ "Core.isVariant: expected integer as second argument"
+
+    arg3 isCons (FnVal isFn) = return . FnVal $ arg4 isCons isFn
+    arg3 _ _ = fail $ "Core.isVariant: expected function as third argument"
+
+    arg4 isCons isFn (VariantVal typeId cons val) = apply isCons isFn typeId cons val
+    arg4 _ _ _ = return false
+
+    apply isCons isFn typeId cons val =
+      let isTypeId = hash $ unboxString typeName in
+      if isTypeId == typeId && isCons == cons then
+        do val' <- isFn val
+           if isNotFalseVal val'
+             then return true
+             else return false
+      else
+        return false
+isVariant _ =
+  error $ "Core.isVariant: expected string as first argument"
+
+mkVariant :: Val -> Val
+mkVariant typeName@SeqVal {} = FnVal arg2
+  where
+    arg2 (IntVal cons) = return . FnVal $ arg3 cons
+    arg2 _ = fail $ "Core.mkVariant: expected integer as second argument"
+
+    arg3 cons val = apply (hash $ unboxString typeName) cons val
+
+    apply typeId cons val = return $ VariantVal typeId cons val
+
+unVariant :: Val -> Val
+unVariant (VariantVal _ _ val) = val
+unVariant _ = error $ "Core.unVariant: expected variant as first argument"
+
 -- Fn
 
 isFn :: Val -> Val
@@ -419,6 +459,10 @@ fnDesc =
    ("tuple3Ref0", primitive tupleRef0),
    ("tuple3Ref1", primitive tupleRef1),
    ("tuple3Ref2", primitive tupleRef2),
+   -- Variant
+   ("isVariant", primitive isVariant),
+   ("mkVariant", primitive mkVariant),
+   ("unVariant", primitive unVariant),
    -- Fn
    ("isFn", primitive isFn),
    -- Obj
