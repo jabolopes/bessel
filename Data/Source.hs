@@ -188,7 +188,6 @@ bindPat binder src = PatS binder (Just src)
 
 isTypePat :: Source -> Bool
 isTypePat (AppS fn _) = isTypePat fn
-isTypePat (PatS name _) = Name.isTypeName name
 isTypePat (IdS name) = Name.isTypeName name
 isTypePat _ = False
 

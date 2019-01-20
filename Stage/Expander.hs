@@ -164,8 +164,6 @@ patPred = sourcePred
              case head (Source.appToList src) of
                IdS x ->
                  return x
-               PatS x Nothing ->
-                 return x
                _ ->
                  throwError . Pretty.devTypePat $ Pretty.docSource src
            return . IdE . consIsName $ qualName

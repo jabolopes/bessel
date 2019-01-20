@@ -142,7 +142,7 @@ testParser =
     expected8 =
       ModuleS (Name.untyped "Test.TestData8") []
         [fnDefS (patS "f8" Nothing)
-         (CondS [([AppS (patS "Apple" Nothing) (patS "x" (Just (Source.idS "isInt")))],
+         (CondS [([AppS (Source.idS "Apple") (patS "x" (Just (Source.idS "isInt")))],
                   Source.idS "x")])]
 
     expected9 =
