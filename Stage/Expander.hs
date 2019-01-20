@@ -467,6 +467,8 @@ expandTypeDecl typeName cons =
      typeFn <- expandSource . typePredFn typeName $ map fst cons
      return $ consFns ++ typeFn
 
+-- Expand source.
+
 expandOne :: Source -> ExpanderM Expr
 expandOne src = head <$> expandSource src
 
