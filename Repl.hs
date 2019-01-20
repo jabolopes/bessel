@@ -29,7 +29,7 @@ import qualified Pretty.Repl as Pretty
 import Data.Result (Result(..))
 import qualified Stage
 import qualified Stage.Loader as Loader (preload)
-import qualified Utils (split, splitId)
+import qualified Utils (split)
 
 data ReplState =
     ReplState { initialFs :: FileSystem, fs :: FileSystem }
