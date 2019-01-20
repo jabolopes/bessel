@@ -22,6 +22,7 @@ data Val
     | SeqVal [Val]
     | TupleVal (Array Int Val)
     | TypeVal Val
+    | VariantVal Int Int Val
 
 instance Show Val where
     show (BoolVal False) = "false"
@@ -37,6 +38,7 @@ instance Show Val where
         | otherwise = "[" ++ List.intercalate "," (map show vals) ++ "]"
     show (TupleVal vals) = "(" ++ List.intercalate ", " (map show $ Array.elems vals) ++ ")"
     show (TypeVal val) = "{" ++ show val ++ "}"
+    show (VariantVal _ cons val) = "+" ++ show cons ++ " " ++ show val
 
 isFalseVal :: Val -> Bool
 isFalseVal (BoolVal False) = True
