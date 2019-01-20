@@ -1,4 +1,4 @@
-# Algebraic datatypes
+# Variants
 
 ## Definitions
 
@@ -59,36 +59,36 @@ type Fruit
   | Orange Fruit
 
 let show
-  Apple       = "apple"
-| (Banana x@) = concat ["banana", showInt x]
-| (Fig (x@, y@))   = concat ["fig", showInt x, showReal y]
-| (Orange x@) = concat ["orange", show x]
+  Apple                     = "apple"
+| (Banana x@isInt)          = concat ["banana", showInt x]
+| (Fig (x@isInt, y@isReal)) = concat ["fig", showInt x, showReal y]
+| (Orange x@)               = concat ["orange", show x]
 
-let isApple : Fruit -> bool = isAlgebraic "Fruit.Apple" ()
-let isBanana : (a -> bool) -> Fruit -> bool = isAlgebraic "Fruit.Banana"
-let isFig : (a -> bool, b -> bool) -> Fruit -> bool = isAlgebraic "Fruit.Fig"
-let isOrange : (a -> bool) -> Fruit -> bool = isAlgebraic "Fruit.Orange"
+let isApple : Fruit -> Bool = isVariant "Fruit" 0 isTuple0
+let isBanana : (Int -> Bool) -> Fruit -> Bool = isVariant "Fruit" 1
+let isFig : (Int -> Bool, Int -> Bool) -> Fruit -> Bool = isVariant "Fruit" 2 . isTuple2
+let isOrange : (Fruit -> Bool) -> Fruit -> Bool = isVariant "Fruit" 3
 
-let Apple : Fruit = mkAlgebraic "Fruit.Apple" ()
-let Banana : Int -> Fruit = mkAlgebraic "Fruit.Banana"
-let Fig : (Int, Real) -> Fruit = mkAlgebraic "Fruit.Fig"
-let Orange : Fruit -> Fruit = mkAlgebraic "Fruit.Orange"
+let Apple : Fruit = mkVariant "Fruit" 0 ()
+let Banana : Int -> Fruit = mkVariant "Fruit" 1
+let Fig : (Int, Real) -> Fruit = mkVariant "Fruit" 2
+let Orange : Fruit -> Fruit = mkVariant "Fruit" 3
 
-let unApple : Fruit -> () = unAlgebraic "Fruit.Apple"
-let unBanana : Fruit -> Int = unAlgebraic "Fruit.Banana"
-let unFig : Fruit -> (Int, Real) = unAlgebraic "Fruit.Fig"
-let unOrange : Fruit -> Fruit = unAlgebraic "Fruit.Orange"
+let unApple : Fruit -> () = unVariant
+let unBanana : Fruit -> Int = unVariant
+let unFig : Fruit -> (Int, Real) = unVariant
+let unOrange : Fruirt -> Fruit = unVariant
 
 let show
-  \x ->
-    \y ->
-      isApple = "apple"
-      x#0@isBanana = concat ["banana", showInt x]
+  \x#0 ->
+    cond
+      isApple x#0 = "apple"
+      isBanana isInt x#0 = concat ["banana", showInt x]
         where
           let x = unBanana x#0
-      x#0@isFig = concat ["fig", showInt x, showReal y]
+      isFig (isInt, isReal) x#0 = concat ["fig", showInt x, showReal y]
         where
           let (x, y) = unFig x#0
-      x#0@isOrange = concat ["orange", show x]
+      isOrange = concat ["orange", show x]
         where
           let x = unOrange x#0
