@@ -27,7 +27,7 @@ devPattern pat =
 
 devTypePat :: PrettyString -> PrettyString
 devTypePat src =
-  PrettyString.text "Type pattern must contain identifiers or other patterns"
+  PrettyString.text "Type pattern must contain identifiers or a pattern application"
   $+$
   PrettyString.nest src
 
