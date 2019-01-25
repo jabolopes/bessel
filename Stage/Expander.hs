@@ -440,7 +440,7 @@ expandSource (AppS m1 m2) =
 expandSource (BinOpS op m1 m2) =
   Utils.returnOne $ Expr.binOpE (Name.untyped op) <$> expandOne m1 <*> expandOne m2
 expandSource (CharS c) =
-  Utils.returnOne . return . CharE $ c
+  Utils.returnOne . return $ Expr.charE c
 expandSource src@CondS {} =
   Utils.returnOne . expandCond src $ Name.untyped "lambda"
 expandSource src@FnDefS {} =

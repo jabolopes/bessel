@@ -2,7 +2,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Test.Stage.Expander where
 
-import Data.Expr (DefnKw(..), Expr(..))
+import Data.Expr (DefnKw(..), Expr(..), Literal(..))
 import qualified Data.Expr as Expr
 import qualified Data.Name as Name
 import qualified Data.PrettyString as PrettyString
@@ -12,6 +12,7 @@ import qualified Pretty.Data.Expr as Pretty
 import qualified Stage.Expander as Expander
 
 deriving instance Eq DefnKw
+deriving instance Eq Literal
 deriving instance Eq Expr
 
 expandTestFile :: String -> IO [Expr]

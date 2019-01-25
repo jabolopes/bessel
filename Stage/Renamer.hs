@@ -122,7 +122,6 @@ renameM (AnnotationE expr typ) =
   Utils.returnOne $ AnnotationE <$> renameOneM expr <*> return typ
 renameM (AppE expr1 expr2) =
   Utils.returnOne $ AppE <$> renameOneM expr1 <*> renameOneM expr2
-renameM expr@CharE {} = return [expr]
 renameM (CondE ms blame) =
   Utils.returnOne $ CondE <$> mapM renameMatch ms <*> return blame
   where
@@ -146,13 +145,15 @@ renameM (FnDecl NrDef name body) =
 renameM (IdE name) =
   Utils.returnOne $ Expr.idE <$> getFnSymbolM (Name.nameStr name)
 renameM expr@IntE {} = Utils.returnOne $ return expr
+renameM (LambdaE arg body) =
+  Utils.returnOne (renameLambdaM (Name.nameStr arg) body)
 renameM (LetE defn body) =
   withScopeM $ do
     defn' <- renameOneM defn
     body' <- withScopeM (renameOneM body)
     Utils.returnOne . return $ LetE defn' body'
-renameM (LambdaE arg body) =
-  Utils.returnOne (renameLambdaM (Name.nameStr arg) body)
+renameM expr@LiteralE {} =
+  return [expr]
 renameM expr@RealE {} = Utils.returnOne $ return expr
 
 lookupFreeVar :: FileSystem -> [Name] -> [(Name, Name)] -> Name -> [Definition]
@@ -193,6 +194,8 @@ renameDefinitionM fs def@Definition { defExp = Right expr } =
     addFreeNames (name:names) (def:defs) =
       do addSymbolM name . FnSymbol . Name.nameStr $ Definition.defName def
          addFreeNames names defs
+    addFreeNames _ _ =
+      error "Stage.Rename.addFreeNames: argument lists have different length"
 renameDefinitionM _ def = return def
 
 renameDefinition :: FileSystem -> Definition -> Either PrettyString Definition

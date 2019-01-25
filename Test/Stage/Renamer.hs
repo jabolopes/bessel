@@ -5,7 +5,7 @@ module Test.Stage.Renamer where
 import Control.Applicative ((<$>))
 import Control.Monad.State hiding (state)
 
-import Data.Expr (DefnKw(..), Expr(..))
+import Data.Expr (DefnKw(..), Expr(..), Literal(..))
 import qualified Data.Expr as Expr
 import qualified Data.Name as Name
 import qualified Data.PrettyString as PrettyString
@@ -17,6 +17,7 @@ import Stage.Renamer (RenamerState)
 import qualified Stage.Renamer as Renamer
 
 deriving instance Eq DefnKw
+deriving instance Eq Literal
 deriving instance Eq Expr
 
 initialRenamerState :: Monad m => m RenamerState

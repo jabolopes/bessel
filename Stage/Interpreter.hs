@@ -14,7 +14,7 @@ import Data.Either
 import Data.Definition (Definition(..))
 import qualified Data.Definition as Definition
 import qualified Data.Env as Env (findBind, initial)
-import Data.Expr (DefnKw(..), Expr(..))
+import Data.Expr (DefnKw(..), Expr(..), Literal(..))
 import qualified Data.Expr as Expr
 import Data.FileSystem (FileSystem)
 import qualified Data.FileSystem as FileSystem
@@ -26,8 +26,12 @@ import Monad.InterpreterM
 import qualified Pretty.Data.Expr as Pretty
 import qualified Data.PrettyString as PrettyString
 
+evalLiteral :: Literal -> Val
+evalLiteral (CharL c) = CharVal c
+
 evalM :: Expr -> InterpreterM Val
-evalM (CharE c) = return $ CharVal c
+evalM (AnnotationE expr _) =
+  evalM expr
 evalM (IntE i) = return $ IntVal i
 evalM (RealE d) = return $ RealVal d
 evalM (IdE str) =
@@ -87,6 +91,8 @@ evalM (LetE defn body) =
   withEnvM $ do
     _ <- evalM defn
     withEnvM (evalM body)
+evalM (LiteralE literal) =
+  return $ evalLiteral literal
 
 freeNameDefinitions :: FileSystem -> Definition -> [Definition]
 freeNameDefinitions fs def =
@@ -114,6 +120,8 @@ interpretDefinition fs def@Definition { defRen = Right expr@(FnDecl _ name _) } 
     initialEnvironment [] [] = []
     initialEnvironment (def:defs) (val:vals) =
       (Name.nameStr $ Definition.defName def, val):initialEnvironment defs vals
+    initialEnvironment _ _ =
+      error "Stage.Interpreter.initialEnvironment: argument lists have different length"
 interpretDefinition _ def = return def
 
 interpretDefinitions :: FileSystem -> Module -> [Definition] -> IO Module

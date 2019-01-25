@@ -9,10 +9,12 @@ import Typechecker.Type (Type)
 data DefnKw
   = Def | NrDef
 
+data Literal
+  = CharL Char
+
 data Expr
   = AnnotationE Expr Type
   | AppE Expr Expr
-  | CharE Char
 
   -- |
   -- This construct is not available in the parser
@@ -47,6 +49,9 @@ data Expr
   -- @
   | LetE Expr Expr
 
+  -- TODO: document
+  | LiteralE Literal
+
   | RealE Double
 
 isAppE :: Expr -> Bool
@@ -54,7 +59,7 @@ isAppE AppE {} = True
 isAppE _ = False
 
 isCharE :: Expr -> Bool
-isCharE CharE {} = True
+isCharE (LiteralE CharL {}) = True
 isCharE _ = False
 
 isFnDecl :: Expr -> Bool
@@ -64,14 +69,6 @@ isFnDecl _ = False
 isLambdaE :: Expr -> Bool
 isLambdaE LambdaE {} = True
 isLambdaE _ = False
-
-isValueE :: Expr -> Bool
-isValueE IdE {} = True
-isValueE IntE {} = True
-isValueE RealE {} = True
-isValueE CharE {} = True
-isValueE LambdaE {} = True
-isValueE _ = False
 
 falseE :: Expr
 falseE = idE "false#"
@@ -108,6 +105,9 @@ foldAppE = foldl AppE
 
 idE :: String -> Expr
 idE = IdE . Name.untyped
+
+charE :: Char -> Expr
+charE = LiteralE . CharL
 
 intE :: Int -> Expr
 intE n
@@ -146,7 +146,7 @@ seqE (e:es) = AppE (appE consE e) (seqE es)
     consE = Name.untyped "cons"
 
 stringE :: String -> Expr
-stringE str = seqE (map CharE str)
+stringE str = seqE (map (LiteralE . CharL) str)
 
 tupleE :: [Expr] -> Expr
 tupleE [] = idE "unit"
@@ -157,41 +157,41 @@ tupleE exprs = foldAppE (IdE . mkTupleName $ length exprs) exprs
     mkTupleName len = Name.untyped $ "mkTuple" ++ show len
 
 freeVars :: Expr -> [Name]
-freeVars = List.nub . snd . freeVars' [] []
+freeVars = List.nub . snd . free [] []
   where
-    freeVars' :: [Name] -> [Name] -> Expr -> ([Name], [Name])
-    freeVars' env fvars (AnnotationE expr _) =
-      freeVars' env fvars expr
-    freeVars' env fvars (AppE expr1 expr2) =
-      let (env', fvars') = freeVars' env fvars expr1 in
-      freeVars' env' fvars' expr2
-    freeVars' env fvars CharE {} =
+    freeMatches env fvars [] =
       (env, fvars)
-    freeVars' env fvars (CondE ms _) =
-      loop env fvars ms
-      where
-        loop env fvars [] =
-          (env, fvars)
-        loop env fvars ((expr1, expr2):exprs) =
-          let
-            (env', fvars') = freeVars' env fvars expr1
-            (env'', fvars'') = freeVars' env' fvars' expr2
-          in
-           loop env'' fvars'' exprs
-    freeVars' env fvars (FnDecl Def name expr) =
-      freeVars' (name:env) fvars expr
-    freeVars' env fvars (FnDecl NrDef name expr) =
-      let (env', fvars') = freeVars' env fvars expr in
+    freeMatches env fvars ((expr1, expr2):exprs) =
+      let
+        (env', fvars') = free env fvars expr1
+        (env'', fvars'') = free env' fvars' expr2
+      in
+       freeMatches env'' fvars'' exprs
+
+    free :: [Name] -> [Name] -> Expr -> ([Name], [Name])
+    free env fvars (AnnotationE expr _) =
+      free env fvars expr
+    free env fvars (AppE expr1 expr2) =
+      let (env', fvars') = free env fvars expr1 in
+      free env' fvars' expr2
+    free env fvars (CondE matches _) =
+      freeMatches env fvars matches
+    free env fvars (FnDecl Def name expr) =
+      free (name:env) fvars expr
+    free env fvars (FnDecl NrDef name expr) =
+      let (env', fvars') = free env fvars expr in
       (name:env', fvars')
-    freeVars' env fvars (IdE name)
+    free env fvars (IdE name)
       | name `elem` env = (env, fvars)
       | otherwise = (env, name:fvars)
-    freeVars' env fvars IntE {} =
+    free env fvars IntE {} =
       (env, fvars)
-    freeVars' env fvars (LetE defn body) =
-      let (env', fvars') = freeVars' env fvars defn in
-      freeVars' env' fvars' body
-    freeVars' env fvars (LambdaE arg body) =
-      freeVars' (arg:env) fvars body
-    freeVars' env fvars RealE {} =
+    free env fvars (LambdaE arg body) =
+      free (arg:env) fvars body
+    free env fvars (LetE defn body) =
+      let (env', fvars') = free env fvars defn in
+      free env' fvars' body
+    free env fvars (LiteralE CharL {}) =
+      (env, fvars)
+    free env fvars RealE {} =
       (env, fvars)
