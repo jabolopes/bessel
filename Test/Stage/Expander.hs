@@ -67,10 +67,10 @@ testExpander =
      expect [expected6] $ File "Test/TestData6.bsl"
      expect expected7 $ File "Test/TestData7.bsl"
      expect [expected8] $ File "Test/TestData8.bsl"
-     expect expected9 $ File "Test/TestData9.bsl"
      expect [expected12] $ File "Test/TestData12.bsl"
      expect [expectedTuple] $ File "Test/Tuple.bsl"
      expect expectedUnit $ File "Test/Unit.bsl"
+     expect expectedVariant $ File "Test/Variant.bsl"
   where
     expectedSnippet1 =
       FnDecl NrDef (Name.untyped "not")
@@ -323,50 +323,11 @@ testExpander =
     expected8 =
       FnDecl NrDef (Name.untyped "f8")
       (LambdaE (Name.untyped "arg#0")
-       (CondE [(AppE (Expr.idE "isApple") (Expr.idE "arg#0"),
+       (CondE [((Expr.idE "isApple") `AppE` (Expr.idE "isInt") `AppE` (Expr.idE "arg#0"),
                 LetE
-                (FnDecl NrDef (Name.untyped "x") (AppE (Expr.idE "unCons#") (Expr.idE "arg#0")))
+                (FnDecl NrDef (Name.untyped "x") (AppE (Expr.idE "unApple") (Expr.idE "arg#0")))
                 (Expr.idE "x"))]
         "f8"))
-
-    expected9 =
-      [FnDecl NrDef (Name.untyped "isApple") (AppE (Expr.idE "isCons#") (AppE (Expr.idE "link#") (Expr.stringE "Apple"))),
-       FnDecl NrDef (Name.untyped "Apple")
-       (LambdaE (Name.untyped "x#0")
-        (CondE [(AppE (Expr.idE "isInt") (Expr.idE "x#0"),
-                 LetE (FnDecl NrDef (Name.untyped "x") (Expr.idE "x#0"))
-                 (AppE (AppE (Expr.idE "mkCons#") (AppE (Expr.idE "link#") (Expr.stringE "Apple"))) (Expr.idE "x")))]
-         "Apple")),
-       FnDecl NrDef (Name.untyped "isFruit") (Expr.idE "isApple"),
-
-       FnDecl NrDef (Name.untyped "isOrange") (AppE (Expr.idE "isCons#") (AppE (Expr.idE "link#") (Expr.stringE "Orange"))),
-       FnDecl NrDef (Name.untyped "Orange")
-       (LambdaE (Name.untyped "x#0")
-        (CondE [(AppE (LambdaE (Name.untyped "_") (Expr.idE "true#")) (Expr.idE "x#0"),
-                 LetE (FnDecl NrDef (Name.untyped "x") (Expr.idE "x#0"))
-                 (AppE (AppE (Expr.idE "mkCons#") (AppE (Expr.idE "link#") (Expr.stringE "Orange"))) (Expr.idE "x")))]
-         "Orange")),
-       FnDecl NrDef (Name.untyped "isMoreFruit") (Expr.idE "isOrange"),
-
-       FnDecl NrDef (Name.untyped "isBanana") (AppE (Expr.idE "isCons#") (AppE (Expr.idE "link#") (Expr.stringE "Banana"))),
-       FnDecl NrDef (Name.untyped "Banana")
-       (LambdaE (Name.untyped "arg#0#1")
-        (CondE [(AppE (Expr.idE "isInt") (Expr.idE "arg#0#1"),
-                 LetE (FnDecl NrDef (Name.untyped "arg#0") (Expr.idE "arg#0#1"))
-                 (AppE (AppE (Expr.idE "mkCons#") (AppE (Expr.idE "link#") (Expr.stringE "Banana"))) (Expr.idE "arg#0")))]
-         "Banana")),
-       FnDecl NrDef (Name.untyped "isKiwi") (AppE (Expr.idE "isCons#") (AppE (Expr.idE "link#") (Expr.stringE "Kiwi"))),
-       FnDecl NrDef (Name.untyped "Kiwi")
-       (LambdaE (Name.untyped "arg#2#3")
-        (CondE [(AppE (Expr.idE "isReal") (Expr.idE "arg#2#3"),
-                 LetE (FnDecl NrDef (Name.untyped "arg#2") (Expr.idE "arg#2#3"))
-                 (AppE (AppE (Expr.idE "mkCons#") (AppE (Expr.idE "link#") (Expr.stringE "Kiwi"))) (Expr.idE "arg#2")))]
-         "Kiwi")),
-       FnDecl NrDef (Name.untyped "isEvenMoreFruit")
-       (CondE [(Expr.idE "isBanana",Expr.idE "true#"),
-               (Expr.idE "isKiwi",Expr.idE "true#"),
-               (Expr.idE "true#",Expr.idE "false#")]
-        "irrefutable 'or' pattern")]
 
     expected12 =
       FnDecl NrDef (Name.untyped "f")
@@ -394,3 +355,81 @@ testExpander =
                   (Expr.idE "mkTuple0")))]
          "f1",
        FnDecl NrDef (Name.untyped "f2") (Expr.idE "mkTuple0")]
+
+    expectedVariant =
+      [FnDecl NrDef (Name.untyped "isFruit") $
+        Expr.idE "isType#" `AppE` Expr.stringE "Fruit",
+       FnDecl NrDef (Name.untyped "isApple") $
+        Expr.idE "isVariant#" `AppE` Expr.stringE "Fruit" `AppE` IntE 0,
+       FnDecl NrDef (Name.untyped "isBanana") $
+        Expr.idE "isVariant#" `AppE` Expr.stringE "Fruit" `AppE` IntE 1,
+       FnDecl NrDef (Name.untyped "isFig") $
+        Expr.idE "isVariant#" `AppE` Expr.stringE "Fruit" `AppE` IntE 2,
+       FnDecl NrDef (Name.untyped "mkApple") $
+        Expr.idE "mkVariant#" `AppE` Expr.stringE "Fruit" `AppE` IntE 0 `AppE` Expr.idE "mkTuple0",
+       FnDecl NrDef (Name.untyped "mkBanana") $
+        LambdaE (Name.untyped "x#0") $
+         CondE [(Expr.idE "isInt" `AppE` Expr.idE "x#0",
+                 LetE (FnDecl NrDef (Name.untyped "x") (Expr.idE "x#0")) $
+                  Expr.idE "mkVariant#" `AppE` Expr.stringE "Fruit" `AppE` IntE 1 `AppE` Expr.idE "x")]
+         "mkBanana",
+       FnDecl NrDef (Name.untyped "mkFig") $
+        LambdaE (Name.untyped "arg#1") $
+         CondE [(Expr.idE "isTuple2" `AppE` (Expr.idE "mkTuple2" `AppE` Expr.idE "isInt" `AppE` Expr.idE "isReal") `AppE` Expr.idE "arg#1",
+                 LetE (FnDecl NrDef (Name.untyped "arg") (Expr.idE "arg#1")) $
+                  Expr.idE "mkVariant#" `AppE` Expr.stringE "Fruit" `AppE` IntE 2 `AppE` Expr.idE "arg")]
+         "mkFig",
+       FnDecl NrDef (Name.untyped "unApple") $
+        LambdaE (Name.untyped "arg#2") $
+         CondE [(Expr.idE "isFruit" `AppE` Expr.idE "arg#2",
+                 LetE (FnDecl NrDef (Name.untyped "arg") (Expr.idE "arg#2")) $
+                  AppE
+                    (LambdaE (Name.untyped "r#3") $
+                      CondE [(Expr.idE "isTuple0" `AppE` Expr.idE "r#3",
+                               LetE (FnDecl NrDef (Name.untyped "r") (Expr.idE "r#3")) $
+                               Expr.idE "r")]
+                      "lambda")
+                    (Expr.idE "unVariant#" `AppE` Expr.idE "arg"))]
+         "unApple",
+       FnDecl NrDef (Name.untyped "unBanana") $
+        LambdaE (Name.untyped "arg#4") $
+         CondE [(Expr.idE "isFruit" `AppE` Expr.idE "arg#4",
+                 LetE (FnDecl NrDef (Name.untyped "arg") (Expr.idE "arg#4")) $
+                  AppE
+                    (LambdaE (Name.untyped "r#5") $
+                      CondE [(Expr.idE "isInt" `AppE` Expr.idE "r#5",
+                               LetE (FnDecl NrDef (Name.untyped "r") (Expr.idE "r#5")) $
+                               Expr.idE "r")]
+                      "lambda")
+                    (Expr.idE "unVariant#" `AppE` Expr.idE "arg"))]
+         "unBanana",
+       FnDecl NrDef (Name.untyped "unFig") $
+        LambdaE (Name.untyped "arg#6") $
+         CondE [(Expr.idE "isFruit" `AppE` Expr.idE "arg#6",
+                 LetE (FnDecl NrDef (Name.untyped "arg") (Expr.idE "arg#6")) $
+                  AppE
+                    (LambdaE (Name.untyped "r#7") $
+                      CondE [(Expr.idE "isTuple2" `AppE`
+                              (Expr.idE "mkTuple2" `AppE` Expr.idE "isInt" `AppE` Expr.idE "isReal") `AppE`
+                                Expr.idE "r#7",
+                               LetE (FnDecl NrDef (Name.untyped "r") (Expr.idE "r#7")) $
+                               Expr.idE "r")]
+                      "lambda")
+                    (Expr.idE "unVariant#" `AppE` Expr.idE "arg"))]
+         "unFig",
+       FnDecl NrDef (Name.untyped "f1") $
+        LambdaE (Name.untyped "a#0") $
+         CondE [(Expr.idE "isApple" `AppE` Expr.idE "isTuple0" `AppE` Expr.idE "a#0",
+                 (LetE (FnDecl NrDef (Name.untyped "a") (Expr.idE "a#0"))
+                  (IntE 0))),
+                (Expr.idE "isBanana" `AppE` Expr.idE "isInt" `AppE` Expr.idE "a#0",
+                 (LetE (FnDecl NrDef (Name.untyped "b") (Expr.idE "a#0"))
+                  (LetE (FnDecl NrDef (Name.untyped "x") (Expr.idE "unBanana" `AppE` Expr.idE "a#0"))
+                   (IntE 1)))),
+                 (Expr.idE "isFig" `AppE` (Expr.idE "isTuple2" `AppE` (Expr.idE "mkTuple2" `AppE` Expr.idE "isInt" `AppE` Expr.idE "isReal")) `AppE` Expr.idE "a#0",
+                  (LetE (FnDecl NrDef (Name.untyped "c") (Expr.idE "a#0"))
+                   (LetE (FnDecl NrDef (Name.untyped "x") (Expr.idE "tuple2Ref0" `AppE` (Expr.idE "unFig" `AppE` Expr.idE "a#0")))
+                    (LetE (FnDecl NrDef (Name.untyped "y") (Expr.idE "tuple2Ref1" `AppE` (Expr.idE "unFig" `AppE` Expr.idE "a#0")))
+                     (IntE 2)))))]
+         "f1"
+      ]

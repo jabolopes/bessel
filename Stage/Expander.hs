@@ -15,6 +15,8 @@ import Data.PrettyString (PrettyString)
 import qualified Data.PrettyString as PrettyString
 import Data.Source (Source(..))
 import qualified Data.Source as Source
+import qualified Expander.Variant as Variant
+import qualified Expander.Type as Type
 import Monad.NameM (NameM)
 import qualified Monad.NameM as NameM
 import qualified Monad.Utils as Utils (returnOne)
@@ -77,7 +79,6 @@ patFnDef binder mods val =
 patDefinitions :: Source -> Source -> [Source]
 patDefinitions val = sourceDefns []
   where
-    unConsName = Source.idS "unCons#"
     hdName = Source.idS "hd"
     tlName = Source.idS "tl"
 
@@ -85,7 +86,8 @@ patDefinitions val = sourceDefns []
 
     sourceDefns mods src
       | Source.isTypePat src =
-        concatMap (sourceDefns (unConsName:mods)) . tail . Source.appToList $ src
+        let (IdS typeName:srcs) = Source.appToList src in
+        concatMap (sourceDefns (IdS (Variant.genUnTagName typeName):mods)) srcs
     sourceDefns mods (BinOpS "+>" hdPat tlPat) =
       sourceDefns (hdName:mods) hdPat ++
       sourceDefns (tlName:mods) tlPat
@@ -157,16 +159,17 @@ patPred = sourcePred
     isTupleName 1 = error "isTupleName undefined for length 1"
     isTupleName len = Name.untyped $ "isTuple" ++ show len
 
+    variantConsPred [IdS typeName] =
+      AppE (IdE $ Variant.genIsTagName typeName) <$> sourcePred (TupleS [])
+    variantConsPred (IdS typeName:srcs) =
+      Expr.foldAppE (IdE $ Variant.genIsTagName typeName) <$> mapM sourcePred srcs
+    variantConsPred srcs =
+      throwError . Pretty.devTypePat . Pretty.docSource $ Source.listToApp srcs
+
     sourcePred :: Source -> ExpanderM Expr
     sourcePred src
       | Source.isTypePat src =
-        do qualName <-
-             case head (Source.appToList src) of
-               IdS x ->
-                 return x
-               _ ->
-                 throwError . Pretty.devTypePat $ Pretty.docSource src
-           return . IdE . consIsName $ qualName
+        variantConsPred (Source.appToList src)
     sourcePred src@AppS {} =
       case Source.toSource src of
         Just x -> expandOne x
@@ -373,13 +376,10 @@ expandFunctionDefinition src =
 expandSeq :: [Source] -> ExpanderM Expr
 expandSeq ms = Expr.seqE <$> mapM expandOne ms
 
-expandString :: String -> Expr
-expandString = Expr.stringE
-
 -- Expand tuples.
 
--- | Expands a tuple constructor into the corresponding size-dependent
--- functions (e.g., mkTuple2, mkTuple3, etc).
+-- | Expands a tuple into the corresponding size-dependent functions
+-- (e.g., mkTuple2, mkTuple3, etc).
 --
 -- Example:
 -- @
@@ -404,66 +404,28 @@ expandTuple srcs =
 
 -- Expand type definitions.
 
-consIsName :: Name -> Name
-consIsName = Name.untyped . ("is" ++) . Name.nameStr
-
-consMkName :: Name -> Name
-consMkName = id
-
-consPredFn :: Name -> Source
-consPredFn consName =
-  let
-    consNameStr = Name.nameStr consName
-    body = Source.appS isConsName . Source.appS linkName . StringS $ consNameStr
-  in
-    FnDefS (PatS (consIsName consName) Nothing) Nothing body []
-  where
-    isConsName = Name.untyped "isCons#"
-    linkName = Name.untyped "link#"
-
-typePredFn :: Name -> [Name] -> Source
-typePredFn typeName consNames =
-  let
-    predNames = map (Source.IdS . consIsName) consNames
-    body = foldl1 OrS predNames
-  in
-    FnDefS (PatS (consIsName typeName) Nothing) Nothing body []
-
-consConsFn :: Name -> Name -> Maybe Source -> Source
-consConsFn consName binder guard =
-  let
-    consNameStr = Name.nameStr consName
-    body = Source.appS mkConsName . Source.appS linkName . StringS $ consNameStr
-  in
-    FnDefS
-      (PatS (consMkName consName) Nothing)
-      Nothing
-      (CondS [([PatS binder guard], body `AppS` IdS binder)])
-      []
-  where
-    mkConsName = Name.untyped "mkCons#"
-    linkName = Name.untyped "link#"
-
-expandConstructor :: (Name, Source) -> ExpanderM [Expr]
-expandConstructor (consName, pat) =
-  do binder <- patBinder pat
-     let guard = patGuard pat
-         predSource = consPredFn consName
-         consSource = consConsFn consName binder guard
-     (++) <$> expandSource predSource <*> expandSource consSource
-  where
-    patBinder (PatS binder _) | not (Name.isEmptyName binder) = return binder
-    patBinder _               = NameM.genNameM $ Name.untyped "arg"
-
-    patGuard (PatS _ Nothing) = Nothing
-    patGuard (PatS _ (Just src)) = patGuard src
-    patGuard src = Just src
-
 expandTypeDecl :: Name -> [(Name, Source)] -> ExpanderM [Expr]
-expandTypeDecl typeName cons =
-  do consFns <- concat <$> mapM expandConstructor cons
-     typeFn <- expandSource . typePredFn typeName $ map fst cons
-     return $ consFns ++ typeFn
+expandTypeDecl typeName tags =
+  do let srcs = typePredicates ++ tagPredicates ++ tagConstructors ++ tagDeconstructors
+     exprs <- concat <$> mapM expandSource srcs
+     return exprs
+  where
+    typePredicates =
+      [ Type.genTypePredicate typeName ]
+
+    tagPredicates =
+      [ Variant.genTagPredicate typeName tagName tagNum |
+        (tagName, _) <- tags |
+        tagNum <- [0..] ]
+
+    tagConstructors =
+      [ Variant.genTagConstructor typeName tagName tagNum pat |
+        (tagName, pat) <- tags |
+        tagNum <- [0..] ]
+
+    tagDeconstructors =
+      [ Variant.genTagDeconstructor typeName tagName pat |
+        (tagName, pat) <- tags ]
 
 -- Expand source.
 
@@ -501,11 +463,11 @@ expandSource (RealS n) =
 expandSource (SeqS ms) =
   Utils.returnOne $ expandSeq ms
 expandSource (StringS str) =
-  Utils.returnOne . return . expandString $ str
+  Utils.returnOne . return . Expr.stringE $ str
 expandSource (TupleS srcs) =
   Utils.returnOne $ expandTuple srcs
-expandSource (TypeDeclS typeName cons) =
-  expandTypeDecl typeName cons
+expandSource (TypeDeclS typeName tags) =
+  expandTypeDecl typeName tags
 
 expand :: Source -> Either PrettyString [Expr]
 expand src = fst <$> NameM.runNameM (expandSource src) NameM.initialNameState
