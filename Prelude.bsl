@@ -244,15 +244,6 @@ let foobar x =
      isInt = true
      @     = false
 
-type Fruit = Apple isInt
-
-let ola1 = Apple 1
-let ola2 = Apple 2
-
-let adeus1 (Apple x) = x
-let adeus2 (Apple x y) = x
-let adeus3 (Apple x@isInt) = x
-
 let pol
   x@0 = 0
   x  = pol (x - 1) + 1
