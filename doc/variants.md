@@ -5,90 +5,45 @@
 type Fruit
   = Apple
   | Banana @isInt
-  | Fig [@isInt, @isReal]
-  | Orange @Fruit
+  | Fig (@isInt, @isReal)
+  | Orange :Fruit
 
-let show
-  Apple  = "apple"
-| Banana = "banana"
-| Fig    = "fig"
-| Orange = "orange"
-
-let show
-  Apple       = "apple"
-| (Banana x@) = concat ["banana", showInt x]
-| (Fig xs@)   = concat ["fig", showListInt xs]
-| (Orange x@) = concat ["orange", show x]
+let f1
+  a@Apple = 0
+  b@(Banana x@isInt) = 1
+  c@(Fig (x@isInt, y@isReal)) = 2
 
 ## Expansions
 
-let isApple = isCons# (link# "Apple")
-let isBanana = isCons# (link# "Banana")
-let isFig = isCons# (link# "Fig")
-let isOrange = isCons# (link# "Orange")
+let isFruit = isType# "Fruit"
 
-let isFruit x@ = isApple x || isBanana x || isFig x || isOrange x
+let isApple : () -> Fruit -> Bool = isVariant# "Fruit" 0
+let isBanana : (a -> Bool) -> Fruit -> Bool = isVariant# "Fruit" 1
+let isFig : ((a, b) -> Bool) -> Fruit -> Bool = isVariant# "Fruit" 2
 
-let Apple = mkCons# (link# "Apple") 0
-let Banana x#0@isInt = mkCons# (link# "Banana") x#0
-let Fig x#0@[isInt, isReal] = mkCons# (link# "Fig") x#0
-let Orange x#0@Fruit = mkCons# (link# "Orange") x#0
+let mkApple : Fruit
+  = mkVariant# "Fruit" 0 ()
+let mkBanana : Int -> Fruit
+  x@isInt = mkVariant# "Fruit" 1 x
+let Fig : (Int, Real) -> Fruit =
+  x@(@isInt, @isReal) = mkVariant# "Fruit" 2 x
 
-let show
-  isApple  = "apple"
-  isBanana = "banana"
-  isFig    = "fig"
-  isOrange = "orange"
+let unApple : Fruit -> () = x@isFruit = (r@() -> r) (unVariant# x)
+let unBanana : Fruit -> () = x@isFruit = (r@isInt -> r) (unVariant# x)
+let unFig : Fruit -> () = x@isFruit = (r@(@isInt, @isReal) -> r) (unVariant# x)
 
-let show
-  isApple = "apple"
-  x#0@isBanana = concat ["banana", showInt x]
-    where let x = unCons# x#0
-  x#1@isFig = concat ["fig", showListInt xs]
-    where let xs = unCons# x#1
-  x#2@isOrange = concat ["orange", show x]
-    where let x = unCons# x#2
-
-
-## Definitions and expansions (tuples)
-
-type Fruit
-  = Apple
-  | Banana isInt
-  | Fig (isInt, isReal)
-  | Orange Fruit
-
-let show
-  Apple                     = "apple"
-| (Banana x@isInt)          = concat ["banana", showInt x]
-| (Fig (x@isInt, y@isReal)) = concat ["fig", showInt x, showReal y]
-| (Orange x@)               = concat ["orange", show x]
-
-let isApple : Fruit -> Bool = isVariant "Fruit" 0 isTuple0
-let isBanana : (Int -> Bool) -> Fruit -> Bool = isVariant "Fruit" 1
-let isFig : (Int -> Bool, Int -> Bool) -> Fruit -> Bool = isVariant "Fruit" 2 . isTuple2
-let isOrange : (Fruit -> Bool) -> Fruit -> Bool = isVariant "Fruit" 3
-
-let Apple : Fruit = mkVariant "Fruit" 0 ()
-let Banana : Int -> Fruit = mkVariant "Fruit" 1
-let Fig : (Int, Real) -> Fruit = mkVariant "Fruit" 2
-let Orange : Fruit -> Fruit = mkVariant "Fruit" 3
-
-let unApple : Fruit -> () = unVariant
-let unBanana : Fruit -> Int = unVariant
-let unFig : Fruit -> (Int, Real) = unVariant
-let unOrange : Fruirt -> Fruit = unVariant
-
-let show
+let f1
   \x#0 ->
     cond
-      isApple x#0 = "apple"
-      isBanana isInt x#0 = concat ["banana", showInt x]
-        where
-          let x = unBanana x#0
-      isFig (isInt, isReal) x#0 = concat ["fig", showInt x, showReal y]
-        where
-          let (x, y) = unFig x#0
-      isOrange = concat ["orange", show x]
-        where
-          let x = unOrange x#0
+      isApple isTuple0 x#0 =
+        let a = a#0 in
+        0
+      isBanana isInt x#0 = let x = x#0 in 0
+        let b = x#0 in
+        let x = unBanana a#0 in
+        1
+      isFig (isTuple2 (isInt, isReal)) x#0 =
+        let c = x#0 inb
+        let x = tuple2Ref0 (unFig a#0) in
+        let y = tuple2Ref1 (unFig a#0) in
+        2
