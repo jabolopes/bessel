@@ -278,6 +278,22 @@ tupleRef1 (TupleVal vals) = vals ! 1
 tupleRef2 :: Val -> Val
 tupleRef2 (TupleVal vals) = vals ! 2
 
+-- Type
+
+isType :: Val -> Val
+isType typeName@SeqVal {} = FnVal arg2
+  where
+    arg2 (VariantVal typeId _ _) = apply typeId
+    arg2 _ = return false
+
+    apply typeId =
+      let isTypeId = hash $ unboxString typeName in
+      if isTypeId == typeId
+        then return true
+        else return false
+isType _ =
+  error $ "Core.isVariant: expected string as first argument"
+
 -- Variant (i.e., algebraic datatype)
 
 isVariant :: Val -> Val
@@ -459,6 +475,8 @@ fnDesc =
    ("tuple3Ref0", primitive tupleRef0),
    ("tuple3Ref1", primitive tupleRef1),
    ("tuple3Ref2", primitive tupleRef2),
+   -- Type
+   ("isType", primitive isType),
    -- Variant
    ("isVariant", primitive isVariant),
    ("mkVariant", primitive mkVariant),
