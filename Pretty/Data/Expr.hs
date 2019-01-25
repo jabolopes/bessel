@@ -12,7 +12,6 @@ isParens _ IdE {}      = False
 isParens _ IntE {}     = False
 isParens _ LetE {}     = False
 isParens _ LiteralE {} = False
-isParens _ RealE {}    = False
 isParens _ _           = True
 
 docCond :: (a -> PrettyString) -> [(a, Expr)] -> String -> PrettyString
@@ -30,6 +29,7 @@ docCond fn ms blame =
 
 docLiteral :: Literal -> PrettyString
 docLiteral (CharL c) = PrettyString.quotes $ PrettyString.char c
+docLiteral (RealL d) =  PrettyString.double d
 
 docExpr :: Expr -> PrettyString
 docExpr (AnnotationE expr typ) =
@@ -60,8 +60,6 @@ docExpr (LetE defn body) =
   [PrettyString.text "let" <+> PrettyString.nest (docExpr defn) <+> PrettyString.text "in", docExpr body]
 docExpr (LiteralE literal) =
   docLiteral literal
-docExpr (RealE d) =
-  PrettyString.double d
 
 -- PrettyString for a list of 'Expr's.
 docExprList :: [Expr] -> PrettyString

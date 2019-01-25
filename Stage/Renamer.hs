@@ -153,8 +153,7 @@ renameM (LetE defn body) =
     body' <- withScopeM (renameOneM body)
     Utils.returnOne . return $ LetE defn' body'
 renameM expr@LiteralE {} =
-  return [expr]
-renameM expr@RealE {} = Utils.returnOne $ return expr
+  Utils.returnOne $ return expr
 
 lookupFreeVar :: FileSystem -> [Name] -> [(Name, Name)] -> Name -> [Definition]
 lookupFreeVar fs unprefixed prefixed name =

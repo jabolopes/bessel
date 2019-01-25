@@ -28,12 +28,12 @@ import qualified Data.PrettyString as PrettyString
 
 evalLiteral :: Literal -> Val
 evalLiteral (CharL c) = CharVal c
+evalLiteral (RealL d) = RealVal d
 
 evalM :: Expr -> InterpreterM Val
 evalM (AnnotationE expr _) =
   evalM expr
 evalM (IntE i) = return $ IntVal i
-evalM (RealE d) = return $ RealVal d
 evalM (IdE str) =
     do msym <- findBindM (Name.nameStr str)
        case msym of

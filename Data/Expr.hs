@@ -11,6 +11,7 @@ data DefnKw
 
 data Literal
   = CharL Char
+  | RealL Double
 
 data Expr
   = AnnotationE Expr Type
@@ -51,8 +52,6 @@ data Expr
 
   -- TODO: document
   | LiteralE Literal
-
-  | RealE Double
 
 isAppE :: Expr -> Bool
 isAppE AppE {} = True
@@ -134,8 +133,8 @@ orE expr1 expr2 =
 
 realE :: Double -> Expr
 realE n
-  | n >= 0 = RealE n
-  | otherwise = appE negReal (RealE (- n))
+  | n >= 0 = LiteralE $ RealL n
+  | otherwise = appE negReal (LiteralE . RealL $ -n)
   where
     negReal = Name.untyped "negReal"
 
@@ -191,7 +190,5 @@ freeVars = List.nub . snd . free [] []
     free env fvars (LetE defn body) =
       let (env', fvars') = free env fvars defn in
       free env' fvars' body
-    free env fvars (LiteralE CharL {}) =
-      (env, fvars)
-    free env fvars RealE {} =
+    free env fvars LiteralE {} =
       (env, fvars)
