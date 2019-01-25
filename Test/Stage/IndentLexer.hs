@@ -29,7 +29,7 @@ expect expected actual =
     expect' filename tokens
       | expected == tokens = return ()
       | otherwise =
-        fail $ "Lexer" ++ "\n" ++
+        fail $ "IndentLexer" ++ "\n" ++
                "In: " ++ filename ++ "\n" ++
                "Expected: " ++ "\n" ++ show expected ++ "\n" ++
                "Actual: " ++ "\n" ++ show tokens
