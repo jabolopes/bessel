@@ -42,6 +42,7 @@ import Utils
   '.'     { TokenDot _ }
   ','     { TokenComma _ }
   '='     { TokenEquiv _ }
+  '|'     { TokenAlternative _ }
 
   -- grouping
   '('     { TokenLParen _ }
@@ -215,8 +216,10 @@ TypeDefn:
 
 ConstructorList :: { [(Name, Source)] }
 ConstructorList:
-    ConstructorList TypeName Pat { $1 ++ [($2, $3)] }
-  | TypeName Pat                 { [($1, $2)] }
+    ConstructorList '|' TypeName Pat { $1 ++ [($3, $4)] }
+  | ConstructorList '|' TypeName     { $1 ++ [($3, TupleS [])] }
+  | TypeName Pat                     { [($1, $2)] }
+  | TypeName                         { [($1, TupleS [])] }
 
 -- patterns
 

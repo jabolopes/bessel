@@ -4,4 +4,4 @@ type Fruit = Apple x@isInt
 type MoreFruit = Orange x
 type EvenMoreFruit =
   Banana @isInt
-  Kiwi @isReal
+  | Kiwi @isReal

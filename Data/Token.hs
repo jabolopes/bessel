@@ -12,6 +12,7 @@ data Token
   | TokenComma Srcloc
   | TokenDot Srcloc
   | TokenEquiv Srcloc
+  | TokenAlternative Srcloc
 
   -- grouping
   | TokenLParen Srcloc
@@ -97,6 +98,7 @@ tokenSrcloc (TokenAtSpace srcloc) = srcloc
 tokenSrcloc (TokenComma srcloc) = srcloc
 tokenSrcloc (TokenDot srcloc) = srcloc
 tokenSrcloc (TokenEquiv srcloc) = srcloc
+tokenSrcloc (TokenAlternative srcloc) = srcloc
 tokenSrcloc (TokenLParen srcloc) = srcloc
 tokenSrcloc (TokenRParen srcloc) = srcloc
 tokenSrcloc (TokenLConsParen srcloc) = srcloc

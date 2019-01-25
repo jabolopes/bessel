@@ -49,6 +49,7 @@ tokens :-
   ","                 { \p _ -> TokenComma (srcloc p) }
   "."                 { \p _ -> TokenDot (srcloc p) }
   "="                 { \p _ -> TokenEquiv (srcloc p) }
+  "|"                 { \p _ -> TokenAlternative (srcloc p) }
 
   -- grouping
   "("                 { \p _ -> TokenLParen (srcloc p) }

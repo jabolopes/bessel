@@ -282,9 +282,10 @@ testIndentLexer =
        TokenTypeId (Srcloc 6 1) "Banana",
        TokenAtSpace (Srcloc 6 7),
        TokenId (Srcloc 6 9) "isInt",
-       TokenTypeId (Srcloc 7 1) "Kiwi",
-       TokenAtSpace (Srcloc 7 5),
-       TokenId (Srcloc 7 7) "isReal",
+       TokenAlternative (Srcloc 7 1),
+       TokenTypeId (Srcloc 7 3) "Kiwi",
+       TokenAtSpace (Srcloc 7 7),
+       TokenId (Srcloc 7 9) "isReal",
        TokenREnvParen]
 
     expected10 =
