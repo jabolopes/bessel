@@ -4,3 +4,4 @@ data Literal
   = CharL Char
   | IntL Int
   | RealL Double
+  | StringL String

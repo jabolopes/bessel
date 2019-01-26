@@ -23,7 +23,8 @@ module Data.PrettyString
    error,
    intercalate,
    nest,
-   toString) where
+   toString,
+   string) where
 
 import Prelude hiding (error, (<>))
 import qualified Prelude (error)
@@ -52,3 +53,6 @@ nest = PrettyPrint.nest nesting
 
 toString :: PrettyString -> String
 toString = PrettyPrint.renderStyle PrettyPrint.style
+
+string :: String -> PrettyString
+string = PrettyPrint.text . show

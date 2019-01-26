@@ -39,10 +39,14 @@ intT = PrimitiveT "Int"
 realT :: Type
 realT = PrimitiveT "Real"
 
+stringT :: Type
+stringT = PrimitiveT "String"
+
 literalT :: Literal -> Type
 literalT CharL {} = charT
 literalT IntL {} = intT
 literalT RealL {} = realT
+literalT StringL {} = stringT
 
 unitT :: Type
 unitT = TupleT []

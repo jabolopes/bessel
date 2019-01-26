@@ -31,6 +31,7 @@ evalLiteral :: Literal -> Val
 evalLiteral (CharL c) = CharVal c
 evalLiteral (IntL i) = IntVal i
 evalLiteral (RealL d) = RealVal d
+evalLiteral (StringL s) = StringVal s
 
 evalM :: Expr -> InterpreterM Val
 evalM (AnnotationE expr _) =

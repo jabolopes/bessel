@@ -31,6 +31,7 @@ docLiteral :: Literal -> PrettyString
 docLiteral (CharL c) = PrettyString.quotes $ PrettyString.char c
 docLiteral (IntL i) = PrettyString.int i
 docLiteral (RealL d) =  PrettyString.double d
+docLiteral (StringL s) = PrettyString.string s
 
 docExpr :: Expr -> PrettyString
 docExpr (AnnotationE expr typ) =
