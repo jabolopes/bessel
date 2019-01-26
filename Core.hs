@@ -310,6 +310,11 @@ hd (SeqVal (val:_)) = val
 tl :: Val -> Val
 tl (SeqVal (_:vals)) = SeqVal vals
 
+index :: Val -> Val
+index (IntVal i) = FnVal $ return . indexHof
+  where
+    indexHof (SeqVal vals) = vals !! i
+
 -- Tuple
 
 arrayLength :: Array Int a -> Int
@@ -554,6 +559,7 @@ fnDesc =
    ("cons", primitive cons),
    ("hd", primitive hd),
    ("tl", primitive tl),
+   ("index", primitive index),
    -- Tuple
    ("isTuple0", primitive isTuple0),
    ("isTuple2", primitive isTuple),
@@ -582,37 +588,7 @@ fnDesc =
    ("mapFile", FnVal mapFile),
    ("readLine", readLine),
    ("putLine", primitive putLine),
-   ("bindIO", primitive bindIO),
-   -- misc
-   ("un", primitive unSharp),
-   ("index", primitive index),
-   ("mkCons", primitive mkCons),
-   ("isCons", primitive isCons),
-   ("unCons", primitive unCons)]
-
-unSharp :: Val -> Val
-unSharp (TypeVal val) = val
-
-index :: Val -> Val
-index (IntVal i) = FnVal $ return . indexHof
-  where
-    indexHof (SeqVal vals) = vals !! i
-
-mkCons :: Val -> Val
-mkCons (IntVal typeId) = FnVal $ return . mkConsHof
-  where
-    mkConsHof val = TypeVal $ SeqVal [IntVal typeId, val]
-
-unCons :: Val -> Val
-unCons (TypeVal (SeqVal [_, val])) = val
-
-isCons :: Val -> Val
-isCons (IntVal typeId) = FnVal $ return . isConsHof
-  where
-    isConsHof (TypeVal (SeqVal [IntVal typeId', _]))
-      | typeId == typeId' = true
-    isConsHof _ = false
-isCons _ = false
+   ("bindIO", primitive bindIO)]
 
 coreModule :: IO Module
 coreModule = mkCoreModule coreName [] fnDesc
