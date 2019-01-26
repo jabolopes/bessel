@@ -192,8 +192,8 @@ patPred = sourcePred
       sourcePred pat
     sourcePred (TupleS pats) =
       Expr.appE (isTupleName $ length pats) . Expr.tupleE <$> mapM sourcePred pats
-    sourcePred (StringS cs) =
-      sourcePred . SeqS . map CharS $ cs
+    sourcePred (StringS s) =
+      return $ Expr.stringE s
     sourcePred m =
       do let (isFn, eqFn) = patConstantPred m
          arg <- NameM.genNameM $ Name.untyped "arg"
@@ -459,11 +459,11 @@ expandSource (OrS m1 m2) =
 expandSource pat@PatS {} =
   throwError . Pretty.devPattern . Pretty.docSource $ pat
 expandSource (RealS n) =
-  Utils.returnOne . return . Expr.realE $ n
+  Utils.returnOne . return $ Expr.realE n
 expandSource (SeqS ms) =
   Utils.returnOne $ expandSeq ms
 expandSource (StringS str) =
-  Utils.returnOne . return . Expr.stringE $ str
+  Utils.returnOne . return $ Expr.stringE str
 expandSource (TupleS srcs) =
   Utils.returnOne $ expandTuple srcs
 expandSource (TypeDeclS typeName tags) =

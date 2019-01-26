@@ -141,7 +141,7 @@ seqE (e:es) = AppE (appE consE e) (seqE es)
     consE = Name.untyped "cons"
 
 stringE :: String -> Expr
-stringE str = seqE (map (LiteralE . CharL) str)
+stringE = LiteralE . StringL
 
 tupleE :: [Expr] -> Expr
 tupleE [] = idE "unit"

@@ -34,9 +34,7 @@ instance Show Val where
     show (IntVal i) = show i
     show IOVal {} = "io"
     show (RealVal d) = show d
-    show (SeqVal vals)
-        | not (null vals) && all isCharVal vals = show $ map (\(CharVal c) -> c) vals
-        | otherwise = "[" ++ List.intercalate "," (map show vals) ++ "]"
+    show (SeqVal vals) = "[" ++ List.intercalate "," (map show vals) ++ "]"
     show (StringVal s) = show s
     show (TupleVal vals) = "(" ++ List.intercalate ", " (map show $ Array.elems vals) ++ ")"
     show (TypeVal val) = "{" ++ show val ++ "}"

@@ -370,23 +370,22 @@ tupleRef2 (TupleVal vals) = vals ! 2
 -- Type
 
 isType :: Val -> Val
-isType typeName@SeqVal {} = FnVal arg2
+isType (StringVal typeName) = FnVal arg2
   where
     arg2 (VariantVal typeId _ _) = apply typeId
     arg2 _ = return false
 
     apply typeId =
-      let isTypeId = hash $ unboxString typeName in
-      if isTypeId == typeId
+      if hash typeName == typeId
         then return true
         else return false
 isType _ =
-  error $ "Core.isVariant: expected string as first argument"
+  error $ "Core.isType: expected string as first argument"
 
 -- Variant (i.e., algebraic datatype)
 
 isVariant :: Val -> Val
-isVariant typeName@SeqVal {} = FnVal arg2
+isVariant (StringVal typeName) = FnVal arg2
   where
     arg2 (IntVal isCons) = return . FnVal $ arg3 isCons
     arg2 _ = fail $ "Core.isVariant: expected integer as second argument"
@@ -398,8 +397,8 @@ isVariant typeName@SeqVal {} = FnVal arg2
     arg4 _ _ _ = return false
 
     apply isCons isFn typeId cons val =
-      let isTypeId = hash $ unboxString typeName in
-      if isTypeId == typeId && isCons == cons then
+      let isTypeId = hash typeName in
+      if hash typeName == typeId && isCons == cons then
         do val' <- isFn val
            if isNotFalseVal val'
              then return true
@@ -410,18 +409,20 @@ isVariant _ =
   error $ "Core.isVariant: expected string as first argument"
 
 mkVariant :: Val -> Val
-mkVariant typeName@SeqVal {} = FnVal arg2
+mkVariant (StringVal typeName) = FnVal arg2
   where
     arg2 (IntVal cons) = return . FnVal $ arg3 cons
     arg2 _ = fail $ "Core.mkVariant: expected integer as second argument"
 
-    arg3 cons val = apply (hash $ unboxString typeName) cons val
+    arg3 cons val = apply (hash typeName) cons val
 
     apply typeId cons val = return $ VariantVal typeId cons val
+mkVariant _ =
+  error "Core.mkVariant: expected string as first argument"
 
 unVariant :: Val -> Val
 unVariant (VariantVal _ _ val) = val
-unVariant _ = error $ "Core.unVariant: expected variant as first argument"
+unVariant _ = error "Core.unVariant: expected variant as first argument"
 
 -- Fn
 
@@ -471,23 +472,27 @@ o (FnVal fn1) = FnVal $ return . oHof
 -- io
 
 mapFile :: Val -> InterpreterM Val
-mapFile filename =
+mapFile (StringVal filename) =
   return . FnVal $ return . mapFileHof
   where
     mapFileHof (FnVal fn) =
       IOVal $ do
-        contents <- IO.readFile $ unboxString filename
-        Interpreter.liftInterpreterM . fn $ boxString contents
+        contents <- IO.readFile filename
+        Interpreter.liftInterpreterM . fn $ StringVal contents
+mapFile _ =
+  error "Core.mapFile: expected string as first argument"
 
 readLine :: Val
 readLine =
-  IOVal $ boxString <$> liftIO (hGetLine stdin)
+  IOVal $ StringVal <$> liftIO (hGetLine stdin)
 
 putLine :: Val -> Val
-putLine str =
+putLine (StringVal str) =
   IOVal $ do
-    liftIO . hPutStrLn stdout $ unboxString str
+    liftIO $ hPutStrLn stdout str
     return $ mkTuple0
+putLine _ =
+  error "Core.putLine: expected string as first argument"
 
 bindIO :: Val -> Val
 bindIO (IOVal m) = FnVal $ return . IOVal . bindIOHof
@@ -583,8 +588,7 @@ fnDesc =
    ("index", primitive index),
    ("mkCons", primitive mkCons),
    ("isCons", primitive isCons),
-   ("unCons", primitive unCons),
-   ("link", primitive link)]
+   ("unCons", primitive unCons)]
 
 unSharp :: Val -> Val
 unSharp (TypeVal val) = val
@@ -609,9 +613,6 @@ isCons (IntVal typeId) = FnVal $ return . isConsHof
       | typeId == typeId' = true
     isConsHof _ = false
 isCons _ = false
-
-link :: Val -> Val
-link val = IntVal . hash . unboxString $ val
 
 coreModule :: IO Module
 coreModule = mkCoreModule coreName [] fnDesc
