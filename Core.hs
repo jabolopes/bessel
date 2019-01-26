@@ -22,11 +22,16 @@ isBool BoolVal {} = true
 isBool _ = false
 
 eqBool :: Val -> Val
-eqBool (BoolVal b1) = FnVal $ return . eqBoolHof
+eqBool (BoolVal bool1) = FnVal arg2
   where
-    eqBoolHof (BoolVal b2)
-      | b1 == b2 = true
-      | otherwise = false
+    arg2 (BoolVal bool2) = apply bool1 bool2
+    arg2 _ = fail "Core.eqBool: expected bool as second argument"
+
+    apply b1 b2
+      | b1 == b2 = return true
+      | otherwise = return false
+eqBool _ =
+  error "Core.eqBool: expected bool as first argument"
 
 -- Int
 
@@ -35,46 +40,90 @@ isInt IntVal {} = true
 isInt _ = false
 
 eqInt :: Val -> Val
-eqInt (IntVal i1) = FnVal $ return . eqIntHof
+eqInt (IntVal integer1) = FnVal arg2
   where
-    eqIntHof (IntVal i2)
-      | i1 == i2 = true
-      | otherwise = false
+    arg2 (IntVal integer2) = apply integer1 integer2
+    arg2 _ = fail "Core.eqInt: expected integer as second argument"
+
+    apply i1 i2
+      | i1 == i2 = return true
+      | otherwise = return false
+eqInt _ =
+  error "Core.eqInt: expected integer as first argument"
 
 ltInt :: Val -> Val
-ltInt (IntVal i1) = FnVal $ return . ltIntHof
-  where ltIntHof (IntVal i2)
-          | i1 < i2 = true
-          | otherwise = false
+ltInt (IntVal integer1) = FnVal arg2
+  where
+    arg2 (IntVal integer2) = apply integer1 integer2
+    arg2 _ = fail "Core.ltInt: expected integer as second argument"
+
+    apply i1 i2
+      | i1 < i2 = return true
+      | otherwise = return false
+ltInt _ =
+  error "Core.ltInt: expected integer as first argument"
 
 addInt :: Val -> Val
-addInt (IntVal i1) =
-  FnVal $ \(IntVal i2) -> return . IntVal $ i1 + i2
+addInt (IntVal integer1) = FnVal arg2
+  where
+    arg2 (IntVal integer2) = apply integer1 integer2
+    arg2 _ = fail "Core.addInt: expected integer as second argument"
+
+    apply i1 i2 = return . IntVal $ i1 + i2
+addInt _ =
+  error "Core.addInt: expected integer as first argument"
 
 subInt :: Val -> Val
-subInt (IntVal i1) =
-  FnVal $ \(IntVal i2) -> return . IntVal $ i1 - i2
+subInt (IntVal integer1) = FnVal arg2
+  where
+    arg2 (IntVal integer2) = apply integer1 integer2
+    arg2 _ = fail "Core.subInt: expected integer as second argument"
+
+    apply i1 i2 = return . IntVal $ i1 - i2
+subInt _ =
+  error "Core.subInt: expected integer as first argument"
 
 mulInt :: Val -> Val
-mulInt (IntVal i1) =
-  FnVal $ \(IntVal i2) -> return . IntVal $ i1 * i2
+mulInt (IntVal integer1) = FnVal arg2
+  where
+    arg2 (IntVal integer2) = apply integer1 integer2
+    arg2 _ = fail "Core.mulInt: expected integer as second argument"
+
+    apply i1 i2 = return . IntVal $ i1 * i2
+mulInt _ =
+  error "Core.mulInt: expected integer as first argument"
 
 divInt :: Val -> Val
-divInt (IntVal i1) =
-  FnVal $ \(IntVal i2) -> return . IntVal $ i1 `div` i2
+divInt (IntVal integer1) = FnVal arg2
+  where
+    arg2 (IntVal integer2) = apply integer1 integer2
+    arg2 _ = fail "Core.divInt: expected integer as second argument"
+
+    apply i1 i2 = return . IntVal $ i1 `div` i2
+divInt _ =
+  error "Core.divInt: expected integer as first argument"
+
+remInt :: Val -> Val
+remInt (IntVal integer1) = FnVal arg2
+  where
+    arg2 (IntVal integer2) = apply integer1 integer2
+    arg2 _ = fail "Core.remInt: expected integer as second argument"
+
+    apply i1 i2 = return . IntVal $ i1 `rem` i2
+remInt _ =
+  error "Core.remInt: expected integer as first argument"
 
 absInt :: Val -> Val
 absInt (IntVal i) = IntVal (abs i)
+absInt _ = error "Core.absInt: expected integer as first argument"
 
 negInt :: Val -> Val
 negInt (IntVal i) = IntVal (- i)
+negInt _ = error "Core.negInt: expected integer as first argument"
 
 invInt :: Val -> Val
 invInt (IntVal i) = RealVal (1.0 / fromIntegral i)
-
-remInt :: Val -> Val
-remInt (IntVal i1) =
-  FnVal $ \(IntVal i2) -> return . IntVal $ i1 `rem` i2
+invInt _ = error "Core.invInt: expected integer as first argument"
 
 -- Real
 
@@ -348,9 +397,6 @@ isObj _ = false
 
 -- combining forms
 
-apply :: Val -> InterpreterM Val
-apply (SeqVal [FnVal fn, val]) = fn val
-
 o :: Val -> Val
 o (FnVal fn1) = FnVal $ return . oHof
   where
@@ -486,7 +532,6 @@ fnDesc =
    -- Obj
    ("isObj", primitive isObj),
    -- combining forms
-   ("apply", FnVal apply),
    ("o", primitive o),
    -- io
    ("mapFile", FnVal mapFile),
