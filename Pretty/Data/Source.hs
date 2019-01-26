@@ -91,7 +91,7 @@ docSource (SeqS ms) =
   PrettyString.sep (PrettyString.intercalate (PrettyString.text ",") (map docSource ms)) <>
   PrettyString.char ']'
 docSource (StringS str) =
-  PrettyString.char '"' <> PrettyString.text str <> PrettyString.char '"'
+  PrettyString.string str
 docSource (TupleS [src]) =
   docSource src
 docSource (TupleS srcs) =

@@ -582,7 +582,7 @@ fnDesc =
    ("isFn", primitive isFn),
    -- Obj
    ("isObj", primitive isObj),
-   -- combining forms
+   -- Combining forms
    ("o", primitive o),
    -- io
    ("mapFile", FnVal mapFile),
