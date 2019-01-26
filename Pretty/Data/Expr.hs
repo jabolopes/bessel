@@ -3,13 +3,13 @@ module Pretty.Data.Expr where
 import Prelude hiding ((<>))
 
 import Data.Expr
+import Data.Literal (Literal(..))
 import Data.PrettyString (PrettyString, (<>), (<+>), ($+$))
 import qualified Data.PrettyString as PrettyString
 
 isParens :: Bool -> Expr -> Bool
 isParens right AppE {} = right
 isParens _ IdE {}      = False
-isParens _ IntE {}     = False
 isParens _ LetE {}     = False
 isParens _ LiteralE {} = False
 isParens _ _           = True
@@ -29,6 +29,7 @@ docCond fn ms blame =
 
 docLiteral :: Literal -> PrettyString
 docLiteral (CharL c) = PrettyString.quotes $ PrettyString.char c
+docLiteral (IntL i) = PrettyString.int i
 docLiteral (RealL d) =  PrettyString.double d
 
 docExpr :: Expr -> PrettyString
@@ -51,7 +52,6 @@ docExpr (FnDecl kw name body) =
     kwDoc Def = PrettyString.text "rec"
     kwDoc NrDef = PrettyString.text "nonrec"
 docExpr (IdE name) = PrettyString.text (show name)
-docExpr (IntE i) = PrettyString.int i
 docExpr (LambdaE arg body) =
   PrettyString.sep [PrettyString.text "\\" <> PrettyString.text (show arg) <+>
                     PrettyString.text "->", PrettyString.nest (docExpr body)]

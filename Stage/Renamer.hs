@@ -144,7 +144,6 @@ renameM (FnDecl NrDef name body) =
      Utils.returnOne . return $ FnDecl NrDef name' body'
 renameM (IdE name) =
   Utils.returnOne $ Expr.idE <$> getFnSymbolM (Name.nameStr name)
-renameM expr@IntE {} = Utils.returnOne $ return expr
 renameM (LambdaE arg body) =
   Utils.returnOne (renameLambdaM (Name.nameStr arg) body)
 renameM (LetE defn body) =

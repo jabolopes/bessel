@@ -2,16 +2,13 @@ module Data.Expr where
 
 import qualified Data.List as List (nub)
 
+import Data.Literal (Literal(..))
 import Data.Name (Name)
 import qualified Data.Name as Name
 import Typechecker.Type (Type)
 
 data DefnKw
   = Def | NrDef
-
-data Literal
-  = CharL Char
-  | RealL Double
 
 data Expr
   = AnnotationE Expr Type
@@ -35,7 +32,6 @@ data Expr
   | FnDecl DefnKw Name Expr
 
   | IdE Name
-  | IntE Int
 
   -- |
   -- This construct is not available in the parser
@@ -110,8 +106,8 @@ charE = LiteralE . CharL
 
 intE :: Int -> Expr
 intE n
-  | n >= 0 = IntE n
-  | otherwise = appE negInt (IntE (- n))
+  | n >= 0 = LiteralE $ IntL n
+  | otherwise = appE negInt . LiteralE . IntL $ -n
   where
     negInt = Name.untyped "negInt"
 
@@ -134,7 +130,7 @@ orE expr1 expr2 =
 realE :: Double -> Expr
 realE n
   | n >= 0 = LiteralE $ RealL n
-  | otherwise = appE negReal (LiteralE . RealL $ -n)
+  | otherwise = appE negReal . LiteralE . RealL $ -n
   where
     negReal = Name.untyped "negReal"
 
@@ -183,8 +179,6 @@ freeVars = List.nub . snd . free [] []
     free env fvars (IdE name)
       | name `elem` env = (env, fvars)
       | otherwise = (env, name:fvars)
-    free env fvars IntE {} =
-      (env, fvars)
     free env fvars (LambdaE arg body) =
       free (arg:env) fvars body
     free env fvars (LetE defn body) =

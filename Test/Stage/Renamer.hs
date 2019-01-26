@@ -5,8 +5,9 @@ module Test.Stage.Renamer where
 import Control.Applicative ((<$>))
 import Control.Monad.State hiding (state)
 
-import Data.Expr (DefnKw(..), Expr(..), Literal(..))
+import Data.Expr (DefnKw(..), Expr(..))
 import qualified Data.Expr as Expr
+import Data.Literal (Literal(..))
 import qualified Data.Name as Name
 import qualified Data.PrettyString as PrettyString
 import Data.Source
@@ -112,9 +113,9 @@ testRenamer =
                        (LambdaE (Name.untyped "z#14")
                         (CondE [(AppE (LambdaE (Name.untyped "_5") (Expr.idE "true#")) (Expr.idE "z#14"),
                                  LetE (FnDecl NrDef (Name.untyped "z6") (Expr.idE "z#14"))
-                                 (AppE (AppE (Expr.idE "+") (Expr.idE "z6")) (IntE 1)))]
+                                 (AppE (AppE (Expr.idE "+") (Expr.idE "z6")) (Expr.intE 1)))]
                          "f2")))
-                 (LetE (FnDecl NrDef (Name.untyped "y7") (IntE 0))
+                 (LetE (FnDecl NrDef (Name.untyped "y7") (Expr.intE 0))
                   (AppE (Expr.idE "f23") (Expr.idE "y7")))))]
         "f1"))
 

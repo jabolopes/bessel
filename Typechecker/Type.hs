@@ -1,10 +1,10 @@
 module Typechecker.Type where
 
 import qualified Data.List as List
-
 import Data.Set (Set)
 import qualified Data.Set as Set
 
+import Data.Literal (Literal(..))
 import Typechecker.TypeName (TypeName(..))
 import qualified Typechecker.TypeName as TypeName
 
@@ -30,11 +30,19 @@ instance Show Type where
 boolT :: Type
 boolT = PrimitiveT "Bool"
 
+charT :: Type
+charT = PrimitiveT "Char"
+
 intT :: Type
 intT = PrimitiveT "Int"
 
 realT :: Type
 realT = PrimitiveT "Real"
+
+literalT :: Literal -> Type
+literalT CharL {} = charT
+literalT IntL {} = intT
+literalT RealL {} = realT
 
 unitT :: Type
 unitT = TupleT []

@@ -196,10 +196,9 @@ check :: Monad m => Context -> Expr -> Type -> Check m Context
 --
 -- We don't need an implementation for 1I because unit is not a term
 -- in the 'Expr' language, it is a function ("mkTuple0").
-check context IntE {} typ@PrimitiveT {}
-  | typ == Type.intT =
+check context (LiteralE literal) typ@PrimitiveT {}
+  | literalT literal == typ =
     return context
-  -- TODO: Finish literals
 -- ForallI
 check context term (Forall name typ) =
   do let context' = context `Context.appendType` TypeVar name
@@ -268,8 +267,8 @@ synthesize context (AnnotationE term typ)
     do context' <- check context term typ
        return (context', typ)
 -- 1I=>
-synthesize context IntE {} =
-  return (context, Type.intT)
+synthesize context (LiteralE literal) =
+  return (context, literalT literal)
 -- ->I=>
 synthesize context (LambdaE arg body) =
   do argExistVar <- genExistVar

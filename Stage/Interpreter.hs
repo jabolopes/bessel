@@ -14,10 +14,11 @@ import Data.Either
 import Data.Definition (Definition(..))
 import qualified Data.Definition as Definition
 import qualified Data.Env as Env (findBind, initial)
-import Data.Expr (DefnKw(..), Expr(..), Literal(..))
+import Data.Expr (DefnKw(..), Expr(..))
 import qualified Data.Expr as Expr
 import Data.FileSystem (FileSystem)
 import qualified Data.FileSystem as FileSystem
+import Data.Literal (Literal(..))
 import Data.Module (ModuleT(..), Module(..))
 import qualified Data.Module as Module
 import qualified Data.Name as Name
@@ -28,12 +29,12 @@ import qualified Data.PrettyString as PrettyString
 
 evalLiteral :: Literal -> Val
 evalLiteral (CharL c) = CharVal c
+evalLiteral (IntL i) = IntVal i
 evalLiteral (RealL d) = RealVal d
 
 evalM :: Expr -> InterpreterM Val
 evalM (AnnotationE expr _) =
   evalM expr
-evalM (IntE i) = return $ IntVal i
 evalM (IdE str) =
     do msym <- findBindM (Name.nameStr str)
        case msym of

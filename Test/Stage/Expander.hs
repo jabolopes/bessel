@@ -2,8 +2,9 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Test.Stage.Expander where
 
-import Data.Expr (DefnKw(..), Expr(..), Literal(..))
+import Data.Expr (DefnKw(..), Expr(..))
 import qualified Data.Expr as Expr
+import Data.Literal (Literal(..))
 import qualified Data.Name as Name
 import qualified Data.PrettyString as PrettyString
 import Data.Source
@@ -115,9 +116,9 @@ testExpander =
                   (LambdaE (Name.untyped "z#1")
                    (CondE [(AppE (LambdaE (Name.untyped "_") (Expr.idE "true#")) (Expr.idE "z#1"),
                             LetE (FnDecl NrDef (Name.untyped "z") (Expr.idE "z#1"))
-                            (AppE (AppE (Expr.idE "+") (Expr.idE "z")) (IntE 1)))]
+                            (AppE (AppE (Expr.idE "+") (Expr.idE "z")) (Expr.intE 1)))]
                     "f2")))
-                 (LetE (FnDecl NrDef (Name.untyped "y") (IntE 0))
+                 (LetE (FnDecl NrDef (Name.untyped "y") (Expr.intE 0))
                   (AppE (Expr.idE "f2") (Expr.idE "y")))))]
         "f1"))
 
@@ -290,8 +291,8 @@ testExpander =
         [(AppE (LambdaE (Name.untyped "_") (Expr.idE "true#")) (Expr.idE "n#0"),
           LetE (FnDecl NrDef (Name.untyped "n") (Expr.idE "n#0"))
           (LetE (FnDecl NrDef (Name.untyped "res#1")
-                 (AppE (AppE (Expr.idE "cons") (IntE 1))
-                  (AppE (AppE (Expr.idE "cons") (IntE 2))
+                 (AppE (AppE (Expr.idE "cons") (Expr.intE 1))
+                  (AppE (AppE (Expr.idE "cons") (Expr.intE 2))
                    (Expr.idE "null"))))
            (LetE (FnDecl NrDef (Name.untyped "x")
                   (AppE (Expr.idE "hd")
@@ -303,15 +304,15 @@ testExpander =
              (AppE (AppE (Expr.idE "case") (Expr.idE "n"))
               (LambdaE (Name.untyped "arg#2")
                (CondE
-                [(AppE (AppE (Expr.idE ">") (IntE 1)) (Expr.idE "arg#2"), Expr.idE "x"),
+                [(AppE (AppE (Expr.idE ">") (Expr.intE 1)) (Expr.idE "arg#2"), Expr.idE "x"),
                  (AppE (LambdaE (Name.untyped "_") (Expr.idE "true#")) (Expr.idE "arg#2"), Expr.idE "y")]
                 "lambda")))))))]
         "f"))
 
     expected7 =
       [FnDecl NrDef (Name.untyped "res#0")
-       (AppE (AppE (Expr.idE "cons") (IntE 1))
-        (AppE (AppE (Expr.idE "cons") (IntE 2))
+       (AppE (AppE (Expr.idE "cons") (Expr.intE 1))
+        (AppE (AppE (Expr.idE "cons") (Expr.intE 2))
          (Expr.idE "null"))),
        FnDecl NrDef (Name.untyped "x")
        (AppE (Expr.idE "hd")
@@ -333,9 +334,9 @@ testExpander =
     expected12 =
       FnDecl NrDef (Name.untyped "f")
       (LambdaE (Name.untyped "arg#0")
-       (CondE [(AppE (Expr.appE (Name.untyped "isList") (Expr.seqE [Expr.idE "isInt"])) (Expr.idE "arg#0"), IntE 0),
-               (AppE (Expr.appE (Name.untyped "isList") (Expr.seqE [Expr.idE "isReal", Expr.idE "isString"])) (Expr.idE "arg#0"), IntE 1),
-               (AppE Expr.constTrueE (Expr.idE "arg#0"), IntE 2)]
+       (CondE [(AppE (Expr.appE (Name.untyped "isList") (Expr.seqE [Expr.idE "isInt"])) (Expr.idE "arg#0"), Expr.intE 0),
+               (AppE (Expr.appE (Name.untyped "isList") (Expr.seqE [Expr.idE "isReal", Expr.idE "isString"])) (Expr.idE "arg#0"), Expr.intE 1),
+               (AppE Expr.constTrueE (Expr.idE "arg#0"), Expr.intE 2)]
          "f"))
 
     expectedTuple =
@@ -361,24 +362,24 @@ testExpander =
       [FnDecl NrDef (Name.untyped "isFruit") $
         Expr.idE "isType#" `AppE` Expr.stringE "Fruit",
        FnDecl NrDef (Name.untyped "isApple") $
-        Expr.idE "isVariant#" `AppE` Expr.stringE "Fruit" `AppE` IntE 0,
+        Expr.idE "isVariant#" `AppE` Expr.stringE "Fruit" `AppE` Expr.intE 0,
        FnDecl NrDef (Name.untyped "isBanana") $
-        Expr.idE "isVariant#" `AppE` Expr.stringE "Fruit" `AppE` IntE 1,
+        Expr.idE "isVariant#" `AppE` Expr.stringE "Fruit" `AppE` Expr.intE 1,
        FnDecl NrDef (Name.untyped "isFig") $
-        Expr.idE "isVariant#" `AppE` Expr.stringE "Fruit" `AppE` IntE 2,
+        Expr.idE "isVariant#" `AppE` Expr.stringE "Fruit" `AppE` Expr.intE 2,
        FnDecl NrDef (Name.untyped "mkApple") $
-        Expr.idE "mkVariant#" `AppE` Expr.stringE "Fruit" `AppE` IntE 0 `AppE` Expr.idE "mkTuple0",
+        Expr.idE "mkVariant#" `AppE` Expr.stringE "Fruit" `AppE` Expr.intE 0 `AppE` Expr.idE "mkTuple0",
        FnDecl NrDef (Name.untyped "mkBanana") $
         LambdaE (Name.untyped "x#0") $
          CondE [(Expr.idE "isInt" `AppE` Expr.idE "x#0",
                  LetE (FnDecl NrDef (Name.untyped "x") (Expr.idE "x#0")) $
-                  Expr.idE "mkVariant#" `AppE` Expr.stringE "Fruit" `AppE` IntE 1 `AppE` Expr.idE "x")]
+                  Expr.idE "mkVariant#" `AppE` Expr.stringE "Fruit" `AppE` Expr.intE 1 `AppE` Expr.idE "x")]
          "mkBanana",
        FnDecl NrDef (Name.untyped "mkFig") $
         LambdaE (Name.untyped "arg#1") $
          CondE [(Expr.idE "isTuple2" `AppE` (Expr.idE "mkTuple2" `AppE` Expr.idE "isInt" `AppE` Expr.idE "isReal") `AppE` Expr.idE "arg#1",
                  LetE (FnDecl NrDef (Name.untyped "arg") (Expr.idE "arg#1")) $
-                  Expr.idE "mkVariant#" `AppE` Expr.stringE "Fruit" `AppE` IntE 2 `AppE` Expr.idE "arg")]
+                  Expr.idE "mkVariant#" `AppE` Expr.stringE "Fruit" `AppE` Expr.intE 2 `AppE` Expr.idE "arg")]
          "mkFig",
        FnDecl NrDef (Name.untyped "unApple") $
         LambdaE (Name.untyped "arg#2") $
@@ -422,15 +423,15 @@ testExpander =
         LambdaE (Name.untyped "a#0") $
          CondE [(Expr.idE "isApple" `AppE` Expr.idE "isTuple0" `AppE` Expr.idE "a#0",
                  (LetE (FnDecl NrDef (Name.untyped "a") (Expr.idE "a#0"))
-                  (IntE 0))),
+                  (Expr.intE 0))),
                 (Expr.idE "isBanana" `AppE` Expr.idE "isInt" `AppE` Expr.idE "a#0",
                  (LetE (FnDecl NrDef (Name.untyped "b") (Expr.idE "a#0"))
                   (LetE (FnDecl NrDef (Name.untyped "x") (Expr.idE "unBanana" `AppE` Expr.idE "a#0"))
-                   (IntE 1)))),
+                   (Expr.intE 1)))),
                  (Expr.idE "isFig" `AppE` (Expr.idE "isTuple2" `AppE` (Expr.idE "mkTuple2" `AppE` Expr.idE "isInt" `AppE` Expr.idE "isReal")) `AppE` Expr.idE "a#0",
                   (LetE (FnDecl NrDef (Name.untyped "c") (Expr.idE "a#0"))
                    (LetE (FnDecl NrDef (Name.untyped "x") (Expr.idE "tuple2Ref0" `AppE` (Expr.idE "unFig" `AppE` Expr.idE "a#0")))
                     (LetE (FnDecl NrDef (Name.untyped "y") (Expr.idE "tuple2Ref1" `AppE` (Expr.idE "unFig" `AppE` Expr.idE "a#0")))
-                     (IntE 2)))))]
+                     (Expr.intE 2)))))]
          "f1"
       ]
