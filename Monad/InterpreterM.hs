@@ -20,6 +20,7 @@ data Val
     | IOVal (IO Val)
     | RealVal Double
     | SeqVal [Val]
+    | StringVal String
     | TupleVal (Array Int Val)
     | TypeVal Val
     | VariantVal Int Int Val
@@ -36,6 +37,7 @@ instance Show Val where
     show (SeqVal vals)
         | not (null vals) && all isCharVal vals = show $ map (\(CharVal c) -> c) vals
         | otherwise = "[" ++ List.intercalate "," (map show vals) ++ "]"
+    show (StringVal s) = show s
     show (TupleVal vals) = "(" ++ List.intercalate ", " (map show $ Array.elems vals) ++ ")"
     show (TypeVal val) = "{" ++ show val ++ "}"
     show (VariantVal _ cons val) = "+" ++ show cons ++ " " ++ show val
