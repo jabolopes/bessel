@@ -108,14 +108,15 @@ unprefixedUses =
 type FnDesc = [(String, Val)]
 
 mkCoreModule :: Name -> [Name] -> FnDesc -> IO Module
-mkCoreModule name deps fnDesc =
+mkCoreModule moduleName deps fnDesc =
   let uses = [ (dep, Name.empty) | dep <- deps ] in
-  ensureDefinitions (initial CoreT name uses) <$> defs
+  ensureDefinitions (initial CoreT moduleName uses) <$> defs
   where
     defs =
       sequence
       [ do ref <- newIORef val
-           return (Definition.initial (name `Name.joinNames` (Name.untyped defName))) { defVal = Right ref } | (defName, val) <- fnDesc ]
+           return (Definition.initial (moduleName `Name.joinNames` (Name.untyped name))) { defVal = Right ref }
+        | (name, val) <- fnDesc ]
 
 interactiveName :: Name
 interactiveName = Name.untyped "Interactive"
