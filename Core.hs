@@ -132,49 +132,88 @@ isReal RealVal {} = true
 isReal _ = false
 
 eqReal :: Val -> Val
-eqReal (RealVal d1) = FnVal $ return . eqRealHof
+eqReal (RealVal double1) = FnVal arg2
   where
-    eqRealHof (RealVal d2)
-      | d1 == d2 = true
-      | otherwise = false
+    arg2 (RealVal double2) = apply double1 double2
+    arg2 _ = fail "Core.eqReal: expected real as second argument"
+
+    apply d1 d2
+      | d1 == d2 = return true
+      | otherwise = return false
+eqReal _ =
+  error "Core.eqReal: expected real as first argument"
 
 ltReal :: Val -> Val
-ltReal (RealVal d1) = FnVal $ return . ltRealHof
+ltReal (RealVal double1) = FnVal arg2
   where
-    ltRealHof (RealVal d2)
-      | d1 < d2 = true
-      | otherwise = false
+    arg2 (RealVal double2) = apply double1 double2
+    arg2 _ = fail "Core.ltReal: expected real as second argument"
+
+    apply d1 d2
+      | d1 < d2 = return true
+      | otherwise = return false
+ltReal _ =
+  error "Core.ltReal: expected real as first argument"
 
 addReal :: Val -> Val
-addReal (RealVal i1) =
-  FnVal $ \(RealVal i2) -> return .  RealVal $ i1 + i2
+addReal (RealVal double1) = FnVal arg2
+  where
+    arg2 (RealVal double2) = apply double1 double2
+    arg2 _ = fail "Core.addReal: expected real as second argument"
+
+    apply d1 d2 = return . RealVal $ d1 + d2
+addReal _ =
+  error "Core.addReal: expected real as first argument"
 
 subReal :: Val -> Val
-subReal (RealVal d1) =
-  FnVal $ \(RealVal d2) -> return . RealVal $ d1 - d2
+subReal (RealVal double1) = FnVal arg2
+  where
+    arg2 (RealVal double2) = apply double1 double2
+    arg2 _ = fail "Core.subReal: expected real as second argument"
+
+    apply d1 d2 = return . RealVal $ d1 - d2
+subReal _ =
+  error "Core.subReal: expected real as first argument"
 
 mulReal :: Val -> Val
-mulReal (RealVal d1) =
-  FnVal $ \(RealVal d2) -> return . RealVal $ d1 * d2
+mulReal (RealVal double1) = FnVal arg2
+  where
+    arg2 (RealVal double2) = apply double1 double2
+    arg2 _ = fail "Core.mulReal: expected real as second argument"
+
+    apply d1 d2 = return . RealVal $ d1 * d2
+mulReal _ =
+  error "Core.mulReal: expected real as first argument"
 
 divReal :: Val -> Val
-divReal (RealVal d1) =
-  FnVal $ \(RealVal d2) -> return . RealVal $ d1 / d2
+divReal (RealVal double1) = FnVal arg2
+  where
+    arg2 (RealVal double2) = apply double1 double2
+    arg2 _ = fail "Core.divReal: expected real as second argument"
+
+    apply d1 d2 = return . RealVal $ d1 / d2
+divReal _ =
+  error "Core.divReal: expected real as first argument"
 
 absReal :: Val -> Val
-absReal (RealVal d) = RealVal (abs d)
+absReal (RealVal d) = RealVal $ abs d
+absReal _ = error "Core.absReal: expected real as first argument"
 
 ceilingReal :: Val -> Val
-ceilingReal (RealVal d) = IntVal (ceiling d)
+ceilingReal (RealVal d) = IntVal $ ceiling d
+ceilingReal _ = error "Core.ceilingReal: expected real as first argument"
 
 floorReal :: Val -> Val
-floorReal (RealVal d) = IntVal (floor d)
+floorReal (RealVal d) = IntVal $ floor d
+floorReal _ = error "Core.floorReal: expected real as first argument"
 
 negReal :: Val -> Val
-negReal (RealVal d) = RealVal (- d)
+negReal (RealVal d) = RealVal $ -d
+negReal _ = error "Core.negReal: expected real as first argument"
 
 invReal :: Val -> Val
-invReal (RealVal d) = RealVal (1 / d)
+invReal (RealVal d) = RealVal $ 1 / d
+invReal _ = error "Core.invReal: expected real as first argument"
 
 -- Int and Real
 
@@ -234,7 +273,8 @@ isList (SeqVal fns) = FnVal arg2
            if isNotFalseVal val'
              then apply fns vals
              else return false
-isList _ = error "Core.isList: expected forall a. [a -> Bool]"
+isList _ =
+  error "Core.isList: expected forall a. [a -> Bool]"
 
 isHeadTail :: Val -> Val
 isHeadTail (FnVal fn1) = FnVal arg2

@@ -77,6 +77,8 @@ substituteTypeVar (TypeVar name) target = sub
     sub typ@PrimitiveT {} = typ
     sub (ListT typ) = ListT (sub typ)
     sub (TupleT types) = TupleT $ map sub types
+substituteTypeVar _ _ =
+  error "Type.substituteTypeVar: expected type variable"
 
 substitute :: Type -> Type -> Type -> Type
 substitute source target typ
@@ -89,7 +91,7 @@ substitute source target typ
       Arrow
         (substitute source target type1)
         (substitute source target type2)
-    sub (ListT typ) = substitute source target typ
+    sub (ListT listType) = substitute source target listType
     sub (TupleT types) = TupleT $ map (substitute source target) types
     sub x = x
 
