@@ -339,14 +339,13 @@ synthesize context term =
     Pretty.devIncompleteSynthesize (show context) (Pretty.docExpr term)
 
 typecheck :: Monad m => Context -> Expr -> Maybe Type -> m (Context, Type)
-typecheck context term =
-  \case
-    Nothing ->
-      do (context', typ) <- runTypechecker (TypecheckerState initialCounter) (synthesize context term)
-         return (context', Type.rebuildForall $ Context.substitute context' typ)
-    Just typ ->
-      do context' <- runTypechecker (TypecheckerState initialCounter) (check context term typ)
-         return (context', typ)
+typecheck context term checkType =
+  do (context', typ) <- runTypecheckerWithRule checkType
+     if Context.isContextWellFormed context' then
+       return (context', typ)
+     else
+       fail . PrettyString.toString $
+         Pretty.devContextTypecheck (show context) (Pretty.docExpr term) (show <$> checkType)
   where
     noType = -1
 
@@ -366,3 +365,10 @@ typecheck context term =
     initialCounter
       | List.null context = noType
       | otherwise = (1+) . maximum $ map (maxContextTypeName . fst) context
+
+    runTypecheckerWithRule Nothing =
+      do (context', typ) <- runTypechecker (TypecheckerState initialCounter) $ synthesize context term
+         return (context', Type.rebuildForall $ Context.substitute context' typ)
+    runTypecheckerWithRule (Just typ) =
+      do context' <- runTypechecker (TypecheckerState initialCounter) $ check context term typ
+         return (context', typ)

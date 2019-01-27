@@ -106,9 +106,29 @@ devContextSynthesize =
   annotateSynthesize $
     PrettyString.text "Failed to apply rule synthesize because context is ill-formed"
 
+devContextTypecheck :: String -> PrettyString -> Maybe String -> PrettyString
+devContextTypecheck context expr Nothing =
+  PrettyString.text "Failed to typecheck term because context is ill-formed"
+  $+$
+  PrettyString.nest
+  (PrettyString.text "In context " $+$
+   PrettyString.nest (PrettyString.text context) $+$
+   PrettyString.text "with expr " $+$
+   PrettyString.nest expr)
+devContextTypecheck context expr (Just checkType) =
+  PrettyString.text "Failed to typecheck term because context is ill-formed"
+  $+$
+  PrettyString.nest
+  (PrettyString.text "In context " $+$
+   PrettyString.nest (PrettyString.text context) $+$
+   PrettyString.text "with expr " $+$
+   PrettyString.nest expr $+$
+   PrettyString.text "and type " $+$
+   PrettyString.nest (PrettyString.text checkType))
+
 typeMismatch :: String -> String -> String -> PrettyString
-typeMismatch mod actual expected =
-  PrettyString.text ("Type mismatch in " ++ mod)
+typeMismatch moduleName actual expected =
+  PrettyString.text ("Type mismatch in " ++ moduleName)
   $+$
   PrettyString.nest
   (PrettyString.text "Expected " $+$
