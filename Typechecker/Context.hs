@@ -33,9 +33,8 @@ lookup ((x, y):xs) var
   | x == var = y
   | otherwise = lookup xs var
 
-lookupTerm :: Context -> Expr -> Maybe Type
-lookupTerm context (IdE name) =
-  lookup context $ ContextTermVar name
+lookupTerm :: Context -> Name -> Maybe Type
+lookupTerm context = lookup context . ContextTermVar
 
 contains :: Context -> ContextVar -> Bool
 contains [] _ = False
@@ -204,12 +203,11 @@ substitute context typ@ExistVar {}
   | otherwise =
     error $ "substitute: failed to lookup in context " ++ show typ
 substitute context (Arrow type1 type2) =
-  Arrow (substitute context type1)
-        (substitute context type2)
+  Arrow (substitute context type1) (substitute context type2)
 substitute context (Forall var typ) =
   Forall var $ substitute context typ
 substitute _ typ@PrimitiveT {} = typ
 substitute context (ListT typ) =
-  ListT (substitute context typ)
+  ListT $ substitute context typ
 substitute context (TupleT types) =
   TupleT $ map (substitute context) types

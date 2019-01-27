@@ -259,7 +259,7 @@ synthesize :: Monad m => Context -> Expr -> Synthesize m (Context, Type)
 -- Var
 synthesize context term@(IdE name)
   | Context.containsTermAssigned context name =
-    do let Just typ = Context.lookupTerm context term
+    do let Just typ = Context.lookupTerm context name
        return (context, typ)
 -- Anno
 synthesize context (AnnotationE term typ)
