@@ -333,19 +333,21 @@ typecheck context term =
       do context' <- runTypechecker (TypecheckerState initialCounter) (check context term typ)
          return (context', typ)
   where
-    typeInt typ | isUnit typ = 0
-    typeInt PrimitiveT {} = 0
-    typeInt (TypeVar (TypeName x)) = x
-    typeInt (ExistVar (TypeName x)) = x
-    typeInt (Forall (TypeName x) _) = x
-    typeInt (Arrow type1 type2) = max (typeInt type1) (typeInt type2)
-    typeInt (ListT typ) = typeInt typ
-    typeInt (TupleT types) = foldl max 0 $ map typeInt types
+    noType = -1
 
-    contextInt (ContextType typ) = typeInt typ
-    contextInt _ = 0
+    maxTypeName typ | isUnit typ = noType
+    maxTypeName PrimitiveT {} = noType
+    maxTypeName (TypeVar (TypeName x)) = x
+    maxTypeName (ExistVar (TypeName x)) = x
+    maxTypeName (Forall (TypeName x) _) = x
+    maxTypeName (Arrow type1 type2) = max (maxTypeName type1) (maxTypeName type2)
+    maxTypeName (ListT typ) = maxTypeName typ
+    maxTypeName (TupleT types) = foldl max noType $ map maxTypeName types
+
+    maxContextTypeName (ContextType typ) = maxTypeName typ
+    maxContextTypeName _ = noType
 
     initialCounter :: Int
     initialCounter
-      | List.null context = 0
-      | otherwise = maximum $ map (contextInt . fst) context
+      | List.null context = noType
+      | otherwise = (1+) . maximum $ map (maxContextTypeName . fst) context
