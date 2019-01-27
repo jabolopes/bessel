@@ -46,6 +46,10 @@ type SubtypeInstantiate = Typechecker
 
 isSubtypeInstantiate
   :: Monad m => Context -> Type -> Type -> SubtypeInstantiate m Context
+isSubtypeInstantiate context type1 type2
+  | not $ Context.isContextWellFormed context =
+    fail . PrettyString.toString $
+      Pretty.devContextIsSubtypeInstantiate (show context) (show type1) (show type2)
 -- InstLSolve
 isSubtypeInstantiate context type1@ExistVar {} type2
   | Type.isMonotype type2 &&
@@ -128,13 +132,16 @@ isSubtypeInstantiate context (TupleT tupleTs) type2@ExistVar {}
        foldM (\c (typ, var) -> isSubtypeInstantiate c typ var) context' $ zip tupleTs existVars
 -- fail
 isSubtypeInstantiate context type1 type2 =
-  fail $ "subtype instantiate: failed" ++ "\n" ++
-         "  type1 = " ++ show type1 ++ "\n" ++
-         "  type2 = " ++ show type2 ++ "\n"
+  fail . PrettyString.toString $
+    Pretty.devIncompleteIsSubtypeInstantiate (show context) (show type1) (show type2)
 
 type Subtype = Typechecker
 
 isSubtype :: Monad m => Context -> Type -> Type -> Subtype m Context
+isSubtype context type1 type2
+  | not $ Context.isContextWellFormed context =
+    fail . PrettyString.toString $
+      Pretty.devContextIsSubtype (show context) (show type1) (show type2)
 -- <:Var
 isSubtype context type1@TypeVar {} type2@TypeVar {}
   | Context.containsType context type1 && type1 == type2 =
@@ -185,13 +192,16 @@ isSubtype context (TupleT types1) (TupleT types2) =
   foldM (\c (type1, type2) -> isSubtype c type1 type2) context $ zip types1 types2
 -- fail
 isSubtype context type1 type2 =
-  fail $ "subtype: failed" ++ "\n" ++
-         "  type1 = " ++ show type1 ++ "\n" ++
-         "  type2 = " ++ show type2 ++ "\n"
+  fail . PrettyString.toString $
+    Pretty.devIncompleteIsSubtype (show context) (show type1) (show type2)
 
 type Check = Typechecker
 
 check :: Monad m => Context -> Expr -> Type -> Check m Context
+check context term typ
+  | not $ Context.isContextWellFormed context =
+    fail . PrettyString.toString $
+      Pretty.devContextCheck (show context) (Pretty.docExpr term) (show typ)
 -- 1I
 --
 -- We don't need an implementation for 1I because unit is not a term
@@ -221,13 +231,14 @@ check context term typ =
      isSubtype context'
                (Context.substitute context' typ')
                (Context.substitute context' typ)
--- check _ term typ =
---   fail . PrettyString.toString $
---     Pretty.devIncompleteCheck (Pretty.docExpr term) (show typ)
 
 type SynthesizeApply = Typechecker
 
 synthesizeApply :: Monad m => Context -> Type -> Expr -> SynthesizeApply m (Context, Type)
+synthesizeApply context typ term
+  | not $ Context.isContextWellFormed context =
+    fail . PrettyString.toString $
+      Pretty.devContextSynthesizeApply (show context) (show typ) (Pretty.docExpr term)
 -- ForallApp
 synthesizeApply context (Forall name typ) term =
   do existVar <- genExistVar
@@ -251,11 +262,15 @@ synthesizeApply context (Arrow argType bodyType) term =
 -- CatchAll
 synthesizeApply context typ term = do
   fail . PrettyString.toString $
-    Pretty.devIncompleteSynthesizeApply (Pretty.docExpr term) (show typ)
+    Pretty.devIncompleteSynthesizeApply (show context) (show typ) (Pretty.docExpr term)
 
 type Synthesize = Typechecker
 
 synthesize :: Monad m => Context -> Expr -> Synthesize m (Context, Type)
+synthesize context term
+  | not $ Context.isContextWellFormed context =
+    fail . PrettyString.toString $
+      Pretty.devContextSynthesize (show context) (Pretty.docExpr term)
 -- Var
 synthesize context term@(IdE name)
   | Context.containsTermAssigned context name =
@@ -319,9 +334,9 @@ synthesize context (LetE fnDecl body) =
   do (context', _) <- synthesize context fnDecl
      synthesize context' body
 -- CatchAll
-synthesize _ term =
+synthesize context term =
   fail . PrettyString.toString $
-    Pretty.devIncompleteSynthesize (Pretty.docExpr term)
+    Pretty.devIncompleteSynthesize (show context) (Pretty.docExpr term)
 
 typecheck :: Monad m => Context -> Expr -> Maybe Type -> m (Context, Type)
 typecheck context term =
