@@ -122,6 +122,7 @@ patConstantPred :: Source -> (Name, Name)
 patConstantPred CharS {} = (Name.untyped "isChar#", Name.untyped "eqChar#")
 patConstantPred IntS {} = (Name.untyped "isInt#", Name.untyped "eqInt#")
 patConstantPred RealS {} = (Name.untyped "isReal#", Name.untyped "eqReal#")
+patConstantPred StringS {} = (Name.untyped "isString#", Name.untyped "eqString#")
 patConstantPred src =
   PrettyString.error "Expander.patConstantPred: invalid argument" $
   (PrettyString.text "src =" PrettyString.<+> Pretty.docSource src)
@@ -192,8 +193,6 @@ patPred = sourcePred
       sourcePred pat
     sourcePred (TupleS pats) =
       Expr.appE (isTupleName $ length pats) . Expr.tupleE <$> mapM sourcePred pats
-    sourcePred (StringS s) =
-      return $ Expr.stringE s
     sourcePred m =
       do let (isFn, eqFn) = patConstantPred m
          arg <- NameM.genNameM $ Name.untyped "arg"

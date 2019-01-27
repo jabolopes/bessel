@@ -70,6 +70,7 @@ testExpander =
      expect expected7 $ File "Test/TestData7.bsl"
      expect [expected8] $ File "Test/TestData8.bsl"
      expect [expected12] $ File "Test/TestData12.bsl"
+     expect expectedPattern $ File "Test/Pattern.bsl"
      expect [expectedTuple] $ File "Test/Tuple.bsl"
      expect expectedUnit $ File "Test/Unit.bsl"
      expect expectedVariant $ File "Test/Variant.bsl"
@@ -338,6 +339,41 @@ testExpander =
                (AppE (Expr.appE (Name.untyped "isList") (Expr.seqE [Expr.idE "isReal", Expr.idE "isString"])) (Expr.idE "arg#0"), Expr.intE 1),
                (AppE Expr.constTrueE (Expr.idE "arg#0"), Expr.intE 2)]
          "f"))
+
+    expectedPattern =
+      [FnDecl NrDef (Name.untyped "patInt") $
+        LambdaE (Name.untyped "arg#0") $
+         CondE
+          [(AppE
+             (LambdaE (Name.untyped "arg#1")
+              (Expr.andE
+                (Expr.idE "isInt#" `AppE` Expr.idE "arg#1")
+                (Expr.idE "eqInt#" `AppE` Expr.intE 0 `AppE` Expr.idE "arg#1")))
+             (Expr.idE "arg#0"),
+             Expr.intE 0)]
+          "patInt",
+      FnDecl NrDef (Name.untyped "patReal") $
+        LambdaE (Name.untyped "arg#0") $
+         CondE
+          [(AppE
+             (LambdaE (Name.untyped "arg#1")
+              (Expr.andE
+                (Expr.idE "isReal#" `AppE` Expr.idE "arg#1")
+                (Expr.idE "eqReal#" `AppE` Expr.realE 0.0 `AppE` Expr.idE "arg#1")))
+             (Expr.idE "arg#0"),
+             Expr.realE 0)]
+          "patReal",
+        FnDecl NrDef (Name.untyped "patString") $
+        LambdaE (Name.untyped "arg#0") $
+         CondE
+          [(AppE
+             (LambdaE (Name.untyped "arg#1")
+              (Expr.andE
+                (Expr.idE "isString#" `AppE` Expr.idE "arg#1")
+                (Expr.idE "eqString#" `AppE` Expr.stringE "hello" `AppE` Expr.idE "arg#1")))
+             (Expr.idE "arg#0"),
+             Expr.intE 0)]
+          "patString"]
 
     expectedTuple =
       FnDecl NrDef (Name.untyped "f1") $
