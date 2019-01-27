@@ -41,12 +41,7 @@ initialRenamerState =
          Renamer.addFnSymbolM "tuple2Ref1" "tuple2Ref1#"
 
 renameTestFile :: String -> IO [Expr]
-renameTestFile filename =
-  do expr <- expandFile
-     state <- initialRenamerState
-     case fst <$> runStateT (Renamer.renameM expr) state of
-       Left err -> fail $ show err
-       Right expr' -> return expr'
+renameTestFile filename = renameFile
   where
     parseFile =
       do str <- readFile filename
@@ -59,6 +54,13 @@ renameTestFile filename =
          case Expander.expand src of
            Left err -> fail $ show err
            Right exprs -> return (head exprs)
+
+    renameFile =
+      do expr <- expandFile
+         state <- initialRenamerState
+         case fst <$> runStateT (Renamer.renameM expr) state of
+           Left err -> fail $ show err
+           Right expr' -> return expr'
 
 -- edit: Use pretty strings instead
 expect :: [Expr] -> String -> IO ()
