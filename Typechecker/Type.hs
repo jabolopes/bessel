@@ -56,13 +56,16 @@ isUnit :: Type -> Bool
 isUnit (TupleT []) = True
 isUnit _ = False
 
--- TODO: Revise list / tuple with respect to theory.
 isMonotype :: Type -> Bool
 isMonotype typ | isUnit typ = True
 isMonotype TypeVar {} = True
 isMonotype ExistVar {} = True
 isMonotype (Arrow t1 t2) = isMonotype t1 && isMonotype t2
 isMonotype PrimitiveT {} = True
+-- TODO: Revise with respect to theory.
+isMonotype (ListT typ) = isMonotype typ
+-- TODO: Revise with respect to theory.
+isMonotype (TupleT types) = all isMonotype types
 isMonotype _ = False
 
 substituteTypeVar :: Type -> Type -> Type -> Type
