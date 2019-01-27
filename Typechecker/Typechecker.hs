@@ -27,11 +27,11 @@ data TypecheckerState
   = TypecheckerState { counter :: Int }
 
 newtype Typechecker m a
-  = Typechecker { unSubtype :: StateT TypecheckerState m a }
+  = Typechecker { unTypechecker :: StateT TypecheckerState m a }
     deriving (Applicative, Functor, Monad, MonadState TypecheckerState)
 
 runTypechecker :: Monad m => TypecheckerState -> Typechecker m a -> m a
-runTypechecker context m = fst `liftM` runStateT (unSubtype m) context
+runTypechecker context m = fst `liftM` runStateT (unTypechecker m) context
 
 genTypeName :: Monad m => Typechecker m TypeName
 genTypeName =
