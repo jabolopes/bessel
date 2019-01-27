@@ -22,6 +22,7 @@ instance Show Type where
   show (TypeVar name) = show name
   show (ExistVar name) = "^" ++ show name
   show (Forall name typ) = "forall " ++ show name ++ ". " ++ show typ
+  show (Arrow t1@Arrow {} t2) = "(" ++ show t1 ++ ")" ++ " -> " ++ show t2
   show (Arrow t1 t2) = show t1 ++ " -> " ++ show t2
   show (PrimitiveT name) = name
   show (ListT typ) = "List " ++ show typ
