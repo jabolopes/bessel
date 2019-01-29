@@ -246,15 +246,14 @@ synthesizeApply context (Forall name typ) term =
          typ' = Type.substituteTypeVar (TypeVar name) existVar typ
      synthesizeApply context' typ' term
 -- âApp
-synthesizeApply context typ@ExistVar {} term =
-  do argExistVar <- genExistVar
-     bodyExistVar <- genExistVar
-     arrowExistVar <- genExistVar
-     let context' = context `Context.append` (ContextType bodyExistVar, Nothing)
-                            `Context.append` (ContextType argExistVar, Nothing)
-                            `Context.append` (ContextType arrowExistVar, Just (Arrow argExistVar bodyExistVar))
-     context'' <- check context' term argExistVar
-     return (context'', bodyExistVar)
+synthesizeApply context typ@ExistVar {} term
+  | Context.containsTypeUnassigned context typ =
+    do argExistVar <- genExistVar
+       bodyExistVar <- genExistVar
+       let existVarSolution = Arrow argExistVar bodyExistVar
+           context' = Context.assignTypeWithExistVars context typ [bodyExistVar, argExistVar, existVarSolution]
+       context'' <- check context' term argExistVar
+       return (context'', bodyExistVar)
 -- ->App
 synthesizeApply context (Arrow argType bodyType) term =
   do context' <- check context term argType

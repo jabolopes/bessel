@@ -152,7 +152,10 @@ testTypechecker =
      expect initialContext [Arrow Type.intT (Arrow Type.intT Type.intT)] "Test/TestData1.bsl"
      expect initialContext [Type.intT `Arrow` Type.intT] "Test/TestData2.bsl"
      expect initialContext [Arrow Type.intT (Arrow Type.intT Type.boolT)] "Test/TestData3.bsl"
-     expect initialContext [Arrow Type.intT (Arrow Type.intT Type.boolT)] "Test/TestData4.bsl"
+
+     -- Note that 'Test/TestData4.bsl' is not typecheckable because
+     -- the main function accepts both Int and List.
+
      -- expect initialContext [Arrow Type.intT (Arrow Type.intT Type.boolT)] "Test/TestData5.bsl"
      expect initialContext [Type.intT `Arrow` Type.intT] "Test/TestData6.bsl"
      expect initialContext [ListT Type.intT, Type.intT, Type.intT] "Test/TestData7.bsl"
