@@ -172,7 +172,7 @@ isSubtype context (Forall name type1) type2 =
 -- <:ForallR
 isSubtype context type1 (Forall name type2) =
   do let context' = context `Context.appendType` TypeVar name
-     context'' <- isSubtype context' type1 type2
+     _ <- isSubtype context' type1 type2
      return $ Context.sliceAtType context' (TypeVar name)
 -- <:InstatiateL
 isSubtype context type1@ExistVar {} type2
