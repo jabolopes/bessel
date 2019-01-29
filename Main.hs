@@ -20,8 +20,7 @@ mainException e =
 
 main :: IO ()
 main =
-  do -- args <- getArgs
-    coreModules' <- coreModules
-    mstate <- (Just <$> importFile (FileSystem.initial coreModules') preludeName)
-              `catchUserException` mainException
-    forM_ mstate repl
+  do coreModules' <- coreModules
+     mstate <- (Just <$> importFile (FileSystem.initial coreModules') preludeName)
+               `catchUserException` mainException
+     forM_ mstate repl
