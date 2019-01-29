@@ -41,10 +41,16 @@ docSource (CharS c) =
 docSource (CondS srcs) =
   docCond srcs
 docSource (FnDefS pat Nothing body whereClause) =
-  PrettyString.sep
-  [PrettyString.text "let" <+> docSource pat, PrettyString.nest (docSource body),
-   PrettyString.sep [PrettyString.text "where",
-                     PrettyString.nest (PrettyString.vcat (map docSource whereClause))]]
+  PrettyString.sep $
+   [PrettyString.text "let" <+> docSource pat, PrettyString.nest (docSource body)] ++
+   docWhereClause whereClause
+  where
+    docWhereClause [] =
+      []
+    docWhereClause srcs =
+      (:[]) . PrettyString.sep $
+        [PrettyString.text "where",
+          PrettyString.nest . PrettyString.vcat $ map docSource srcs]
 docSource (FnDefS pat (Just typ) body whereClause) =
   -- TODO: fix indentation
   -- TODO: use docType instead of show typ
