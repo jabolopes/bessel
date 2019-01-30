@@ -44,17 +44,22 @@ renameTestFile filename = renameFile
            Right src -> return src
 
     expandFile =
-      do ModuleS _ _ [src] <- parseFile
-         case Expander.expand src of
+      do ModuleS _ _ srcs <- parseFile
+         case concat `fmap` mapM Expander.expand srcs of
            Left err -> fail $ show err
-           Right exprs -> return (head exprs)
+           Right exprs -> return exprs
+
+    renameExprs :: Monad m => RenamerState -> [Expr] -> m [Expr]
+    renameExprs _ [] = return []
+    renameExprs state (expr:exprs) =
+      case runStateT (Renamer.renameM expr) state of
+        Left err -> fail $ show err
+        Right (exprs', state') -> (exprs' ++) <$> renameExprs state' exprs
 
     renameFile =
-      do expr <- expandFile
+      do exprs <- expandFile
          state <- initialRenamerState
-         case fst <$> runStateT (Renamer.renameM expr) state of
-           Left err -> fail $ show err
-           Right expr' -> return expr'
+         renameExprs state exprs
 
 testRenamer :: Bool -> IO ()
 testRenamer generateTestExpectations =
@@ -64,4 +69,4 @@ testRenamer generateTestExpectations =
   where
     expect expectedFilename filename =
       do actual <- (PrettyString.toString . PrettyString.vcat . map Pretty.docExpr) <$> renameTestFile filename
-         Diff.expectFiles "Rename" filename generateTestExpectations expectedFilename actual
+         Diff.expectFiles "Renamer" filename generateTestExpectations expectedFilename actual
