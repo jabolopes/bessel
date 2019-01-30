@@ -8,6 +8,23 @@ import Data.Name (Name)
 import qualified Data.Name as Name
 import Data.Source
 
+isParens :: Bool -> Source -> Bool
+isParens right AppS {}    = right
+isParens _     CharS {}   = False
+isParens _     IdS {}     = False
+isParens _     IntS {}    = False
+isParens _     LetS {}    = False
+isParens _     PatS {}    = False
+isParens _     RealS {}   = False
+isParens _     SeqS {}    = False
+isParens _     StringS {} = False
+isParens _ _              = True
+
+docParens :: Bool -> Source -> PrettyString
+docParens right src
+  | isParens right src = PrettyString.parens $ docSource src
+  | otherwise = docSource src
+
 docPat :: Name -> Maybe Source -> PrettyString
 docPat binder guard =
   docBinder <> docAt guard <> docGuard guard
@@ -25,7 +42,7 @@ docPat binder guard =
 
 docMatch :: ([Source], Source) -> PrettyString
 docMatch (args, body) =
-  PrettyString.sep [PrettyString.sep (map docSourceParens args),
+  PrettyString.sep [PrettyString.sep (map (docParens True) args),
                     PrettyString.equals,
                     PrettyString.nest . docSource $ body]
 
@@ -36,8 +53,8 @@ docSource :: Source -> PrettyString
 docSource (AndS src1 src2) =
   docSource src1 <+> PrettyString.text "&&" <+> docSource src2
 docSource (AppS src1 src2) =
-  PrettyString.sep [docSourceParens src1,
-                    PrettyString.nest (docSourceParens src2)]
+  PrettyString.sep [docParens False src1,
+                    PrettyString.nest (docParens True src2)]
 docSource (BinOpS op src1 src2) =
   docSource src1 <+> PrettyString.text op <+> docSource src2
 docSource (CharS c) =
@@ -121,23 +138,6 @@ docSource (TypeDeclS typeName cons) =
       PrettyString.text (show consName) <+> docSource consPat
     consDoc =
       PrettyString.sep . PrettyString.intercalate (PrettyString.text "|") . map docConstructor $ cons
-
-isParens :: Bool -> Source -> Bool
-isParens right AppS {}    = right
-isParens _     CharS {}   = False
-isParens _     IdS {}     = False
-isParens _     IntS {}    = False
-isParens _     LetS {}    = False
-isParens _     PatS {}    = False
-isParens _     RealS {}   = False
-isParens _     SeqS {}    = False
-isParens _     StringS {} = False
-isParens _ _              = True
-
-docSourceParens :: Source -> PrettyString
-docSourceParens src
-  | isParens True src = PrettyString.parens . docSource $ src
-  | otherwise = docSource src
 
 -- PrettyString for a list of 'Source's.
 docSourceList :: [Source] -> PrettyString
