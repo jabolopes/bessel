@@ -14,5 +14,5 @@ main =
      testIndentLexer
      testParser generateTestExpectations
      testExpander
-     testRenamer
+     testRenamer generateTestExpectations
      testTypechecker

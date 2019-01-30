@@ -1,25 +1,19 @@
 {-# LANGUAGE StandaloneDeriving #-}
-{-# OPTIONS_GHC -fno-warn-orphans #-}
 module Test.Stage.Renamer where
 
 import Control.Applicative ((<$>))
 import Control.Monad.State hiding (state)
 
-import Data.Expr (DefnKw(..), Expr(..))
-import qualified Data.Expr as Expr
-import Data.Literal (Literal(..))
+import Data.Expr (Expr)
 import qualified Data.Name as Name
 import qualified Data.PrettyString as PrettyString
-import Data.Source
+import Data.Source (Source(..))
 import qualified Parser
 import qualified Pretty.Data.Expr as Pretty
 import qualified Stage.Expander as Expander
 import Stage.Renamer (RenamerState)
 import qualified Stage.Renamer as Renamer
-
-deriving instance Eq DefnKw
-deriving instance Eq Literal
-deriving instance Eq Expr
+import qualified Test.Diff as Diff
 
 initialRenamerState :: Monad m => m RenamerState
 initialRenamerState =
@@ -62,71 +56,12 @@ renameTestFile filename = renameFile
            Left err -> fail $ show err
            Right expr' -> return expr'
 
--- edit: Use pretty strings instead
-expect :: [Expr] -> String -> IO ()
-expect expected filename =
-  expect' =<< renameTestFile filename
+testRenamer :: Bool -> IO ()
+testRenamer generateTestExpectations =
+  do expect "Test/TestData1.renamer" "Test/TestData1.bsl"
+     expect "Test/TestData2.renamer" "Test/TestData2.bsl"
+     expect "Test/Tuple.renamer" "Test/Tuple.bsl"
   where
-    expect' actual
-      | expected == actual = return ()
-      | otherwise =
-        fail $ "Renamer" ++ "\n" ++
-               "In: " ++ filename ++ "\n" ++
-               "Expected: " ++ "\n" ++ PrettyString.toString (Pretty.docExprList expected) ++ "\n" ++
-               "Actual: " ++ "\n" ++ PrettyString.toString (Pretty.docExprList actual)
-
-testRenamer :: IO ()
-testRenamer =
-  do expect [expected1] "Test/TestData1.bsl"
-     expect [expected2] "Test/TestData2.bsl"
-     expect [expectedTuple] "Test/Tuple.bsl"
-  where
-    expected1 =
-      FnDecl NrDef (Name.untyped "f10")
-      (LambdaE (Name.untyped "x#01")
-       (LambdaE (Name.untyped "y#12")
-        (CondE
-         [(CondE
-           [(AppE (Expr.idE "isInt#") (Expr.idE "x#01"),
-             CondE [(AppE (Expr.idE "isInt#") (Expr.idE "y#12"),Expr.idE "true#"),
-                    (Expr.idE "true#",Expr.idE "false#")]
-             "irrefutable 'and' pattern"),
-            (Expr.idE "true#",Expr.idE "false#")]
-           "irrefutable 'and' pattern",
-           LetE (FnDecl NrDef (Name.untyped "x3") (Expr.idE "x#01"))
-           (LetE (FnDecl NrDef (Name.untyped "y4") (Expr.idE "y#12"))
-            (LetE
-             (FnDecl NrDef (Name.untyped "f25")
-              (LambdaE (Name.untyped "z#26")
-               (CondE
-                [(AppE (LambdaE (Name.untyped "_7") (Expr.idE "true#")) (Expr.idE "z#26"),
-                  LetE (FnDecl NrDef (Name.untyped "z8") (Expr.idE "z#26"))
-                  (AppE (AppE (Expr.idE "+") (Expr.idE "z8")) (Expr.idE "y4")))]
-                "f2")))
-             (AppE (Expr.idE "f25") (Expr.idE "x3")))))]
-         "f1")))
-
-    expected2 =
-      FnDecl NrDef (Name.untyped "f10")
-      (LambdaE (Name.untyped "x#01")
-       (CondE [(AppE (Expr.idE "isInt#") (Expr.idE "x#01"),
-                LetE (FnDecl NrDef (Name.untyped "x2") (Expr.idE "x#01"))
-                (LetE (FnDecl NrDef (Name.untyped "f23")
-                       (LambdaE (Name.untyped "z#14")
-                        (CondE [(AppE (LambdaE (Name.untyped "_5") (Expr.idE "true#")) (Expr.idE "z#14"),
-                                 LetE (FnDecl NrDef (Name.untyped "z6") (Expr.idE "z#14"))
-                                 (AppE (AppE (Expr.idE "+") (Expr.idE "z6")) (Expr.intE 1)))]
-                         "f2")))
-                 (LetE (FnDecl NrDef (Name.untyped "y7") (Expr.intE 0))
-                  (AppE (Expr.idE "f23") (Expr.idE "y7")))))]
-        "f1"))
-
-    expectedTuple =
-      FnDecl NrDef (Name.untyped "f10") $
-       LambdaE (Name.untyped "t#01") $
-        CondE [(Expr.idE "isTuple2#" `AppE` (Expr.idE "mkTuple2#" `AppE` Expr.idE "isInt#" `AppE` Expr.idE "isReal#") `AppE` Expr.idE "t#01",
-                (LetE (FnDecl NrDef (Name.untyped "t2") (Expr.idE "t#01"))
-                 (LetE (FnDecl NrDef (Name.untyped "x3") (Expr.idE "tuple2Ref0#" `AppE` Expr.idE "t#01"))
-                  (LetE (FnDecl NrDef (Name.untyped "y4") (Expr.idE "tuple2Ref1#" `AppE` Expr.idE "t#01"))
-                   (Expr.idE "addIntReal#" `AppE` Expr.idE "x3" `AppE` Expr.idE "y4")))))]
-         "f1"
+    expect expectedFilename filename =
+      do actual <- (PrettyString.toString . PrettyString.vcat . map Pretty.docExpr) <$> renameTestFile filename
+         Diff.expectFiles "Rename" filename generateTestExpectations expectedFilename actual

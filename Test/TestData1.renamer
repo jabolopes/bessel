@@ -1,0 +1,21 @@
+let nonrec f10 =
+  \x#01 ->
+    \y#12 ->
+      cond
+        cond
+          isInt# x#01 ->
+            cond
+              isInt# y#12 -> true#
+              true# -> false#
+          true# -> false# ->
+          let nonrec x3 = x#01 in
+          let nonrec y4 = y#12 in
+          let nonrec f25 =
+            \z#26 ->
+              cond
+                (\_7 -> true#) z#26 ->
+                  let nonrec z8 = z#26 in
+                  + z8 y4
+                _ -> blame f2 in
+          f25 x3
+        _ -> blame f1

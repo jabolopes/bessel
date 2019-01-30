@@ -1,0 +1,9 @@
+let nonrec f10 =
+  \t#01 ->
+    cond
+      isTuple2# (mkTuple2# isInt# isReal#) t#01 ->
+        let nonrec t2 = t#01 in
+        let nonrec x3 = tuple2Ref0# t#01 in
+        let nonrec y4 = tuple2Ref1# t#01 in
+        addIntReal# x3 y4
+      _ -> blame f1
