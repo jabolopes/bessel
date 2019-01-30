@@ -16,6 +16,11 @@ isParens _ LetE {}     = False
 isParens _ LiteralE {} = False
 isParens _ _           = True
 
+docParens :: Bool -> Expr -> PrettyString
+docParens right src
+  | isParens right src = PrettyString.parens $ docExpr src
+  | otherwise = docExpr src
+
 docCond :: [(Expr, Expr)] -> String -> PrettyString
 docCond matches blame =
   foldl1 ($+$) (map docMatch matches ++ docBlame)
@@ -45,14 +50,9 @@ docExpr :: Expr -> PrettyString
 docExpr (AnnotationE expr typ) =
   -- TODO: replace show typ with pretty typ
   PrettyString.sep [PrettyString.text (show typ) <+> PrettyString.text ":", PrettyString.nest (docExpr expr)]
-docExpr (AppE e1 e2) =
-  let
-    fn1 | isParens False e1 = PrettyString.parens . docExpr
-        | otherwise = docExpr
-    fn2 | isParens True e2 = PrettyString.parens . docExpr
-        | otherwise = docExpr
-  in
-    PrettyString.sep [fn1 e1, PrettyString.nest (fn2 e2)]
+docExpr (AppE expr1 expr2) =
+  PrettyString.sep [docParens False expr1,
+                    PrettyString.nest (docParens True expr2)]
 docExpr (CondE matches blame) =
   PrettyString.sep [PrettyString.text "cond", PrettyString.nest (docCond matches blame)]
 docExpr (FnDecl kw name body) =
