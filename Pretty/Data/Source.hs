@@ -10,11 +10,15 @@ import Data.Source
 
 docPat :: Name -> Maybe Source -> PrettyString
 docPat binder guard =
-  docBinder binder <> PrettyString.text "@" <> docGuard guard
+  docBinder <> docAt guard <> docGuard guard
   where
-    docBinder name
-      | Name.isEmptyName name = PrettyString.empty
-      | otherwise = PrettyString.text $ show name
+    docBinder
+      | Name.isEmptyName binder = PrettyString.empty
+      | otherwise = PrettyString.text $ show binder
+
+    docAt Just {} = PrettyString.text "@"
+    docAt Nothing | Name.isEmptyName binder = PrettyString.text "@"
+    docAt _ = PrettyString.empty
 
     docGuard Nothing = PrettyString.empty
     docGuard (Just src) = docSource src

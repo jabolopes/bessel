@@ -1,9 +1,9 @@
 me Test.TestData4
-let eq@
+let eq
   x@isInt y@isInt = (eqInt x) y
-  x@ y@ = (eqSeq x) y
+  x y = (eqSeq x) y
 where
-  let eqSeq@
+  let eqSeq
     [] [] = true
-    (z@ +> zs@) (w@ +> ws@) = (eq z) w && (eqSeq zs) ws
+    (z +> zs) (w +> ws) = (eq z) w && (eqSeq zs) ws
     @ @ = false
