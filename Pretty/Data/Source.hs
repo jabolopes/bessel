@@ -41,16 +41,23 @@ docSource (CharS c) =
 docSource (CondS srcs) =
   docCond srcs
 docSource (FnDefS pat Nothing body whereClause) =
-  PrettyString.sep $
-   [PrettyString.text "let" <+> docSource pat, PrettyString.nest (docSource body)] ++
-   docWhereClause whereClause
+  docFnDef whereClause
   where
-    docWhereClause [] =
-      []
-    docWhereClause srcs =
-      (:[]) . PrettyString.sep $
+    docBody CondS {} = docSource body
+    docBody _ = PrettyString.equals <+> docSource body
+
+    docWhereClause =
+      PrettyString.vcat $
         [PrettyString.text "where",
-          PrettyString.nest . PrettyString.vcat $ map docSource srcs]
+         PrettyString.nest . PrettyString.vcat $ map docSource whereClause]
+
+    docFnDef [] =
+      PrettyString.sep [PrettyString.text "let" <+> docSource pat, PrettyString.nest (docBody body)]
+    docFnDef _ =
+      docFnDef []
+      $+$
+      docWhereClause
+
 docSource (FnDefS pat (Just typ) body whereClause) =
   -- TODO: fix indentation
   -- TODO: use docType instead of show typ
@@ -67,8 +74,7 @@ docSource (IntS i) =
   PrettyString.int i
 docSource (LetS defns body) =
   PrettyString.sep
-  [PrettyString.text "let",
-   PrettyString.vcat (map docSource defns),
+  [PrettyString.vcat (map docSource defns),
    PrettyString.text "in",
    docSource body]
 docSource (ModuleS name uses defns) =
