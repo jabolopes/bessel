@@ -28,6 +28,7 @@ testParser generateTestExpectations =
      expect "Test/TestData9.parser" "Test/TestData9.bsl"
      expect "Test/TestData10.parser" "Test/TestData10.bsl"
      expect "Test/Unit.parser" "Test/Unit.bsl"
+     expect "Test/Variant.parser" "Test/Variant.bsl"
   where
     expect expectedFilename filename =
       do actual <- PrettyString.toString . Pretty.docSource <$> parseTestFile filename

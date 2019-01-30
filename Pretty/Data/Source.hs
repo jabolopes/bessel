@@ -131,13 +131,19 @@ docSource (TupleS srcs) =
   PrettyString.char '(' <>
   PrettyString.sep (PrettyString.intercalate (PrettyString.text ",") (map docSource srcs)) <>
   PrettyString.char ')'
-docSource (TypeDeclS typeName cons) =
-  PrettyString.sep [PrettyString.text "type" <+> PrettyString.text (show typeName), PrettyString.nest consDoc]
+docSource (TypeDeclS typeName tags) =
+    PrettyString.text "type" <+> PrettyString.text (show typeName) <+> PrettyString.equals
+    $+$
+    PrettyString.nest docTags
   where
-    docConstructor (consName, consPat) =
+    -- TODO: Distinction between first constructor and rest doesn't look good.
+    docTag True (consName, consPat) =
       PrettyString.text (show consName) <+> docSource consPat
-    consDoc =
-      PrettyString.sep . PrettyString.intercalate (PrettyString.text "|") . map docConstructor $ cons
+    docTag False (consName, consPat) =
+      PrettyString.text "|" <+> PrettyString.text (show consName) <+> docSource consPat
+
+    docTags =
+      PrettyString.vcat $ (docTag True (head tags)):map (docTag False) (tail tags)
 
 -- PrettyString for a list of 'Source's.
 docSourceList :: [Source] -> PrettyString
