@@ -26,19 +26,13 @@ docParens right src
   | otherwise = docSource src
 
 docPat :: Name -> Maybe Source -> PrettyString
-docPat binder guard =
-  docBinder <> docAt guard <> docGuard guard
+docPat = docPattern
   where
-    docBinder
-      | Name.isEmptyName binder = PrettyString.empty
-      | otherwise = PrettyString.text $ show binder
-
-    docAt Just {} = PrettyString.text "@"
-    docAt Nothing | Name.isEmptyName binder = PrettyString.text "@"
-    docAt _ = PrettyString.empty
-
-    docGuard Nothing = PrettyString.empty
-    docGuard (Just src) = docSource src
+    docPattern binder Nothing
+      | Name.isEmptyName binder = PrettyString.text "@"
+      | otherwise = PrettyString.text (show binder)
+    docPattern binder (Just src) =
+      PrettyString.text (show binder) <> PrettyString.text "@" <> docSource src
 
 docMatch :: ([Source], Source) -> PrettyString
 docMatch (args, body) =

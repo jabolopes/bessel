@@ -107,7 +107,7 @@ data Source
   -- PatS "x" (Just (IdS "isInt"))
   --
   -- @
-  -- x@
+  -- x
   -- @
   -- PatS "x" Nothing
   --
