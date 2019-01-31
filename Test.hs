@@ -13,6 +13,6 @@ main =
   do testLexer
      testIndentLexer
      testParser generateTestExpectations
-     testExpander
+     testExpander generateTestExpectations
      testRenamer generateTestExpectations
      testTypechecker

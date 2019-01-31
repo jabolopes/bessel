@@ -1,0 +1,15 @@
+let nonrec f1 =
+  \x#0 ->
+    cond
+      isInt x#0 ->
+        let nonrec x = x#0 in
+        let nonrec f2 =
+          \z#1 ->
+            cond
+              (\_ -> true#) z#1 ->
+                let nonrec z = z#1 in
+                + z 1
+              _ -> blame f2 in
+        let nonrec y = 0 in
+        f2 y
+      _ -> blame f1

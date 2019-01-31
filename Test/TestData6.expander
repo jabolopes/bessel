@@ -1,0 +1,15 @@
+let nonrec f =
+  \n#0 ->
+    cond
+      (\_ -> true#) n#0 ->
+        let nonrec n = n#0 in
+        let nonrec res#1 = cons 1 (cons 2 null) in
+        let nonrec x = hd res#1 in
+        let nonrec y = hd (tl res#1) in
+        case n
+          (\arg#2 ->
+             cond
+               > 1 arg#2 -> x
+               (\_ -> true#) arg#2 -> y
+               _ -> blame lambda)
+      _ -> blame f

@@ -1,0 +1,7 @@
+let rec isString =
+  \arg#0 ->
+    cond
+      isList null arg#0 -> true
+      isHeadTail isChar isString arg#0 -> true
+      (\_ -> true#) arg#0 -> false
+      _ -> blame isString

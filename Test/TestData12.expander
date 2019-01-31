@@ -1,0 +1,7 @@
+let nonrec f =
+  \arg#0 ->
+    cond
+      isList (cons isInt null) arg#0 -> 0
+      isList (cons isReal (cons isString null)) arg#0 -> 1
+      (\_ -> true#) arg#0 -> 2
+      _ -> blame f

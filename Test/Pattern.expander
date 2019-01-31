@@ -1,0 +1,46 @@
+let nonrec patInt =
+  \arg#0 ->
+    cond
+      (\arg#1 ->
+         cond
+           isInt# arg#1 ->
+             cond
+               eqInt# 0 arg#1 -> true#
+               true# -> false#
+           true# -> false#)
+        arg#0 ->
+        0
+      _ -> blame patInt
+let nonrec patReal =
+  \arg#0 ->
+    cond
+      (\arg#1 ->
+         cond
+           isReal# arg#1 ->
+             cond
+               eqReal# 0.0 arg#1 -> true#
+               true# -> false#
+           true# -> false#)
+        arg#0 ->
+        0.0
+      _ -> blame patReal
+let nonrec patString =
+  \arg#0 ->
+    cond
+      (\arg#1 ->
+         cond
+           isString# arg#1 ->
+             cond
+               eqString# "hello" arg#1 -> true#
+               true# -> false#
+           true# -> false#)
+        arg#0 ->
+        0
+      _ -> blame patString
+let nonrec patVariantTag =
+  \arg#0 ->
+    cond
+      isApple isInt arg#0 ->
+        let nonrec x = unApple arg#0 in
+        x
+      _ -> blame patVariantTag

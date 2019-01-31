@@ -1,0 +1,21 @@
+let nonrec f1 =
+  \x#0 ->
+    \y#1 ->
+      cond
+        cond
+          isInt x#0 ->
+            cond
+              isInt y#1 -> true#
+              true# -> false#
+          true# -> false# ->
+          let nonrec x = x#0 in
+          let nonrec y = y#1 in
+          let nonrec f2 =
+            \z#2 ->
+              cond
+                (\_ -> true#) z#2 ->
+                  let nonrec z = z#2 in
+                  + z y
+                _ -> blame f2 in
+          f2 x
+        _ -> blame f1

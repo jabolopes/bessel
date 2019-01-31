@@ -1,0 +1,93 @@
+let rec eq =
+  \x#0 ->
+    \y#1 ->
+      cond
+        cond
+          isInt x#0 ->
+            cond
+              isInt y#1 -> true#
+              true# -> false#
+          true# -> false# ->
+          let nonrec x = x#0 in
+          let nonrec y = y#1 in
+          let rec eqSeq =
+            \arg#2 ->
+              \arg#3 ->
+                cond
+                  cond
+                    isList null arg#2 ->
+                      cond
+                        isList null arg#3 -> true#
+                        true# -> false#
+                    true# -> false# ->
+                    true
+                  cond
+                    isHeadTail (\_ -> true#) (\_ -> true#) arg#2 ->
+                      cond
+                        isHeadTail (\_ -> true#) (\_ -> true#) arg#3 -> true#
+                        true# -> false#
+                    true# -> false# ->
+                    let nonrec z = hd arg#2 in
+                    let nonrec zs = tl arg#2 in
+                    let nonrec w = hd arg#3 in
+                    let nonrec ws = tl arg#3 in
+                    cond
+                      eq z w ->
+                        cond
+                          eqSeq zs ws -> true#
+                          true# -> false#
+                      true# -> false#
+                  cond
+                    (\_ -> true#) arg#2 ->
+                      cond
+                        (\_ -> true#) arg#3 -> true#
+                        true# -> false#
+                    true# -> false# ->
+                    false
+                  _ -> blame eqSeq in
+          eqInt x y
+        cond
+          (\_ -> true#) x#0 ->
+            cond
+              (\_ -> true#) y#1 -> true#
+              true# -> false#
+          true# -> false# ->
+          let nonrec x = x#0 in
+          let nonrec y = y#1 in
+          let rec eqSeq =
+            \arg#4 ->
+              \arg#5 ->
+                cond
+                  cond
+                    isList null arg#4 ->
+                      cond
+                        isList null arg#5 -> true#
+                        true# -> false#
+                    true# -> false# ->
+                    true
+                  cond
+                    isHeadTail (\_ -> true#) (\_ -> true#) arg#4 ->
+                      cond
+                        isHeadTail (\_ -> true#) (\_ -> true#) arg#5 -> true#
+                        true# -> false#
+                    true# -> false# ->
+                    let nonrec z = hd arg#4 in
+                    let nonrec zs = tl arg#4 in
+                    let nonrec w = hd arg#5 in
+                    let nonrec ws = tl arg#5 in
+                    cond
+                      eq z w ->
+                        cond
+                          eqSeq zs ws -> true#
+                          true# -> false#
+                      true# -> false#
+                  cond
+                    (\_ -> true#) arg#4 ->
+                      cond
+                        (\_ -> true#) arg#5 -> true#
+                        true# -> false#
+                    true# -> false# ->
+                    false
+                  _ -> blame eqSeq in
+          eqSeq x y
+        _ -> blame eq
