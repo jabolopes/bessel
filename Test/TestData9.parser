@@ -6,5 +6,5 @@ type MoreFruit =
   Orange x
 
 type EvenMoreFruit =
-  Banana isInt
-  | Kiwi isReal
+  Banana @isInt
+  | Kiwi @isReal
