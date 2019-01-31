@@ -230,14 +230,14 @@ AppExpr:
 
 Pat :: { Source }
 Pat:
-    QualName '@'  QualName                     { bindPat $1 (IdS $3) }
-  | QualName '@'  SimplePat                    { bindPat $1 $3 }
-  |          '@'  QualName                     { IdS $2 }
-  |          ' @' QualName                     { IdS $2 }
-  |          '@'                               { allPat }
-  |          ' @'                              { allPat }
-  |               QualName %prec below_at_prec { bindPat $1 allPat }
-  |               SimplePat                    { $1 }
+    QualName '@'  QualName       { bindPat $1 (IdS $3) }
+  | QualName '@'  SimplePat      { bindPat $1 $3 }
+  |          '@'  QualName       { IdS $2 }
+  |          ' @' QualName       { IdS $2 }
+  |          '@'                 { allPat }
+  |          ' @'                { allPat }
+  | QualName %prec below_at_prec { bindPat $1 allPat }
+  |               SimplePat      { $1 }
 
 SimplePat :: { Source }
 SimplePat:
