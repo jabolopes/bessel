@@ -24,7 +24,6 @@ testParser generateTestExpectations =
      expect "Test/TestData5.parser" "Test/TestData5.bsl"
      expect "Test/TestData6.parser" "Test/TestData6.bsl"
      expect "Test/TestData7.parser" "Test/TestData7.bsl"
-     expect "Test/TestData8.parser" "Test/TestData8.bsl"
      expect "Test/TestData9.parser" "Test/TestData9.bsl"
      expect "Test/TestData10.parser" "Test/TestData10.bsl"
      expect "Test/Unit.parser" "Test/Unit.bsl"
