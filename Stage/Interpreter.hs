@@ -37,30 +37,30 @@ evalM :: Expr -> InterpreterM Val
 evalM (AnnotationE expr _) =
   evalM expr
 evalM (IdE str) =
-    do msym <- findBindM (Name.nameStr str)
-       case msym of
-         Just val -> liftIO $ readIORef val
-         Nothing -> error $ "Interpreter.evalM(IdE): unbound symbols must be caught by the renamer" ++
-                            "\n\n\t str = " ++ show str ++ "\n"
+  do msym <- findBindM (Name.nameStr str)
+     case msym of
+       Just val -> liftIO $ readIORef val
+       Nothing -> error $ "Interpreter.evalM(IdE): unbound symbols must be caught by the renamer" ++
+                          "\n\n\t str = " ++ show str ++ "\n"
 evalM (AppE expr1 expr2) =
-    do val1 <- evalM expr1
-       val2 <- evalM expr2
-       case val1 of
-         FnVal fn -> fn val2
-         _ -> error $ "Interpreter.evalM(AppE): application of non-functions must be detected by the renamer" ++
-                      "\n\n\t expr1 = " ++ PrettyString.toString (Pretty.docExpr expr1) ++
-                      "\n\n\t -> val1 = " ++ show val1 ++
-                      "\n\n\t expr2 = " ++ PrettyString.toString (Pretty.docExpr expr2) ++
-                      "\n\n\t -> val2 = " ++ show val2 ++ "\n"
+  do val1 <- evalM expr1
+     val2 <- evalM expr2
+     case val1 of
+       FnVal fn -> fn val2
+       _ -> error $ "Interpreter.evalM(AppE): application of non-functions must be detected by the renamer" ++
+                    "\n\n\t expr1 = " ++ PrettyString.toString (Pretty.docExpr expr1) ++
+                    "\n\n\t -> val1 = " ++ show val1 ++
+                    "\n\n\t expr2 = " ++ PrettyString.toString (Pretty.docExpr expr2) ++
+                    "\n\n\t -> val2 = " ++ show val2 ++ "\n"
 evalM (CondE ms blame) = evalMatches ms
-    where evalMatches [] =
-              error $ "Interpreter.evalM(CondE): non-exhaustive patterns in " ++ blame
-
-          evalMatches ((pred, val):xs) =
-              do pred' <- evalM pred
-                 case pred' of
-                   BoolVal False -> evalMatches xs
-                   _ -> evalM val
+  where
+    evalMatches [] =
+      error $ "Interpreter.evalM(CondE): non-exhaustive patterns in " ++ blame
+    evalMatches ((pred, val):xs) =
+      do pred' <- evalM pred
+         case pred' of
+           BoolVal False -> evalMatches xs
+           _ -> evalM val
 evalM (FnDecl Def name body) =
   do ref <- liftIO . newIORef $ FnVal (\_ -> error $ Name.nameStr name ++ ": loop")
      addBindM (Name.nameStr name) ref
@@ -80,7 +80,7 @@ evalM expr@(LambdaE arg body) =
       do vals <- mapM (\name -> (name,) <$> findBindM (Name.nameStr name)) $ Expr.freeVars expr
          if all (isJust . snd) vals
            then return $ map (id *** (\(Just x) -> x)) vals
-           else error $ "Interpreter.evalM.freeReferences: undefined free variables must be caught in previous stages" ++
+           else error $ "Interpreter.evalM.freeVars: undefined free variables must be caught in previous stages" ++
                         "\n\n\t vals = " ++ show (Expr.freeVars expr) ++ "\n\n"
 
     closure vars val =
