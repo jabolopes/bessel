@@ -44,10 +44,6 @@ isFalseVal :: Val -> Bool
 isFalseVal (BoolVal False) = True
 isFalseVal _ = False
 
-isCharVal :: Val -> Bool
-isCharVal CharVal {} = True
-isCharVal _ = False
-
 isNotFalseVal :: Val -> Bool
 isNotFalseVal = not . isFalseVal
 
@@ -63,20 +59,7 @@ dynVal = DynVal . Dynamic.toDyn
 unDynVal :: Typeable a => Val -> Maybe a
 unDynVal (DynVal x) = Dynamic.fromDynamic x
 unDynVal val =
-  error $ "Monad.InterpreterM.unboxString: expecting dynamic value" ++
-          "\n\n\t val = " ++ show val ++ "\n\n"
-
-boxString :: String -> Val
-boxString = SeqVal . map CharVal
-
-isStringVal :: Val -> Bool
-isStringVal (SeqVal cs) = all isCharVal cs
-isStringVal _ = False
-
-unboxString :: Val -> String
-unboxString val@(SeqVal cs) | isStringVal val = map (\(CharVal c) -> c) cs
-unboxString val =
-  error $ "Monad.InterpreterM.unboxString: expecting character sequence" ++
+  error $ "Monad.InterpreterM.unDynVal: expecting dynamic value" ++
           "\n\n\t val = " ++ show val ++ "\n\n"
 
 primitive :: (Val -> Val) -> Val
