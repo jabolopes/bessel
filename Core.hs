@@ -257,6 +257,24 @@ ltChar (CharVal c1) = FnVal $ return . ltCharHof
         | c1 < c2 = true
         | otherwise = false
 
+-- String
+
+isString :: Val -> Val
+isString StringVal {} = true
+isString _ = false
+
+eqString :: Val -> Val
+eqString (StringVal string1) = FnVal arg2
+  where
+    arg2 (StringVal string2) = apply string1 string2
+    arg2 _ = fail "Core.eqString: expected string as second argument"
+
+    apply b1 b2
+      | b1 == b2 = return true
+      | otherwise = return false
+eqString _ =
+  error "Core.eqString: expected string as first argument"
+
 -- Seq
 
 isList :: Val -> Val
@@ -552,6 +570,9 @@ fnDesc =
    ("isChar", primitive isChar),
    ("eqChar", primitive eqChar),
    ("ltChar", primitive ltChar),
+   -- String
+   ("isString", primitive isString),
+   ("eqString", primitive eqString),
    -- Seq
    ("isList", primitive isList),
    ("isHeadTail", primitive isHeadTail),

@@ -134,11 +134,6 @@ let isPair
   [@,@] = true
   @ = false
 
-let isString
-  []                   = true
-  (isChar +> isString) = true
-  @                    = false
-
 -- Tuples
 
 let isTuple0 = isTuple0#
