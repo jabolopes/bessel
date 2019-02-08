@@ -119,11 +119,9 @@ interpretDefinition fs def@Definition { defRen = Right expr@(FnDecl _ name _) } 
        _ ->
          return def { defVal = Left "definition depends on free names that failed to evaluate" }
   where
-    initialEnvironment [] [] = []
-    initialEnvironment (def:defs) (val:vals) =
-      (Name.nameStr $ Definition.defName def, val):initialEnvironment defs vals
-    initialEnvironment _ _ =
-      error "Stage.Interpreter.initialEnvironment: argument lists have different length"
+    initialEnvironment defs vals =
+      let defNames = map (Name.nameStr . Definition.defName) defs in
+      zip defNames vals
 interpretDefinition _ def = return def
 
 interpretDefinitions :: FileSystem -> Module -> [Definition] -> IO Module

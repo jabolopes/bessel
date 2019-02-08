@@ -3,7 +3,7 @@ module Repl where
 
 import Prelude hiding (lex, mod)
 
-import Control.Monad.State
+import Control.Monad.State hiding (state)
 import qualified Data.Char as Char (isSpace)
 import Data.Functor ((<$>))
 import Data.IORef
