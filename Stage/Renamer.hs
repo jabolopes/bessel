@@ -178,22 +178,19 @@ renameDefinitionM :: FileSystem -> Definition -> RenamerM Definition
 renameDefinitionM fs def@Definition { defExp = Right expr } =
   do let prefixed = Definition.prefixedUses def
          unprefixed = Definition.unprefixedUses def
-         names = Expr.freeVars expr
-     freeNameDefs <- lookupFreeVars fs unprefixed prefixed names
-     addFreeNames (map Name.nameStr names) freeNameDefs
+         freeVars = Expr.freeVars expr
+     freeDefNames <- map Definition.defName <$> lookupFreeVars fs unprefixed prefixed freeVars
+     addFreeNames freeVars freeDefNames
      (do expr' <- renameOneM expr
-         return $ def { defFreeNames = map Definition.defName freeNameDefs,
-                        defRen = Right expr' })
+         return $ def { defFreeNames = freeDefNames, defRen = Right expr' })
        `catchError`
-         (\err -> return $ def { defFreeNames = map Definition.defName freeNameDefs
-                               , defRen = Left err })
+         (\err -> return $ def { defFreeNames = freeDefNames, defRen = Left err })
   where
-    addFreeNames [] [] = return ()
-    addFreeNames (name:names) (def:defs) =
-      do addSymbolM name . FnSymbol . Name.nameStr $ Definition.defName def
-         addFreeNames names defs
-    addFreeNames _ _ =
-      error "Stage.Rename.addFreeNames: argument lists have different length"
+    addFreeNames freeVars symNames =
+      sequence_
+        [ addSymbolM (Name.nameStr freeVar) (FnSymbol $ Name.nameStr symName)
+        | freeVar <- freeVars
+        | symName <- symNames ]
 renameDefinitionM _ def = return def
 
 renameDefinition :: FileSystem -> Definition -> Either PrettyString Definition
