@@ -2,8 +2,6 @@ module Pretty.Data.Expr where
 
 import Prelude hiding ((<>))
 
-import qualified Data.List as List
-
 import Data.Expr
 import Data.Literal (Literal(..))
 import Data.PrettyString (PrettyString, (<>), (<+>), ($+$))
@@ -21,24 +19,12 @@ docParens right src
   | isParens right src = PrettyString.parens $ docExpr src
   | otherwise = docExpr src
 
-docCond :: [(Expr, Expr)] -> String -> PrettyString
-docCond matches blame =
-  foldl1 ($+$) (map docMatch matches ++ docBlame)
+docCond :: [(Expr, Expr)] -> PrettyString
+docCond matches =
+  foldl1 ($+$) $ map docMatch matches
   where
     docMatch (x, e) =
       PrettyString.sep [docExpr x <+> PrettyString.text "->", PrettyString.nest (docExpr e)]
-
-    -- TODO: This is bound to break. Perhaps we can move the blame to
-    -- the interpreter and leave it completely out of the Source and
-    -- Expr languages.
-    docBlame
-     | "irrefutable" `List.isPrefixOf` blame =
-       []
-     | otherwise =
-       [PrettyString.text "_" <+>
-        PrettyString.text "->" <+>
-        PrettyString.text "blame" <+>
-        PrettyString.text blame]
 
 docLiteral :: Literal -> PrettyString
 docLiteral (CharL c) = PrettyString.quotes $ PrettyString.char c
@@ -53,8 +39,8 @@ docExpr (AnnotationE expr typ) =
 docExpr (AppE expr1 expr2) =
   PrettyString.sep [docParens False expr1,
                     PrettyString.nest (docParens True expr2)]
-docExpr (CondE matches blame) =
-  PrettyString.sep [PrettyString.text "cond", PrettyString.nest (docCond matches blame)]
+docExpr (CondE matches) =
+  PrettyString.sep [PrettyString.text "cond", PrettyString.nest (docCond matches)]
 docExpr (FnDecl kw name body) =
   PrettyString.sep
     [PrettyString.text "let" <+> kwDoc kw <+> PrettyString.text (show name) <+> PrettyString.equals,

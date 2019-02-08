@@ -4,5 +4,4 @@ let nonrec f1 =
       isTuple0 t#0 ->
         let nonrec t = t#0 in
         mkTuple0
-      _ -> blame f1
 let nonrec f2 = mkTuple0

@@ -43,8 +43,7 @@ let rec eq =
                         (\_ -> true#) arg#3 -> true#
                         true# -> false#
                     true# -> false# ->
-                    false
-                  _ -> blame eqSeq in
+                    false in
           eqInt x y
         cond
           (\_ -> true#) x#0 ->
@@ -87,7 +86,5 @@ let rec eq =
                         (\_ -> true#) arg#5 -> true#
                         true# -> false#
                     true# -> false# ->
-                    false
-                  _ -> blame eqSeq in
+                    false in
           eqSeq x y
-        _ -> blame eq

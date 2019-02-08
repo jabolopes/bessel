@@ -10,6 +10,4 @@ let nonrec f =
           (\arg#2 ->
              cond
                > 1 arg#2 -> x
-               (\_ -> true#) arg#2 -> y
-               _ -> blame lambda)
-      _ -> blame f
+               (\_ -> true#) arg#2 -> y)

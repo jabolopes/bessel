@@ -301,7 +301,7 @@ synthesize context (AppE fun arg) =
        return $ return (context', funType)
      synthesizeApply context' (Context.substitute context' funType) arg
 -- CondE
-synthesize context (CondE matches _) =
+synthesize context (CondE matches) =
   synthesizeFirstMatch context matches
   where
     checkMatches :: Monad m => Context -> [(Expr, Expr)] -> Type -> Check m Context

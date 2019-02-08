@@ -68,10 +68,10 @@ evalM (AppE expr1 expr2) =
            "\n\n\t -> val1 = " ++ show val1 ++
            "\n\n\t expr2 = " ++ PrettyString.toString (Pretty.docExpr expr2) ++
            "\n\n\t -> val2 = " ++ show val2 ++ "\n"
-evalM (CondE ms blame) = evalMatches ms
+evalM (CondE ms) = evalMatches ms
   where
     evalMatches [] =
-      throwInterpreterException . PrettyString.text $ "non-exhaustive patterns in " ++ blame
+      throwInterpreterException . PrettyString.text $ "non-exhaustive pattern matching"
     evalMatches ((pred, val):xs) =
       do pred' <- evalM pred
          case pred' of

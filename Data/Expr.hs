@@ -21,9 +21,8 @@ data Expr
   --   pred1 val1 -> val1'
   --   pred2 val2 -> val2'
   --   ...
-  --   _ -> blame "..."
   -- @
-  | CondE [(Expr, Expr)] String
+  | CondE [(Expr, Expr)]
 
   -- |
   -- @
@@ -76,12 +75,11 @@ andE expr1 expr2 =
   -- note: not using 'expr1' and 'expr2' directly in the Boolean
   -- expression in order to force them to have type 'Bool'.
   let
-    err = "irrefutable 'and' pattern"
     m2 = (expr2, trueE)
     m3 = (trueE, falseE)
-    m1 = (expr1, CondE [m2, m3] err)
+    m1 = (expr1, CondE [m2, m3])
   in
-   CondE [m1, m3] err
+   CondE [m1, m3]
 
 appE :: Name -> Expr -> Expr
 appE name = AppE (IdE name)
@@ -121,15 +119,14 @@ letE defs expr =
 
 orE :: Expr -> Expr -> Expr
 orE expr1 expr2 =
-    -- note: not using 'expr1' and 'expr2' directly in the Boolean
-    -- expression in order to force them to have type 'Bool'.
-    let
-        err = "irrefutable 'or' pattern"
-        m1 = (expr1, trueE)
-        m2 = (expr2, trueE)
-        m3 = (trueE, falseE)
-    in
-      CondE [m1, m2, m3] err
+  -- note: not using 'expr1' and 'expr2' directly in the Boolean
+  -- expression in order to force them to have type 'Bool'.
+  let
+    m1 = (expr1, trueE)
+    m2 = (expr2, trueE)
+    m3 = (trueE, falseE)
+  in
+    CondE [m1, m2, m3]
 
 realE :: Double -> Expr
 realE n
@@ -173,7 +170,7 @@ freeVars = List.nub . snd . free [] []
     free env fvars (AppE expr1 expr2) =
       let (env', fvars') = free env fvars expr1 in
       free env' fvars' expr2
-    free env fvars (CondE matches _) =
+    free env fvars (CondE matches) =
       freeMatches env fvars matches
     free env fvars (FnDecl Def name expr) =
       free (name:env) fvars expr

@@ -20,4 +20,3 @@ let nonrec f =
           let nonrec x = x#0 in
           let nonrec y = y#1 in
           false
-        _ -> blame f

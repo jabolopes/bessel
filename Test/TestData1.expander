@@ -15,7 +15,5 @@ let nonrec f1 =
               cond
                 (\_ -> true#) z#2 ->
                   let nonrec z = z#2 in
-                  + z y
-                _ -> blame f2 in
+                  + z y in
           f2 x
-        _ -> blame f1

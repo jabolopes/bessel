@@ -6,4 +6,3 @@ let nonrec f10 =
         let nonrec x3 = tuple2Ref0# t#01 in
         let nonrec y4 = tuple2Ref1# t#01 in
         addIntReal# x3 y4
-      _ -> blame f1

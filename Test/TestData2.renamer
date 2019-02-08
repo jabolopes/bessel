@@ -8,8 +8,6 @@ let nonrec f10 =
             cond
               (\_5 -> true#) z#14 ->
                 let nonrec z6 = z#14 in
-                + z6 1
-              _ -> blame f2 in
+                + z6 1 in
         let nonrec y7 = 0 in
         f23 y7
-      _ -> blame f1

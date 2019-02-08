@@ -278,12 +278,11 @@ expandMatches names = loop
 --         let x = ... in
 --         let y = ... in
 --         body2
---       _ _ -> blame "..."
 -- @
 --
 -- The above code is a simplification because '&&' is encoded through 'CondE'.
-expandCond :: Source -> Name -> ExpanderM Expr
-expandCond (CondS matches) blame =
+expandCond :: Source -> ExpanderM Expr
+expandCond (CondS matches) =
   do let args = head . fst . unzip $ matches
      case checkMatches (length args) matches of
        Left err ->
@@ -291,7 +290,7 @@ expandCond (CondS matches) blame =
        Right () ->
          do argNames <- genPatNames args
             matches' <- expandMatches argNames matches
-            return . lambdas argNames . CondE matches' $ Name.nameStr blame
+            return . lambdas argNames $ CondE matches'
   where
     checkMatches _ [] = Right ()
     checkMatches n ((args, _):matches')
@@ -301,7 +300,7 @@ expandCond (CondS matches) blame =
     lambdas [] body = body
     lambdas (arg:args) body =
       LambdaE arg (lambdas args body)
-expandCond src _ =
+expandCond src =
   PrettyString.error "Expander.expandCond: invalid argument" $
   PrettyString.text "src =" PrettyString.<+> Pretty.docSource src
 
@@ -361,7 +360,7 @@ expandWhereClause src defns =
 -- 'CondS' to get the right blame for incomplete pattern matching.
 expandFunctionDefinition :: Source -> ExpanderM [Expr]
 expandFunctionDefinition (FnDefS (PatS name _) typ body@CondS {} whereClause) =
-  Utils.returnOne $ expandFnDecl name typ <$> expandCond (expandWhereClause body whereClause) name
+  Utils.returnOne $ expandFnDecl name typ <$> expandCond (expandWhereClause body whereClause)
 expandFunctionDefinition (FnDefS (PatS name _) typ body whereClause) =
   Utils.returnOne $ expandFnDecl name typ <$> expandOne (expandWhereClause body whereClause)
 expandFunctionDefinition (FnDefS pat typ body whereClause) =
@@ -441,7 +440,7 @@ expandSource (BinOpS op m1 m2) =
 expandSource (CharS c) =
   Utils.returnOne . return $ Expr.charE c
 expandSource src@CondS {} =
-  Utils.returnOne . expandCond src $ Name.untyped "lambda"
+  Utils.returnOne $ expandCond src
 expandSource src@FnDefS {} =
   expandFunctionDefinition src
 expandSource (IdS name) =
