@@ -86,6 +86,13 @@ andE expr1 expr2 =
 appE :: Name -> Expr -> Expr
 appE name = AppE (IdE name)
 
+foldAppE :: Expr -> [Expr] -> Expr
+foldAppE = foldl AppE
+
+appToList :: Expr -> [Expr]
+appToList (AppE fn arg) = appToList fn ++ [arg]
+appToList x = [x]
+
 binOpE :: Name -> Expr -> Expr -> Expr
 binOpE op expr = AppE (appE op expr)
 
@@ -94,9 +101,6 @@ constE = LambdaE (Name.untyped "_")
 
 constTrueE :: Expr
 constTrueE = constE trueE
-
-foldAppE :: Expr -> [Expr] -> Expr
-foldAppE = foldl AppE
 
 idE :: String -> Expr
 idE = IdE . Name.untyped

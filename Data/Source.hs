@@ -165,6 +165,10 @@ foldAppS = foldr AppS
 listToApp :: [Source] -> Source
 listToApp = foldl1 AppS
 
+appToList :: Source -> [Source]
+appToList (AppS fn arg) = appToList fn ++ [arg]
+appToList x = [x]
+
 idS :: String -> Source
 idS = IdS . Name.untyped
 
@@ -190,10 +194,6 @@ isTypePat :: Source -> Bool
 isTypePat (AppS fn _) = isTypePat fn
 isTypePat (IdS name) = Name.isTypeName name
 isTypePat _ = False
-
-appToList :: Source -> [Source]
-appToList (AppS fn arg) = appToList fn ++ [arg]
-appToList x = [x]
 
 toSource :: Source -> Maybe Source
 toSource (AndS src1 src2) = AndS <$> toSource src1 <*> toSource src2

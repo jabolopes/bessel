@@ -8,7 +8,7 @@ import Data.PrettyString (PrettyString)
 
 data UserException
     = LoaderException PrettyString
-    | InterpreterException String
+    | InterpreterException PrettyString
     | LexerException String
     | SignalException String
       deriving (Show, Typeable)
@@ -18,7 +18,7 @@ instance Exception UserException
 throwLoaderException :: PrettyString -> a
 throwLoaderException = throw . LoaderException
 
-throwInterpreterException :: String -> a
+throwInterpreterException :: PrettyString -> a
 throwInterpreterException = throw . InterpreterException
 
 -- | 'throwLexerException line column str' throws a lexical exception where

@@ -4,6 +4,7 @@ module Stage.Interpreter where
 import Prelude hiding (mod, pred)
 
 import Control.Arrow ((***))
+import Control.Exception (throw)
 import Control.Monad.State
 import Data.Functor ((<$>))
 import Data.IORef
@@ -14,6 +15,7 @@ import Data.Either
 import Data.Definition (Definition(..))
 import qualified Data.Definition as Definition
 import qualified Data.Env as Env (findBind, initial)
+import Data.Exception
 import Data.Expr (DefnKw(..), Expr(..))
 import qualified Data.Expr as Expr
 import Data.FileSystem (FileSystem)
@@ -25,6 +27,7 @@ import qualified Data.Name as Name
 import Data.Result (Result(..))
 import Monad.InterpreterM
 import qualified Pretty.Data.Expr as Pretty
+import Data.PrettyString (($+$), (<+>))
 import qualified Data.PrettyString as PrettyString
 
 evalLiteral :: Literal -> Val
@@ -46,16 +49,29 @@ evalM (AppE expr1 expr2) =
   do val1 <- evalM expr1
      val2 <- evalM expr2
      case val1 of
-       FnVal fn -> fn val2
-       _ -> error $ "Interpreter.evalM(AppE): application of non-functions must be detected by the renamer" ++
-                    "\n\n\t expr1 = " ++ PrettyString.toString (Pretty.docExpr expr1) ++
-                    "\n\n\t -> val1 = " ++ show val1 ++
-                    "\n\n\t expr2 = " ++ PrettyString.toString (Pretty.docExpr expr2) ++
-                    "\n\n\t -> val2 = " ++ show val2 ++ "\n"
+       FnVal fn ->
+         liftIO $
+           liftInterpreterM (fn val2)
+             `catchUserException`
+               \case
+                 InterpreterException err ->
+                   do let symbol = case Expr.appToList expr1 of
+                            IdE name:_ -> Name.nameStr name
+                            _ -> "closure"
+                      throwInterpreterException $ err $+$ PrettyString.text "in" <+> PrettyString.text symbol
+                 err ->
+                   throw err
+       _ ->
+         error $
+           "Interpreter.evalM(AppE): application of non-functions must be detected by the renamer" ++
+           "\n\n\t expr1 = " ++ PrettyString.toString (Pretty.docExpr expr1) ++
+           "\n\n\t -> val1 = " ++ show val1 ++
+           "\n\n\t expr2 = " ++ PrettyString.toString (Pretty.docExpr expr2) ++
+           "\n\n\t -> val2 = " ++ show val2 ++ "\n"
 evalM (CondE ms blame) = evalMatches ms
   where
     evalMatches [] =
-      error $ "Interpreter.evalM(CondE): non-exhaustive patterns in " ++ blame
+      throwInterpreterException . PrettyString.text $ "non-exhaustive patterns in " ++ blame
     evalMatches ((pred, val):xs) =
       do pred' <- evalM pred
          case pred' of

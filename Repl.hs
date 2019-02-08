@@ -204,8 +204,11 @@ putUserException (LoaderException err) =
   PrettyString.text "loader error: "
   PrettyString.$+$
   PrettyString.nest err
-putUserException (InterpreterException str) =
-  putStrLn $ "interpreter error: " ++ str
+putUserException (InterpreterException err) =
+  putStrLn . PrettyString.toString $
+  PrettyString.text "interpreter error: "
+  PrettyString.$+$
+  PrettyString.nest err
 putUserException (LexerException str) =
   putStrLn $ "lexical error: " ++ str
 putUserException (SignalException str) =
