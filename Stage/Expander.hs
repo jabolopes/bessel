@@ -281,8 +281,8 @@ expandMatches names = loop
 -- @
 --
 -- The above code is a simplification because '&&' is encoded through 'CondE'.
-expandCond :: Source -> ExpanderM Expr
-expandCond (CondS matches) =
+expandCond :: [([Source], Source)] -> ExpanderM Expr
+expandCond matches =
   do let args = head . fst . unzip $ matches
      case checkMatches (length args) matches of
        Left err ->
@@ -300,9 +300,6 @@ expandCond (CondS matches) =
     lambdas [] body = body
     lambdas (arg:args) body =
       LambdaE arg (lambdas args body)
-expandCond src =
-  PrettyString.error "Expander.expandCond: invalid argument" $
-  PrettyString.text "src =" PrettyString.<+> Pretty.docSource src
 
 -- Expand function definitions.
 
@@ -334,35 +331,47 @@ expandResultPattern pat typ body whereClause =
   do result <- NameM.genNameM $ Name.untyped "res"
      return $ FnDefS (PatS result Nothing) typ body whereClause:patDefinitions (IdS result) pat
 
--- | Expands where clauses into 'LetS' and applies them in each match of a
--- 'CondS'.
--- Example:
+-- | Expands where clauses.
+--
+-- Example without cond (or with cond with more than 1 match):
 -- @
--- let x = y
+-- let f
+--   x@isInt = ...
+--   x@isReal = ...
 -- where
---   let y = 0
+--   let g = ...
 -- @
--- expand into:
+-- expands into:
 -- @
--- let x =
---   let y = 0 in
---   y
+-- let f =
+--   let g = ... in
+--   \x -> ...
 -- @
-expandWhereClause :: Source -> [Source] -> Source
-expandWhereClause src [] =
-  src
-expandWhereClause (CondS matches) defns =
-  CondS $ map (id *** (LetS defns)) matches
-expandWhereClause src defns =
-  LetS defns src
+--
+-- Example with cond with single pattern match.
+-- @
+-- let f x@ = ...
+-- where
+--   let g = ...
+-- @
+-- expands into:
+-- @
+-- let f =
+--   \x ->
+--     let g = ... in
+--     ...
+-- @
+expandWhere :: Source -> [Source] -> Source
+expandWhere src [] = src
+expandWhere (CondS [match]) defns = CondS $ map (id *** (LetS defns)) [match]
+expandWhere src defns = LetS defns src
 
 -- | Expands 'FnDefS'. Expands function definitions together with
 -- 'CondS' to get the right blame for incomplete pattern matching.
 expandFunctionDefinition :: Source -> ExpanderM [Expr]
-expandFunctionDefinition (FnDefS (PatS name _) typ body@CondS {} whereClause) =
-  Utils.returnOne $ expandFnDecl name typ <$> expandCond (expandWhereClause body whereClause)
 expandFunctionDefinition (FnDefS (PatS name _) typ body whereClause) =
-  Utils.returnOne $ expandFnDecl name typ <$> expandOne (expandWhereClause body whereClause)
+  do let body' = expandWhere body whereClause
+     Utils.returnOne $ expandFnDecl name typ <$> expandOne body'
 expandFunctionDefinition (FnDefS pat typ body whereClause) =
   concat <$> (mapM expandFunctionDefinition =<< expandResultPattern pat typ body whereClause)
 expandFunctionDefinition src =
@@ -439,8 +448,8 @@ expandSource (BinOpS op m1 m2) =
   Utils.returnOne $ Expr.binOpE (Name.untyped op) <$> expandOne m1 <*> expandOne m2
 expandSource (CharS c) =
   Utils.returnOne . return $ Expr.charE c
-expandSource src@CondS {} =
-  Utils.returnOne $ expandCond src
+expandSource (CondS matches) =
+  Utils.returnOne $ expandCond matches
 expandSource src@FnDefS {} =
   expandFunctionDefinition src
 expandSource (IdS name) =
