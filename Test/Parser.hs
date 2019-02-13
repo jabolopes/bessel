@@ -2,18 +2,20 @@
 module Test.Parser where
 
 import qualified Data.Name as Name
+import Data.PrettyString (PrettyString)
 import qualified Data.PrettyString as PrettyString
 import Data.Source (Source)
 import qualified Parser
 import qualified Pretty.Data.Source as Pretty
 import qualified Test.Diff as Diff
 
-parseTestFile :: String -> IO Source
+parseTestFile :: String -> IO (Either PrettyString Source)
 parseTestFile filename =
   do str <- readFile filename
      case Parser.parseFile (Name.untyped filename) str of
-       Left err -> fail err
-       Right src -> return src
+       -- TODO: Remove PrettyString.text by converting Parser errors to PrettyString.
+       Left err -> return . Left $ PrettyString.text err
+       Right src -> return $ Right src
 
 testParser :: Bool -> IO ()
 testParser generateTestExpectations =
@@ -30,5 +32,6 @@ testParser generateTestExpectations =
      expect "Test/Variant.parser" "Test/Variant.bsl"
   where
     expect expectedFilename filename =
-      do actual <- PrettyString.toString . Pretty.docSource <$> parseTestFile filename
+      do result <- parseTestFile filename
+         let actual = PrettyString.toString . Pretty.docSource <$> result
          Diff.expectFiles "Parser" filename generateTestExpectations expectedFilename actual

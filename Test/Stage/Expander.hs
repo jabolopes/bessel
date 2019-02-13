@@ -3,6 +3,7 @@ module Test.Stage.Expander where
 
 import Data.Expr (Expr(..))
 import qualified Data.Name as Name
+import Data.PrettyString (PrettyString)
 import qualified Data.PrettyString as PrettyString
 import Data.Source (Source(..))
 import qualified Parser
@@ -10,20 +11,21 @@ import qualified Pretty.Data.Expr as Pretty
 import qualified Stage.Expander as Expander
 import qualified Test.Diff as Diff
 
-expandTestFile :: String -> IO [Expr]
-expandTestFile filename = expandFile
+expandTestFile :: String -> IO (Either PrettyString [Expr])
+expandTestFile filename =
+  do input <- readFile filename
+     return $ expandFile input
   where
-    parseFile =
-      do str <- readFile filename
-         case Parser.parseFile (Name.untyped filename) str of
-           Left err -> fail err
-           Right src -> return src
+    parseFile :: String -> Either PrettyString Source
+    parseFile input =
+      case Parser.parseFile (Name.untyped filename) input of
+        Left err -> Left $ PrettyString.text err
+        Right src -> return src
 
-    expandFile =
-      do ModuleS _ _ srcs <- parseFile
-         case concat `fmap` mapM Expander.expand srcs of
-           Left err -> fail $ show err
-           Right exprs -> return exprs
+    expandFile :: String -> Either PrettyString [Expr]
+    expandFile input =
+      do ModuleS _ _ srcs <- parseFile input
+         concat <$> mapM Expander.expand srcs
 
 testExpander :: Bool -> IO ()
 testExpander generateTestExpectations =
@@ -43,5 +45,6 @@ testExpander generateTestExpectations =
      expect "Test/Variant.expander" "Test/Variant.bsl"
   where
     expect expectedFilename filename =
-      do actual <- (PrettyString.toString . PrettyString.vcat . map Pretty.docExpr) <$> expandTestFile filename
+      do result <- expandTestFile filename
+         let actual = PrettyString.toString . PrettyString.vcat . map Pretty.docExpr <$> result
          Diff.expectFiles "Expander" filename generateTestExpectations expectedFilename actual
