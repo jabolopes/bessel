@@ -1,3 +1,15 @@
+let nonrec patChar =
+  \arg#0 ->
+    cond
+      (\arg#1 ->
+         cond
+           isChar# arg#1 ->
+             cond
+               eqChar# 'a' arg#1 -> true#
+               true# -> false#
+           true# -> false#)
+        arg#0 ->
+        'a'
 let nonrec patInt =
   \arg#0 ->
     cond
