@@ -15,6 +15,7 @@ import Data.PrettyString (PrettyString)
 import qualified Data.PrettyString as PrettyString
 import Data.Source (Source(..))
 import qualified Data.Source as Source
+import qualified Expander.Pattern as Pattern
 import qualified Expander.Variant as Variant
 import qualified Expander.Type as Type
 import Monad.NameM (NameM)
@@ -25,23 +26,6 @@ import qualified Pretty.Stage.Expander as Pretty
 import Typechecker.Type (Type)
 
 type ExpanderM a = NameM (Either PrettyString) a
-
--- | Generates names for the given patterns.
--- @
--- genPatName x       = "x#0"
--- genPatName x@isInt = "x#0"
--- genPatName  @      = "arg#0"
--- genPatName  @isInt = "arg#0"
--- @
-genPatNames :: [Source] -> ExpanderM [Name]
-genPatNames = mapM genPatName
-  where
-    genName name
-      | Name.isEmptyName name = NameM.genNameM $ Name.untyped "arg"
-      | otherwise = NameM.genNameM name
-
-    genPatName (PatS binder _) = genName binder
-    genPatName _ = genName Name.empty
 
 -- Expand patterns.
 
@@ -288,7 +272,7 @@ expandCond matches =
        Left err ->
          throwError err
        Right () ->
-         do argNames <- genPatNames args
+         do argNames <- Pattern.genPatNames args
             matches' <- expandMatches argNames matches
             return . lambdas argNames $ CondE matches'
   where
