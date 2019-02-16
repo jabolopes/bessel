@@ -116,7 +116,7 @@ data Source
   -- @
   -- PatS "" Nothing
   --
-  -- The following does not make sense:
+  -- The following does not make sense because it simplifies to 'Source'.
   --   PatS "" (Just ...)
   | PatS Name (Maybe Source)
 
