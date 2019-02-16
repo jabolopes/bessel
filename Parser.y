@@ -13,6 +13,7 @@ import Data.Exception
 import Data.Expr
 import Data.Functor ((<$>))
 import Data.LexState
+import Data.Literal (Literal(..))
 import Data.Module
 import Data.Name (Name)
 import qualified Data.Name as Name
@@ -241,10 +242,10 @@ Pat:
 
 SimplePat :: { Source }
 SimplePat:
-    character                    { CharS $1 }
-  | integer                      { IntS $1 }
-  | double                       { RealS $1 }
-  | string                       { StringS $1 }
+    character                    { LiteralS (CharL $1) }
+  | integer                      { LiteralS (IntL $1) }
+  | double                       { LiteralS (RealL $1) }
+  | string                       { LiteralS (StringL $1) }
   | '[' ExprList ']'             { SeqS $2 }
   | '['          ']'             { SeqS [] }
   | '(' ExprList ')'             { case $2 of

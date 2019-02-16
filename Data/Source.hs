@@ -5,6 +5,7 @@ import Prelude hiding ((<>))
 
 import Control.Applicative ((<$>), (<*>))
 
+import Data.Literal (Literal(..))
 import Data.Name (Name)
 import qualified Data.Name as Name
 import Typechecker.Type (Type)
@@ -28,12 +29,6 @@ data Source
   -- x - y
   -- @
   | BinOpS String Source Source
-
-  -- | CharS
-  -- @
-  -- 'a'
-  -- @
-  | CharS Char
 
   -- | CondS
   -- @
@@ -67,12 +62,6 @@ data Source
   -- @
   | IdS Name
 
-  -- | IntS
-  -- @
-  -- 10
-  -- @
-  | IntS Int
-
   -- | LetS
   -- @
   -- let
@@ -82,6 +71,15 @@ data Source
   --   ...
   -- @
   | LetS [Source] Source
+
+  -- | LiteralS
+  -- @
+  -- 'a'
+  -- 1
+  -- 2.0
+  -- "three"
+  -- @
+  | LiteralS Literal
 
   -- | ModuleS
   -- @
@@ -120,23 +118,11 @@ data Source
   --   PatS "" (Just ...)
   | PatS Name (Maybe Source)
 
-  -- | RealS
-  -- @
-  -- 10.0
-  -- @
-  | RealS Double
-
   -- | SeqS
   -- @
   -- [1, 2, 3]
   -- @
   | SeqS [Source]
-
-  -- | StringS
-  -- @
-  -- "hello world"
-  -- @
-  | StringS String
 
   -- | TupleS
   -- @
@@ -190,6 +176,12 @@ bindPat binder (PatS _ (Just src)) = bindPat binder src
 bindPat binder (PatS _ guard) = PatS binder guard
 bindPat binder src = PatS binder (Just src)
 
+intS :: Int -> Source
+intS = LiteralS . IntL
+
+stringS :: String -> Source
+stringS = LiteralS . StringL
+
 isTypePat :: Source -> Bool
 isTypePat (AppS fn _) = isTypePat fn
 isTypePat (IdS name) = Name.isTypeName name
@@ -199,22 +191,19 @@ toSource :: Source -> Maybe Source
 toSource (AndS src1 src2) = AndS <$> toSource src1 <*> toSource src2
 toSource (AppS src1 src2) = AppS <$> toSource src1 <*> toSource src2
 toSource (BinOpS op src1 src2) = BinOpS op <$> toSource src1 <*> toSource src2
-toSource src@CharS {} = Just src
 toSource (CondS ms) = CondS <$> mapM toSource' ms
   where toSource' (args, body) = (args,) <$> toSource body
 toSource (FnDefS pat typ body defns) =
   FnDefS pat typ <$> toSource body <*> mapM toSource defns
 toSource src@IdS {} = Just src
-toSource src@IntS {} = Just src
 toSource (LetS defns body) = LetS <$> mapM toSource defns <*> toSource body
+toSource src@LiteralS {} = Just src
 toSource (ModuleS name uses decls) = ModuleS name uses <$> mapM toSource decls
 toSource (OrS src1 src2) = OrS <$> toSource src1 <*> toSource src2
 toSource (PatS binder val)
   | Name.isEmptyName binder = val
 toSource (PatS binder Nothing) = return $ IdS binder
 toSource PatS {} = Nothing
-toSource src@RealS {} = Just src
 toSource (SeqS srcs) = SeqS <$> mapM toSource srcs
-toSource src@StringS {} = Just src
 toSource (TupleS srcs) = TupleS <$> mapM toSource srcs
 toSource src@TypeDeclS {} = Just src

@@ -7,6 +7,7 @@ import Control.Applicative ((<$>), (<*>))
 import Control.Arrow ((***))
 import Control.Monad.Error.Class (throwError)
 
+import Data.Literal (Literal(..))
 import Data.Expr (DefnKw(..), Expr(..))
 import qualified Data.Expr as Expr
 import Data.Name (Name)
@@ -81,6 +82,12 @@ patPred = sourcePred
          return $ Expr.appE isHeadTailName hdPred `AppE` tlPred
     sourcePred pred@IdS {} =
       expandOne pred
+    sourcePred src@(LiteralS literal) =
+      do let (isFn, eqFn) = Pattern.genLiteralPredicate literal
+         arg <- NameM.genNameM $ Name.untyped "arg"
+         let argId = IdS arg
+             pred = AndS (Source.appS isFn argId) ((Source.appS eqFn src) `AppS` argId)
+         LambdaE arg <$> expandOne pred
     sourcePred (PatS _ Nothing) =
       return Expr.constTrueE
     sourcePred (PatS _ (Just src)) =
@@ -93,12 +100,8 @@ patPred = sourcePred
       sourcePred pat
     sourcePred (TupleS pats) =
       Expr.appE (isTupleName $ length pats) . Expr.tupleE <$> mapM sourcePred pats
-    sourcePred m =
-      do let (isFn, eqFn) = Pattern.genLiteralPredicate m
-         arg <- NameM.genNameM $ Name.untyped "arg"
-         let argId = IdS arg
-             pred = AndS (Source.appS isFn argId) ((Source.appS eqFn m) `AppS` argId)
-         LambdaE arg <$> expandOne pred
+    sourcePred src =
+      throwError . Pretty.devUnhandled "Stage.Expander.patPred.sourcePred" $ Pretty.docSource src
 
 -- Expand conds.
 
@@ -278,6 +281,14 @@ expandFunctionDefinition src =
   PrettyString.error "Expander.expandFunctionDefinition: invalid argument" $
   PrettyString.text "src =" PrettyString.<+> Pretty.docSource src
 
+-- Expand literals.
+
+expandLiteral :: Literal -> Expr
+expandLiteral (CharL c) = Expr.charE c
+expandLiteral (IntL n) = Expr.intE n
+expandLiteral (RealL d) = Expr.realE d
+expandLiteral (StringL str) = Expr.stringE str
+
 -- Expand sequences.
 
 expandSeq :: [Source] -> ExpanderM Expr
@@ -351,31 +362,25 @@ expandSource (AppS src1 src2) =
   Utils.returnOne $ AppE <$> expandOne src1 <*> expandOne src2
 expandSource (BinOpS op src1 src2) =
   Utils.returnOne $ Expr.binOpE (Name.untyped op) <$> expandOne src1 <*> expandOne src2
-expandSource (CharS c) =
-  Utils.returnOne . return $ Expr.charE c
 expandSource (CondS matches) =
   Utils.returnOne $ expandCond matches
 expandSource src@FnDefS {} =
   expandFunctionDefinition src
 expandSource (IdS name) =
   Utils.returnOne . return . Expr.IdE $ name
-expandSource (IntS n) =
-  Utils.returnOne . return . Expr.intE $ n
 expandSource (LetS defns src) =
   do defns' <- concat <$> mapM expandSource defns
      Utils.returnOne $ Expr.letE defns' <$> expandOne src
+expandSource (LiteralS literal) =
+  Utils.returnOne . return $ expandLiteral literal
 expandSource (ModuleS me _ _) =
   throwError (Pretty.devModuleNested (Name.nameStr me))
 expandSource (OrS src1 src2) =
   Utils.returnOne $ Expr.orE <$> expandOne src1 <*> expandOne src2
 expandSource pat@PatS {} =
   throwError . Pretty.devPattern . Pretty.docSource $ pat
-expandSource (RealS n) =
-  Utils.returnOne . return $ Expr.realE n
 expandSource (SeqS ms) =
   Utils.returnOne $ expandSeq ms
-expandSource (StringS str) =
-  Utils.returnOne . return $ Expr.stringE str
 expandSource (TupleS srcs) =
   Utils.returnOne $ expandTuple srcs
 expandSource (TypeDeclS typeName tags) =

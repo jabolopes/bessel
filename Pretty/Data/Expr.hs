@@ -3,9 +3,9 @@ module Pretty.Data.Expr where
 import Prelude hiding ((<>))
 
 import Data.Expr
-import Data.Literal (Literal(..))
 import Data.PrettyString (PrettyString, (<>), (<+>), ($+$))
 import qualified Data.PrettyString as PrettyString
+import qualified Pretty.Data.Literal as Pretty
 
 isParens :: Bool -> Expr -> Bool
 isParens right AppE {} = right
@@ -25,12 +25,6 @@ docCond matches =
   where
     docMatch (x, e) =
       PrettyString.sep [docExpr x <+> PrettyString.text "->", PrettyString.nest (docExpr e)]
-
-docLiteral :: Literal -> PrettyString
-docLiteral (CharL c) = PrettyString.quotes $ PrettyString.char c
-docLiteral (IntL i) = PrettyString.int i
-docLiteral (RealL d) =  PrettyString.double d
-docLiteral (StringL s) = PrettyString.string s
 
 docExpr :: Expr -> PrettyString
 docExpr (AnnotationE expr typ) =
@@ -56,7 +50,7 @@ docExpr (LetE defn body) =
   PrettyString.vcat
   [docExpr defn <+> PrettyString.text "in", docExpr body]
 docExpr (LiteralE literal) =
-  docLiteral literal
+  Pretty.docLiteral literal
 
 -- PrettyString for a list of 'Expr's.
 docExprList :: [Expr] -> PrettyString

@@ -6,19 +6,17 @@ import Data.PrettyString (PrettyString, (<>), (<+>), ($+$))
 import qualified Data.PrettyString as PrettyString
 import qualified Data.Name as Name
 import Data.Source (Source(..))
+import qualified Pretty.Data.Literal as Pretty
 
 isParens :: Bool -> Source -> Bool
-isParens right AppS {}    = right
-isParens _     CharS {}   = False
-isParens _     IdS {}     = False
-isParens _     IntS {}    = False
-isParens _     LetS {}    = False
-isParens _     PatS {}    = False
-isParens _     RealS {}   = False
-isParens _     SeqS {}    = False
-isParens _     StringS {} = False
-isParens _     TupleS {}  = False
-isParens _ _              = True
+isParens right AppS {}     = right
+isParens _     IdS {}      = False
+isParens _     LetS {}     = False
+isParens _     LiteralS {} = False
+isParens _     PatS {}     = False
+isParens _     SeqS {}     = False
+isParens _     TupleS {}   = False
+isParens _ _               = True
 
 docParens :: Bool -> (Source -> PrettyString) -> Source -> PrettyString
 docParens right fn src
@@ -34,18 +32,12 @@ docSimplePattern (BinOpS op src1 src2) =
   docPattern src1 <+>
   PrettyString.text op <+>
   docPattern src2
-docSimplePattern src@CharS {} =
-  docSource src
 docSimplePattern src@IdS {} =
   docSource src
-docSimplePattern src@IntS {} =
+docSimplePattern src@LiteralS {} =
   docSource src
 docSimplePattern (OrS src1 src2) =
   docSimplePattern $ BinOpS "||" src1 src2
-docSimplePattern src@RealS {} =
-  docSource src
-docSimplePattern src@StringS {} =
-  docSource src
 docSimplePattern (SeqS srcs) =
   PrettyString.text "[" <>
   PrettyString.sep (PrettyString.intercalate (PrettyString.text ",") (map docPattern srcs)) <>
@@ -95,8 +87,6 @@ docSource (AppS src1 src2) =
                     PrettyString.nest (docParens True docSource src2)]
 docSource (BinOpS op src1 src2) =
   docSource src1 <+> PrettyString.text op <+> docSource src2
-docSource (CharS c) =
-  PrettyString.char '\'' <> PrettyString.char c <> PrettyString.char '\''
 docSource (CondS srcs) =
   docCond srcs
 docSource (FnDefS pat Nothing body whereClause) =
@@ -129,13 +119,13 @@ docSource (FnDefS pat (Just typ) body whereClause) =
                                       PrettyString.nest (PrettyString.vcat (map docSource whereClause))]]
 docSource (IdS name) =
   PrettyString.text $ show name
-docSource (IntS i) =
-  PrettyString.int i
 docSource (LetS defns body) =
   PrettyString.sep
   [PrettyString.vcat (map docSource defns),
    PrettyString.text "in",
    docSource body]
+docSource (LiteralS literal) =
+  Pretty.docLiteral literal
 docSource (ModuleS name uses defns) =
   PrettyString.text "me" <+> PrettyString.text (show name)
   $+$
@@ -155,14 +145,10 @@ docSource (OrS src1 src2) =
   docSource src1 <+> PrettyString.text "||" <+> docSource src2
 docSource src@PatS {} =
   docPattern src
-docSource (RealS r) =
-  PrettyString.double r
 docSource (SeqS ms) =
   PrettyString.char '[' <>
   PrettyString.sep (PrettyString.intercalate (PrettyString.text ",") (map docSource ms)) <>
   PrettyString.char ']'
-docSource (StringS str) =
-  PrettyString.string str
 docSource (TupleS [src]) =
   docSource src
 docSource (TupleS srcs) =

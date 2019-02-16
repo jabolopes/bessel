@@ -3,16 +3,14 @@ module Expander.Pattern where
 
 import Prelude hiding (mod)
 
+import Data.Literal (Literal(..))
 import Data.Name (Name)
 import qualified Data.Name as Name
-import Data.PrettyString ((<+>))
-import qualified Data.PrettyString as PrettyString
 import Data.Source (Source(..))
 import qualified Data.Source as Source
 import qualified Expander.Variant as Variant
 import Monad.NameM (NameM)
 import qualified Monad.NameM as NameM
-import qualified Pretty.Data.Source as Pretty
 
 -- | Generates names for the given patterns.
 -- @
@@ -149,11 +147,8 @@ genPatternGetters val = genGetters []
 -- Pattern predicates.
 
 -- | Returns the predicate and equality function names for literals.
-genLiteralPredicate :: Source -> (Name, Name)
-genLiteralPredicate CharS {} = (Name.untyped "isChar#", Name.untyped "eqChar#")
-genLiteralPredicate IntS {} = (Name.untyped "isInt#", Name.untyped "eqInt#")
-genLiteralPredicate RealS {} = (Name.untyped "isReal#", Name.untyped "eqReal#")
-genLiteralPredicate StringS {} = (Name.untyped "isString#", Name.untyped "eqString#")
-genLiteralPredicate src =
-  PrettyString.error "Expander.genLiteralPredicate: invalid argument" $
-  (PrettyString.text "src =" <+> Pretty.docSource src)
+genLiteralPredicate :: Literal -> (Name, Name)
+genLiteralPredicate CharL {} = (Name.untyped "isChar#", Name.untyped "eqChar#")
+genLiteralPredicate IntL {} = (Name.untyped "isInt#", Name.untyped "eqInt#")
+genLiteralPredicate RealL {} = (Name.untyped "isReal#", Name.untyped "eqReal#")
+genLiteralPredicate StringL {} = (Name.untyped "isString#", Name.untyped "eqString#")

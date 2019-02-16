@@ -46,7 +46,7 @@ genTagPredicate typeName tagName tagNum =
   FnDefS (PatS (genIsTagName tagName) Nothing) Nothing body []
   where
     body =
-      Source.listToApp [IdS isVariantName, StringS (Name.nameStr typeName), IntS tagNum]
+      Source.listToApp [IdS isVariantName, Source.stringS (Name.nameStr typeName), Source.intS tagNum]
 
 -- | Generates a constructor for a variant tag.
 -- @
@@ -67,10 +67,10 @@ genTagConstructor typeName tagName tagNum pat =
     argName = Name.untyped "arg"
 
     condBody binder =
-      Source.listToApp [IdS mkVariantName, StringS (Name.nameStr typeName), IntS tagNum, IdS binder]
+      Source.listToApp [IdS mkVariantName, Source.stringS (Name.nameStr typeName), Source.intS tagNum, IdS binder]
 
     body (TupleS []) =
-      Source.listToApp [IdS mkVariantName, StringS (Name.nameStr typeName), IntS tagNum, TupleS []]
+      Source.listToApp [IdS mkVariantName, Source.stringS (Name.nameStr typeName), Source.intS tagNum, TupleS []]
     body src@(PatS binder _) =
       CondS [([src], condBody binder)]
     body src =

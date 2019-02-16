@@ -45,7 +45,13 @@ data Expr
   -- @
   | LetE Expr Expr
 
-  -- TODO: document
+  -- | LiteralE
+  -- @
+  -- 'a'
+  -- 1
+  -- 2.0
+  -- "three"
+  -- @
   | LiteralE Literal
 
 isAppE :: Expr -> Bool
