@@ -52,3 +52,129 @@ let nonrec patVariantTag =
       isApple isInt arg#0 ->
         let nonrec x = unApple arg#0 in
         x
+let nonrec patBinOp =
+  \arg#0 ->
+    cond
+      isHeadTail
+        (\arg#1 ->
+           cond
+             isInt# arg#1 ->
+               cond
+                 eqInt# 0 arg#1 -> true#
+                 true# -> false#
+             true# -> false#)
+        (isList
+           (cons
+              (\arg#2 ->
+                 cond
+                   isInt# arg#2 ->
+                     cond
+                       eqInt# 1 arg#2 -> true#
+                       true# -> false#
+                   true# -> false#)
+              null))
+        arg#0 ->
+        let nonrec x = hd arg#0 in
+        let nonrec y = tl arg#0 in
+        cons x y
+let nonrec patAll = \arg#0 -> cond (\_ -> true#) arg#0 -> 0
+let nonrec patBind =
+  \x#0 ->
+    cond
+      (\_ -> true#) x#0 ->
+        let nonrec x = x#0 in
+        x
+let nonrec patGuard = \arg#0 -> cond isInt arg#0 -> 0
+let nonrec patBindGuard =
+  \x#0 ->
+    cond
+      isInt x#0 ->
+        let nonrec x = x#0 in
+        x
+let nonrec patEmptyList1 = \arg#0 -> cond isList null arg#0 -> null
+let nonrec patEmptyList2 =
+  \x#0 ->
+    cond
+      isList null x#0 ->
+        let nonrec x = x#0 in
+        x
+let nonrec patList1 =
+  \arg#0 ->
+    cond
+      isList
+        (cons (\_ -> true#)
+           (cons isInt
+              (cons isInt
+                 (cons
+                    (\arg#1 ->
+                       cond
+                         isInt# arg#1 ->
+                           cond
+                             eqInt# 1 arg#1 -> true#
+                             true# -> false#
+                         true# -> false#)
+                    null))))
+        arg#0 ->
+        let nonrec x = hd arg#0 in
+        let nonrec y = hd (tl (tl arg#0)) in
+        0
+let nonrec patList2 =
+  \arg#0 ->
+    cond
+      isList
+        (cons (\_ -> true#)
+           (cons isInt
+              (cons isInt
+                 (cons
+                    (\arg#1 ->
+                       cond
+                         isInt# arg#1 ->
+                           cond
+                             eqInt# 1 arg#1 -> true#
+                             true# -> false#
+                         true# -> false#)
+                    null))))
+        arg#0 ->
+        let nonrec x = hd arg#0 in
+        let nonrec y = hd (tl (tl arg#0)) in
+        0
+let nonrec patEmptyTuple1 =
+  \arg#0 -> cond isTuple0 arg#0 -> mkTuple0
+let nonrec patEmptyTuple2 =
+  \x#0 ->
+    cond
+      isTuple0 x#0 ->
+        let nonrec x = x#0 in
+        x
+let nonrec patTuple1 =
+  \arg#0 ->
+    cond
+      isTuple4
+        (mkTuple4 (\_ -> true#) isInt isInt
+           (\arg#1 ->
+              cond
+                isInt# arg#1 ->
+                  cond
+                    eqInt# 1 arg#1 -> true#
+                    true# -> false#
+                true# -> false#))
+        arg#0 ->
+        let nonrec x = tuple4Ref0 arg#0 in
+        let nonrec y = tuple4Ref2 arg#0 in
+        0
+let nonrec patTuple2 =
+  \arg#0 ->
+    cond
+      isTuple4
+        (mkTuple4 (\_ -> true#) isInt isInt
+           (\arg#1 ->
+              cond
+                isInt# arg#1 ->
+                  cond
+                    eqInt# 1 arg#1 -> true#
+                    true# -> false#
+                true# -> false#))
+        arg#0 ->
+        let nonrec x = tuple4Ref0 arg#0 in
+        let nonrec y = tuple4Ref2 arg#0 in
+        0
