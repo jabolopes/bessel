@@ -18,6 +18,7 @@ import Data.PrettyString (PrettyString)
 import qualified Data.PrettyString as PrettyString
 import Data.Source (Source(..))
 import qualified Data.Source as Source
+import qualified Expander.Pattern as Pattern
 import qualified Stage.Interpreter as Interpreter (interpret, interpretDefinition)
 import qualified Parser (parseRepl)
 import qualified Stage.Expander as Expander
@@ -32,7 +33,7 @@ import qualified Utils
 definitionName :: Source -> Name
 definitionName (FnDefS (IdS name) _ _ _) = name
 definitionName (FnDefS pat _ _ _) =
-  let defns = Expander.patDefinitions undefined pat in
+  let defns = Pattern.genPatternGetters undefined pat in
   case defns of
     [] -> error $ "Stage.definitionName: " ++
                   PrettyString.toString (Pretty.docSource pat) ++

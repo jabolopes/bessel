@@ -27,90 +27,6 @@ import Typechecker.Type (Type)
 
 type ExpanderM a = NameM (Either PrettyString) a
 
--- Expand patterns.
-
--- | Generates a function definition for a pattern.
---
--- binder: name of the pattern, used as the definition name.
--- mods: folded into applications to form the definition body.
--- val: applied at the end of the applications that form the definition body.
---
--- @
--- patFnDef "x" [hd, tl] y
--- @
---
--- @
--- let x = hd (tl y)
--- @
-patFnDef :: Name -> [Source] -> Source -> Source
-patFnDef binder mods val =
-  FnDefS (PatS binder Nothing) Nothing (Source.foldAppS val mods) []
-
--- | Generates function definitions for a pattern's bindings
---
--- val: name of the outermost pattern to which inner transformations apply,
--- which is necessary because not all patterns have a name.
---
--- @
--- xs@[x, y]
--- @
---
--- @
--- let xs = x1#
--- let x = hd x1#
--- let y = hd (tl x1#)
--- @
-patDefinitions :: Source -> Source -> [Source]
-patDefinitions val = sourceDefns []
-  where
-    hdName = Source.idS "hd"
-    tlName = Source.idS "tl"
-
-    tupleRefName len index = Source.idS $ "tuple" ++ show len ++ "Ref" ++ show index
-
-    sourceDefns mods src
-      | Source.isTypePat src =
-        let (IdS typeName:srcs) = Source.appToList src in
-        concatMap (sourceDefns (IdS (Variant.genUnTagName typeName):mods)) srcs
-    sourceDefns mods (BinOpS "+>" hdPat tlPat) =
-      sourceDefns (hdName:mods) hdPat ++
-      sourceDefns (tlName:mods) tlPat
-    sourceDefns mods (PatS binder guard) =
-      hdDefn ++ tlDefn
-      where
-        hdDefn
-          | Name.isEmptyName binder = []
-          | otherwise = (:[]) $ patFnDef binder mods val
-
-        tlDefn =
-          case guard of
-            Nothing -> []
-            Just src -> sourceDefns mods src
-    sourceDefns mods (SeqS pats) =
-      concat [ sourceDefns (mod ++ mods) pat | mod <- patMods | pat <- pats ]
-      where
-        listRef 1 = [hdName]
-        listRef i = tlName:listRef (i - 1)
-
-        patMods = map (reverse . listRef) [1..length pats]
-    sourceDefns mods (TupleS [pat]) =
-      sourceDefns mods pat
-    sourceDefns mods (TupleS pats) =
-      concat [ sourceDefns (patMod index:mods) pat | index <- [0..length pats - 1] | pat <- pats ]
-      where
-        patMod index = tupleRefName (length pats) index
-    sourceDefns _ _ = []
-
--- | Returns the predicate and equality function names for primitive types.
-patConstantPred :: Source -> (Name, Name)
-patConstantPred CharS {} = (Name.untyped "isChar#", Name.untyped "eqChar#")
-patConstantPred IntS {} = (Name.untyped "isInt#", Name.untyped "eqInt#")
-patConstantPred RealS {} = (Name.untyped "isReal#", Name.untyped "eqReal#")
-patConstantPred StringS {} = (Name.untyped "isString#", Name.untyped "eqString#")
-patConstantPred src =
-  PrettyString.error "Expander.patConstantPred: invalid argument" $
-  (PrettyString.text "src =" PrettyString.<+> Pretty.docSource src)
-
 -- | Generates a predicate for a pattern, according the predicate guard.
 --
 -- @
@@ -178,7 +94,7 @@ patPred = sourcePred
     sourcePred (TupleS pats) =
       Expr.appE (isTupleName $ length pats) . Expr.tupleE <$> mapM sourcePred pats
     sourcePred m =
-      do let (isFn, eqFn) = patConstantPred m
+      do let (isFn, eqFn) = Pattern.genLiteralPredicate m
          arg <- NameM.genNameM $ Name.untyped "arg"
          let argId = IdS arg
              pred = AndS (Source.appS isFn argId) ((Source.appS eqFn m) `AppS` argId)
@@ -199,7 +115,7 @@ patPred = sourcePred
 -- @
 expandMatchBody :: [Name] -> [Source] -> Source -> ExpanderM Expr
 expandMatchBody args pats body =
-  do defns <- concat <$> (mapM expandSource $ concat [ patDefinitions (IdS arg) pat | arg <- args | pat <- pats ])
+  do defns <- concat <$> (mapM expandSource $ concat [ Pattern.genPatternGetters (IdS arg) pat | arg <- args | pat <- pats ])
      case defns of
        [] -> expandOne body
        _ -> Expr.letE defns <$> expandOne body
@@ -313,7 +229,7 @@ expandFnDecl name typ body =
 expandResultPattern :: Source -> Maybe Type -> Source -> [Source] -> ExpanderM [Source]
 expandResultPattern pat typ body whereClause =
   do result <- NameM.genNameM $ Name.untyped "res"
-     return $ FnDefS (PatS result Nothing) typ body whereClause:patDefinitions (IdS result) pat
+     return $ FnDefS (PatS result Nothing) typ body whereClause:Pattern.genPatternGetters (IdS result) pat
 
 -- | Expands where clauses.
 --
