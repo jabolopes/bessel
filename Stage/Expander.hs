@@ -314,8 +314,7 @@ expandTuple srcs =
 expandTypeDecl :: Name -> [(Name, Source)] -> ExpanderM [Expr]
 expandTypeDecl typeName tags =
   do let srcs = typePredicates ++ tagPredicates ++ tagConstructors ++ tagDeconstructors
-     exprs <- concat <$> mapM expandSource srcs
-     return exprs
+     concat <$> mapM expandSource srcs
   where
     typePredicates =
       [ Type.genTypePredicate typeName ]
