@@ -336,7 +336,13 @@ expandTypeDecl typeName tags =
 -- Expand source.
 
 expandOne :: Source -> ExpanderM Expr
-expandOne src = head <$> expandSource src
+expandOne src =
+  do exprs <- expandSource src
+     case exprs of
+       [expr] ->
+         return expr
+       _ ->
+         throwError $ PrettyString.text "Stage.Expander.expandOne: expected single expression"
 
 expandSource :: Source -> ExpanderM [Expr]
 expandSource (AndS m1 m2) =
