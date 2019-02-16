@@ -345,12 +345,12 @@ expandOne src =
          throwError $ PrettyString.text "Stage.Expander.expandOne: expected single expression"
 
 expandSource :: Source -> ExpanderM [Expr]
-expandSource (AndS m1 m2) =
-  Utils.returnOne $ Expr.andE <$> expandOne m1 <*> expandOne m2
-expandSource (AppS m1 m2) =
-  Utils.returnOne $ AppE <$> expandOne m1 <*> expandOne m2
-expandSource (BinOpS op m1 m2) =
-  Utils.returnOne $ Expr.binOpE (Name.untyped op) <$> expandOne m1 <*> expandOne m2
+expandSource (AndS src1 src2) =
+  Utils.returnOne $ Expr.andE <$> expandOne src1 <*> expandOne src2
+expandSource (AppS src1 src2) =
+  Utils.returnOne $ AppE <$> expandOne src1 <*> expandOne src2
+expandSource (BinOpS op src1 src2) =
+  Utils.returnOne $ Expr.binOpE (Name.untyped op) <$> expandOne src1 <*> expandOne src2
 expandSource (CharS c) =
   Utils.returnOne . return $ Expr.charE c
 expandSource (CondS matches) =
@@ -366,8 +366,8 @@ expandSource (LetS defns src) =
      Utils.returnOne $ Expr.letE defns' <$> expandOne src
 expandSource (ModuleS me _ _) =
   throwError (Pretty.devModuleNested (Name.nameStr me))
-expandSource (OrS m1 m2) =
-  Utils.returnOne $ Expr.orE <$> expandOne m1 <*> expandOne m2
+expandSource (OrS src1 src2) =
+  Utils.returnOne $ Expr.orE <$> expandOne src1 <*> expandOne src2
 expandSource pat@PatS {} =
   throwError . Pretty.devPattern . Pretty.docSource $ pat
 expandSource (RealS n) =
