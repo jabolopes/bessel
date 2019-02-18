@@ -12,23 +12,6 @@ import qualified Expander.Variant as Variant
 import Monad.NameM (NameM)
 import qualified Monad.NameM as NameM
 
--- | Generates names for the given patterns.
--- @
--- genPatName x       = "x#0"
--- genPatName x@isInt = "x#0"
--- genPatName  @      = "arg#0"
--- genPatName  @isInt = "arg#0"
--- @
-genPatNames :: Monad m => [Source] -> NameM m [Name]
-genPatNames = mapM genPatName
-  where
-    genName name
-      | Name.isEmptyName name = NameM.genNameM $ Name.untyped "arg"
-      | otherwise = NameM.genNameM name
-
-    genPatName (PatS binder _) = genName binder
-    genPatName _ = genName Name.empty
-
 -- Runtime.
 
 headName :: Name
@@ -49,6 +32,25 @@ isListName = Name.untyped "isList"
 isTupleName :: Int -> Name
 isTupleName 1 = error "isTupleName undefined for length 1"
 isTupleName len = Name.untyped $ "isTuple" ++ show len
+
+-- Pattern names.
+
+-- | Generates names for the given patterns.
+-- @
+-- genPatNames x       = "x#0"
+-- genPatNames x@isInt = "x#0"
+-- genPatNames  @      = "arg#0"
+-- genPatNames  @isInt = "arg#0"
+-- @
+genPatNames :: Monad m => [Source] -> NameM m [Name]
+genPatNames = mapM genPatName
+  where
+    genName name
+      | Name.isEmptyName name = NameM.genNameM $ Name.untyped "arg"
+      | otherwise = NameM.genNameM name
+
+    genPatName (PatS binder _) = genName binder
+    genPatName _ = genName Name.empty
 
 -- Pattern definitions.
 
