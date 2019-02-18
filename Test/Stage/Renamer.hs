@@ -32,8 +32,8 @@ initialRenamerState =
          -- Tuple
          Renamer.addFnSymbolM "isTuple2" "isTuple2#"
          Renamer.addFnSymbolM "mkTuple2" "mkTuple2#"
-         Renamer.addFnSymbolM "tuple2Ref0" "tuple2Ref0#"
-         Renamer.addFnSymbolM "tuple2Ref1" "tuple2Ref1#"
+         Renamer.addFnSymbolM "tuple2Ref0#" "tuple2Ref0#"
+         Renamer.addFnSymbolM "tuple2Ref1#" "tuple2Ref1#"
 
 renameTestFile :: String -> IO (Either PrettyString [Expr])
 renameTestFile filename =

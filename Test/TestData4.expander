@@ -4,16 +4,16 @@ let rec eq =
       \arg#1 ->
         cond
           cond
-            isList null arg#0 ->
+            isList# null arg#0 ->
               cond
-                isList null arg#1 -> true#
+                isList# null arg#1 -> true#
                 true# -> false#
             true# -> false# ->
             true
           cond
-            isHeadTail (\_ -> true#) (\_ -> true#) arg#0 ->
+            isHeadTail# (\_ -> true#) (\_ -> true#) arg#0 ->
               cond
-                isHeadTail (\_ -> true#) (\_ -> true#) arg#1 -> true#
+                isHeadTail# (\_ -> true#) (\_ -> true#) arg#1 -> true#
                 true# -> false#
             true# -> false# ->
             let nonrec z = head# arg#0 in

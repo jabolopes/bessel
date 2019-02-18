@@ -80,8 +80,8 @@ initialRenamerState =
          Renamer.addFnSymbolM "isTuple2" "isTuple2"
          Renamer.addFnSymbolM "mkTuple0" "mkTuple0"
          Renamer.addFnSymbolM "mkTuple2" "mkTuple2"
-         Renamer.addFnSymbolM "tuple2Ref0" "tuple2Ref0"
-         Renamer.addFnSymbolM "tuple2Ref1" "tuple2Ref1"
+         Renamer.addFnSymbolM "tuple2Ref0#" "tuple2Ref0#"
+         Renamer.addFnSymbolM "tuple2Ref1#" "tuple2Ref1#"
          -- Type
          Renamer.addFnSymbolM "isType#" "isType#"
          -- Variant
@@ -201,8 +201,8 @@ testTypechecker =
           (Arrow (typeVar 'a')
            (Arrow (typeVar 'b')
             (TupleT [typeVar 'a', typeVar 'b']))))),
-       ("tuple2Ref0", forall 'a' (forall 'b' (Arrow (TupleT [typeVar 'a', typeVar 'b']) (typeVar 'a')))),
-       ("tuple2Ref1", forall 'a' (forall 'b' (Arrow (TupleT [typeVar 'a', typeVar 'b']) (typeVar 'b')))),
+       ("tuple2Ref0#", forall 'a' (forall 'b' (Arrow (TupleT [typeVar 'a', typeVar 'b']) (typeVar 'a')))),
+       ("tuple2Ref1#", forall 'a' (forall 'b' (Arrow (TupleT [typeVar 'a', typeVar 'b']) (typeVar 'b')))),
        -- Type
        ("isType#", forall 'a' (Arrow Type.stringT (Arrow (typeVar 'a') Type.boolT))),
        -- Variant

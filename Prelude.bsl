@@ -70,8 +70,6 @@ let ltChar = ltChar#
 
 let null = null#
 let cons = cons#
-let isList = isList#
-let isHeadTail = isHeadTail#
 let (+>) = cons
 
 let map
@@ -140,11 +138,6 @@ let isTuple3 = isTuple3#
 let mkTuple0 = mkTuple0#
 let mkTuple2 = mkTuple2#
 let mkTuple3 = mkTuple3#
-let tuple2Ref0 = tuple2Ref0#
-let tuple2Ref1 = tuple2Ref1#
-let tuple3Ref0 = tuple3Ref0#
-let tuple3Ref1 = tuple3Ref1#
-let tuple3Ref2 = tuple3Ref2#
 
 -- Number
 

@@ -292,16 +292,20 @@ isList (SeqVal fns) = FnVal arg2
              then apply fns vals
              else return false
 isList _ =
-  error "Core.isList: expected forall a. [a -> Bool]"
+  error "Core.isList: expected forall a. [a -> Bool] as first argument"
 
 isHeadTail :: Val -> Val
 isHeadTail (FnVal fn1) = FnVal arg2
   where
-    arg2 (FnVal fn2) = return $ FnVal $ arg3 fn2
-    arg2 _ = error "Core.isHeadTail: expected forall a. -> Bool"
+    arg2 (FnVal fn2) =
+      return $ FnVal $ arg3 fn2
+    arg2 _ =
+      error "Core.isHeadTail: expected forall a. -> Bool as second argument"
 
-    arg3 fn2 (SeqVal vals) = apply fn1 fn2 vals
-    arg3 _ _ = error "Core.isHeadTail: expected list"
+    arg3 fn2 (SeqVal vals) =
+      apply fn1 fn2 vals
+    arg3 _ _ =
+      error "Core.isHeadTail: expected list as third argument"
 
     apply _ _ [] =
       return false
@@ -315,6 +319,8 @@ isHeadTail (FnVal fn1) = FnVal arg2
                else return false
            else
              return false
+isHeadTail _ =
+  error "Core.isHeadTail: expected function as first argument"
 
 null :: Val
 null = SeqVal []
@@ -385,12 +391,15 @@ mkTuple3 val1 = FnVal $
 
 tupleRef0 :: Val -> Val
 tupleRef0 (TupleVal vals) = vals ! 0
+tupleRef0 _ = error "Core.tupleRef0: expected tuple"
 
 tupleRef1 :: Val -> Val
 tupleRef1 (TupleVal vals) = vals ! 1
+tupleRef1 _ = error "Core.tupleRef1: expected tuple"
 
 tupleRef2 :: Val -> Val
 tupleRef2 (TupleVal vals) = vals ! 2
+tupleRef2 _ = error "Core.tupleRef2: expected tuple"
 
 -- Type
 

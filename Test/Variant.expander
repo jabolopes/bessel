@@ -60,6 +60,6 @@ let nonrec f1 =
         1
       isFig (isTuple2 (mkTuple2 isInt isReal)) a#0 ->
         let nonrec c = a#0 in
-        let nonrec x = tuple2Ref0 (unFig a#0) in
-        let nonrec y = tuple2Ref1 (unFig a#0) in
+        let nonrec x = tuple2Ref0# (unFig a#0) in
+        let nonrec y = tuple2Ref1# (unFig a#0) in
         2

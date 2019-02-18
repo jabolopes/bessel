@@ -54,9 +54,6 @@ type ExpanderM a = NameM (Either PrettyString) a
 patPred :: Source -> ExpanderM Expr
 patPred = sourcePred
   where
-    isHeadTailName = Name.untyped "isHeadTail"
-    isListName = Name.untyped "isList"
-
     isTupleName :: Int -> Name
     isTupleName 1 = error "isTupleName undefined for length 1"
     isTupleName len = Name.untyped $ "isTuple" ++ show len
@@ -79,7 +76,7 @@ patPred = sourcePred
     sourcePred (BinOpS "+>" hdPat tlPat) =
       do hdPred <- sourcePred hdPat
          tlPred <- sourcePred tlPat
-         return $ Expr.appE isHeadTailName hdPred `AppE` tlPred
+         return $ Expr.appE Pattern.isHeadTailName hdPred `AppE` tlPred
     sourcePred pred@IdS {} =
       expandOne pred
     sourcePred src@(LiteralS literal) =
@@ -93,7 +90,7 @@ patPred = sourcePred
     sourcePred (PatS _ (Just src)) =
       sourcePred src
     sourcePred (SeqS pats) =
-      Expr.appE isListName . Expr.seqE <$> mapM sourcePred pats
+      Expr.appE Pattern.isListName . Expr.seqE <$> mapM sourcePred pats
     sourcePred (TupleS []) =
       return . IdE $ isTupleName 0
     sourcePred (TupleS [pat]) =

@@ -21,13 +21,13 @@ tailName :: Name
 tailName = Name.untyped "tail#"
 
 tupleRefName :: Int -> Int -> Name
-tupleRefName len index = Name.untyped $ "tuple" ++ show len ++ "Ref" ++ show index
+tupleRefName len index = Name.untyped $ "tuple" ++ show len ++ "Ref" ++ show index ++ "#"
 
 isHeadTailName :: Name
-isHeadTailName = Name.untyped "isHeadTail"
+isHeadTailName = Name.untyped "isHeadTail#"
 
 isListName :: Name
-isListName = Name.untyped "isList"
+isListName = Name.untyped "isList#"
 
 isTupleName :: Int -> Name
 isTupleName 1 = error "isTupleName undefined for length 1"
