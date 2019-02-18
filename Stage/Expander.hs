@@ -1,4 +1,4 @@
-{-# LANGUAGE LambdaCase, ParallelListComp, TupleSections #-}
+{-# LANGUAGE ParallelListComp, TupleSections #-}
 module Stage.Expander where
 
 import Prelude hiding (mod, pred)
@@ -54,45 +54,59 @@ type ExpanderM a = NameM (Either PrettyString) a
 patPred :: Source -> ExpanderM Expr
 patPred = sourcePred
   where
-    variantConsPred [IdS typeName] =
+    genTagPredicate [IdS typeName] =
       AppE (IdE $ Variant.genIsTagName typeName) <$> sourcePred (TupleS [])
-    variantConsPred (IdS typeName:srcs) =
+    genTagPredicate (IdS typeName:srcs) =
       Expr.foldAppE (IdE $ Variant.genIsTagName typeName) <$> mapM sourcePred srcs
-    variantConsPred srcs =
+    genTagPredicate srcs =
       throwError . Pretty.devTypePat . Pretty.docSource $ Source.listToApp srcs
+
+    genBinOpPredicate "+>" pat1 pat2 =
+      do pred1 <- sourcePred pat1
+         pred2 <- sourcePred pat2
+         return $ Expr.appE Pattern.isHeadTailName pred1 `AppE` pred2
+    genBinOpPredicate op pat1 pat2 =
+      throwError . Pretty.devUnhandled "Stage.Expander.patPred.genBinOpPredicate" . Pretty.docSource $
+        BinOpS op pat1 pat2
+
+    genLiteralPredicate literal =
+      do let (isFn, eqFn) = Pattern.genLiteralPredicate literal
+         arg <- NameM.genNameM $ Name.untyped "arg"
+         let argId = IdS arg
+             pred = AndS (Source.appS isFn argId) ((Source.appS eqFn (LiteralS literal)) `AppS` argId)
+         LambdaE arg <$> expandOne pred
+
+    genPatPredicate Nothing =
+      return Expr.constTrueE
+    genPatPredicate (Just src) =
+      sourcePred src
+
+    genTuplePredicate [] =
+      return . IdE $ Pattern.isTupleName 0
+    genTuplePredicate [pat] =
+      sourcePred pat
+    genTuplePredicate pats =
+      Expr.appE (Pattern.isTupleName $ length pats) . Expr.tupleE <$> mapM sourcePred pats
 
     sourcePred :: Source -> ExpanderM Expr
     sourcePred src
-      | Source.isTypePat src =
-        variantConsPred (Source.appToList src)
+      | Source.isTypePat src = genTagPredicate (Source.appToList src)
     sourcePred src@AppS {} =
       case Source.toSource src of
         Just x -> expandOne x
         _ -> throwError . Pretty.devSourceApp $ Pretty.docSource src
-    sourcePred (BinOpS "+>" hdPat tlPat) =
-      do hdPred <- sourcePred hdPat
-         tlPred <- sourcePred tlPat
-         return $ Expr.appE Pattern.isHeadTailName hdPred `AppE` tlPred
+    sourcePred (BinOpS op pat1 pat2) =
+      genBinOpPredicate op pat1 pat2
     sourcePred pred@IdS {} =
       expandOne pred
-    sourcePred src@(LiteralS literal) =
-      do let (isFn, eqFn) = Pattern.genLiteralPredicate literal
-         arg <- NameM.genNameM $ Name.untyped "arg"
-         let argId = IdS arg
-             pred = AndS (Source.appS isFn argId) ((Source.appS eqFn src) `AppS` argId)
-         LambdaE arg <$> expandOne pred
-    sourcePred (PatS _ Nothing) =
-      return Expr.constTrueE
-    sourcePred (PatS _ (Just src)) =
-      sourcePred src
+    sourcePred (LiteralS literal) =
+      genLiteralPredicate literal
+    sourcePred (PatS _ pat) =
+      genPatPredicate pat
     sourcePred (SeqS pats) =
       Expr.appE Pattern.isListName . Expr.seqE <$> mapM sourcePred pats
-    sourcePred (TupleS []) =
-      return . IdE $ Pattern.isTupleName 0
-    sourcePred (TupleS [pat]) =
-      sourcePred pat
     sourcePred (TupleS pats) =
-      Expr.appE (Pattern.isTupleName $ length pats) . Expr.tupleE <$> mapM sourcePred pats
+      genTuplePredicate pats
     sourcePred src =
       throwError . Pretty.devUnhandled "Stage.Expander.patPred.sourcePred" $ Pretty.docSource src
 
