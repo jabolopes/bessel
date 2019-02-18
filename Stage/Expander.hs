@@ -54,10 +54,6 @@ type ExpanderM a = NameM (Either PrettyString) a
 patPred :: Source -> ExpanderM Expr
 patPred = sourcePred
   where
-    isTupleName :: Int -> Name
-    isTupleName 1 = error "isTupleName undefined for length 1"
-    isTupleName len = Name.untyped $ "isTuple" ++ show len
-
     variantConsPred [IdS typeName] =
       AppE (IdE $ Variant.genIsTagName typeName) <$> sourcePred (TupleS [])
     variantConsPred (IdS typeName:srcs) =
@@ -92,11 +88,11 @@ patPred = sourcePred
     sourcePred (SeqS pats) =
       Expr.appE Pattern.isListName . Expr.seqE <$> mapM sourcePred pats
     sourcePred (TupleS []) =
-      return . IdE $ isTupleName 0
+      return . IdE $ Pattern.isTupleName 0
     sourcePred (TupleS [pat]) =
       sourcePred pat
     sourcePred (TupleS pats) =
-      Expr.appE (isTupleName $ length pats) . Expr.tupleE <$> mapM sourcePred pats
+      Expr.appE (Pattern.isTupleName $ length pats) . Expr.tupleE <$> mapM sourcePred pats
     sourcePred src =
       throwError . Pretty.devUnhandled "Stage.Expander.patPred.sourcePred" $ Pretty.docSource src
 
