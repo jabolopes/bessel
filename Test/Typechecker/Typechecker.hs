@@ -5,7 +5,7 @@ import Control.Monad
 import Control.Monad.State hiding (state)
 import Data.Char (ord)
 
-import Data.Expr
+import Data.Expr (Expr(..))
 import qualified Data.Expr as Expr
 import qualified Data.Name as Name
 import Data.PrettyString (PrettyString)
@@ -18,7 +18,6 @@ import Typechecker.Context (Context, ContextVar)
 import qualified Typechecker.Context as Context
 import Typechecker.Type (Type(..))
 import qualified Typechecker.Type as Type
-import Typechecker.Typechecker (typecheck)
 import qualified Typechecker.Typechecker as Typechecker
 import qualified Typechecker.TypeName as TypeName
 
@@ -130,12 +129,6 @@ typecheckTestFile initialContext filename = typecheckFile
     typecheckFile =
       do exprs <- renameFile
          typecheckExprs initialContext exprs
-
-expectSnippet :: Context -> Type -> Expr -> Maybe Type -> IO ()
-expectSnippet context expected snippet annotation =
-  typecheck context snippet annotation >>= \case
-    (_, actual) | expected == actual -> return ()
-                | otherwise -> fail (PrettyString.toString $ Pretty.typeMismatch "(snippet)" (show actual) (show expected))
 
 expect :: Context -> [Type] -> String -> IO ()
 expect context expected filename =
