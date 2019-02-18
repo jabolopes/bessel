@@ -15,7 +15,7 @@ import qualified Monad.NameM as NameM
 -- Runtime.
 
 headName :: Name
-headName = Name.untyped "hd"
+headName = Name.untyped "head#"
 
 tailName :: Name
 tailName = Name.untyped "tl"

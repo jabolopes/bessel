@@ -16,9 +16,9 @@ let rec eq =
                 isHeadTail (\_ -> true#) (\_ -> true#) arg#1 -> true#
                 true# -> false#
             true# -> false# ->
-            let nonrec z = hd arg#0 in
+            let nonrec z = head# arg#0 in
             let nonrec zs = tl arg#0 in
-            let nonrec w = hd arg#1 in
+            let nonrec w = head# arg#1 in
             let nonrec ws = tl arg#1 in
             cond
               eq z w ->

@@ -1,6 +1,6 @@
 module Core where
 
-import Prelude hiding (null)
+import Prelude hiding (head, null)
 
 import Control.Applicative ((<$>))
 import Control.Arrow ((***))
@@ -322,8 +322,9 @@ null = SeqVal []
 cons :: Val -> Val
 cons val = FnVal $ \(SeqVal vals) -> return . SeqVal $ val:vals
 
-hd :: Val -> Val
-hd (SeqVal (val:_)) = val
+head :: Val -> Val
+head (SeqVal (val:_)) = val
+head _ = error "Core.head: expected non-empty list"
 
 tl :: Val -> Val
 tl (SeqVal (_:vals)) = SeqVal vals
@@ -578,7 +579,7 @@ fnDesc =
    ("isHeadTail", primitive isHeadTail),
    ("null", null),
    ("cons", primitive cons),
-   ("hd", primitive hd),
+   ("head", primitive head),
    ("tl", primitive tl),
    ("index", primitive index),
    -- Tuple

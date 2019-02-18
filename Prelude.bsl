@@ -72,7 +72,6 @@ let null = null#
 let cons = cons#
 let isList = isList#
 let isHeadTail = isHeadTail#
-let hd = hd#
 let tl = tl#
 let (+>) = cons
 
