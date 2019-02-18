@@ -17,9 +17,9 @@ let rec eq =
                 true# -> false#
             true# -> false# ->
             let nonrec z = head# arg#0 in
-            let nonrec zs = tl arg#0 in
+            let nonrec zs = tail# arg#0 in
             let nonrec w = head# arg#1 in
-            let nonrec ws = tl arg#1 in
+            let nonrec ws = tail# arg#1 in
             cond
               eq z w ->
                 cond

@@ -1,6 +1,6 @@
 module Core where
 
-import Prelude hiding (head, null)
+import Prelude hiding (head, null, tail)
 
 import Control.Applicative ((<$>))
 import Control.Arrow ((***))
@@ -326,8 +326,9 @@ head :: Val -> Val
 head (SeqVal (val:_)) = val
 head _ = error "Core.head: expected non-empty list"
 
-tl :: Val -> Val
-tl (SeqVal (_:vals)) = SeqVal vals
+tail :: Val -> Val
+tail (SeqVal (_:vals)) = SeqVal vals
+tail _ = error "Core.tail: expected non-empty list"
 
 index :: Val -> Val
 index (IntVal i) = FnVal $ return . indexHof
@@ -580,7 +581,7 @@ fnDesc =
    ("null", null),
    ("cons", primitive cons),
    ("head", primitive head),
-   ("tl", primitive tl),
+   ("tail", primitive tail),
    ("index", primitive index),
    -- Tuple
    ("isTuple0", primitive isTuple0),

@@ -72,7 +72,7 @@ initialRenamerState =
          Renamer.addFnSymbolM "case" "case"
          Renamer.addFnSymbolM "cons" "cons"
          Renamer.addFnSymbolM "head#" "head#"
-         Renamer.addFnSymbolM "tl" "tl"
+         Renamer.addFnSymbolM "tail#" "tail#"
          Renamer.addFnSymbolM "isHeadTail" "isHeadTail"
          Renamer.addFnSymbolM "eqInt" "eqInt"
          -- Tuple
@@ -180,7 +180,7 @@ testTypechecker =
        ("isHeadTail", forall 'a' (Arrow (Arrow (typeVar 'a') Type.boolT) (Arrow (Arrow (Type.ListT (typeVar 'a')) Type.boolT) (Arrow (Type.ListT (typeVar 'a')) Type.boolT)))),
        ("null#", forall 'a' (Type.ListT (typeVar 'a'))),
        ("head#", forall 'a' (Arrow (Type.ListT (typeVar 'a')) (typeVar 'a'))),
-       ("tl", forall 'a' (Arrow (Type.ListT (typeVar 'a')) (Type.ListT (typeVar 'a')))),
+       ("tail#", forall 'a' (Arrow (Type.ListT (typeVar 'a')) (Type.ListT (typeVar 'a')))),
        ("eqInt", Arrow Type.intT (Arrow Type.intT Type.boolT)),
        ("cons", Arrow Type.intT (Arrow (Type.ListT Type.intT) (Type.ListT Type.intT))),
        ("case", forall 'a' (forall 'b' (Arrow (typeVar 'a') (Arrow (Arrow (typeVar 'a') (typeVar 'b')) (typeVar 'b'))))),

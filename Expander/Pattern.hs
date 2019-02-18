@@ -18,7 +18,7 @@ headName :: Name
 headName = Name.untyped "head#"
 
 tailName :: Name
-tailName = Name.untyped "tl"
+tailName = Name.untyped "tail#"
 
 tupleRefName :: Int -> Int -> Name
 tupleRefName len index = Name.untyped $ "tuple" ++ show len ++ "Ref" ++ show index

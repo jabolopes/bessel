@@ -75,7 +75,7 @@ let nonrec patBinOp =
               null))
         arg#0 ->
         let nonrec x = head# arg#0 in
-        let nonrec y = tl arg#0 in
+        let nonrec y = tail# arg#0 in
         cons x y
 let nonrec patAll = \arg#0 -> cond (\_ -> true#) arg#0 -> 0
 let nonrec patBind =
@@ -116,7 +116,7 @@ let nonrec patList1 =
                     null))))
         arg#0 ->
         let nonrec x = head# arg#0 in
-        let nonrec y = head# (tl (tl arg#0)) in
+        let nonrec y = head# (tail# (tail# arg#0)) in
         0
 let nonrec patList2 =
   \arg#0 ->
@@ -136,7 +136,7 @@ let nonrec patList2 =
                     null))))
         arg#0 ->
         let nonrec x = head# arg#0 in
-        let nonrec y = head# (tl (tl arg#0)) in
+        let nonrec y = head# (tail# (tail# arg#0)) in
         0
 let nonrec patEmptyTuple1 =
   \arg#0 -> cond isTuple0 arg#0 -> mkTuple0

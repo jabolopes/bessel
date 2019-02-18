@@ -5,7 +5,7 @@ let nonrec f =
         let nonrec n = n#0 in
         let nonrec res#1 = cons 1 (cons 2 null) in
         let nonrec x = head# res#1 in
-        let nonrec y = head# (tl res#1) in
+        let nonrec y = head# (tail# res#1) in
         case n
           (\arg#2 ->
              cond

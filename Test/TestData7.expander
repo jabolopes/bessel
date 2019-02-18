@@ -1,3 +1,3 @@
 let nonrec res#0 = cons 1 (cons 2 null)
 let nonrec x = head# res#0
-let nonrec y = head# (tl res#0)
+let nonrec y = head# (tail# res#0)
