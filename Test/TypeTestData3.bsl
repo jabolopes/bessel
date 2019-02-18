@@ -1,4 +1,4 @@
-me Test.TestData3
+me Test.TypeTestData3
 
 let f : Int -> Int -> Bool
   x@isInt y@isInt = true

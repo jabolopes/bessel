@@ -1,4 +1,4 @@
-me Test.TestData2
+me Test.TypeTestData2
 
 let f1 : Int -> Int
   x@isInt =

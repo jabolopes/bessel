@@ -1,16 +1,18 @@
 {-# LANGUAGE LambdaCase, GeneralizedNewtypeDeriving #-}
 module Typechecker.Typechecker where
 
+import Prelude hiding (pred)
+
 import Control.Applicative (Applicative)
 import Control.Monad (foldM, liftM)
 import Control.Monad.State.Class
 import Control.Monad.Trans.State (StateT, runStateT)
-import Data.Char (chr)
 import qualified Data.List as List
 import qualified Data.Set as Set
 
 import Data.Expr (DefnKw(..), Expr(..))
 import qualified Data.PrettyString as PrettyString
+import Data.Name (Name)
 import qualified Data.Name as Name
 import qualified Pretty.Data.Expr as Pretty
 import qualified Pretty.Stage.Typechecker as Pretty
@@ -19,7 +21,6 @@ import qualified Typechecker.Context as Context
 import Typechecker.Type
 import qualified Typechecker.Type as Type
 import Typechecker.TypeName
-import qualified Typechecker.TypeName as TypeName
 
 import System.IO.Unsafe
 
@@ -271,7 +272,7 @@ synthesize context term
     fail . PrettyString.toString $
       Pretty.devContextSynthesize (show context) (Pretty.docExpr term)
 -- Var
-synthesize context term@(IdE name)
+synthesize context (IdE name)
   | Context.containsTermAssigned context name =
     do let Just typ = Context.lookupTerm context name
        return (context, typ)
@@ -296,7 +297,7 @@ synthesize context (LambdaE arg body) =
 -- ->E
 synthesize context (AppE fun arg) =
   do (context', funType) <- synthesize context fun
-     unsafePerformIO $ do
+     _ <- unsafePerformIO $ do
        putStrLn $ show (Pretty.docExpr fun) ++ " :: " ++ show funType
        return $ return (context', funType)
      synthesizeApply context' (Context.substitute context' funType) arg
@@ -371,3 +372,13 @@ typecheck context term checkType =
     runTypecheckerWithRule (Just typ) =
       do context' <- runTypechecker (TypecheckerState initialCounter) $ check context term typ
          return (context', typ)
+
+-- | lookupName returns the 'name' and possibly a fully resolved type.
+lookupName :: Monad m => Context -> Name -> m Name
+lookupName context name =
+  case Context.lookupTerm context name of
+    Nothing ->
+      return name
+    Just typ ->
+      let typ' = Type.rebuildForall $ Context.substitute context typ in
+      Name.typed (Name.nameStr name) typ'

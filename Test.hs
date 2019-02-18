@@ -15,4 +15,4 @@ main =
      testParser generateTestExpectations
      testExpander generateTestExpectations
      testRenamer generateTestExpectations
-     testTypechecker
+     testTypechecker generateTestExpectations

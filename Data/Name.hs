@@ -6,7 +6,7 @@ import Typechecker.Type (Type)
 import qualified Utils
 
 data Name
-  = Name { nameStr:: String
+  = Name { nameStr :: String
          , nameType :: Maybe Type
          }
 
@@ -41,12 +41,8 @@ untyped str =
     Left err -> error err
     Right x -> x
 
--- TODO: make monadic smart constructor.
-typed :: String -> Type -> Name
-typed str typ =
-  case name str (Just typ) of
-    Left err -> error err
-    Right x -> x
+typed :: Monad m => String -> Type -> m Name
+typed str = name str . Just
 
 isEmptyName :: Name -> Bool
 isEmptyName = null . nameStr

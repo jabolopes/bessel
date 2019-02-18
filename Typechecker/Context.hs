@@ -74,7 +74,6 @@ containsType :: Context -> Type -> Bool
 containsType context =
   contains context . ContextType
 
--- TODO: change TypeName to Term?
 containsTermAssigned :: Context -> Name -> Bool
 containsTermAssigned context =
   containsAssigned context . ContextTermVar

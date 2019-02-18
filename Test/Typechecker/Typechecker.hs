@@ -7,10 +7,14 @@ import Data.Char (ord)
 
 import Data.Expr (Expr(..))
 import qualified Data.Expr as Expr
+import Data.Name (Name)
 import qualified Data.Name as Name
 import Data.PrettyString (PrettyString)
+import qualified Data.PrettyString as PrettyString
 import Data.Source as Source (Source(..))
 import qualified Parser
+import qualified Pretty.Data.Expr as Pretty
+import qualified Pretty.Data.Source as Pretty
 import qualified Stage.Expander as Expander
 import Stage.Renamer (RenamerState)
 import qualified Stage.Renamer as Renamer
@@ -20,11 +24,7 @@ import Typechecker.Type (Type(..))
 import qualified Typechecker.Type as Type
 import qualified Typechecker.Typechecker as Typechecker
 import qualified Typechecker.TypeName as TypeName
-
-import qualified Data.PrettyString as PrettyString
-import qualified Pretty.Data.Source as Pretty
-import qualified Pretty.Data.Expr as Pretty
-import qualified Pretty.Stage.Typechecker as Pretty
+import qualified Test.Diff as Diff
 
 typeName :: Char -> Int
 typeName c = ord c - ord 'a'
@@ -64,15 +64,15 @@ initialRenamerState =
          Renamer.addFnSymbolM "addIntReal" "addIntReal"
          Renamer.addFnSymbolM "isInt" "isInt#"
          Renamer.addFnSymbolM "isReal" "isReal"
+         Renamer.addFnSymbolM "isChar" "isChar#"
          Renamer.addFnSymbolM "isList#" "isList#"
-         Renamer.addFnSymbolM "isList" "isList#"
          Renamer.addFnSymbolM "null#" "null#"
          Renamer.addFnSymbolM "null" "null#"
          Renamer.addFnSymbolM "case" "case"
          Renamer.addFnSymbolM "cons" "cons"
          Renamer.addFnSymbolM "head#" "head#"
          Renamer.addFnSymbolM "tail#" "tail#"
-         Renamer.addFnSymbolM "isHeadTail" "isHeadTail"
+         Renamer.addFnSymbolM "isHeadTail#" "isHeadTail#"
          Renamer.addFnSymbolM "eqInt" "eqInt"
          -- Tuple
          Renamer.addFnSymbolM "isTuple0" "isTuple0"
@@ -88,8 +88,37 @@ initialRenamerState =
          Renamer.addFnSymbolM "mkVariant#" "mkVariant#"
          Renamer.addFnSymbolM "unVariant#" "unVariant#"
 
-typecheckTestFile :: Context -> String -> IO [Type]
-typecheckTestFile initialContext filename = typecheckFile
+lookupTypedNames :: Monad m => Context -> Expr -> m [Name]
+lookupTypedNames context = lookupNames
+  where
+    lookupTypedName :: Monad m => Name -> m [Name]
+    lookupTypedName name =
+      do name' <- Typechecker.lookupName context name
+         case Name.nameType name' of
+           Nothing -> return []
+           _ -> return [name']
+
+    lookupNames :: Monad m => Expr -> m [Name]
+    lookupNames (AnnotationE expr _) =
+      lookupNames expr
+    lookupNames (AppE fn arg) =
+      (++) <$> lookupNames fn <*> lookupNames arg
+    lookupNames (CondE matches) =
+      concat <$> (forM matches $ \(match, body) ->
+                   (++) <$> lookupNames match <*> lookupNames body)
+    lookupNames (FnDecl _ name expr) =
+      (++) <$> lookupTypedName name <*> lookupNames expr
+    lookupNames IdE {} =
+      return []
+    lookupNames (LambdaE name expr) =
+      (++) <$> lookupTypedName name <*> lookupNames expr
+    lookupNames (LetE defn body) =
+      (++) <$> lookupNames defn <*> lookupNames body
+    lookupNames LiteralE {} =
+      return []
+
+typecheckTestFile :: Context -> String -> IO (Either PrettyString [Name])
+typecheckTestFile initialContext filename = Right <$> typecheckFile
   where
     parseFile =
       do str <- readFile filename
@@ -123,40 +152,34 @@ typecheckTestFile initialContext filename = typecheckFile
     typecheckExprs context (expr:exprs) =
       do putStrLn $ PrettyString.toString $ Pretty.docExpr expr
          case Typechecker.typecheck context expr Nothing of
-           Left err -> fail $ show (err :: PrettyString)
-           Right (context', typ) -> (typ:) <$> typecheckExprs context' exprs
+           Left err ->
+             fail $ show (err :: PrettyString)
+           Right (context', _) ->
+             do expr' <- lookupTypedNames context' expr
+                (expr'++) <$> typecheckExprs context' exprs
 
     typecheckFile =
       do exprs <- renameFile
          typecheckExprs initialContext exprs
 
-expect :: Context -> [Type] -> String -> IO ()
-expect context expected filename =
-  typecheckTestFile context filename >>= \case
-    actual | expected == actual -> return ()
-           | otherwise -> fail (PrettyString.toString $ Pretty.typeMismatch filename (show actual) (show expected))
+testTypechecker :: Bool -> IO ()
+testTypechecker generateTestExpectations =
+  do -- TODO: The following test cases should be running the typechecker in check mode.
+     expect "Test/TypeTestData1.typechecker" "Test/TypeTestData1.bsl"
+     expect "Test/TypeTestData2.typechecker" "Test/TypeTestData2.bsl"
+     expect "Test/TypeTestData3.typechecker" "Test/TypeTestData3.bsl"
 
-testTypechecker :: IO ()
-testTypechecker =
-  do expect initialContext [Arrow Type.intT (Arrow Type.intT Type.intT)] "Test/TypeTestData1.bsl"
-     expect initialContext [Type.intT `Arrow` Type.intT] "Test/TypeTestData2.bsl"
-     expect initialContext [Arrow Type.intT (Arrow Type.intT Type.boolT)] "Test/TypeTestData3.bsl"
-
-     expect initialContext [Arrow Type.intT (Arrow Type.intT Type.intT)] "Test/TestData1.bsl"
-     expect initialContext [Type.intT `Arrow` Type.intT] "Test/TestData2.bsl"
-     expect initialContext [Arrow Type.intT (Arrow Type.intT Type.boolT)] "Test/TestData3.bsl"
-
+     expect "Test/TestData1.typechecker" "Test/TestData1.bsl"
+     expect "Test/TestData2.typechecker" "Test/TestData2.bsl"
+     expect "Test/TestData3.typechecker" "Test/TestData3.bsl"
      -- Note that 'Test/TestData4.bsl' is not typecheckable because
      -- the main function accepts both Int and List.
-
-     -- expect initialContext [Arrow Type.intT (Arrow Type.intT Type.boolT)] "Test/TestData5.bsl"
-     expect initialContext [Type.intT `Arrow` Type.intT] "Test/TestData6.bsl"
-     expect initialContext [ListT Type.intT, Type.intT, Type.intT] "Test/TestData7.bsl"
-     -- expect initialContext [Arrow (PrimitiveT "Fruit") Type.intT] "Test/TestData8.bsl"
-     -- Tuple
-     expect initialContext [Arrow (TupleT [Type.intT, Type.realT]) Type.realT] "Test/Tuple.bsl"
-     expect initialContext [Type.unitT `Arrow` Type.unitT, Type.unitT] "Test/Unit.bsl"
-     expect initialContext expectedVariant "Test/Variant.bsl"
+     expect "Test/TestData5.typechecker" "Test/TestData5.bsl"
+     expect "Test/TestData6.typechecker" "Test/TestData6.bsl"
+     expect "Test/TestData7.typechecker" "Test/TestData7.bsl"
+     expect "Test/Tuple.typechecker" "Test/Tuple.bsl"
+     expect "Test/Unit.typechecker" "Test/Unit.bsl"
+     expect "Test/Variant.typechecker" "Test/Variant.bsl"
 
   where
     initialBindings =
@@ -169,8 +192,9 @@ testTypechecker =
        (">", Arrow Type.intT (Arrow Type.intT Type.boolT)),
        ("isInt#", Arrow Type.intT Type.boolT),
        ("isReal", Arrow Type.realT Type.boolT),
+       ("isChar#", Arrow Type.charT Type.boolT),
        ("isList#", forall 'a' (Arrow (Type.ListT (Arrow (typeVar 'a') Type.boolT)) (Arrow (Type.ListT (typeVar 'a')) Type.boolT))),
-       ("isHeadTail", forall 'a' (Arrow (Arrow (typeVar 'a') Type.boolT) (Arrow (Arrow (Type.ListT (typeVar 'a')) Type.boolT) (Arrow (Type.ListT (typeVar 'a')) Type.boolT)))),
+       ("isHeadTail#", forall 'a' (Arrow (Arrow (typeVar 'a') Type.boolT) (Arrow (Arrow (Type.ListT (typeVar 'a')) Type.boolT) (Arrow (Type.ListT (typeVar 'a')) Type.boolT)))),
        ("null#", forall 'a' (Type.ListT (typeVar 'a'))),
        ("head#", forall 'a' (Arrow (Type.ListT (typeVar 'a')) (typeVar 'a'))),
        ("tail#", forall 'a' (Arrow (Type.ListT (typeVar 'a')) (Type.ListT (typeVar 'a')))),
@@ -214,40 +238,7 @@ testTypechecker =
     initialContext =
       map (\(name, typ) -> Context.assigned (Name.untyped name) typ) initialBindings
 
-    expectedVariant =
-      [
-        -- isFruit
-        forall 'a' (Arrow (typeVar 'a') Type.boolT),
-        -- isApple
-        forall 'a'
-        (forall 'b'
-         (Arrow (Arrow (typeVar 'a') Type.boolT)
-          (Arrow (typeVar 'b')
-           Type.boolT))),
-        -- isBanana
-        forall 'a'
-        (forall 'b'
-         (Arrow (Arrow (typeVar 'a') Type.boolT)
-          (Arrow (typeVar 'b')
-           Type.boolT))),
-        -- isFig
-        forall 'a'
-        (forall 'b'
-         (Arrow (Arrow (typeVar 'a') Type.boolT)
-          (Arrow (typeVar 'b')
-           Type.boolT))),
-        -- mkApple
-        forall 'a' (typeVar 'a'),
-        -- mkBanana
-        forall 'a' (Arrow Type.intT (typeVar 'a')),
-        -- mkFig
-        forall 'a' (Arrow (TupleT [Type.intT, Type.realT]) (typeVar 'a')),
-        -- unApple
-        forall 'a' (Arrow (typeVar 'a') Type.unitT),
-        -- unBanana
-        forall 'a' (Arrow (typeVar 'a') Type.intT),
-        -- unFig
-        forall 'a' (Arrow (typeVar 'a') (TupleT [Type.intT, Type.realT])),
-        -- f1
-        forall 'a' (Arrow (typeVar 'a') Type.intT)
-      ]
+    expect expectedFilename filename =
+      do result <- typecheckTestFile initialContext filename
+         let actual = PrettyString.toString . PrettyString.vcat . map (PrettyString.text . show) <$> result
+         Diff.expectFiles "Typechecker" filename generateTestExpectations expectedFilename actual

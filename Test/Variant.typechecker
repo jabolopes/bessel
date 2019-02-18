@@ -1,0 +1,11 @@
+isFruit0 :: forall a. a -> Bool
+isApple1 :: forall a. forall b. (a -> Bool) -> b -> Bool
+isBanana2 :: forall a. forall b. (a -> Bool) -> b -> Bool
+isFig3 :: forall a. forall b. (a -> Bool) -> b -> Bool
+mkApple4 :: forall a. a
+mkBanana5 :: forall a. Int -> a
+mkFig8 :: forall a. (Int, Real) -> a
+unApple11 :: forall a. a -> ()
+unBanana16 :: forall a. a -> Int
+unFig21 :: forall a. a -> (Int, Real)
+f126 :: forall a. a -> Int
