@@ -41,6 +41,10 @@ run: dist/bin/bsl | dist/bin
 test: dist/bin/test | dist/bin
 	dist/bin/test
 
+.PHONY: gentest
+gentest: dist/bin/test | dist/bin
+	dist/bin/test --generate_test_expectations
+
 .PHONY: ghci
 ghci: dist/hs/Parser.hs dist/hs/Lexer.hs | dist/hs dist/obj
 	ghci ${HS_FLAGS}
