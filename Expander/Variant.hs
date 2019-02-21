@@ -5,6 +5,8 @@ import qualified Data.Name as Name
 import Data.Source (Source(..))
 import qualified Data.Source as Source
 import Expander.Type
+import Monad.NameM (NameM)
+import qualified Monad.NameM as NameM
 
 -- Runtime.
 
@@ -28,9 +30,10 @@ genMkTagName = Name.untyped . ("mk" ++) . Name.nameStr
 genUnTagName :: Name -> Name
 genUnTagName = Name.untyped . ("un" ++) . Name.nameStr
 
-genCondResult :: Name -> Maybe Source -> Source
-genCondResult resultName guard =
-  CondS [([PatS resultName guard], IdS resultName)]
+genCondResult :: Monad m => Maybe Source -> NameM m Source
+genCondResult guard =
+  do resultName <- NameM.genNameM $ Name.untyped "r"
+     return $ CondS [([PatS resultName guard], IdS resultName)]
 
 -- | Generates a predicate for a variant tag.
 -- @
@@ -45,18 +48,17 @@ genCondResult resultName guard =
 -- isBanana = isVariant "Fruit" 1
 -- isFig = isVariant "Fruit" 2
 -- @
-genTagPredicate :: Name -> Name -> Int -> Source
+genTagPredicate :: Monad m => Name -> Name -> Int -> NameM m Source
 genTagPredicate typeName tagName tagNum =
-  FnDefS (PatS (genIsTagName tagName) Nothing) Nothing body []
+  do fnName <- NameM.genNameM $ Name.untyped "fn"
+     argName <- NameM.genNameM $ Name.untyped "arg"
+     return $ FnDefS (PatS (genIsTagName tagName) Nothing) Nothing (body fnName argName) []
   where
-    fnName = Name.untyped "fn"
-    argName = Name.untyped "arg"
-
-    condBody =
+    condBody fnName argName =
       Source.listToApp [IdS isVariantName, Source.stringS (Name.nameStr typeName), Source.intS tagNum, IdS fnName, IdS argName]
 
-    body =
-      CondS [([PatS fnName Nothing, PatS argName (Just . IdS $ genIsTypeName typeName)], condBody)]
+    body fnName argName =
+      CondS [([PatS fnName Nothing, PatS argName (Just . IdS $ genIsTypeName typeName)], condBody fnName argName)]
 
 -- | Generates a constructor for a variant tag.
 -- @
@@ -71,23 +73,24 @@ genTagPredicate typeName tagName tagNum =
 -- mkBanana x@isInt = mkVariant "Fruit" 1 x
 -- mkFig x@(@isInt, @isReal) = mkVariant "Fruit" 2 x
 -- @
-genTagConstructor :: Name -> Name -> Int -> Source -> Source
+genTagConstructor :: Monad m => Name -> Name -> Int -> Source -> NameM m Source
 genTagConstructor typeName tagName tagNum pat =
-  FnDefS (PatS (genMkTagName tagName) Nothing) Nothing (body pat) []
+  do body <- genBody pat
+     return $ FnDefS (PatS (genMkTagName tagName) Nothing) Nothing body []
   where
-    argName = Name.untyped "arg"
-    resultName = Name.untyped "r"
+    genCondBody binder =
+      do condResult <- genCondResult . Just . IdS $ genIsTypeName typeName
+         return $ condResult `AppS`
+           Source.listToApp [IdS mkVariantName, Source.stringS (Name.nameStr typeName), Source.intS tagNum, binder]
 
-    condBody binder =
-      genCondResult resultName (Just . IdS $ genIsTypeName typeName) `AppS`
-        Source.listToApp [IdS mkVariantName, Source.stringS (Name.nameStr typeName), Source.intS tagNum, binder]
-
-    body src@(TupleS []) =
-      condBody src
-    body src@(PatS binder _) =
-      CondS [([src], condBody (IdS binder))]
-    body src =
-      body . PatS argName $ Just src
+    genBody src@(TupleS []) =
+      genCondBody src
+    genBody src@(PatS binder _) =
+      do condBody <- genCondBody $ IdS binder
+         return $ CondS [([src], condBody)]
+    genBody src =
+      do argName <- NameM.genNameM $ Name.untyped "arg"
+         genBody . PatS argName $ Just src
 
 -- | Generates a deconstructor for a variant tag.
 -- @
@@ -102,19 +105,20 @@ genTagConstructor typeName tagName tagNum pat =
 -- unBanana x@isFruit = (r@isInt -> r) $ unVariant x
 -- unFig x@isFruit = (r@(@isInt, @isReal) -> r) $ unVariant x
 -- @
-genTagDeconstructor :: Name -> Name -> Source -> Source
+genTagDeconstructor :: Monad m => Name -> Name -> Source -> NameM m Source
 genTagDeconstructor typeName tagName pat =
-  FnDefS (PatS (genUnTagName tagName) Nothing) Nothing body []
+  do body <- genBody
+     return $ FnDefS (PatS (genUnTagName tagName) Nothing) Nothing body []
   where
-    argName = Name.untyped "arg"
-    resultName = Name.untyped "r"
-
     guard (PatS _ (Just src)) = Just src
     guard (PatS _ Nothing) = Nothing
     guard src = Just src
 
-    condBody =
-      genCondResult resultName (guard pat) `AppS` (IdS unVariantName `AppS` IdS argName)
+    genCondBody argName =
+      do condResult <- genCondResult (guard pat)
+         return $ condResult `AppS` (IdS unVariantName `AppS` IdS argName)
 
-    body =
-      CondS [([PatS argName (Just . IdS $ genIsTypeName typeName)], condBody)]
+    genBody =
+      do argName <- NameM.genNameM $ Name.untyped "arg"
+         condBody <- genCondBody argName
+         return $ CondS [([PatS argName (Just . IdS $ genIsTypeName typeName)], condBody)]

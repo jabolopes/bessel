@@ -331,11 +331,11 @@ expandTuple srcs =
 
 expandTypeDecl :: Name -> [(Name, Source)] -> ExpanderM [Expr]
 expandTypeDecl typeName tags =
-  do let srcs = typePredicates ++ tagPredicates ++ tagConstructors ++ tagDeconstructors
+  do srcs <- sequence $ typePredicates ++ tagPredicates ++ tagConstructors ++ tagDeconstructors
      concat <$> mapM expandSource srcs
   where
     typePredicates =
-      [ Type.genTypePredicate typeName ]
+      [ return $ Type.genTypePredicate typeName ]
 
     tagPredicates =
       [ Variant.genTagPredicate typeName tagName tagNum |
