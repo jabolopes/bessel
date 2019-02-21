@@ -29,20 +29,23 @@ isValidName str = all (/= "") $ Utils.splitId str
 empty :: Name
 empty = Name "" Nothing
 
-name :: Monad m => String -> Maybe Type -> m Name
-name str typ
+mkName :: Monad m => String -> Maybe Type -> m Name
+mkName str typ
   | isValidName str = return $ Name str typ
   | otherwise = fail $ "Invalid name " ++ show str
 
 -- TODO: make monadic smart constructor.
 untyped :: String -> Name
 untyped str =
-  case name str Nothing of
+  case mkName str Nothing of
     Left err -> error err
     Right x -> x
 
 typed :: Monad m => String -> Type -> m Name
 typed str = name str . Just
+
+rename :: Monad m => Name -> String -> m Name
+rename name str = mkName str $ nameType name
 
 isEmptyName :: Name -> Bool
 isEmptyName = null . nameStr

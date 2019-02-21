@@ -131,14 +131,14 @@ renameM (FnDecl Def name body) =
   if name `elem` Expr.freeVars body
   then do
     newName <- genNameM $ Name.nameStr name
-    name' <- Name.name newName $ Name.nameType name
+    name' <- Name.rename name newName
     addFnSymbolM (Name.nameStr name) (Name.nameStr name')
     Utils.returnOne $ FnDecl Def name' <$> renameOneM body
   else
     renameM (FnDecl NrDef name body)
 renameM (FnDecl NrDef name body) =
   do newName <- genNameM $ Name.nameStr name
-     name' <- Name.name newName $ Name.nameType name
+     name' <- Name.rename name newName
      body' <- renameOneM body
      addFnSymbolM (Name.nameStr name) (Name.nameStr name')
      Utils.returnOne . return $ FnDecl NrDef name' body'
