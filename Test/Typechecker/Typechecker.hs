@@ -88,34 +88,34 @@ initialRenamerState =
          Renamer.addFnSymbolM "mkVariant#" "mkVariant#"
          Renamer.addFnSymbolM "unVariant#" "unVariant#"
 
-lookupTypedNames :: Monad m => Context -> Expr -> m [Name]
+lookupTypedNames :: Context -> Expr -> [Name]
 lookupTypedNames context = lookupNames
   where
-    lookupTypedName :: Monad m => Name -> m [Name]
+    lookupTypedName :: Name -> [Name]
     lookupTypedName name =
-      do name' <- Typechecker.lookupName context name
-         case Name.nameType name' of
-           Nothing -> return []
-           _ -> return [name']
+      let name' = Typechecker.lookupName context name in
+      case Name.nameType name' of
+        Nothing -> []
+        _ -> [name']
 
-    lookupNames :: Monad m => Expr -> m [Name]
+    lookupNames :: Expr -> [Name]
     lookupNames (AnnotationE expr _) =
       lookupNames expr
     lookupNames (AppE fn arg) =
-      (++) <$> lookupNames fn <*> lookupNames arg
+      lookupNames fn ++ lookupNames arg
     lookupNames (CondE matches) =
-      concat <$> (forM matches $ \(match, body) ->
-                   (++) <$> lookupNames match <*> lookupNames body)
+      concat $ (forM matches $ \(match, body) ->
+                   lookupNames match ++ lookupNames body)
     lookupNames (FnDecl _ name expr) =
-      (++) <$> lookupTypedName name <*> lookupNames expr
+      lookupTypedName name ++ lookupNames expr
     lookupNames IdE {} =
-      return []
+      []
     lookupNames (LambdaE name expr) =
-      (++) <$> lookupTypedName name <*> lookupNames expr
+      lookupTypedName name ++ lookupNames expr
     lookupNames (LetE defn body) =
-      (++) <$> lookupNames defn <*> lookupNames body
+      lookupNames defn ++ lookupNames body
     lookupNames LiteralE {} =
-      return []
+      []
 
 typecheckTestFile :: Context -> String -> IO (Either PrettyString [Name])
 typecheckTestFile initialContext filename = Right <$> typecheckFile
@@ -155,8 +155,8 @@ typecheckTestFile initialContext filename = Right <$> typecheckFile
            Left err ->
              fail $ show (err :: PrettyString)
            Right (context', _) ->
-             do expr' <- lookupTypedNames context' expr
-                (expr'++) <$> typecheckExprs context' exprs
+             do let names = lookupTypedNames context' expr
+                (names++) <$> typecheckExprs context' exprs
 
     typecheckFile =
       do exprs <- renameFile

@@ -41,8 +41,8 @@ untyped str =
     Left err -> error err
     Right x -> x
 
-typed :: Monad m => String -> Type -> m Name
-typed str = name str . Just
+annotate :: Name -> Type -> Name
+annotate name typ = name { nameType = Just typ }
 
 rename :: Monad m => Name -> String -> m Name
 rename name str = mkName str $ nameType name

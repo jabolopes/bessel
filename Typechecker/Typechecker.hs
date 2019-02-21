@@ -8,6 +8,7 @@ import Control.Monad (foldM, liftM)
 import Control.Monad.State.Class
 import Control.Monad.Trans.State (StateT, runStateT)
 import qualified Data.List as List
+import Data.Maybe (fromJust)
 import qualified Data.Set as Set
 
 import Data.Expr (DefnKw(..), Expr(..))
@@ -319,16 +320,28 @@ synthesize context (CondE matches) =
          context''' <- checkMatches context'' matches typ
          return (context''', typ)
 -- FnDecl (NrDef)
-synthesize context (FnDecl NrDef fnName fnBody) =
-  do (context', fnBodyType) <- synthesize context fnBody
-     let context'' = Context.appendTermAssign context' (IdE fnName) fnBodyType
-     return (context'', fnBodyType)
+synthesize context (FnDecl NrDef fnName fnBody)
+  | Name.hasType fnName =
+    do let fnBodyType = fromJust $ Name.nameType fnName
+       context' <- check context fnBody fnBodyType
+       let context'' = Context.appendTermAssign context' (IdE fnName) fnBodyType
+       return (context'', fnBodyType)
+  | otherwise =
+    do (context', fnBodyType) <- synthesize context fnBody
+       let context'' = Context.appendTermAssign context' (IdE fnName) fnBodyType
+       return (context'', fnBodyType)
 -- FnDecl (Def)
-synthesize context (FnDecl Def fnName fnBody) =
-  do existVar <- genExistVar
-     let context' =
-           Context.appendTermAssign (context `Context.appendType` existVar) (IdE fnName) existVar
-     synthesize context' fnBody
+synthesize context (FnDecl Def fnName fnBody)
+  | Name.hasType fnName =
+    do let fnBodyType = fromJust $ Name.nameType fnName
+       let context' = Context.appendTermAssign context (IdE fnName) fnBodyType
+       context'' <- check context' fnBody fnBodyType
+       return (context'', fnBodyType)
+  | otherwise =
+    do existVar <- genExistVar
+       let context' =
+             Context.appendTermAssign (context `Context.appendType` existVar) (IdE fnName) existVar
+       synthesize context' fnBody
 -- Let
 synthesize context (LetE fnDecl body) =
   do (context', _) <- synthesize context fnDecl
@@ -374,11 +387,11 @@ typecheck context term checkType =
          return (context', typ)
 
 -- | lookupName returns the 'name' and possibly a fully resolved type.
-lookupName :: Monad m => Context -> Name -> m Name
+lookupName :: Context -> Name -> Name
 lookupName context name =
   case Context.lookupTerm context name of
     Nothing ->
-      return name
+      name
     Just typ ->
       let typ' = Type.rebuildForall $ Context.substitute context typ in
-      Name.typed (Name.nameStr name) typ'
+      Name.annotate name typ'
