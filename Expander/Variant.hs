@@ -30,10 +30,12 @@ genMkTagName = Name.untyped . ("mk" ++) . Name.nameStr
 genUnTagName :: Name -> Name
 genUnTagName = Name.untyped . ("un" ++) . Name.nameStr
 
-genCondResult :: Monad m => Maybe Source -> NameM m Source
-genCondResult guard =
+genCondResult :: Monad m => Source -> NameM m Source
+genCondResult src@(PatS binder _) =
+  return $ CondS [([src], IdS binder)]
+genCondResult src =
   do resultName <- NameM.genNameM $ Name.untyped "r"
-     return $ CondS [([PatS resultName guard], IdS resultName)]
+     genCondResult . PatS resultName $ Just src
 
 -- | Generates a predicate for a variant tag.
 -- @
@@ -79,7 +81,7 @@ genTagConstructor typeName tagName tagNum pat =
      return $ FnDefS (PatS (genMkTagName tagName) Nothing) Nothing body []
   where
     genCondBody binder =
-      do condResult <- genCondResult . Just . IdS $ genIsTypeName typeName
+      do condResult <- genCondResult . IdS $ genIsTypeName typeName
          return $ condResult `AppS`
            Source.listToApp [IdS mkVariantName, Source.stringS (Name.nameStr typeName), Source.intS tagNum, binder]
 
@@ -110,12 +112,8 @@ genTagDeconstructor typeName tagName pat =
   do body <- genBody
      return $ FnDefS (PatS (genUnTagName tagName) Nothing) Nothing body []
   where
-    guard (PatS _ (Just src)) = Just src
-    guard (PatS _ Nothing) = Nothing
-    guard src = Just src
-
     genCondBody argName =
-      do condResult <- genCondResult (guard pat)
+      do condResult <- genCondResult pat
          return $ condResult `AppS` (IdS unVariantName `AppS` IdS argName)
 
     genBody =
