@@ -46,9 +46,9 @@ genCondResult src =
 -- @
 --
 -- @
--- isApple = isVariant "Fruit" 0
--- isBanana = isVariant "Fruit" 1
--- isFig = isVariant "Fruit" 2
+-- isApple fn arg@isFruit = isVariant "Fruit" 0 fn arg
+-- isBanana fn arg@isFruit  = isVariant "Fruit" 1 fn arg
+-- isFig fn arg@isFruit = isVariant "Fruit" 2 fn arg
 -- @
 genTagPredicate :: Monad m => Name -> Name -> Int -> NameM m Source
 genTagPredicate typeName tagName tagNum =
@@ -71,9 +71,9 @@ genTagPredicate typeName tagName tagNum =
 -- @
 --
 -- @
--- mkApple = mkVariant "Fruit" 0 ()
--- mkBanana x@isInt = mkVariant "Fruit" 1 x
--- mkFig x@(@isInt, @isReal) = mkVariant "Fruit" 2 x
+-- mkApple = (r@isFruit = r) $ mkVariant "Fruit" 0 ()
+-- mkBanana arg@isInt = (r@isFruit = r) $ mkVariant "Fruit" 1 arg
+-- mkFig x@(@isInt, @isReal) = (r@isFruit = r) $ mkVariant "Fruit" 2 x
 -- @
 genTagConstructor :: Monad m => Name -> Name -> Int -> Source -> NameM m Source
 genTagConstructor typeName tagName tagNum pat =
@@ -99,13 +99,13 @@ genTagConstructor typeName tagName tagNum pat =
 -- type Fruit =
 --   = Apple
 --   | Banana @isInt
---   | Fig (@isInt, @isReal)
+--   | Fig x@(@isInt, @isReal)
 -- @
 --
 -- @
--- unApple x@isFruit = (r@() -> r) $ unVariant x
--- unBanana x@isFruit = (r@isInt -> r) $ unVariant x
--- unFig x@isFruit = (r@(@isInt, @isReal) -> r) $ unVariant x
+-- unApple arg@isFruit = (r@() -> r) $ unVariant arg
+-- unBanana arg@isFruit = (r@isInt -> r) $ unVariant arg
+-- unFig arg@isFruit = (x@(@isInt, @isReal) -> x) $ unVariant arg
 -- @
 genTagDeconstructor :: Monad m => Name -> Name -> Source -> NameM m Source
 genTagDeconstructor typeName tagName pat =
