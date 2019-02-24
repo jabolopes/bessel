@@ -1,18 +1,23 @@
-{-# LANGUAGE ParallelListComp #-}
+{-# LANGUAGE FlexibleContexts, ParallelListComp #-}
 module Expander.Pattern where
 
-import Prelude hiding (mod)
+import Prelude hiding (pred, mod)
+
+import Control.Monad.Except (MonadError, throwError)
 
 import qualified Data.List as List
 
 import Data.Literal (Literal(..))
 import Data.Name (Name)
 import qualified Data.Name as Name
+import Data.PrettyString (PrettyString)
 import Data.Source (Source(..))
 import qualified Data.Source as Source
 import qualified Expander.Variant as Variant
 import Monad.NameM (NameM)
 import qualified Monad.NameM as NameM
+import qualified Pretty.Data.Source as Pretty
+import qualified Pretty.Stage.Expander as Pretty
 
 -- Runtime.
 
@@ -154,3 +159,90 @@ genLiteralPredicate CharL {} = (Name.untyped "isChar#", Name.untyped "eqChar#")
 genLiteralPredicate IntL {} = (Name.untyped "isInt#", Name.untyped "eqInt#")
 genLiteralPredicate RealL {} = (Name.untyped "isReal#", Name.untyped "eqReal#")
 genLiteralPredicate StringL {} = (Name.untyped "isString#", Name.untyped "eqString#")
+
+-- | Generates a predicate for a pattern.
+--
+-- @
+-- x
+-- x@isInt
+-- (x@ +> xs@)
+-- x@[@, @]
+-- x@1
+-- x@"ola"
+-- ()
+-- (x@isInt, y@isReal)
+-- @
+--
+-- @
+-- const true
+-- isInt
+-- isHeadTail (const true) (const true)
+-- isList [const true, const true]
+-- \arg -> isInt arg && eqInt arg 1
+-- isString
+-- isTuple0
+-- isTuple2 (isInt, isReal)
+-- @
+genPatternPredicate :: MonadError PrettyString m => Source -> NameM m Source
+genPatternPredicate = genPredicate
+  where
+    genTagPredicate [IdS typeName] =
+      AppS (IdS $ Variant.genIsTagName typeName) <$> genPredicate (TupleS [])
+    genTagPredicate (IdS typeName:srcs) =
+      do args <- mapM genPredicate srcs
+         return . Source.listToApp $ (IdS $ Variant.genIsTagName typeName):args
+    genTagPredicate srcs =
+      throwError . Pretty.devTypePat . Pretty.docSource $ Source.listToApp srcs
+
+    genBinOpPredicate "+>" pat1 pat2 =
+      do pred1 <- genPredicate pat1
+         pred2 <- genPredicate pat2
+         return $ Source.listToApp [IdS isHeadTailName, pred1, pred2]
+    genBinOpPredicate op pat1 pat2 =
+      throwError . Pretty.devUnhandled "Stage.Expander.patPred.genBinOpPredicate" . Pretty.docSource $
+        BinOpS op pat1 pat2
+
+    genLiteral literal =
+      do let (isFn, eqFn) = genLiteralPredicate literal
+         argName <- NameM.genNameM $ Name.untyped "arg"
+         return $ CondS [([PatS argName Nothing],
+                          (IdS isFn `AppS` IdS argName) `AndS`
+                           (Source.listToApp [IdS eqFn, LiteralS literal, IdS argName]))]
+
+    genPatPredicate Nothing =
+      return $ CondS [([Source.allPat], Source.idS "true#")]
+    genPatPredicate (Just src) =
+      genPredicate src
+
+    genListPredicate pats =
+      do srcs <- mapM genPredicate pats
+         return $ Source.listToApp [IdS isListName, SeqS srcs]
+
+    genTuplePredicate [] =
+      return . IdS $ isTupleName 0
+    genTuplePredicate [pat] =
+      genPredicate pat
+    genTuplePredicate pats =
+      do srcs <- mapM genPredicate pats
+         return $ Source.listToApp [IdS . isTupleName $ length pats, TupleS srcs]
+
+    genPredicate src
+      | Source.isTypePat src = genTagPredicate (Source.appToList src)
+    genPredicate src@AppS {} =
+      case Source.toSource src of
+        Just x -> return x
+        _ -> throwError . Pretty.devSourceApp $ Pretty.docSource src
+    genPredicate (BinOpS op pat1 pat2) =
+      genBinOpPredicate op pat1 pat2
+    genPredicate pred@IdS {} =
+      return pred
+    genPredicate (LiteralS literal) =
+      genLiteral literal
+    genPredicate (PatS _ pat) =
+      genPatPredicate pat
+    genPredicate (SeqS pats) =
+      genListPredicate pats
+    genPredicate (TupleS pats) =
+      genTuplePredicate pats
+    genPredicate src =
+      throwError . Pretty.devUnhandled "Expander.Pattern.genPatternPredicate.genPredicate" $ Pretty.docSource src
