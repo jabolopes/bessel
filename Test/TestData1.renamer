@@ -13,7 +13,7 @@ let nonrec f10 =
           let nonrec f25 =
             \z#26 ->
               cond
-                (\_7 -> true#) z#26 ->
-                  let nonrec z8 = z#26 in
-                  + z8 y4 in
+                true# ->
+                  let nonrec z7 = z#26 in
+                  + z7 y4 in
           f25 x3

@@ -11,12 +11,7 @@ let nonrec f =
           let nonrec x = x#0 in
           let nonrec y = y#1 in
           true
-        cond
-          (\_ -> true#) x#0 ->
-            cond
-              (\_ -> true#) y#1 -> true#
-              true# -> false#
-          true# -> false# ->
+        true# ->
           let nonrec x = x#0 in
           let nonrec y = y#1 in
           false

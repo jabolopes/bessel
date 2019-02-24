@@ -6,8 +6,8 @@ let nonrec f10 =
         let nonrec f23 =
           \z#14 ->
             cond
-              (\_5 -> true#) z#14 ->
-                let nonrec z6 = z#14 in
-                + z6 1 in
-        let nonrec y7 = 0 in
-        f23 y7
+              true# ->
+                let nonrec z5 = z#14 in
+                + z5 1 in
+        let nonrec y6 = 0 in
+        f23 y6

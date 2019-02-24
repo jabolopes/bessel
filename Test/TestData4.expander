@@ -26,13 +26,7 @@ let rec eq =
                   eqSeq zs ws -> true#
                   true# -> false#
               true# -> false#
-          cond
-            (\_ -> true#) arg#0 ->
-              cond
-                (\_ -> true#) arg#1 -> true#
-                true# -> false#
-            true# -> false# ->
-            false in
+          true# -> false in
   \x#2 ->
     \y#3 ->
       cond
@@ -45,12 +39,7 @@ let rec eq =
           let nonrec x = x#2 in
           let nonrec y = y#3 in
           eqInt x y
-        cond
-          (\_ -> true#) x#2 ->
-            cond
-              (\_ -> true#) y#3 -> true#
-              true# -> false#
-          true# -> false# ->
+        true# ->
           let nonrec x = x#2 in
           let nonrec y = y#3 in
           eqSeq x y

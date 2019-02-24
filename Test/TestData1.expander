@@ -13,7 +13,7 @@ let nonrec f1 =
           let nonrec f2 =
             \z#2 ->
               cond
-                (\_ -> true#) z#2 ->
+                true# ->
                   let nonrec z = z#2 in
                   + z y in
           f2 x

@@ -6,6 +6,7 @@ import Prelude hiding (mod, pred)
 import Control.Applicative ((<$>), (<*>))
 import Control.Arrow ((***))
 import Control.Monad.Error.Class (throwError)
+import Data.Maybe (catMaybes)
 
 import Data.Literal (Literal(..))
 import Data.Expr (DefnKw(..), Expr(..))
@@ -110,6 +111,13 @@ patPred = sourcePred
     sourcePred src =
       throwError . Pretty.devUnhandled "Stage.Expander.patPred.sourcePred" $ Pretty.docSource src
 
+genPatternApplication :: Source -> Name -> ExpanderM (Maybe Expr)
+genPatternApplication (PatS _ Nothing) _ =
+  return Nothing
+genPatternApplication pat arg =
+  do pred <- patPred pat
+     return . Just $ pred `AppE` IdE arg
+
 -- Expand conds.
 
 -- | Generates an expression by expanding patterns to their respective definitions.
@@ -155,12 +163,11 @@ expandMatch :: [Name] -> [Source] -> Source -> ExpanderM (Expr, Expr)
 expandMatch args pats body =
   (,) <$> andPred <*> expandMatchBody args pats body
   where
-    applyPred arg pat =
-      do pred <- patPred pat
-         return . AppE pred $ IdE arg
-
     andPred =
-      foldl1 Expr.andE <$> sequence [ applyPred arg pat | arg <- args | pat <- pats ]
+      do exprs <- catMaybes <$> sequence [ genPatternApplication pat arg | pat <- pats | arg <- args ]
+         case exprs of
+           [] -> return $ Expr.trueE
+           _ -> return $ foldl1 Expr.andE exprs
 
 expandMatches :: [Name] -> [([Source], Source)] -> ExpanderM [(Expr, Expr)]
 expandMatches names = loop

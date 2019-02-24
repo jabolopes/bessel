@@ -3,12 +3,7 @@ let nonrec isApple =
   \fn#0#15 ->
     \arg#1#16 ->
       cond
-        cond
-          (\_ -> true#) fn#0#15 ->
-            cond
-              isFruit arg#1#16 -> true#
-              true# -> false#
-          true# -> false# ->
+        isFruit arg#1#16 ->
           let nonrec fn#0 = fn#0#15 in
           let nonrec arg#1 = arg#1#16 in
           isVariant# "Fruit" 0 fn#0 arg#1
@@ -16,12 +11,7 @@ let nonrec isBanana =
   \fn#2#17 ->
     \arg#3#18 ->
       cond
-        cond
-          (\_ -> true#) fn#2#17 ->
-            cond
-              isFruit arg#3#18 -> true#
-              true# -> false#
-          true# -> false# ->
+        isFruit arg#3#18 ->
           let nonrec fn#2 = fn#2#17 in
           let nonrec arg#3 = arg#3#18 in
           isVariant# "Fruit" 1 fn#2 arg#3
@@ -29,12 +19,7 @@ let nonrec isFig =
   \fn#4#19 ->
     \arg#5#20 ->
       cond
-        cond
-          (\_ -> true#) fn#4#19 ->
-            cond
-              isFruit arg#5#20 -> true#
-              true# -> false#
-          true# -> false# ->
+        isFruit arg#5#20 ->
           let nonrec fn#4 = fn#4#19 in
           let nonrec arg#5 = arg#5#20 in
           isVariant# "Fruit" 2 fn#4 arg#5
