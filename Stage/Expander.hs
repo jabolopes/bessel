@@ -194,18 +194,16 @@ expandMatches names = loop
 expandCond :: [([Source], Source)] -> ExpanderM Expr
 expandCond matches =
   do let args = head . fst . unzip $ matches
-     case checkMatches (length args) matches of
-       Left err ->
-         throwError err
-       Right () ->
-         do argNames <- Pattern.genPatNames args
-            matches' <- expandMatches argNames matches
-            return . lambdas argNames $ CondE matches'
+     () <- checkMatches (length args) matches
+     argNames <- Pattern.genPatNames args
+     matches' <- expandMatches argNames matches
+     return . lambdas argNames $ CondE matches'
   where
-    checkMatches _ [] = Right ()
+    checkMatches :: Int -> [([Source], Source)] -> ExpanderM ()
+    checkMatches _ [] = return ()
     checkMatches n ((args, _):matches')
       | length args == n = checkMatches n matches'
-      | otherwise = Left . Pretty.condMatchPatternsMismatch . Pretty.docCond $ matches
+      | otherwise = throwError . Pretty.condMatchPatternsMismatch . Pretty.docCond $ matches
 
     lambdas [] body = body
     lambdas (arg:args) body =
