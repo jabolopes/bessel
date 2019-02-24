@@ -199,7 +199,7 @@ testTypechecker generateTestExpectations =
        ("head#", forall 'a' (Arrow (Type.ListT (typeVar 'a')) (typeVar 'a'))),
        ("tail#", forall 'a' (Arrow (Type.ListT (typeVar 'a')) (Type.ListT (typeVar 'a')))),
        ("eqInt", Arrow Type.intT (Arrow Type.intT Type.boolT)),
-       ("cons", Arrow Type.intT (Arrow (Type.ListT Type.intT) (Type.ListT Type.intT))),
+       ("cons", forall 'a' (Arrow (typeVar 'a') (Arrow (Type.ListT (typeVar 'a')) (Type.ListT (typeVar 'a'))))),
        ("case", forall 'a' (forall 'b' (Arrow (typeVar 'a') (Arrow (Arrow (typeVar 'a') (typeVar 'b')) (typeVar 'b'))))),
        -- Tuple
        ("isTuple0", Type.unitT `Arrow` Type.boolT),
