@@ -77,13 +77,11 @@ let nonrec patBinOp =
         let nonrec x = head# arg#0 in
         let nonrec y = tail# arg#0 in
         cons x y
-let nonrec patAll = \arg#0 -> cond true# -> 0
+let nonrec patAll = \arg#0 -> 0
 let nonrec patBind =
   \x#0 ->
-    cond
-      true# ->
-        let nonrec x = x#0 in
-        x
+    let nonrec x = x#0 in
+    x
 let nonrec patGuard = \arg#0 -> cond isInt arg#0 -> 0
 let nonrec patBindGuard =
   \x#0 ->

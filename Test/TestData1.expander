@@ -12,8 +12,6 @@ let nonrec f1 =
           let nonrec y = y#1 in
           let nonrec f2 =
             \z#2 ->
-              cond
-                true# ->
-                  let nonrec z = z#2 in
-                  + z y in
+              let nonrec z = z#2 in
+              + z y in
           f2 x

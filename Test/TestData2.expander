@@ -5,9 +5,7 @@ let nonrec f1 =
         let nonrec x = x#0 in
         let nonrec f2 =
           \z#1 ->
-            cond
-              true# ->
-                let nonrec z = z#1 in
-                + z 1 in
+            let nonrec z = z#1 in
+            + z 1 in
         let nonrec y = 0 in
         f2 y

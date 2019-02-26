@@ -1,4 +1,4 @@
-{-# LANGUAGE ParallelListComp, TupleSections #-}
+{-# LANGUAGE LambdaCase, ParallelListComp, TupleSections #-}
 module Stage.Expander where
 
 import Prelude hiding (mod, pred)
@@ -118,6 +118,12 @@ genPatternApplication pat arg =
   do pred <- patPred pat
      return . Just $ pred `AppE` IdE arg
 
+genPatternApplications :: [Source] -> [Name] -> ExpanderM (Maybe Expr)
+genPatternApplications pats args =
+  catMaybes <$> sequence [ genPatternApplication pat arg | pat <- pats | arg <- args ] >>= \case
+    [] -> return Nothing
+    exprs -> return . Just $ foldl1 Expr.andE exprs
+
 -- Expand conds.
 
 -- | Generates an expression by expanding patterns to their respective definitions.
@@ -159,22 +165,25 @@ expandMatchBody args pats body =
 -- @
 --
 -- The above code is a simplification because '&&' is encoded through 'CondE'.
-expandMatch :: [Name] -> [Source] -> Source -> ExpanderM (Expr, Expr)
-expandMatch args pats body =
-  (,) <$> andPred <*> expandMatchBody args pats body
-  where
-    andPred =
-      do exprs <- catMaybes <$> sequence [ genPatternApplication pat arg | pat <- pats | arg <- args ]
-         case exprs of
-           [] -> return $ Expr.trueE
-           _ -> return $ foldl1 Expr.andE exprs
+expandMatch :: [Name] -> ([Source], Source) -> ExpanderM (Maybe Expr, Expr)
+expandMatch args (pats, body) =
+  do predicates <- genPatternApplications pats args
+     body' <- expandMatchBody args pats body
+     return (predicates, body')
 
-expandMatches :: [Name] -> [([Source], Source)] -> ExpanderM [(Expr, Expr)]
-expandMatches names = loop
+expandMatches :: [Name] -> [([Source], Source)] -> ExpanderM Expr
+expandMatches args [match] =
+  expandMatch args match >>= \case
+    (Nothing, body) -> return body
+    (Just pred, body) -> return $ CondE [(pred, body)]
+expandMatches args matches = CondE . fillTrivialPredicates <$> mapM (expandMatch args) matches
   where
-    loop [] = return []
-    loop ((pats, body):ms) =
-      (:) <$> expandMatch names pats body <*> loop ms
+    fillTrivialPredicates [] =
+      []
+    fillTrivialPredicates ((Nothing, body):ms) =
+      (Expr.trueE, body):fillTrivialPredicates ms
+    fillTrivialPredicates ((Just pred, body):ms) =
+      (pred, body):fillTrivialPredicates ms
 
 -- | Expands a cond, returning the expanded lambdas and cond.
 -- Example:
@@ -204,7 +213,7 @@ expandCond matches =
      () <- checkMatches (length args) matches
      argNames <- Pattern.genPatNames args
      matches' <- expandMatches argNames matches
-     return . lambdas argNames $ CondE matches'
+     return $ lambdas argNames matches'
   where
     checkMatches :: Int -> [([Source], Source)] -> ExpanderM ()
     checkMatches _ [] = return ()
