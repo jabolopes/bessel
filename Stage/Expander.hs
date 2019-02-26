@@ -6,7 +6,6 @@ import Prelude hiding (mod, pred)
 import Control.Applicative ((<$>), (<*>))
 import Control.Arrow ((***))
 import Control.Monad.Error.Class (throwError)
-import Data.Maybe (catMaybes)
 
 import Data.Literal (Literal(..))
 import Data.Expr (DefnKw(..), Expr(..))
@@ -111,20 +110,48 @@ patPred = sourcePred
     sourcePred src =
       throwError . Pretty.devUnhandled "Stage.Expander.patPred.sourcePred" $ Pretty.docSource src
 
-genPatternApplication :: Source -> Name -> ExpanderM (Maybe Expr)
-genPatternApplication (PatS _ Nothing) _ =
-  return Nothing
-genPatternApplication pat arg =
-  do pred <- patPred pat
-     return . Just $ pred `AppE` IdE arg
-
-genPatternApplications :: [Source] -> [Name] -> ExpanderM (Maybe Expr)
-genPatternApplications pats args =
-  catMaybes <$> sequence [ genPatternApplication pat arg | pat <- pats | arg <- args ] >>= \case
-    [] -> return Nothing
-    exprs -> return . Just $ foldl1 Expr.andE exprs
-
 -- Expand conds.
+
+data MatchPredicate
+  -- | Trivial match predicate.
+  -- @
+  -- x y = ...
+  -- @
+  -- is equivalent to:
+  -- @
+  -- (\_ -> true#) x && (\_ -> true#) y
+  -- @
+  = Trivial
+  -- | Non-trivial match predicate.
+  -- @
+  -- x@pat1 y@pat2 = ...
+  -- @
+  -- expands into:
+  -- @
+  -- pred1 x && pred2 y
+  -- @
+  --
+  -- The above code is a simplification because '&&' is encoded through 'CondE'.
+  | NonTrivial Expr
+
+genMatchPredicate :: Source -> Name -> ExpanderM MatchPredicate
+genMatchPredicate (PatS _ Nothing) _ =
+  return Trivial
+genMatchPredicate pat arg =
+  do pred <- patPred pat
+     return . NonTrivial $ pred `AppE` IdE arg
+
+-- | Same as 'genMatchPredicate' but predicates for multiple arguments
+-- are folded by '&&'.
+genMatchPredicates :: [Source] -> [Name] -> ExpanderM MatchPredicate
+genMatchPredicates pats args =
+  catNonTrivials <$> sequence [ genMatchPredicate pat arg | pat <- pats | arg <- args ] >>= \case
+    [] -> return Trivial
+    exprs -> return . NonTrivial $ foldl1 Expr.andE exprs
+  where
+    catNonTrivials [] = []
+    catNonTrivials (Trivial:xs) = catNonTrivials xs
+    catNonTrivials (NonTrivial expr:xs) = expr:catNonTrivials xs
 
 -- | Generates an expression by expanding patterns to their respective definitions.
 --
@@ -161,28 +188,28 @@ expandMatchBody args pats body =
 --    let x = ... in
 --    let y = ... in
 --    body2
---  _ _ -> blame "..."
 -- @
 --
 -- The above code is a simplification because '&&' is encoded through 'CondE'.
-expandMatch :: [Name] -> ([Source], Source) -> ExpanderM (Maybe Expr, Expr)
+expandMatch :: [Name] -> ([Source], Source) -> ExpanderM (MatchPredicate, Expr)
 expandMatch args (pats, body) =
-  do predicates <- genPatternApplications pats args
+  do predicates <- genMatchPredicates pats args
      body' <- expandMatchBody args pats body
      return (predicates, body')
 
 expandMatches :: [Name] -> [([Source], Source)] -> ExpanderM Expr
 expandMatches args [match] =
   expandMatch args match >>= \case
-    (Nothing, body) -> return body
-    (Just pred, body) -> return $ CondE [(pred, body)]
-expandMatches args matches = CondE . fillTrivialPredicates <$> mapM (expandMatch args) matches
+    (Trivial, body) -> return body
+    (NonTrivial pred, body) -> return $ CondE [(pred, body)]
+expandMatches args matches =
+  CondE . fillTrivialPredicates <$> mapM (expandMatch args) matches
   where
     fillTrivialPredicates [] =
       []
-    fillTrivialPredicates ((Nothing, body):ms) =
+    fillTrivialPredicates ((Trivial, body):ms) =
       (Expr.trueE, body):fillTrivialPredicates ms
-    fillTrivialPredicates ((Just pred, body):ms) =
+    fillTrivialPredicates ((NonTrivial pred, body):ms) =
       (pred, body):fillTrivialPredicates ms
 
 -- | Expands a cond, returning the expanded lambdas and cond.
