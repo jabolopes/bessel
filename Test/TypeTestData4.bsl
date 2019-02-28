@@ -1,4 +1,4 @@
-me Test.TestData4
+me Test.TypeTestData4
 
 let eq
   x@isInt y@isInt = eqInt x y
