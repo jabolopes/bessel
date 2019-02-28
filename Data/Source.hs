@@ -145,9 +145,6 @@ data Source
 appS :: Name -> Source -> Source
 appS name = AppS (IdS name)
 
-foldAppS :: Source -> [Source] -> Source
-foldAppS = foldr AppS
-
 listToApp :: [Source] -> Source
 listToApp = foldl1 AppS
 
