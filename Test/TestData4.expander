@@ -27,19 +27,14 @@ let rec eq =
                   true# -> false#
               true# -> false#
           true# -> false in
-  \x#2 ->
-    \y#3 ->
+  \x ->
+    \y ->
       cond
         cond
-          isInt x#2 ->
+          isInt x ->
             cond
-              isInt y#3 -> true#
+              isInt y -> true#
               true# -> false#
           true# -> false# ->
-          let nonrec x = x#2 in
-          let nonrec y = y#3 in
           eqInt x y
-        true# ->
-          let nonrec x = x#2 in
-          let nonrec y = y#3 in
-          eqSeq x y
+        true# -> eqSeq x y

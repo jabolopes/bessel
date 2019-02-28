@@ -1,11 +1,7 @@
 let nonrec f10 =
-  \x#01 ->
+  \x1 ->
     cond
-      isInt# x#01 ->
-        let nonrec x2 = x#01 in
-        let nonrec f23 =
-          \z#14 ->
-            let nonrec z5 = z#14 in
-            + z5 1 in
-        let nonrec y6 = 0 in
-        f23 y6
+      isInt# x1 ->
+        let nonrec f22 = \z3 -> + z3 1 in
+        let nonrec y4 = 0 in
+        f22 y4

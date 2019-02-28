@@ -77,26 +77,13 @@ let nonrec patBinOp =
         let nonrec x = head# arg#0 in
         let nonrec y = tail# arg#0 in
         cons x y
-let nonrec patAll = \arg#0 -> 0
-let nonrec patBind =
-  \x#0 ->
-    let nonrec x = x#0 in
-    x
+let nonrec patAll = \_ -> 0
+let nonrec patBind = \x -> x
 let nonrec patGuard = \arg#0 -> cond isInt arg#0 -> 0
-let nonrec patBindGuard =
-  \x#0 ->
-    cond
-      isInt x#0 ->
-        let nonrec x = x#0 in
-        x
+let nonrec patBindGuard = \x -> cond isInt x -> x
 let nonrec patEmptyList1 =
   \arg#0 -> cond isList# null arg#0 -> null
-let nonrec patEmptyList2 =
-  \x#0 ->
-    cond
-      isList# null x#0 ->
-        let nonrec x = x#0 in
-        x
+let nonrec patEmptyList2 = \x -> cond isList# null x -> x
 let nonrec patList1 =
   \arg#0 ->
     cond
@@ -139,12 +126,7 @@ let nonrec patList2 =
         0
 let nonrec patEmptyTuple1 =
   \arg#0 -> cond isTuple0 arg#0 -> mkTuple0
-let nonrec patEmptyTuple2 =
-  \x#0 ->
-    cond
-      isTuple0 x#0 ->
-        let nonrec x = x#0 in
-        x
+let nonrec patEmptyTuple2 = \x -> cond isTuple0 x -> x
 let nonrec patTuple1 =
   \arg#0 ->
     cond

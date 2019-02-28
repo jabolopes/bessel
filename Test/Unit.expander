@@ -1,7 +1,2 @@
-let nonrec f1 =
-  \t#0 ->
-    cond
-      isTuple0 t#0 ->
-        let nonrec t = t#0 in
-        mkTuple0
+let nonrec f1 = \t -> cond isTuple0 t -> mkTuple0
 let nonrec f2 = mkTuple0

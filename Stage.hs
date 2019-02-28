@@ -32,11 +32,12 @@ import qualified Utils
 -- edit: improve by a lot...
 definitionName :: Source -> Name
 definitionName (FnDefS (IdS name) _ _ _) = name
+definitionName (FnDefS (PatS name _) _ _ _) = name
 definitionName (FnDefS pat _ _ _) =
   let defns = Pattern.genPatternGetters undefined pat in
   case defns of
     [] -> error $ "Stage.definitionName: " ++
-                  PrettyString.toString (Pretty.docSource pat) ++
+                  PrettyString.toString (Pretty.docSource pat) ++ " " ++
                   PrettyString.toString (Pretty.docSourceList defns)
     _ -> Name.untyped . List.intercalate "+" $ map (\(FnDefS (PatS name _) _ _ _) -> Name.nameStr name) defns
 definitionName (TypeDeclS x _) = x

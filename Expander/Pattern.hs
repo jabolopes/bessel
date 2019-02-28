@@ -3,6 +3,8 @@ module Expander.Pattern where
 
 import Prelude hiding (mod)
 
+import qualified Data.List as List
+
 import Data.Literal (Literal(..))
 import Data.Name (Name)
 import qualified Data.Name as Name
@@ -37,20 +39,18 @@ isTupleName len = Name.untyped $ "isTuple" ++ show len
 
 -- | Generates names for the given patterns.
 -- @
--- genPatNames x       = "x#0"
--- genPatNames x@isInt = "x#0"
--- genPatNames  @      = "arg#0"
+-- genPatNames x       = "x"
+-- genPatNames x@isInt = "x"
+-- genPatNames  @      = "_"
 -- genPatNames  @isInt = "arg#0"
 -- @
 genPatNames :: Monad m => [Source] -> NameM m [Name]
 genPatNames = mapM genPatName
   where
-    genName name
-      | Name.isEmptyName name = NameM.genNameM $ Name.untyped "arg"
-      | otherwise = NameM.genNameM name
-
-    genPatName (PatS binder _) = genName binder
-    genPatName _ = genName Name.empty
+    genPatName (PatS binder Nothing)
+      | Name.isEmptyName binder = return $ Name.untyped "_"
+    genPatName (PatS binder _) = return binder
+    genPatName _ = NameM.genNameM $ Name.untyped "arg"
 
 -- Pattern definitions.
 
@@ -78,24 +78,22 @@ genPatternGetter binder mods val =
 --
 -- Example (list):
 -- @
--- xs@[x, y]
+-- xs@[x, y@isInt]
 -- @
 -- generates:
 -- @
--- let xs = x1#
--- let x = head# x1#
--- let y = head# (tail# x1#)
+-- let x = head# xs
+-- let y = head# (tail# xs)
 -- @
 --
 -- Example (tuple):
 -- @
--- xs@(x, y)
+-- xs@(x, y@isInt)
 -- @
 -- generates:
 -- @
--- let xs = x1#
--- let x = tuple2Ref0 x1#
--- let y = tuple2Ref1 x1#
+-- let x = tuple2Ref0 xs
+-- let y = tuple2Ref1 xs
 -- @
 genPatternGetters :: Source -> Source -> [Source]
 genPatternGetters val = genGetters []
@@ -109,6 +107,7 @@ genPatternGetters val = genGetters []
       where
         binderGetter
           | Name.isEmptyName binder = []
+          | List.null mods = []
           | otherwise = (:[]) $ genPatternGetter binder mods val
 
         guardGetter Nothing = []

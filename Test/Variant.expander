@@ -1,102 +1,48 @@
 let nonrec isFruit :: Fruit -> Bool = isType# "Fruit"
 let nonrec isApple =
-  \fn#0#15 ->
-    \arg#1#16 ->
-      cond
-        isFruit arg#1#16 ->
-          let nonrec fn#0 = fn#0#15 in
-          let nonrec arg#1 = arg#1#16 in
-          isVariant# "Fruit" 0 fn#0 arg#1
+  \fn#0 ->
+    \arg#1 -> cond isFruit arg#1 -> isVariant# "Fruit" 0 fn#0 arg#1
 let nonrec isBanana =
-  \fn#2#17 ->
-    \arg#3#18 ->
-      cond
-        isFruit arg#3#18 ->
-          let nonrec fn#2 = fn#2#17 in
-          let nonrec arg#3 = arg#3#18 in
-          isVariant# "Fruit" 1 fn#2 arg#3
+  \fn#2 ->
+    \arg#3 -> cond isFruit arg#3 -> isVariant# "Fruit" 1 fn#2 arg#3
 let nonrec isFig =
-  \fn#4#19 ->
-    \arg#5#20 ->
-      cond
-        isFruit arg#5#20 ->
-          let nonrec fn#4 = fn#4#19 in
-          let nonrec arg#5 = arg#5#20 in
-          isVariant# "Fruit" 2 fn#4 arg#5
+  \fn#4 ->
+    \arg#5 -> cond isFruit arg#5 -> isVariant# "Fruit" 2 fn#4 arg#5
 let nonrec mkApple =
-  (\r#6#21 ->
-     cond
-       isFruit r#6#21 ->
-         let nonrec r#6 = r#6#21 in
-         r#6)
-    (mkVariant# "Fruit" 0 mkTuple0)
+  (\r#6 -> cond isFruit r#6 -> r#6) (mkVariant# "Fruit" 0 mkTuple0)
 let nonrec mkBanana =
-  \x#22 ->
+  \x ->
     cond
-      isInt x#22 ->
-        let nonrec x = x#22 in
-        (\r#7#23 ->
-           cond
-             isFruit r#7#23 ->
-               let nonrec r#7 = r#7#23 in
-               r#7)
-          (mkVariant# "Fruit" 1 x)
+      isInt x ->
+        (\r#7 -> cond isFruit r#7 -> r#7) (mkVariant# "Fruit" 1 x)
 let nonrec mkFig =
-  \arg#8#24 ->
+  \arg#8 ->
     cond
-      isTuple2 (mkTuple2 isInt isReal) arg#8#24 ->
-        let nonrec arg#8 = arg#8#24 in
-        (\r#9#25 ->
-           cond
-             isFruit r#9#25 ->
-               let nonrec r#9 = r#9#25 in
-               r#9)
-          (mkVariant# "Fruit" 2 arg#8)
+      isTuple2 (mkTuple2 isInt isReal) arg#8 ->
+        (\r#9 -> cond isFruit r#9 -> r#9) (mkVariant# "Fruit" 2 arg#8)
 let nonrec unApple =
-  \arg#10#26 ->
+  \arg#10 ->
     cond
-      isFruit arg#10#26 ->
-        let nonrec arg#10 = arg#10#26 in
-        (\r#11#27 ->
-           cond
-             isTuple0 r#11#27 ->
-               let nonrec r#11 = r#11#27 in
-               r#11)
-          (unVariant# arg#10)
+      isFruit arg#10 ->
+        (\r#11 -> cond isTuple0 r#11 -> r#11) (unVariant# arg#10)
 let nonrec unBanana =
-  \arg#12#28 ->
+  \arg#12 ->
     cond
-      isFruit arg#12#28 ->
-        let nonrec arg#12 = arg#12#28 in
-        (\x#29 ->
-           cond
-             isInt x#29 ->
-               let nonrec x = x#29 in
-               x)
-          (unVariant# arg#12)
+      isFruit arg#12 -> (\x -> cond isInt x -> x) (unVariant# arg#12)
 let nonrec unFig =
-  \arg#13#30 ->
+  \arg#13 ->
     cond
-      isFruit arg#13#30 ->
-        let nonrec arg#13 = arg#13#30 in
-        (\r#14#31 ->
-           cond
-             isTuple2 (mkTuple2 isInt isReal) r#14#31 ->
-               let nonrec r#14 = r#14#31 in
-               r#14)
+      isFruit arg#13 ->
+        (\r#14 -> cond isTuple2 (mkTuple2 isInt isReal) r#14 -> r#14)
           (unVariant# arg#13)
 let nonrec f1 =
-  \a#0 ->
+  \a ->
     cond
-      isApple isTuple0 a#0 ->
-        let nonrec a = a#0 in
-        0
-      isBanana isInt a#0 ->
-        let nonrec b = a#0 in
-        let nonrec x = unBanana a#0 in
+      isApple isTuple0 a -> 0
+      isBanana isInt a ->
+        let nonrec x = unBanana a in
         1
-      isFig (isTuple2 (mkTuple2 isInt isReal)) a#0 ->
-        let nonrec c = a#0 in
-        let nonrec x = tuple2Ref0# (unFig a#0) in
-        let nonrec y = tuple2Ref1# (unFig a#0) in
+      isFig (isTuple2 (mkTuple2 isInt isReal)) a ->
+        let nonrec x = tuple2Ref0# (unFig a) in
+        let nonrec y = tuple2Ref1# (unFig a) in
         2
