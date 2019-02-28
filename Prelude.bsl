@@ -66,6 +66,11 @@ let isChar = isChar#
 let eqChar = eqChar#
 let ltChar = ltChar#
 
+-- String
+
+let isString = isString#
+let eqString = eqString#
+
 -- Seq
 
 let null = null#
