@@ -238,7 +238,7 @@ expandCond :: [([Source], Source)] -> ExpanderM Expr
 expandCond matches =
   do let args = head . fst . unzip $ matches
      () <- checkMatches (length args) matches
-     argNames <- Pattern.genPatNames args
+     argNames <- Pattern.genPatternNames args
      matches' <- expandMatches argNames matches
      return $ lambdas argNames matches'
   where
@@ -279,8 +279,8 @@ expandFnDecl name typ body =
 -- @
 expandResultPattern :: Source -> Maybe Type -> Source -> [Source] -> ExpanderM [Source]
 expandResultPattern pat typ body whereClause =
-  do result <- NameM.genNameM $ Name.untyped "res"
-     return $ FnDefS (PatS result Nothing) typ body whereClause:Pattern.genPatternGetters (IdS result) pat
+  do resultName <- Pattern.genPatternName "res" pat
+     return $ FnDefS (PatS resultName Nothing) typ body whereClause:Pattern.genPatternGetters (IdS resultName) pat
 
 -- | Expands where clauses.
 --

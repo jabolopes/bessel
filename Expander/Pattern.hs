@@ -37,6 +37,12 @@ isTupleName len = Name.untyped $ "isTuple" ++ show len
 
 -- Pattern names.
 
+genPatternName :: Monad m => String -> Source -> NameM m Name
+genPatternName _ (PatS binder Nothing)
+  | Name.isEmptyName binder = return $ Name.untyped "_"
+genPatternName _ (PatS binder _) = return binder
+genPatternName hint _ = NameM.genNameM $ Name.untyped hint
+
 -- | Generates names for the given patterns.
 -- @
 -- genPatNames x       = "x"
@@ -44,13 +50,8 @@ isTupleName len = Name.untyped $ "isTuple" ++ show len
 -- genPatNames  @      = "_"
 -- genPatNames  @isInt = "arg#0"
 -- @
-genPatNames :: Monad m => [Source] -> NameM m [Name]
-genPatNames = mapM genPatName
-  where
-    genPatName (PatS binder Nothing)
-      | Name.isEmptyName binder = return $ Name.untyped "_"
-    genPatName (PatS binder _) = return binder
-    genPatName _ = NameM.genNameM $ Name.untyped "arg"
+genPatternNames :: Monad m => [Source] -> NameM m [Name]
+genPatternNames = mapM (genPatternName "arg")
 
 -- Pattern definitions.
 
