@@ -15,6 +15,18 @@ import Data.Module
 import Monad.InterpreterM
 import qualified Stage.Interpreter as Interpreter
 
+-- Blame
+
+check :: Val -> Val
+check (FnVal fn) = FnVal arg2
+  where
+    arg2 val =
+      do val' <- fn val
+         if isNotFalseVal val'
+           then return val
+           else fail "type error"
+check _ = error "Core.check: expected forall a. a -> Bool as first argument"
+
 -- Bool
 
 isBool :: Val -> Val
@@ -542,7 +554,9 @@ bindIO (IOVal m) = FnVal $ return . IOVal . bindIOHof
 fnDesc :: FnDesc
 fnDesc =
   map ((++ "#") *** id)
-  [-- Bool
+  [-- Blame
+   ("check", primitive check),
+   -- Bool
    ("isBool", primitive isBool),
    ("false", false),
    ("true", true),

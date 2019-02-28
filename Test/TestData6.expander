@@ -1,6 +1,8 @@
 let nonrec f =
   \n ->
-    let nonrec res#0 = cons 1 (cons 2 null) in
+    let nonrec res#0 =
+      check# (isList# (cons (\_ -> true#) (cons (\_ -> true#) null)))
+        (cons 1 (cons 2 null)) in
     let nonrec x = head# res#0 in
     let nonrec y = head# (tail# res#0) in
     case n

@@ -23,7 +23,8 @@ initialRenamerState =
     Right state -> return state
   where
     getRenamerState =
-      do Renamer.addFnSymbolM "true#" "true#"
+      do Renamer.addFnSymbolM "check#" "check#"
+         Renamer.addFnSymbolM "true#" "true#"
          Renamer.addFnSymbolM "false#" "false#"
          Renamer.addFnSymbolM "+" "+"
          Renamer.addFnSymbolM "addIntReal" "addIntReal#"

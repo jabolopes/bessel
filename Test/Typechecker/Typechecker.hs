@@ -55,7 +55,8 @@ initialRenamerState =
     Right state -> return state
   where
     getRenamerState =
-      do Renamer.addFnSymbolM "true#" "true#"
+      do Renamer.addFnSymbolM "check#" "check#"
+         Renamer.addFnSymbolM "true#" "true#"
          Renamer.addFnSymbolM "true" "true#"
          Renamer.addFnSymbolM "false#" "false#"
          Renamer.addFnSymbolM "false" "false#"
@@ -183,7 +184,8 @@ testTypechecker generateTestExpectations =
 
   where
     initialBindings =
-      [("true#", Type.boolT),
+      [("check#", forall 'a' (Arrow (Arrow (typeVar 'a') Type.boolT) (Arrow (typeVar 'a') (typeVar 'a')))),
+       ("true#", Type.boolT),
        ("true", Type.boolT),
        ("false#", Type.boolT),
        ("false", Type.boolT),

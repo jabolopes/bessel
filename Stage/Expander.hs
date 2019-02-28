@@ -138,7 +138,7 @@ genMatchPredicate :: Source -> Name -> ExpanderM MatchPredicate
 genMatchPredicate (PatS _ Nothing) _ =
   return Trivial
 genMatchPredicate pat arg =
-  do pred <- patPred pat
+  do pred <- expandOne =<< Pattern.genPatternPredicate pat
      return . NonTrivial $ pred `AppE` IdE arg
 
 -- | Same as 'genMatchPredicate' but predicates for multiple arguments
@@ -280,7 +280,9 @@ expandFnDecl name typ body =
 expandResultPattern :: Source -> Maybe Type -> Source -> [Source] -> ExpanderM [Source]
 expandResultPattern pat typ body whereClause =
   do resultName <- Pattern.genPatternName "res" pat
-     return $ FnDefS (PatS resultName Nothing) typ body whereClause:Pattern.genPatternGetters (IdS resultName) pat
+     predicate <- Pattern.genPatternPredicate pat
+     let body' = Source.listToApp [Source.idS "check#", predicate, body]
+     return $ FnDefS (PatS resultName Nothing) typ body' whereClause:Pattern.genPatternGetters (IdS resultName) pat
 
 -- | Expands where clauses.
 --
@@ -320,9 +322,10 @@ expandWhere src defns = LetS defns src
 -- | Expands 'FnDefS'. Expands function definitions together with
 -- 'CondS' to get the right blame for incomplete pattern matching.
 expandFunctionDefinition :: Source -> ExpanderM [Expr]
-expandFunctionDefinition (FnDefS (PatS name _) typ body whereClause) =
-  do let body' = expandWhere body whereClause
-     Utils.returnOne $ expandFnDecl name typ <$> expandOne body'
+expandFunctionDefinition (FnDefS pat@(PatS _ Nothing) typ body whereClause) =
+  do fnName <- Pattern.genPatternName "fn" pat
+     let body' = expandWhere body whereClause
+     Utils.returnOne $ expandFnDecl fnName typ <$> expandOne body'
 expandFunctionDefinition (FnDefS pat typ body whereClause) =
   concat <$> (mapM expandFunctionDefinition =<< expandResultPattern pat typ body whereClause)
 expandFunctionDefinition src =

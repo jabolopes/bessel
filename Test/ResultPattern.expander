@@ -1,0 +1,203 @@
+let nonrec res#0 =
+  check#
+    (\arg#1 ->
+       cond
+         isChar# arg#1 ->
+           cond
+             eqChar# 'a' arg#1 -> true#
+             true# -> false#
+         true# -> false#)
+    'a'
+let nonrec patChar =
+  check#
+    (\arg#0 ->
+       cond
+         isChar# arg#0 ->
+           cond
+             eqChar# 'a' arg#0 -> true#
+             true# -> false#
+         true# -> false#)
+    'a'
+let nonrec res#0 =
+  check#
+    (\arg#1 ->
+       cond
+         isInt# arg#1 ->
+           cond
+             eqInt# 0 arg#1 -> true#
+             true# -> false#
+         true# -> false#)
+    0
+let nonrec patInt =
+  check#
+    (\arg#0 ->
+       cond
+         isInt# arg#0 ->
+           cond
+             eqInt# 0 arg#0 -> true#
+             true# -> false#
+         true# -> false#)
+    0
+let nonrec res#0 =
+  check#
+    (\arg#1 ->
+       cond
+         isReal# arg#1 ->
+           cond
+             eqReal# 0.0 arg#1 -> true#
+             true# -> false#
+         true# -> false#)
+    0.0
+let nonrec patReal =
+  check#
+    (\arg#0 ->
+       cond
+         isReal# arg#0 ->
+           cond
+             eqReal# 0.0 arg#0 -> true#
+             true# -> false#
+         true# -> false#)
+    0.0
+let nonrec res#0 =
+  check#
+    (\arg#1 ->
+       cond
+         isString# arg#1 ->
+           cond
+             eqString# "hello" arg#1 -> true#
+             true# -> false#
+         true# -> false#)
+    "hello"
+let nonrec patString =
+  check#
+    (\arg#0 ->
+       cond
+         isString# arg#0 ->
+           cond
+             eqString# "hello" arg#0 -> true#
+             true# -> false#
+         true# -> false#)
+    "hello"
+let nonrec res#0 = check# (isApple isInt) mkApple0
+let nonrec x = unApple res#0
+let nonrec patVariantTag = check# (isApple isInt) (mkApple 0)
+let nonrec x = unApple patVariantTag
+let nonrec res#0 =
+  check#
+    (isHeadTail#
+       (\arg#1 ->
+          cond
+            isInt# arg#1 ->
+              cond
+                eqInt# 0 arg#1 -> true#
+                true# -> false#
+            true# -> false#)
+       (isList#
+          (cons
+             (\arg#2 ->
+                cond
+                  isInt# arg#2 ->
+                    cond
+                      eqInt# 1 arg#2 -> true#
+                      true# -> false#
+                  true# -> false#)
+             null)))
+    (cons x y)
+let nonrec x = head# res#0
+let nonrec y = tail# res#0
+let nonrec patBinOp =
+  check#
+    (isHeadTail#
+       (\arg#0 ->
+          cond
+            isInt# arg#0 ->
+              cond
+                eqInt# 0 arg#0 -> true#
+                true# -> false#
+            true# -> false#)
+       (isList#
+          (cons
+             (\arg#1 ->
+                cond
+                  isInt# arg#1 ->
+                    cond
+                      eqInt# 1 arg#1 -> true#
+                      true# -> false#
+                  true# -> false#)
+             null)))
+    (cons 0 1)
+let nonrec x = head# patBinOp
+let nonrec y = tail# patBinOp
+let nonrec _ = 0
+let nonrec patAll = 0
+let nonrec patBind = \x -> x
+let nonrec res#0 = check# isInt 0
+let nonrec patBindGuard = check# isInt 0
+let nonrec res#0 = check# (isList# null) null
+let nonrec patEmptyList = check# (isList# null) null
+let nonrec res#0 =
+  check#
+    (isList#
+       (cons (\_ -> true#)
+          (cons isInt
+             (cons isInt
+                (cons
+                   (\arg#1 ->
+                      cond
+                        isInt# arg#1 ->
+                          cond
+                            eqInt# 1 arg#1 -> true#
+                            true# -> false#
+                        true# -> false#)
+                   null)))))
+    (cons 0 (cons 0 (cons 0 (cons 1 null))))
+let nonrec x = head# res#0
+let nonrec y = head# (tail# (tail# res#0))
+let nonrec patList =
+  check#
+    (isList#
+       (cons (\_ -> true#)
+          (cons isInt
+             (cons isInt
+                (cons
+                   (\arg#0 ->
+                      cond
+                        isInt# arg#0 ->
+                          cond
+                            eqInt# 1 arg#0 -> true#
+                            true# -> false#
+                        true# -> false#)
+                   null)))))
+    (cons 0 (cons 0 (cons 0 (cons 1 null))))
+let nonrec x = head# patList
+let nonrec y = head# (tail# (tail# patList))
+let nonrec res#0 = check# isTuple0 mkTuple0
+let nonrec patEmptyTuple = check# isTuple0 x
+let nonrec res#0 =
+  check#
+    (isTuple4
+       (mkTuple4 (\_ -> true#) isInt isInt
+          (\arg#1 ->
+             cond
+               isInt# arg#1 ->
+                 cond
+                   eqInt# 1 arg#1 -> true#
+                   true# -> false#
+               true# -> false#)))
+    (mkTuple4 0 0 0 1)
+let nonrec x = tuple4Ref0# res#0
+let nonrec y = tuple4Ref2# res#0
+let nonrec patTuple =
+  check#
+    (isTuple4
+       (mkTuple4 (\_ -> true#) isInt isInt
+          (\arg#0 ->
+             cond
+               isInt# arg#0 ->
+                 cond
+                   eqInt# 1 arg#0 -> true#
+                   true# -> false#
+               true# -> false#)))
+    (mkTuple4 0 0 0 1)
+let nonrec x = tuple4Ref0# patTuple
+let nonrec y = tuple4Ref2# patTuple
