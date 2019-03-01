@@ -6,11 +6,11 @@ let patInt 0 = 0
 
 let patReal 0.0 = 0.0
 
-let patString "hello" = 0
+let patString "hello" = "hello"
 
 let patVariantTag (Apple x@isInt) = x
 
-let patBinOp (x@0 +> y@[1]) = cons x y
+let patBinOp (x@0 +> y@[1]) = cons 0 1
 
 let patAll @ = 0
 
@@ -24,14 +24,14 @@ let patEmptyList1 [] = []
 
 let patEmptyList2 x@[] = x
 
-let patList1 [x, @isInt, y@isInt, 1] = 0
+let patList1 [x, @isInt, y@isInt, 1] = [0, 0, 0, 1]
 
-let patList2 [x, @isInt, y@isInt, 1] = 0
+let patList2 [x, @isInt, y@isInt, 1] = [0, 0, 0, 1]
 
 let patEmptyTuple1 () = ()
 
 let patEmptyTuple2 x@() = x
 
-let patTuple1 (x, @isInt, y@isInt, 1) = 0
+let patTuple1 (x, @isInt, y@isInt, 1) = (0, 0, 0, 1)
 
-let patTuple2 (x, @isInt, y@isInt, 1) = 0
+let patTuple2 (x, @isInt, y@isInt, 1) = (0, 0, 0, 1)

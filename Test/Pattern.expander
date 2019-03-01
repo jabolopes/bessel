@@ -45,7 +45,7 @@ let nonrec patString =
                true# -> false#
            true# -> false#)
         arg#0 ->
-        0
+        "hello"
 let nonrec patVariantTag =
   \arg#0 ->
     cond
@@ -76,7 +76,7 @@ let nonrec patBinOp =
         arg#0 ->
         let nonrec x = head# arg#0 in
         let nonrec y = tail# arg#0 in
-        cons x y
+        cons 0 1
 let nonrec patAll = \_ -> 0
 let nonrec patBind = \x -> x
 let nonrec patGuard = \arg#0 -> cond isInt arg#0 -> 0
@@ -103,7 +103,7 @@ let nonrec patList1 =
         arg#0 ->
         let nonrec x = head# arg#0 in
         let nonrec y = head# (tail# (tail# arg#0)) in
-        0
+        cons 0 (cons 0 (cons 0 (cons 1 null)))
 let nonrec patList2 =
   \arg#0 ->
     cond
@@ -123,7 +123,7 @@ let nonrec patList2 =
         arg#0 ->
         let nonrec x = head# arg#0 in
         let nonrec y = head# (tail# (tail# arg#0)) in
-        0
+        cons 0 (cons 0 (cons 0 (cons 1 null)))
 let nonrec patEmptyTuple1 =
   \arg#0 -> cond isTuple0 arg#0 -> mkTuple0
 let nonrec patEmptyTuple2 = \x -> cond isTuple0 x -> x
@@ -142,7 +142,7 @@ let nonrec patTuple1 =
         arg#0 ->
         let nonrec x = tuple4Ref0# arg#0 in
         let nonrec y = tuple4Ref2# arg#0 in
-        0
+        mkTuple4 0 0 0 1
 let nonrec patTuple2 =
   \arg#0 ->
     cond
@@ -158,4 +158,4 @@ let nonrec patTuple2 =
         arg#0 ->
         let nonrec x = tuple4Ref0# arg#0 in
         let nonrec y = tuple4Ref2# arg#0 in
-        0
+        mkTuple4 0 0 0 1
