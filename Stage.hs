@@ -156,8 +156,9 @@ interpretModule fs mod =
 stageModule :: FileSystem -> Module -> IO (Either PrettyString (FileSystem, Module))
 stageModule fs mod =
   case stage of
-    Left err -> return $ Left err
-    Right (renFs, renMod) -> do
+    Left err ->
+      return $ Left err
+    Right (renFs, renMod) ->
       Right <$> interpretModule renFs renMod
   where
     stage =
