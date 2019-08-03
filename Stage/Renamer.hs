@@ -1,4 +1,4 @@
-{-# LANGUAGE BangPatterns, MultiWayIf, NamedFieldPuns, ParallelListComp, TupleSections #-}
+{-# LANGUAGE NamedFieldPuns, ParallelListComp, TupleSections #-}
 module Stage.Renamer where
 
 import Prelude hiding (mod)
