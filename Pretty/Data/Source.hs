@@ -89,11 +89,17 @@ docSource (BinOpS op src1 src2) =
   docSource src1 <+> PrettyString.text op <+> docSource src2
 docSource (CondS srcs) =
   docCond srcs
-docSource (FnDefS pat Nothing body whereClause) =
+docSource (FnDefS pat typ body whereClause) =
   docFnDef whereClause
   where
     docBody CondS {} = docSource body
     docBody _ = PrettyString.equals <+> docSource body
+
+    -- TODO: use proper (docType typ) instead of (show typ).
+    docType =
+      case typ of
+        Nothing -> PrettyString.empty
+        Just t -> PrettyString.text ":" <+> PrettyString.text (show t)
 
     docWhereClause =
       PrettyString.vcat $
@@ -101,22 +107,11 @@ docSource (FnDefS pat Nothing body whereClause) =
          PrettyString.nest . PrettyString.vcat $ map docSource whereClause]
 
     docFnDef [] =
-      PrettyString.sep [PrettyString.text "let" <+> docSource pat, PrettyString.nest (docBody body)]
+      PrettyString.sep [PrettyString.text "let" <+> docSource pat, docType, PrettyString.nest (docBody body)]
     docFnDef _ =
       docFnDef []
       $+$
       docWhereClause
-
-docSource (FnDefS pat (Just typ) body whereClause) =
-  -- TODO: fix indentation
-  -- TODO: use docType instead of show typ
-  PrettyString.sep [PrettyString.text "let" <+>
-                    docSource pat <+>
-                    PrettyString.text " : " <+>
-                    PrettyString.text (show typ),
-                    PrettyString.nest (docSource body),
-                    PrettyString.sep [PrettyString.text "where",
-                                      PrettyString.nest (PrettyString.vcat (map docSource whereClause))]]
 docSource (IdS name) =
   PrettyString.text $ show name
 docSource (LetS defns body) =
