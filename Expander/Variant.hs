@@ -43,12 +43,14 @@ genCondResult src =
 --   = Apple
 --   | Banana @isInt
 --   | Fig x@(@isInt, @isReal)
+--   | Orange @isFruit
 -- @
 --
 -- @
--- isApple fn arg@isFruit = isVariant "Fruit" 0 fn arg
--- isBanana fn arg@isFruit  = isVariant "Fruit" 1 fn arg
--- isFig fn arg@isFruit = isVariant "Fruit" 2 fn arg
+-- isApple fn arg@isFruit  = isFruit arg && isVariant "Fruit" 0 fn arg
+-- isBanana fn arg@isFruit = isFruit arg && isVariant "Fruit" 1 fn arg
+-- isFig fn arg@isFruit    = isFruit arg && isVariant "Fruit" 2 fn arg
+-- isOrange fn arg@isFruit = isFruit arg && isVariant "Fruit" 3 fn arg
 -- @
 genTagPredicate :: Monad m => Name -> Name -> Int -> NameM m Source
 genTagPredicate typeName tagName tagNum =
@@ -68,12 +70,14 @@ genTagPredicate typeName tagName tagNum =
 --   = Apple
 --   | Banana @isInt
 --   | Fig x@(@isInt, @isReal)
+--   | Orange @isFruit
 -- @
 --
 -- @
--- mkApple = (r@isFruit = r) $ mkVariant "Fruit" 0 ()
--- mkBanana arg@isInt = (r@isFruit = r) $ mkVariant "Fruit" 1 arg
+-- mkApple                   = (r@isFruit = r) $ mkVariant "Fruit" 0 ()
+-- mkBanana arg@isInt        = (r@isFruit = r) $ mkVariant "Fruit" 1 arg
 -- mkFig x@(@isInt, @isReal) = (r@isFruit = r) $ mkVariant "Fruit" 2 x
+-- mkOrange isFruit          = (r@isFruit = r) $ mkVariant "Fruit" 3 arg
 -- @
 genTagConstructor :: Monad m => Name -> Name -> Int -> Source -> NameM m Source
 genTagConstructor typeName tagName tagNum pat =
@@ -100,12 +104,14 @@ genTagConstructor typeName tagName tagNum pat =
 --   = Apple
 --   | Banana @isInt
 --   | Fig x@(@isInt, @isReal)
+--   | Orange @isFruit
 -- @
 --
 -- @
--- unApple arg@isFruit = (r@() -> r) $ unVariant arg
--- unBanana arg@isFruit = (r@isInt -> r) $ unVariant arg
--- unFig arg@isFruit = (x@(@isInt, @isReal) -> x) $ unVariant arg
+-- unApple arg@isFruit  = (r@() = r) $ unVariant arg
+-- unBanana arg@isFruit = (r@isInt = r) $ unVariant arg
+-- unFig arg@isFruit    = (x@(@isInt, @isReal) = x) $ unVariant arg
+-- unOrange arg@isFruit = (r@isFruit = x) $ unVariant arg
 -- @
 genTagDeconstructor :: Monad m => Name -> Name -> Source -> NameM m Source
 genTagDeconstructor typeName tagName pat =
