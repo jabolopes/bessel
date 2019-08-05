@@ -8,33 +8,46 @@ let nonrec isBanana =
 let nonrec isFig =
   \fn#4 ->
     \arg#5 -> cond isFruit arg#5 -> isVariant# "Fruit" 2 fn#4 arg#5
+let nonrec isOrange =
+  \fn#6 ->
+    \arg#7 -> cond isFruit arg#7 -> isVariant# "Fruit" 3 fn#6 arg#7
 let nonrec mkApple =
-  (\r#6 -> cond isFruit r#6 -> r#6) (mkVariant# "Fruit" 0 mkTuple0)
+  (\r#8 -> cond isFruit r#8 -> r#8) (mkVariant# "Fruit" 0 mkTuple0)
 let nonrec mkBanana =
   \x ->
     cond
       isInt x ->
-        (\r#7 -> cond isFruit r#7 -> r#7) (mkVariant# "Fruit" 1 x)
+        (\r#9 -> cond isFruit r#9 -> r#9) (mkVariant# "Fruit" 1 x)
 let nonrec mkFig =
-  \arg#8 ->
-    cond
-      isTuple2 (mkTuple2 isInt isReal) arg#8 ->
-        (\r#9 -> cond isFruit r#9 -> r#9) (mkVariant# "Fruit" 2 arg#8)
-let nonrec unApple =
   \arg#10 ->
     cond
-      isFruit arg#10 ->
-        (\r#11 -> cond isTuple0 r#11 -> r#11) (unVariant# arg#10)
-let nonrec unBanana =
+      isTuple2 (mkTuple2 isInt isReal) arg#10 ->
+        (\r#11 -> cond isFruit r#11 -> r#11) (mkVariant# "Fruit" 2 arg#10)
+let nonrec mkOrange =
   \arg#12 ->
     cond
-      isFruit arg#12 -> (\x -> cond isInt x -> x) (unVariant# arg#12)
-let nonrec unFig =
-  \arg#13 ->
+      isFruit arg#12 ->
+        (\r#13 -> cond isFruit r#13 -> r#13) (mkVariant# "Fruit" 3 arg#12)
+let nonrec unApple =
+  \arg#14 ->
     cond
-      isFruit arg#13 ->
-        (\r#14 -> cond isTuple2 (mkTuple2 isInt isReal) r#14 -> r#14)
-          (unVariant# arg#13)
+      isFruit arg#14 ->
+        (\r#15 -> cond isTuple0 r#15 -> r#15) (unVariant# arg#14)
+let nonrec unBanana =
+  \arg#16 ->
+    cond
+      isFruit arg#16 -> (\x -> cond isInt x -> x) (unVariant# arg#16)
+let nonrec unFig =
+  \arg#17 ->
+    cond
+      isFruit arg#17 ->
+        (\r#18 -> cond isTuple2 (mkTuple2 isInt isReal) r#18 -> r#18)
+          (unVariant# arg#17)
+let nonrec unOrange =
+  \arg#19 ->
+    cond
+      isFruit arg#19 ->
+        (\r#20 -> cond isFruit r#20 -> r#20) (unVariant# arg#19)
 let nonrec f1 =
   \a ->
     cond
@@ -46,3 +59,6 @@ let nonrec f1 =
         let nonrec x = tuple2Ref0# (unFig a) in
         let nonrec y = tuple2Ref1# (unFig a) in
         2
+      isOrange isFruit a ->
+        let nonrec x = unOrange a in
+        3
