@@ -85,7 +85,7 @@ mkSnippet fs source@FnDefS {} =
                                               , defSrc = Right source
                                               }
 mkSnippet fs source =
-  mkSnippet fs $ FnDefS (Source.idS "val") Nothing source []
+  mkSnippet fs $ FnDefS (Source.bindPat (Name.untyped "val") Source.allPat) Nothing source []
 
 renameSnippet :: FileSystem -> Definition -> Either PrettyString Definition
 renameSnippet fs def =
