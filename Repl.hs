@@ -83,22 +83,11 @@ importFile fs modName =
 
 mkSnippet :: FileSystem -> Source -> Definition
 mkSnippet fs source@FnDefS {} =
-  let
-    defName = Name.joinNames Module.interactiveName $ Stage.definitionName source
-  in
-   case FileSystem.lookup fs Module.interactiveName of
-     Nothing -> error $ "Stage.mkSnippet: module " ++ show Module.interactiveName ++ " not found"
-     Just mod -> (Definition.initial defName) { defUses = Module.modUses mod
-                                              , defSrc = Right source
-                                              }
+  case FileSystem.lookup fs Module.interactiveName of
+    Nothing -> error $ "Stage.mkSnippet: module " ++ show Module.interactiveName ++ " not found"
+    Just mod -> Stage.makeDefinition mod source
 mkSnippet fs source =
   mkSnippet fs $ FnDefS (Source.bindPat (Name.untyped "val") Source.allPat) Nothing source []
-
-renameSnippet :: FileSystem -> Definition -> Either PrettyString Definition
-renameSnippet fs def =
-  case Renamer.renameDefinition fs def of
-    Left err -> Left err
-    Right x -> Right x
 
 stageDefinition :: FileSystem -> String -> IO (Either PrettyString (FileSystem, [Definition]))
 stageDefinition fs ln =
@@ -118,7 +107,7 @@ stageDefinition fs ln =
                              Just mod -> mod
              def = mkSnippet fs macro
          expDefs <- Stage.expandDefinition interactive def
-         renDefs <- mapM (renameSnippet fs) expDefs
+         renDefs <- mapM (Renamer.renameDefinition fs) expDefs
          Right (renDefs, interactive)
 
 runSnippetM :: String -> ReplM ()
@@ -132,7 +121,7 @@ runSnippetM ln =
          do modify $ \s -> s { fs = fs' }
             liftIO $ putVal (Definition.defVal (last defs))
 
-showMeM :: Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> String -> StateT ReplState IO ()
+showMeM :: Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> String -> ReplM ()
 showMeM showAll showBrief showOrd showFree showSrc showExp showRen filename =
   let
     filesM
