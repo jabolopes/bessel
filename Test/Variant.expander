@@ -10,38 +10,51 @@ let nonrec isFig =
 let nonrec isOrange =
   \fn#5 ->
     \arg#6 -> cond isFruit arg#6 -> isVariant# "Fruit" 3 fn#5 arg#6
+let nonrec isMelon =
+  \fn#7 ->
+    \arg#8 -> cond isFruit arg#8 -> isVariant# "Fruit" 4 fn#7 arg#8
 let nonrec mkApple =
-  (\r#7 -> cond isFruit r#7 -> r#7) (mkVariant0# "Fruit" 0)
+  (\r#9 -> cond isFruit r#9 -> r#9) (mkVariant0# "Fruit" 0)
 let nonrec mkBanana =
   \x ->
     cond
       isInt x ->
-        (\r#8 -> cond isFruit r#8 -> r#8) (mkVariant# "Fruit" 1 x)
+        (\r#10 -> cond isFruit r#10 -> r#10) (mkVariant# "Fruit" 1 x)
 let nonrec mkFig =
-  \arg#9 ->
-    cond
-      isTuple2 (mkTuple2 isInt isReal) arg#9 ->
-        (\r#10 -> cond isFruit r#10 -> r#10) (mkVariant# "Fruit" 2 arg#9)
-let nonrec mkOrange =
   \arg#11 ->
     cond
-      isFruit arg#11 ->
-        (\r#12 -> cond isFruit r#12 -> r#12) (mkVariant# "Fruit" 3 arg#11)
-let nonrec unBanana =
+      isTuple2 (mkTuple2 isInt isReal) arg#11 ->
+        (\r#12 -> cond isFruit r#12 -> r#12) (mkVariant# "Fruit" 2 arg#11)
+let nonrec mkOrange =
   \arg#13 ->
     cond
-      isFruit arg#13 -> (\x -> cond isInt x -> x) (unVariant# arg#13)
+      isFruit arg#13 ->
+        (\r#14 -> cond isFruit r#14 -> r#14) (mkVariant# "Fruit" 3 arg#13)
+let nonrec mkMelon =
+  \arg#15 ->
+    cond
+      isFruit arg#15 ->
+        (\r#16 -> cond isFruit r#16 -> r#16) (mkVariant# "Fruit" 4 arg#15)
+let nonrec unBanana =
+  \arg#17 ->
+    cond
+      isFruit arg#17 -> (\x -> cond isInt x -> x) (unVariant# arg#17)
 let nonrec unFig =
-  \arg#14 ->
+  \arg#18 ->
     cond
-      isFruit arg#14 ->
-        (\r#15 -> cond isTuple2 (mkTuple2 isInt isReal) r#15 -> r#15)
-          (unVariant# arg#14)
+      isFruit arg#18 ->
+        (\r#19 -> cond isTuple2 (mkTuple2 isInt isReal) r#19 -> r#19)
+          (unVariant# arg#18)
 let nonrec unOrange =
-  \arg#16 ->
+  \arg#20 ->
     cond
-      isFruit arg#16 ->
-        (\r#17 -> cond isFruit r#17 -> r#17) (unVariant# arg#16)
+      isFruit arg#20 ->
+        (\r#21 -> cond isFruit r#21 -> r#21) (unVariant# arg#20)
+let nonrec unMelon =
+  \arg#22 ->
+    cond
+      isFruit arg#22 ->
+        (\r#23 -> cond isFruit r#23 -> r#23) (unVariant# arg#22)
 let nonrec f1 =
   \a ->
     cond
@@ -56,3 +69,6 @@ let nonrec f1 =
       isOrange isFruit a ->
         let nonrec x = unOrange a in
         3
+      isMelon isFruit a ->
+        let nonrec x = unMelon a in
+        4
