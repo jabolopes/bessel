@@ -140,7 +140,7 @@ data Source
   -- type Type
   --   | Cons [isInt, isReal]
   -- @
-  | TypeDeclS Name [(Name, Source)]
+  | TypeDeclS Name [(Name, Maybe Source)]
 
 appS :: Name -> Source -> Source
 appS name = AppS (IdS name)

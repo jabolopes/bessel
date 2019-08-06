@@ -430,6 +430,24 @@ isType _ =
 
 -- Variant (i.e., algebraic datatype)
 
+isVariant0 :: Val -> Val
+isVariant0 (StringVal typeName) = FnVal arg2
+  where
+    arg2 (IntVal isCons) = return . FnVal $ arg3 isCons
+    arg2 _ = fail $ "Core.isVariant0: expected integer as second argument"
+
+    arg3 isCons (VariantVal typeId cons Nothing) = apply isCons typeId cons
+    arg3 _ _ = return false
+
+    apply isCons typeId cons =
+      let isTypeId = hash typeName in
+      if hash typeName == typeId && isCons == cons then
+        return true
+      else
+        return false
+isVariant0 _ =
+  error $ "Core.isVariant0: expected string as first argument"
+
 isVariant :: Val -> Val
 isVariant (StringVal typeName) = FnVal arg2
   where
@@ -439,7 +457,7 @@ isVariant (StringVal typeName) = FnVal arg2
     arg3 isCons (FnVal isFn) = return . FnVal $ arg4 isCons isFn
     arg3 _ _ = fail $ "Core.isVariant: expected function as third argument"
 
-    arg4 isCons isFn (VariantVal typeId cons val) = apply isCons isFn typeId cons val
+    arg4 isCons isFn (VariantVal typeId cons (Just val)) = apply isCons isFn typeId cons val
     arg4 _ _ _ = return false
 
     apply isCons isFn typeId cons val =
@@ -454,6 +472,16 @@ isVariant (StringVal typeName) = FnVal arg2
 isVariant _ =
   error $ "Core.isVariant: expected string as first argument"
 
+mkVariant0 :: Val -> Val
+mkVariant0 (StringVal typeName) = FnVal arg2
+  where
+    arg2 (IntVal cons) = apply (hash typeName) cons
+    arg2 _ = fail $ "Core.mkVariant0: expected integer as second argument"
+
+    apply typeId cons = return $ VariantVal typeId cons Nothing
+mkVariant0 _ =
+  error "Core.mkVariant0: expected string as first argument"
+
 mkVariant :: Val -> Val
 mkVariant (StringVal typeName) = FnVal arg2
   where
@@ -462,12 +490,13 @@ mkVariant (StringVal typeName) = FnVal arg2
 
     arg3 cons val = apply (hash typeName) cons val
 
-    apply typeId cons val = return $ VariantVal typeId cons val
+    apply typeId cons val = return $ VariantVal typeId cons (Just val)
 mkVariant _ =
   error "Core.mkVariant: expected string as first argument"
 
 unVariant :: Val -> Val
-unVariant (VariantVal _ _ val) = val
+unVariant (VariantVal _ _ (Just val)) = val
+unVariant (VariantVal _ _ Nothing) = error "Core.unVariant: expected variant with value"
 unVariant _ = error "Core.unVariant: expected variant as first argument"
 
 -- Fn
@@ -621,7 +650,9 @@ fnDesc =
    -- Type
    ("isType", primitive isType),
    -- Variant
+   ("isVariant0", primitive isVariant0),
    ("isVariant", primitive isVariant),
+   ("mkVariant0", primitive mkVariant0),
    ("mkVariant", primitive mkVariant),
    ("unVariant", primitive unVariant),
    -- Fn

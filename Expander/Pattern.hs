@@ -186,8 +186,6 @@ genLiteralPredicate StringL {} = (Name.untyped "isString#", Name.untyped "eqStri
 genPatternPredicate :: MonadError PrettyString m => Source -> NameM m Source
 genPatternPredicate = genPredicate
   where
-    genTagPredicate [IdS typeName] =
-      AppS (IdS $ Variant.genIsTagName typeName) <$> genPredicate (TupleS [])
     genTagPredicate (IdS typeName:srcs) =
       do args <- mapM genPredicate srcs
          return . Source.listToApp $ (IdS $ Variant.genIsTagName typeName):args

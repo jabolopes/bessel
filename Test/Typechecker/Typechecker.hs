@@ -85,7 +85,9 @@ initialRenamerState =
          -- Type
          Renamer.addFnSymbolM "isType#" "isType#"
          -- Variant
+         Renamer.addFnSymbolM "isVariant0#" "isVariant0#"
          Renamer.addFnSymbolM "isVariant#" "isVariant#"
+         Renamer.addFnSymbolM "mkVariant0#" "mkVariant0#"
          Renamer.addFnSymbolM "mkVariant#" "mkVariant#"
          Renamer.addFnSymbolM "unVariant#" "unVariant#"
 
@@ -225,6 +227,12 @@ testTypechecker generateTestExpectations =
        -- Type
        ("isType#", forall 'a' (Arrow Type.stringT (Arrow (typeVar 'a') Type.boolT))),
        -- Variant
+       ("isVariant0#",
+        forall 'a'
+         (Arrow Type.stringT
+          (Arrow Type.intT
+            (Arrow (typeVar 'a')
+             Type.boolT)))),
        ("isVariant#",
         forall 'a'
         (forall 'b'
@@ -233,6 +241,7 @@ testTypechecker generateTestExpectations =
            (Arrow (Arrow (typeVar 'a') Type.boolT)
             (Arrow (typeVar 'b')
              Type.boolT)))))),
+       ("mkVariant0#", forall 'a' (Arrow Type.stringT (Arrow Type.intT (typeVar 'a')))),
        ("mkVariant#", forall 'a' (forall 'b' (Arrow Type.stringT (Arrow Type.intT (Arrow (typeVar 'a') (typeVar 'b')))))),
        ("unVariant#", forall 'a' (forall 'b' (Arrow (typeVar 'a') (typeVar 'b'))))
       ]

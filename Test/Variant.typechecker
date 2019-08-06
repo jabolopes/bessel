@@ -1,14 +1,13 @@
 isFruit0 :: Fruit -> Bool
-isApple1 :: forall a. (a -> Bool) -> Fruit -> Bool
-isBanana4 :: forall a. (a -> Bool) -> Fruit -> Bool
-isFig7 :: forall a. (a -> Bool) -> Fruit -> Bool
-isOrange10 :: forall a. (a -> Bool) -> Fruit -> Bool
-mkApple13 :: Fruit
-mkBanana15 :: Int -> Fruit
-mkFig18 :: (Int, Real) -> Fruit
-mkOrange21 :: Fruit -> Fruit
-unApple24 :: Fruit -> ()
-unBanana27 :: Fruit -> Int
-unFig30 :: Fruit -> (Int, Real)
-unOrange33 :: Fruit -> Fruit
-f136 :: Fruit -> Int
+isApple1 :: Fruit -> Bool
+isBanana3 :: forall a. (a -> Bool) -> Fruit -> Bool
+isFig6 :: forall a. (a -> Bool) -> Fruit -> Bool
+isOrange9 :: forall a. (a -> Bool) -> Fruit -> Bool
+mkApple12 :: Fruit
+mkBanana14 :: Int -> Fruit
+mkFig17 :: (Int, Real) -> Fruit
+mkOrange20 :: Fruit -> Fruit
+unBanana23 :: Fruit -> Int
+unFig26 :: Fruit -> (Int, Real)
+unOrange29 :: Fruit -> Fruit
+f132 :: Fruit -> Int

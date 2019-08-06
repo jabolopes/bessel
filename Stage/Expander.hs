@@ -6,6 +6,7 @@ import Prelude hiding (mod, pred)
 import Control.Applicative ((<$>), (<*>))
 import Control.Arrow ((***))
 import Control.Monad.Error.Class (throwError)
+import qualified Data.Maybe as Maybe
 
 import Data.Literal (Literal(..))
 import Data.Expr (DefnKw(..), Expr(..))
@@ -373,7 +374,7 @@ expandTuple srcs =
 
 -- Expand type definitions.
 
-expandTypeDecl :: Name -> [(Name, Source)] -> ExpanderM [Expr]
+expandTypeDecl :: Name -> [(Name, Maybe Source)] -> ExpanderM [Expr]
 expandTypeDecl typeName tags =
   do srcs <- sequence $ typePredicates ++ tagPredicates ++ tagConstructors ++ tagDeconstructors
      concat <$> mapM expandSource srcs
@@ -382,8 +383,8 @@ expandTypeDecl typeName tags =
       [ return $ Type.genTypePredicate typeName ]
 
     tagPredicates =
-      [ Variant.genTagPredicate typeName tagName tagNum |
-        (tagName, _) <- tags |
+      [ Variant.genTagPredicate typeName tagName tagNum pat |
+        (tagName, pat) <- tags |
         tagNum <- [0..] ]
 
     tagConstructors =
@@ -392,8 +393,8 @@ expandTypeDecl typeName tags =
         tagNum <- [0..] ]
 
     tagDeconstructors =
-      [ Variant.genTagDeconstructor typeName tagName pat |
-        (tagName, pat) <- tags ]
+      [ Variant.genTagDeconstructor typeName tagName (Maybe.fromJust pat) |
+        (tagName, pat) <- tags, Maybe.isJust pat ]
 
 -- Expand source.
 

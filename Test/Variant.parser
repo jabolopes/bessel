@@ -1,6 +1,6 @@
 me Test.Variant
 type Fruit =
-  Apple ()
+  Apple
   | Banana x@isInt
   | Fig (@isInt, @isReal)
   | Orange @isFruit

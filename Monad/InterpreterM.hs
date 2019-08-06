@@ -23,7 +23,7 @@ data Val
     | StringVal String
     | TupleVal (Array Int Val)
     | TypeVal Val
-    | VariantVal Int Int Val
+    | VariantVal Int Int (Maybe Val)
 
 instance Show Val where
     show (BoolVal False) = "false"

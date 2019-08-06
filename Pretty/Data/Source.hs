@@ -155,11 +155,13 @@ docSource (TypeDeclS typeName tags) =
     $+$
     PrettyString.nest docTags
   where
-    -- TODO: Distinction between first tag and rest doesn't look good.
+    docMaybePattern Nothing = PrettyString.empty
+    docMaybePattern (Just pat) = docPattern pat
+
     docTag True (tagName, pat) =
-      PrettyString.text (show tagName) <+> docPattern pat
+      PrettyString.text (show tagName) <+> docMaybePattern pat
     docTag False (tagName, pat) =
-      PrettyString.text "|" <+> PrettyString.text (show tagName) <+> docPattern pat
+      PrettyString.text "|" <+> PrettyString.text (show tagName) <+> docMaybePattern pat
 
     docTags =
       PrettyString.vcat $ (docTag True (head tags)):map (docTag False) (tail tags)

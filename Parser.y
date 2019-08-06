@@ -215,12 +215,12 @@ TypeDefn :: { Source }
 TypeDefn:
     type TypeName '=' '{' ConstructorList '}' { TypeDeclS $2 $5 }
 
-ConstructorList :: { [(Name, Source)] }
+ConstructorList :: { [(Name, Maybe Source)] }
 ConstructorList:
-    ConstructorList '|' TypeName Pat { $1 ++ [($3, $4)] }
-  | ConstructorList '|' TypeName     { $1 ++ [($3, TupleS [])] }
-  | TypeName Pat                     { [($1, $2)] }
-  | TypeName                         { [($1, TupleS [])] }
+    ConstructorList '|' TypeName Pat { $1 ++ [($3, Just $4)] }
+  | ConstructorList '|' TypeName     { $1 ++ [($3, Nothing)] }
+  | TypeName Pat                     { [($1, Just $2)] }
+  | TypeName                         { [($1, Nothing)] }
 
 -- patterns
 
