@@ -7,12 +7,13 @@ import Control.Monad.State hiding (state)
 import qualified Data.Char as Char (isSpace)
 import Data.Functor ((<$>))
 import Data.IORef
-import Data.List (intercalate)
+import qualified Data.List as List (intercalate)
 import System.Console.GetOpt (OptDescr(..), ArgDescr(..), ArgOrder(..), getOpt, usageInfo)
 import System.Console.Readline
 import System.IO (hFlush, stdout)
 import System.IO.Error
 
+import Data.Definition (Definition(..))
 import qualified Data.Definition as Definition
 import Data.Exception
 import Data.FileSystem (FileSystem)
@@ -21,14 +22,20 @@ import Data.Module (Module)
 import qualified Data.Module as Module
 import Data.Name (Name)
 import qualified Data.Name as Name
+import Data.PrettyString (PrettyString)
 import qualified Data.PrettyString as PrettyString
+import Data.Result (Result(..))
+import Data.Source (Source(..))
+import qualified Data.Source as Source
 import Monad.InterpreterM (Val(..))
+import qualified Parser (parseRepl)
 import qualified Pretty.Data.Definition as Pretty
 import qualified Pretty.Data.Module as Pretty
 import qualified Pretty.Repl as Pretty
-import Data.Result (Result(..))
 import qualified Stage
+import qualified Stage.Interpreter as Interpreter (interpretDefinition)
 import qualified Stage.Loader as Loader (preload)
+import qualified Stage.Renamer as Renamer
 import qualified Utils (split)
 
 data ReplState =
@@ -74,12 +81,53 @@ importFile fs modName =
                fs'' = FileSystem.add fs' interactive
            return ReplState { initialFs = fs, fs = fs'' }
 
+mkSnippet :: FileSystem -> Source -> Definition
+mkSnippet fs source@FnDefS {} =
+  let
+    defName = Name.joinNames Module.interactiveName $ Stage.definitionName source
+  in
+   case FileSystem.lookup fs Module.interactiveName of
+     Nothing -> error $ "Stage.mkSnippet: module " ++ show Module.interactiveName ++ " not found"
+     Just mod -> (Definition.initial defName) { defUses = Module.modUses mod
+                                              , defSrc = Right source
+                                              }
+mkSnippet fs source =
+  mkSnippet fs $ FnDefS (Source.bindPat (Name.untyped "val") Source.allPat) Nothing source []
+
+renameSnippet :: FileSystem -> Definition -> Either PrettyString Definition
+renameSnippet fs def =
+  case Renamer.renameDefinition fs def of
+    Left err -> Left err
+    Right x -> Right x
+
+stageDefinition :: FileSystem -> String -> IO (Either PrettyString (FileSystem, [Definition]))
+stageDefinition fs ln =
+  case stage of
+    Left err -> return $ Left err
+    Right (renDefs, interactive) -> do
+      evalDefs <- mapM (Interpreter.interpretDefinition fs) renDefs
+      let interactive' = Module.ensureDefinitions interactive evalDefs
+      return $ Right (FileSystem.add fs interactive', evalDefs)
+  where
+    stage =
+      do macro <- case Parser.parseRepl Module.interactiveName ln of
+                    Left err -> Left (PrettyString.text err)
+                    Right x -> Right x
+         let interactive = case FileSystem.lookup fs Module.interactiveName of
+                             Nothing -> error $ "Stage.stageDefinition: module " ++ show Module.interactiveName ++ " not found"
+                             Just mod -> mod
+             def = mkSnippet fs macro
+         expDefs <- Stage.expandDefinition interactive def
+         renDefs <- mapM (renameSnippet fs) expDefs
+         Right (renDefs, interactive)
+
 runSnippetM :: String -> ReplM ()
 runSnippetM ln =
   do fs <- fs <$> get
-     res <- liftIO $ Stage.stageDefinition fs ln
+     res <- liftIO $ stageDefinition fs ln
      case res of
-       Left err -> liftIO . putStrLn . PrettyString.toString $ err
+       Left err ->
+         liftIO . putStrLn $ PrettyString.toString err
        Right (fs', defs) ->
          do modify $ \s -> s { fs = fs' }
             liftIO $ putVal (Definition.defVal (last defs))
@@ -94,7 +142,7 @@ showMeM showAll showBrief showOrd showFree showSrc showExp showRen filename =
            case FileSystem.lookup fs $ Name.untyped filename of
              Nothing -> liftIO $ do
                           putStrLn $ "module " ++ show filename ++ " has not been staged"
-                          putStrLn $ "staged modules are " ++ intercalate ", " (map (show . Module.modName) (FileSystem.toAscList fs))
+                          putStrLn $ "staged modules are " ++ List.intercalate ", " (map (show . Module.modName) (FileSystem.toAscList fs))
                           return []
              Just mod -> return [mod]
   in
@@ -179,7 +227,7 @@ dispatchCommandM ln =
     case getOpt Permute options (Utils.split ' ' ln) of
       (opts, [], []) -> runCommandM "" opts []
       (opts, nonOpts, []) -> runCommandM (head nonOpts) opts (tail nonOpts)
-      (_, _, errs) -> liftIO $ putStr $ intercalate "" errs
+      (_, _, errs) -> liftIO $ putStr $ List.intercalate "" errs
 
 promptM :: String -> ReplM ()
 promptM ln =
@@ -228,10 +276,3 @@ repl state =
                      `catchIOError` finallyIOException state)
                     `catchUserException` finallyException state
      unless b (repl state')
-
-batch :: String -> ReplState -> IO ()
-batch ln state =
-  do _ <- (runStateT (promptM ln >> return True) state
-           `catchIOError` finallyIOException state)
-          `catchUserException` finallyException state
-     return ()
