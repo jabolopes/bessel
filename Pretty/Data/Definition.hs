@@ -1,4 +1,4 @@
-module Pretty.Data.Definition where
+module Pretty.Data.Definition (docDefn) where
 
 import Prelude hiding (exp)
 
@@ -32,6 +32,8 @@ definitionOk name val freeNames src exp ren err =
     renDoc = sectionDoc "-- renamed" ren
     errDoc = sectionDoc "-- errors" err
 
+-- TODO: This should display the value, not just ref, but we need to
+-- be in the IO monad.
 docVal :: Either a b -> String
 docVal (Right _) = "ref"
 docVal _ = "?"
