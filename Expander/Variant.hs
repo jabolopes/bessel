@@ -24,7 +24,7 @@
 -- mkApple                   = (r@isFruit = r) $ mkVariant0# "Fruit" 0
 -- mkBanana arg@isInt        = (r@isFruit = r) $ mkVariant# "Fruit" 1 arg
 -- mkFig x@(@isInt, @isReal) = (r@isFruit = r) $ mkVariant# "Fruit" 2 x
--- mkOrange isFruit          = (r@isFruit = r) $ mkVariant# "Fruit" 3 arg
+-- mkOrange arg@isFruit      = (r@isFruit = r) $ mkVariant# "Fruit" 3 arg
 --
 -- unBanana arg@isFruit = (r@isInt = r) $ unVariant arg
 -- unFig arg@isFruit    = (x@(@isInt, @isReal) = x) $ unVariant arg
