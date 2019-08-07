@@ -16,19 +16,19 @@
 --   | Fig x@(@isInt, @isReal)
 --   | Orange @isFruit
 --
--- isApple arg@isFruit     = isFruit arg && isVariant0# "Fruit" 0 arg
--- isBanana fn arg@isFruit = isFruit arg && isVariant# "Fruit" 1 fn arg
--- isFig fn arg@isFruit    = isFruit arg && isVariant# "Fruit" 2 fn arg
--- isOrange fn arg@isFruit = isFruit arg && isVariant# "Fruit" 3 fn arg
+-- let isApple = (arg@isFruit = isFruit arg && isVariant0# "Fruit" 0 arg)
+-- let isBanana fn = (arg@isFruit = isFruit arg && isVariant# "Fruit" 1 fn arg)
+-- let isFig    fn = (arg@isFruit = isFruit arg && isVariant# "Fruit" 2 fn arg)
+-- let isOrange fn = (arg@isFruit = isFruit arg && isVariant# "Fruit" 3 fn arg)
 --
--- mkApple                   = (r@isFruit = r) $ mkVariant0# "Fruit" 0
--- mkBanana arg@isInt        = (r@isFruit = r) $ mkVariant# "Fruit" 1 arg
--- mkFig x@(@isInt, @isReal) = (r@isFruit = r) $ mkVariant# "Fruit" 2 x
--- mkOrange arg@isFruit      = (r@isFruit = r) $ mkVariant# "Fruit" 3 arg
+-- let mkApple = (r@isFruit = r) $ mkVariant0# "Fruit" 0
+-- let mkBanana (arg@isInt = (r@isFruit = r) $ mkVariant# "Fruit" 1 arg)
+-- let mkFig    (x@(@isInt, @isReal) = (r@isFruit = r) $ mkVariant# "Fruit" 2 x)
+-- let mkOrange (arg@isFruit = (r@isFruit = r) $ mkVariant# "Fruit" 3 arg)
 --
--- unBanana arg@isFruit = (r@isInt = r) $ unVariant arg
--- unFig arg@isFruit    = (x@(@isInt, @isReal) = x) $ unVariant arg
--- unOrange arg@isFruit = (r@isFruit = x) $ unVariant arg
+-- let unBanana (arg@isFruit = (r@isInt = r) $ unVariant arg)
+-- let unFig    (arg@isFruit = (x@(@isInt, @isReal) = x) $ unVariant arg)
+-- let unOrange (arg@isFruit = (r@isFruit = x) $ unVariant arg)
 --
 -- Note that unApple does not exist.
 -- @
@@ -38,6 +38,7 @@ import Data.Name (Name)
 import qualified Data.Name as Name
 import Data.Source (Source(..))
 import qualified Data.Source as Source
+import qualified Expander.Cast as Cast
 import Expander.Type
 import Monad.NameM (NameM)
 import qualified Monad.NameM as NameM
@@ -70,31 +71,20 @@ genMkTagName = Name.untyped . ("mk" ++) . Name.nameStr
 genUnTagName :: Name -> Name
 genUnTagName = Name.untyped . ("un" ++) . Name.nameStr
 
-genCondResult :: Monad m => Source -> NameM m Source
-genCondResult src@(PatS binder _) =
-  return $ CondS [([src], IdS binder)]
-genCondResult src =
-  do resultName <- NameM.genNameM $ Name.untyped "r"
-     genCondResult . PatS resultName $ Just src
-
 -- | Generates a predicate for a variant tag.
 genTagPredicate :: Monad m => Name -> Name -> Int -> Maybe Source -> NameM m Source
 genTagPredicate typeName tagName tagNum pat =
   do body <- genBody pat
      return $ FnDefS (PatS (genIsTagName tagName) Nothing) Nothing body []
   where
-    condBody Nothing argName =
-      Source.listToApp [IdS isVariant0Name, Source.stringS (Name.nameStr typeName), Source.intS tagNum, IdS argName]
-    condBody (Just fnName) argName =
-      Source.listToApp [IdS isVariantName, Source.stringS (Name.nameStr typeName), Source.intS tagNum, IdS fnName, IdS argName]
-
     genBody Nothing =
-      do argName <- NameM.genNameM $ Name.untyped "arg"
-         return $ CondS [([PatS argName (Just . IdS $ genIsTypeName typeName)], condBody Nothing argName)]
+      Cast.castArgument (IdS $ genIsTypeName typeName) $ \argName ->
+        return $ Source.listToApp [IdS isVariant0Name, Source.stringS (Name.nameStr typeName), Source.intS tagNum, IdS argName]
     genBody (Just _) =
       do fnName <- NameM.genNameM $ Name.untyped "fn"
-         argName <- NameM.genNameM $ Name.untyped "arg"
-         return $ CondS [([PatS fnName Nothing, PatS argName (Just . IdS $ genIsTypeName typeName)], condBody (Just fnName) argName)]
+         body <- Cast.castArgument (IdS $ genIsTypeName typeName) $ \argName ->
+           return $ Source.listToApp [IdS isVariantName, Source.stringS (Name.nameStr typeName), Source.intS tagNum, IdS fnName, IdS argName]
+         return $ CondS [([PatS fnName Nothing], body)]
 
 -- | Generates a constructor for a variant tag.
 genTagConstructor :: Monad m => Name -> Name -> Int -> Maybe Source -> NameM m Source
@@ -102,23 +92,13 @@ genTagConstructor typeName tagName tagNum pat =
   do body <- genBody pat
      return $ FnDefS (PatS (genMkTagName tagName) Nothing) Nothing body []
   where
-    genCondBody Nothing =
-      do condResult <- genCondResult . IdS $ genIsTypeName typeName
+    genBody Nothing =
+      do condResult <- Cast.castResult . IdS $ genIsTypeName typeName
          return $ condResult `AppS`
            Source.listToApp [IdS mkVariant0Name, Source.stringS (Name.nameStr typeName), Source.intS tagNum]
-    genCondBody (Just binder) =
-      do condResult <- genCondResult . IdS $ genIsTypeName typeName
-         return $ condResult `AppS`
-           Source.listToApp [IdS mkVariantName, Source.stringS (Name.nameStr typeName), Source.intS tagNum, binder]
-
-    genBody Nothing =
-      genCondBody Nothing
-    genBody (Just src@(PatS binder _)) =
-      do condBody <- genCondBody . Just $ IdS binder
-         return $ CondS [([src], condBody)]
-    genBody src =
-      do argName <- NameM.genNameM $ Name.untyped "arg"
-         genBody . Just $ PatS argName src
+    genBody (Just src) =
+      Cast.castFunction src (IdS $ genIsTypeName typeName) $ \argName ->
+        return $ Source.listToApp [IdS mkVariantName, Source.stringS (Name.nameStr typeName), Source.intS tagNum, IdS argName]
 
 -- | Generates a deconstructor for a variant tag.
 genTagDeconstructor :: Monad m => Name -> Name -> Source -> NameM m Source
@@ -126,11 +106,6 @@ genTagDeconstructor typeName tagName pat =
   do body <- genBody
      return $ FnDefS (PatS (genUnTagName tagName) Nothing) Nothing body []
   where
-    genCondBody argName =
-      do condResult <- genCondResult pat
-         return $ condResult `AppS` (IdS unVariantName `AppS` IdS argName)
-
     genBody =
-      do argName <- NameM.genNameM $ Name.untyped "arg"
-         condBody <- genCondBody argName
-         return $ CondS [([PatS argName (Just . IdS $ genIsTypeName typeName)], condBody)]
+      Cast.castFunction (IdS $ genIsTypeName typeName) pat $ \argName ->
+        return (IdS unVariantName `AppS` IdS argName)
