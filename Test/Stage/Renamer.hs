@@ -1,4 +1,3 @@
-{-# LANGUAGE StandaloneDeriving #-}
 module Test.Stage.Renamer where
 
 import Control.Applicative ((<$>))
