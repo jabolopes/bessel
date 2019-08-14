@@ -56,7 +56,7 @@ isSubtypeInstantiate context type1 type2
 isSubtypeInstantiate context type1@ExistVar {} type2
   | Type.isMonotype type2 &&
     Context.containsTypeUnassigned context type1 &&
-    Context.isTypeWellFormed (Context.sliceAtType context type1) type2 =
+    Context.isTypeWellFormed (context `Context.sliceAtType` type1) type2 =
     return $ Context.assignType context type1 type2
 -- InstLReach
 isSubtypeInstantiate context type1@ExistVar {} type2@ExistVar {}
@@ -170,12 +170,13 @@ isSubtype context (Forall name type1) type2 =
   do existVar <- genExistVar
      let context' = Context.appendWithMarker context existVar
          type1' = Type.substituteTypeVar (TypeVar name) existVar type1
-     isSubtype context' type1' type2
+     context'' <- isSubtype context' type1' type2
+     return $ Context.sliceAtMarker context'' existVar
 -- <:ForallR
 isSubtype context type1 (Forall name type2) =
   do let context' = context `Context.appendType` TypeVar name
-     _ <- isSubtype context' type1 type2
-     return $ Context.sliceAtType context' (TypeVar name)
+     context'' <- isSubtype context' type1 type2
+     return $ Context.sliceAtType context'' (TypeVar name)
 -- <:InstatiateL
 isSubtype context type1@ExistVar {} type2
   | Context.containsTypeUnassigned context type1 &&
