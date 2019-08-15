@@ -1,3 +1,11 @@
+Typechecker should deal with the types in the Name. And then we can
+probably get rid of AnnotateE? Unless there are specific uses for it,
+namely, to typecheck expressions instead of identifiers.
+
+
+Can we replace check# with the new casts introduced in the expander?
+
+
 Repository with a score/rating system. Half the score is given by how
 many packages use your packages, and the other half is given by user
 rating/comments.
