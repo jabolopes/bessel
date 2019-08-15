@@ -1,2 +1,3 @@
-f10 :: () -> ()
-f22 :: ()
+let nonrec f10 :: () -> () =
+  \t1 :: () -> cond isTuple0 t1 -> mkTuple0
+let nonrec f22 :: () = check# isTuple0 mkTuple0

@@ -1,1 +1,12 @@
-f0 :: Int -> Int -> Bool
+let nonrec f0 :: Int -> Int -> Bool =
+  \x1 :: Int ->
+    \y2 :: Int ->
+      cond
+        cond
+          isInt# x1 ->
+            cond
+              isInt# y2 -> true#
+              true# -> false#
+          true# -> false# ->
+          true#
+        true# -> false#

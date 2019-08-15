@@ -1,24 +1,21 @@
 {-# LANGUAGE LambdaCase #-}
 module Test.Typechecker.Typechecker where
 
-import Control.Monad
 import Control.Monad.State hiding (state)
 import Data.Char (ord)
 
 import Data.Expr (Expr(..))
 import qualified Data.Expr as Expr
-import Data.Name (Name)
 import qualified Data.Name as Name
 import Data.PrettyString (PrettyString)
 import qualified Data.PrettyString as PrettyString
 import Data.Source as Source (Source(..))
 import qualified Parser
 import qualified Pretty.Data.Expr as Pretty
-import qualified Pretty.Data.Source as Pretty
 import qualified Stage.Expander as Expander
 import Stage.Renamer (RenamerState)
 import qualified Stage.Renamer as Renamer
-import Typechecker.Context (Context, ContextVar)
+import Typechecker.Context (Context(..), ContextVar)
 import qualified Typechecker.Context as Context
 import Typechecker.Type (Type(..))
 import qualified Typechecker.Type as Type
@@ -91,53 +88,20 @@ initialRenamerState =
          Renamer.addFnSymbolM "mkVariant#" "mkVariant#"
          Renamer.addFnSymbolM "unVariant#" "unVariant#"
 
-lookupTypedNames :: Context -> Expr -> [Name]
-lookupTypedNames context = lookupNames
-  where
-    lookupTypedName :: Name -> [Name]
-    lookupTypedName name =
-      let name' = Typechecker.lookupName context name in
-      case Name.nameType name' of
-        Nothing -> []
-        _ -> [name']
-
-    lookupNames :: Expr -> [Name]
-    lookupNames (AnnotationE expr _) =
-      lookupNames expr
-    lookupNames (AppE fn arg) =
-      lookupNames fn ++ lookupNames arg
-    lookupNames (CondE matches) =
-      concat $ (forM matches $ \(match, body) ->
-                   lookupNames match ++ lookupNames body)
-    lookupNames (FnDecl _ name expr) =
-      lookupTypedName name ++ lookupNames expr
-    lookupNames IdE {} =
-      []
-    lookupNames (LambdaE name expr) =
-      lookupTypedName name ++ lookupNames expr
-    lookupNames (LetE defn body) =
-      lookupNames defn ++ lookupNames body
-    lookupNames LiteralE {} =
-      []
-
-typecheckTestFile :: Context -> String -> IO (Either PrettyString [Name])
+typecheckTestFile :: Context -> String -> IO (Either PrettyString [Expr])
 typecheckTestFile initialContext filename = Right <$> typecheckFile
   where
     parseFile =
       do str <- readFile filename
          case Parser.parseFile (Name.untyped filename) str of
            Left err -> fail err
-           Right src -> do
-             putStrLn $ PrettyString.toString $ Pretty.docSource src
-             return src
+           Right src -> return src
 
     expandFile =
       do ModuleS _ _ srcs <- parseFile
          case concat `fmap` mapM Expander.expand srcs of
            Left err -> fail $ show err
-           Right exprs ->
-             do forM_ exprs $ putStrLn . PrettyString.toString . Pretty.docExpr
-                return exprs
+           Right exprs -> return exprs
 
     renameExprs :: Monad m => RenamerState -> [Expr] -> m [Expr]
     renameExprs _ [] = return []
@@ -153,13 +117,11 @@ typecheckTestFile initialContext filename = Right <$> typecheckFile
 
     typecheckExprs _ [] = return []
     typecheckExprs context (expr:exprs) =
-      do putStrLn $ PrettyString.toString $ Pretty.docExpr expr
-         case Typechecker.typecheck context expr Nothing of
-           Left err ->
-             fail $ show (err :: PrettyString)
-           Right (context', _) ->
-             do let names = lookupTypedNames context' expr
-                (names++) <$> typecheckExprs context' exprs
+      case Typechecker.typecheck context expr Nothing of
+        Left err ->
+          fail $ show (err :: PrettyString)
+        Right (context', expr', _) ->
+          (expr':) <$> typecheckExprs context' exprs
 
     typecheckFile =
       do exprs <- renameFile
@@ -247,9 +209,10 @@ testTypechecker generateTestExpectations =
       ]
 
     initialContext =
-      map (\(name, typ) -> Context.assigned (Name.untyped name) typ) initialBindings
+      Context.Context { scope = map (\(name, typ) -> Context.assigned (Name.untyped name) typ) initialBindings,
+                      vars = [] }
 
     expect expectedFilename filename =
       do result <- typecheckTestFile initialContext filename
-         let actual = PrettyString.toString . PrettyString.vcat . map (PrettyString.text . show) <$> result
+         let actual = PrettyString.toString . PrettyString.vcat . map Pretty.docExpr <$> result
          Diff.expectFiles "Typechecker" filename generateTestExpectations expectedFilename actual

@@ -1,1 +1,12 @@
-f10 :: Int -> Int -> Int
+let nonrec f10 :: Int -> Int -> Int =
+  \x1 :: Int ->
+    \y2 :: Int ->
+      cond
+        cond
+          isInt# x1 ->
+            cond
+              isInt# y2 -> true#
+              true# -> false#
+          true# -> false# ->
+          let nonrec f23 :: Int -> Int = \z4 :: Int -> + z4 y2 in
+          f23 x1

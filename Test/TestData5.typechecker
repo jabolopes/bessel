@@ -1,1 +1,6 @@
-isString0 :: List Char -> Bool
+let rec isString0 :: List Char -> Bool =
+  \arg#01 :: List Char ->
+    cond
+      isList# null# arg#01 -> true#
+      isHeadTail# isChar# isString0 arg#01 -> true#
+      true# -> false#

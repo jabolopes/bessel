@@ -1,19 +1,107 @@
-isFruit0 :: Fruit -> Bool
-isApple1 :: Fruit -> Bool
-isBanana3 :: forall a. (a -> Bool) -> Fruit -> Bool
-isFig6 :: forall a. (a -> Bool) -> Fruit -> Bool
-isOrange9 :: forall a. (a -> Bool) -> Fruit -> Bool
-isLemon12 :: forall a. (a -> Bool) -> Fruit -> Bool
-isMelon15 :: forall a. (a -> Bool) -> Fruit -> Bool
-mkApple18 :: Fruit
-mkBanana20 :: Int -> Fruit
-mkFig23 :: (Int, Real) -> Fruit
-mkOrange26 :: Fruit -> Fruit
-mkLemon29 :: Fruit -> Fruit
-mkMelon32 :: Fruit -> Fruit
-unBanana35 :: Fruit -> Int
-unFig38 :: Fruit -> (Int, Real)
-unOrange41 :: Fruit -> Fruit
-unLemon44 :: Fruit -> Fruit
-unMelon47 :: Fruit -> Fruit
-f150 :: Fruit -> Int
+let nonrec isFruit0 :: Fruit -> Bool = isType# "Fruit"
+let nonrec isApple1 :: Fruit -> Bool =
+  \arg#02 :: Fruit ->
+    cond isFruit0 arg#02 -> isVariant0# "Fruit" 0 arg#02
+let nonrec isBanana3 :: forall a. (a -> Bool) -> Fruit -> Bool =
+  \fn#14 :: forall a. a -> Bool ->
+    \arg#25 :: Fruit ->
+      cond isFruit0 arg#25 -> isVariant# "Fruit" 1 fn#14 arg#25
+let nonrec isFig6 :: forall a. (a -> Bool) -> Fruit -> Bool =
+  \fn#37 :: forall a. a -> Bool ->
+    \arg#48 :: Fruit ->
+      cond isFruit0 arg#48 -> isVariant# "Fruit" 2 fn#37 arg#48
+let nonrec isOrange9 :: forall a. (a -> Bool) -> Fruit -> Bool =
+  \fn#510 :: forall a. a -> Bool ->
+    \arg#611 :: Fruit ->
+      cond isFruit0 arg#611 -> isVariant# "Fruit" 3 fn#510 arg#611
+let nonrec isLemon12 :: forall a. (a -> Bool) -> Fruit -> Bool =
+  \fn#713 :: forall a. a -> Bool ->
+    \arg#814 :: Fruit ->
+      cond isFruit0 arg#814 -> isVariant# "Fruit" 4 fn#713 arg#814
+let nonrec isMelon15 :: forall a. (a -> Bool) -> Fruit -> Bool =
+  \fn#916 :: forall a. a -> Bool ->
+    \arg#1017 :: Fruit ->
+      cond isFruit0 arg#1017 -> isVariant# "Fruit" 5 fn#916 arg#1017
+let nonrec mkApple18 :: Fruit =
+  (\r#1119 :: Fruit -> cond isFruit0 r#1119 -> r#1119)
+    (mkVariant0# "Fruit" 0)
+let nonrec mkBanana20 :: Int -> Fruit =
+  \x21 :: Int ->
+    cond
+      isInt# x21 ->
+        (\r#1222 :: Fruit -> cond isFruit0 r#1222 -> r#1222)
+          (mkVariant# "Fruit" 1 x21)
+let nonrec mkFig23 :: (Int, Real) -> Fruit =
+  \arg#1324 :: (Int, Real) ->
+    cond
+      isTuple2 (mkTuple2 isInt# isReal) arg#1324 ->
+        (\r#1425 :: Fruit -> cond isFruit0 r#1425 -> r#1425)
+          (mkVariant# "Fruit" 2 arg#1324)
+let nonrec mkOrange26 :: Fruit -> Fruit =
+  \arg#1527 :: Fruit ->
+    cond
+      isFruit0 arg#1527 ->
+        (\r#1628 :: Fruit -> cond isFruit0 r#1628 -> r#1628)
+          (mkVariant# "Fruit" 3 arg#1527)
+let nonrec mkLemon29 :: Fruit -> Fruit =
+  \arg#1730 :: Fruit ->
+    cond
+      isOrange9 isFruit0 arg#1730 ->
+        (\r#1831 :: Fruit -> cond isFruit0 r#1831 -> r#1831)
+          (mkVariant# "Fruit" 4 arg#1730)
+let nonrec mkMelon32 :: Fruit -> Fruit =
+  \arg#1933 :: Fruit ->
+    cond
+      isFruit0 arg#1933 ->
+        (\r#2034 :: Fruit -> cond isFruit0 r#2034 -> r#2034)
+          (mkVariant# "Fruit" 5 arg#1933)
+let nonrec unBanana35 :: Fruit -> Int =
+  \arg#2136 :: Fruit ->
+    cond
+      isFruit0 arg#2136 ->
+        (\x37 :: Int -> cond isInt# x37 -> x37) (unVariant# arg#2136)
+let nonrec unFig38 :: Fruit -> (Int, Real) =
+  \arg#2239 :: Fruit ->
+    cond
+      isFruit0 arg#2239 ->
+        (\r#2340 :: (Int, Real) ->
+           cond isTuple2 (mkTuple2 isInt# isReal) r#2340 -> r#2340)
+          (unVariant# arg#2239)
+let nonrec unOrange41 :: Fruit -> Fruit =
+  \arg#2442 :: Fruit ->
+    cond
+      isFruit0 arg#2442 ->
+        (\r#2543 :: Fruit -> cond isFruit0 r#2543 -> r#2543)
+          (unVariant# arg#2442)
+let nonrec unLemon44 :: Fruit -> Fruit =
+  \arg#2645 :: Fruit ->
+    cond
+      isFruit0 arg#2645 ->
+        (\r#2746 :: Fruit -> cond isOrange9 isFruit0 r#2746 -> r#2746)
+          (unVariant# arg#2645)
+let nonrec unMelon47 :: Fruit -> Fruit =
+  \arg#2848 :: Fruit ->
+    cond
+      isFruit0 arg#2848 ->
+        (\r#2949 :: Fruit -> cond isFruit0 r#2949 -> r#2949)
+          (unVariant# arg#2848)
+let nonrec f150 :: Fruit -> Int =
+  \a51 :: Fruit ->
+    cond
+      isApple1 a51 -> 0
+      isBanana3 isInt# a51 ->
+        let nonrec x52 :: Int = unBanana35 a51 in
+        1
+      isFig6 (isTuple2 (mkTuple2 isInt# isReal)) a51 ->
+        let nonrec x53 :: Int = tuple2Ref0# (unFig38 a51) in
+        let nonrec y54 :: Real = tuple2Ref1# (unFig38 a51) in
+        2
+      isOrange9 isFruit0 a51 ->
+        let nonrec x55 :: Fruit = unOrange41 a51 in
+        3
+      isLemon12 (isOrange9 isFruit0) a51 ->
+        let nonrec x56 :: Fruit = unOrange41 (unLemon44 a51) in
+        4
+      isMelon15 isFruit0 a51 ->
+        let nonrec x57 :: Fruit = unMelon47 a51 in
+        5

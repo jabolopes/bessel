@@ -1,1 +1,14 @@
-f0 :: Int -> Int
+let nonrec f0 :: Int -> Int =
+  \n1 :: Int ->
+    let nonrec res#02 :: List Int =
+      check#
+        (isList#
+           (cons (\_3 :: Int -> true#) (cons (\_4 :: Int -> true#) null#)))
+        (cons 1 (cons 2 null#)) in
+    let nonrec x5 :: Int = head# res#02 in
+    let nonrec y6 :: Int = head# (tail# res#02) in
+    case n1
+      (\arg#17 :: Int ->
+         cond
+           > 1 arg#17 -> x5
+           true# -> y6)

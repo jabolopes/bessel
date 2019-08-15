@@ -4,6 +4,7 @@ module Typechecker.Typechecker where
 import Prelude hiding (pred)
 
 import Control.Applicative (Applicative)
+import Control.Arrow ((***))
 import Control.Monad (foldM, liftM)
 import Control.Monad.State.Class
 import Control.Monad.Trans.State (StateT, runStateT)
@@ -13,7 +14,6 @@ import qualified Data.Set as Set
 
 import Data.Expr (DefnKw(..), Expr(..))
 import qualified Data.PrettyString as PrettyString
-import Data.Name (Name)
 import qualified Data.Name as Name
 import qualified Pretty.Data.Expr as Pretty
 import qualified Pretty.Stage.Typechecker as Pretty
@@ -22,8 +22,6 @@ import qualified Typechecker.Context as Context
 import Typechecker.Type
 import qualified Typechecker.Type as Type
 import Typechecker.TypeName
-
-import System.IO.Unsafe
 
 data TypecheckerState
   = TypecheckerState { counter :: Int }
@@ -37,9 +35,9 @@ runTypechecker context m = fst `liftM` runStateT (unTypechecker m) context
 
 genTypeName :: Monad m => Typechecker m TypeName
 genTypeName =
-  do state <- get
-     put state { counter = counter state + 1 }
-     return . TypeName $ counter state
+  do s <- get
+     put s { counter = counter s + 1 }
+     return . TypeName $ counter s
 
 genExistVar :: Monad m => Typechecker m Type
 genExistVar = ExistVar `liftM` genTypeName
@@ -299,13 +297,10 @@ synthesize context (LambdaE arg body) =
 -- ->E
 synthesize context (AppE fun arg) =
   do (context', funType) <- synthesize context fun
-     _ <- unsafePerformIO $ do
-       putStrLn $ show (Pretty.docExpr fun) ++ " :: " ++ show funType
-       return $ return (context', funType)
      synthesizeApply context' (Context.substitute context' funType) arg
 -- CondE
-synthesize context (CondE matches) =
-  synthesizeFirstMatch context matches
+synthesize ctx (CondE ms) =
+  synthesizeFirstMatch ctx ms
   where
     checkMatches :: Monad m => Context -> [(Expr, Expr)] -> Type -> Check m Context
     checkMatches context [] _ = return context
@@ -352,11 +347,39 @@ synthesize context term =
   fail . PrettyString.toString $
     Pretty.devIncompleteSynthesize (show context) (Pretty.docExpr term)
 
-typecheck :: Monad m => Context -> Expr -> Maybe Type -> m (Context, Type)
+-- | Returns a new expr in which all names in binding positions have
+-- been replaced by fully substituted names. A binding position is,
+-- e.g., function definitions and lambda expressions, as opposed to
+-- identifiers (IdE), which are not in binding position and therefore
+-- are not substituted. This is simply done because otherwise there
+-- would be too many types in the tree, but it can be considered
+-- later.
+annotateExpr :: Context -> Expr -> Expr
+annotateExpr context = annotate
+  where
+    annotate :: Expr -> Expr
+    annotate (AnnotationE expr typ) =
+      AnnotationE (annotate expr) typ
+    annotate (AppE fn arg) =
+      AppE (annotate fn) (annotate arg)
+    annotate (CondE matches) =
+      CondE $ map (annotate *** annotate) matches
+    annotate (FnDecl defkw name expr) =
+      FnDecl defkw (Context.resolveTerm context name) (annotate expr)
+    annotate expr@IdE {} =
+      expr
+    annotate (LambdaE name expr) =
+      LambdaE (Context.resolveTerm context name) (annotate expr)
+    annotate (LetE defn body) =
+      LetE (annotate defn) (annotate body)
+    annotate expr@LiteralE {} =
+      expr
+
+typecheck :: Monad m => Context -> Expr -> Maybe Type -> m (Context, Expr, Type)
 typecheck context term checkType =
   do (context', typ) <- runTypecheckerWithRule checkType
      if Context.isContextWellFormed context' then
-       return (context', typ)
+       return (context', annotateExpr context' term, typ)
      else
        fail . PrettyString.toString $
          Pretty.devContextTypecheck (show context) (Pretty.docExpr term) (show <$> checkType)
@@ -377,8 +400,8 @@ typecheck context term checkType =
 
     initialCounter :: Int
     initialCounter
-      | List.null context = noType
-      | otherwise = (1+) . maximum $ map (maxContextTypeName . fst) context
+      | List.null (Context.scope context) = noType
+      | otherwise = (1+) . maximum . map (maxContextTypeName . fst) $ Context.scope context
 
     runTypecheckerWithRule Nothing =
       do (context', typ) <- runTypechecker (TypecheckerState initialCounter) $ synthesize context term
@@ -386,13 +409,3 @@ typecheck context term checkType =
     runTypecheckerWithRule (Just typ) =
       do context' <- runTypechecker (TypecheckerState initialCounter) $ check context term typ
          return (context', typ)
-
--- | lookupName returns the 'name' and possibly a fully resolved type.
-lookupName :: Context -> Name -> Name
-lookupName context name =
-  case Context.lookupTerm context name of
-    Nothing ->
-      name
-    Just typ ->
-      let typ' = Type.rebuildForall $ Context.substitute context typ in
-      Name.annotate name typ'

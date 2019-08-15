@@ -1,11 +1,14 @@
+{-# LANGUAGE NamedFieldPuns #-}
 module Typechecker.Context where
 
 import Prelude hiding (last, lookup)
 
 import qualified Data.List as List
+import qualified Data.Maybe as Maybe
 
 import Data.Expr
-import Data.Name
+import Data.Name (Name)
+import qualified Data.Name as Name
 import Typechecker.Type (Type(..))
 import qualified Typechecker.Type as Type
 import Typechecker.TypeName (TypeName)
@@ -25,121 +28,174 @@ assigned :: Name -> Type -> (ContextVar, Maybe Type)
 assigned binding typ = (ContextTermVar binding, Just typ)
 
 -- | Context is implemented as a reversed list.
-type Context = [(ContextVar, Maybe Type)]
+data Context = Context {
+  -- | Scope implemented as a stack on a reverse list.
+  scope :: [(ContextVar, Maybe Type)],
+  -- | Term variables accumulated when the context is sliced (i.e.,
+  -- names discarded when they go out of scope) to be used later for
+  -- full substitution.
+  vars :: [(ContextVar, Maybe Type)] }
+  deriving (Show)
 
-lookup :: Context -> ContextVar -> Maybe Type
-lookup [] _ = Nothing
-lookup ((x, y):xs) var
-  | x == var = y
-  | otherwise = lookup xs var
+-- |
+lookupContext :: Context -> ContextVar -> Maybe (ContextVar, Maybe Type)
+lookupContext Context { scope } var =
+  List.find ((==) var . fst) scope
 
+-- | Looks up the type of 'var' in the context. The type is returned
+-- as it appears on the scope, without further substitutions.
+lookupType :: Context -> ContextVar -> Maybe Type
+lookupType context var = snd =<< lookupContext context var
+
+-- | Specialization of 'lookupType' for term variables.
 lookupTerm :: Context -> Name -> Maybe Type
-lookupTerm context = lookup context . ContextTermVar
+lookupTerm context = lookupType context . ContextTermVar
 
+-- | resolveTerm returns a 'name' possibly annotated by a fully
+-- substituted type.
+--
+-- Implementation details: substitution uses both the scope and the
+-- vars from the 'Context'. See 'vars' for more information.
+resolveTerm :: Context -> Name -> Name
+resolveTerm context@Context { scope, vars } name =
+  let context' = context { scope = vars ++ scope, vars = [] } in
+  case lookupTerm context' name of
+    Nothing ->
+      name
+    Just typ ->
+      let typ' = Type.rebuildForall $ substitute context typ in
+      Name.annotate name typ'
+
+containsScope :: Eq a => [(a, b)] -> a -> Bool
+containsScope xs x = List.elem x $ map fst xs
+
+-- | Determines whether the context variable appears in the 'Context's
+-- scope.
 contains :: Context -> ContextVar -> Bool
-contains [] _ = False
-contains ((x, _):xs) var =
-  x == var || contains xs var
+contains context = Maybe.isJust . lookupContext context
 
+-- | Returns true iff the context variable appears in the 'Context's
+-- scope and is assigned.
 containsAssigned :: Context -> ContextVar -> Bool
-containsAssigned [] _ = False
-containsAssigned ((x, y):xs) var
-  | x == var =
-    case y of
-      Nothing -> False
-      _ -> True
-  | otherwise = containsAssigned xs var
+containsAssigned context var =
+  case lookupContext context var of
+    Just (_, Just _) -> True
+    _ -> False
 
+-- | Returns true iff the context variable appears in the 'Context's
+-- scope and is not assigned.
 containsUnassigned :: Context -> ContextVar -> Bool
-containsUnassigned [] _ = False
-containsUnassigned ((x, y):xs) var
-  | x == var =
-    case y of
-      Nothing -> True
-      _ -> False
-  | otherwise = containsUnassigned xs var
-
-containsUnassignedTypes :: Context -> [Type] -> Bool
-containsUnassignedTypes _ [] = True
-containsUnassignedTypes [] _ = False
-containsUnassignedTypes ((x, y):xs) vs@(var:vars)
-  | x == ContextType var =
-    case y of
-      Nothing -> containsUnassignedTypes xs vars
-      _ -> False
-  | otherwise =
-    containsUnassignedTypes xs vs
+containsUnassigned context var =
+  case lookupContext context var of
+    Just (_, Nothing) -> True
+    _ -> False
 
 containsType :: Context -> Type -> Bool
 containsType context =
   contains context . ContextType
 
-containsTermAssigned :: Context -> Name -> Bool
-containsTermAssigned context =
-  containsAssigned context . ContextTermVar
-
 containsTypeUnassigned :: Context -> Type -> Bool
 containsTypeUnassigned context =
   containsUnassigned context . ContextType
 
+containsUnassignedTypes :: Context -> [Type] -> Bool
+containsUnassignedTypes context =
+  all ((==) True) . map (containsTypeUnassigned context)
+
+containsTermAssigned :: Context -> Name -> Bool
+containsTermAssigned context =
+  containsAssigned context . ContextTermVar
+
 append :: Context -> (ContextVar, Maybe Type) -> Context
-append = flip (:)
+append context var =
+  context { scope = var:scope context }
 
 appendType :: Context -> Type -> Context
-appendType context typ = (ContextType typ, Nothing):context
+appendType context typ =
+  context `append` (ContextType typ, Nothing)
 
 appendWithMarker :: Context -> Type -> Context
 appendWithMarker context typ@(ExistVar name) =
-  appendType ((ContextMarker name, Nothing):context) typ
+  context `append` (ContextMarker name, Nothing) `appendType` typ
 
 appendTermAssign :: Context -> Expr -> Type -> Context
 appendTermAssign context (IdE name) typ =
-  (ContextTermVar name, Just typ):context
+  context `append` (ContextTermVar name, Just typ)
+
+-- | Returns a context in which the scope has been dropped from its
+-- deepest part up until and including the element that matches the
+-- predicate.
+--
+-- Implementation details: variables in the part of the scope being
+-- discarded are added to the 'Context's vars field to be later used
+-- for full substitution. See 'vars' for more information.
+sliceAt :: Context -> ((ContextVar, Maybe Type) -> Bool) -> Context
+sliceAt context@Context { scope, vars } predicate =
+  case predicate `List.findIndex` scope of
+    Nothing ->
+      context
+    Just index ->
+      let
+        (discard, keep) = splitAt (index + 1) scope
+        newVars = filter isVar discard
+        allVars = newVars ++ vars
+        contextVars = map substituteVar allVars
+      in
+        context { scope = keep, vars = contextVars }
+  where
+    isVar (ContextTermVar _, _) = True
+    isVar _ = False
+
+    substituteVar var@(_, Nothing) =
+      var
+    substituteVar (ContextTermVar name, Just typ) =
+      let typ' = substitute context typ in
+      (ContextTermVar name, Just typ')
 
 sliceAtMarker :: Context -> Type -> Context
-sliceAtMarker context typ@(ExistVar name) =
-  case (ContextMarker name, Nothing) `List.elemIndex` context of
-    Nothing -> context
-    Just index -> drop (index + 1) context
+sliceAtMarker context (ExistVar name) =
+  sliceAt context $ (==) (ContextMarker name, Nothing)
 
 sliceAtType :: Context -> Type -> Context
 sliceAtType context typ =
-  case List.findIndex isType context of
-    Just index -> drop (index + 1) context
-    Nothing -> context
+  sliceAt context isType
   where
     isType (ContextType x, _) = x == typ
     isType _ = False
 
 sliceAtTermVar :: Context -> Expr -> Context
 sliceAtTermVar context (IdE name) =
-  case List.findIndex isVar context of
-    Just index -> drop (index + 1) context
-    Nothing -> context
+  sliceAt context isVar
   where
     isVar (ContextTermVar x, _) = x == name
     isVar _ = False
 
 assign :: Context -> ContextVar -> Type -> Context
-assign [] _ _ = []
-assign ((x, y):xs) type1 type2
-  | x == type1 = ((x, Just type2):xs)
-  | otherwise = (x, y):assign xs type1 type2
+assign context@Context { scope } var typ =
+  context { scope = loop scope }
+  where
+    loop [] = []
+    loop ((x, y):xs)
+      | x == var = ((x, Just typ):xs)
+      | otherwise = (x, y):loop xs
 
 assignType :: Context -> Type -> Type -> Context
 assignType context typ@ExistVar {} =
   assign context (ContextType typ)
 
 assignWithExistVars :: Context -> ContextVar -> [Type] -> Context
-assignWithExistVars [] _ _ = []
-assignWithExistVars ((x, y):xs) typ types
-  | x == typ =
-    let (solution:existVars) = List.reverse types in
-    [(x, Just solution)] ++
-    map (\t -> (ContextType t, Nothing)) existVars ++
-    xs
-  | otherwise =
-    (x, y):assignWithExistVars xs typ types
+assignWithExistVars context@Context { scope } var types =
+  context { scope = loop scope }
+  where
+    loop [] = []
+    loop ((x, y):xs)
+      | x == var =
+        let (solution:existVars) = List.reverse types in
+        [(x, Just solution)] ++
+        map (\t -> (ContextType t, Nothing)) existVars ++
+        xs
+      | otherwise =
+        (x, y):loop xs
 
 assignTypeWithExistVars :: Context -> Type -> [Type] -> Context
 assignTypeWithExistVars context typ types =
@@ -166,29 +222,33 @@ isTypeWellFormed context (TupleT types) =
   all ((==) True) $ map (isTypeWellFormed context) types
 
 isContextWellFormed :: Context -> Bool
-isContextWellFormed [] =
-  True
-isContextWellFormed ((var@(ContextType (TypeVar _)), Nothing):context) =
-  isContextWellFormed context &&
-  not (contains context var)
-isContextWellFormed ((var@ContextTermVar {}, Just typ):context) =
-  isContextWellFormed context &&
-  not (contains context var) &&
-  isTypeWellFormed context typ
-isContextWellFormed ((var@(ContextType (ExistVar _)), Nothing):context) =
-  isContextWellFormed context &&
-  not (contains context var)
-isContextWellFormed ((var@(ContextType (ExistVar _)), (Just typ)):context) =
-  isContextWellFormed context &&
-  not (contains context var) &&
-  Type.isMonotype typ &&
-  isTypeWellFormed context typ
-isContextWellFormed ((marker@(ContextMarker name), Nothing):context) =
-  isContextWellFormed context &&
-  not (contains context marker) &&
-  not (contains context (ContextType (ExistVar name)))
-isContextWellFormed _ =
-  False
+isContextWellFormed context =
+  isScopeWellFormed $ scope context
+  where
+    isScopeWellFormed :: [(ContextVar, Maybe Type)] -> Bool
+    isScopeWellFormed [] =
+      True
+    isScopeWellFormed ((var@(ContextType (TypeVar _)), Nothing):scope) =
+      isScopeWellFormed scope &&
+      not (containsScope scope var)
+    isScopeWellFormed ((var@ContextTermVar {}, Just typ):scope) =
+      isScopeWellFormed scope &&
+      not (containsScope scope var) &&
+      isTypeWellFormed context { scope = scope } typ
+    isScopeWellFormed ((var@(ContextType (ExistVar _)), Nothing):scope) =
+      isScopeWellFormed scope &&
+      not (containsScope scope var)
+    isScopeWellFormed ((var@(ContextType (ExistVar _)), (Just typ)):scope) =
+      isScopeWellFormed scope &&
+      not (containsScope scope var) &&
+      Type.isMonotype typ &&
+      isTypeWellFormed context { scope = scope } typ
+    isScopeWellFormed ((marker@(ContextMarker name), Nothing):scope) =
+      isScopeWellFormed scope &&
+      not (containsScope scope marker) &&
+      not (containsScope scope (ContextType (ExistVar name)))
+    isScopeWellFormed _ =
+      False
 
 substitute :: Context -> Type -> Type
 substitute _ typ@TypeVar {} = typ
@@ -196,7 +256,7 @@ substitute _ typ
   | Type.isUnit typ = typ
 substitute context typ@ExistVar {}
   | contains context (ContextType typ) =
-    case lookup context (ContextType typ) of
+    case lookupType context (ContextType typ) of
       Just typ' -> substitute context typ'
       Nothing -> typ
   | otherwise =

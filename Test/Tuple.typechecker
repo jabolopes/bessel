@@ -1,1 +1,7 @@
-f10 :: (Int, Real) -> Real
+let nonrec f10 :: (Int, Real) -> Real =
+  \t1 :: (Int, Real) ->
+    cond
+      isTuple2 (mkTuple2 isInt# isReal) t1 ->
+        let nonrec x2 :: Int = tuple2Ref0# t1 in
+        let nonrec y3 :: Real = tuple2Ref1# t1 in
+        addIntReal x2 y3
