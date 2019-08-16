@@ -1,0 +1,2 @@
+let nonrec f1 = \t -> cond isTuple0 t -> mkTuple0
+let nonrec f2 = check# isTuple0 mkTuple0

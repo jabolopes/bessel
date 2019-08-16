@@ -1,0 +1,19 @@
+let nonrec f1 = \y -> (\f -> \x -> f x y) + 1
+let nonrec f2 =
+  \x ->
+    let rec g =
+      \y ->
+        let nonrec h = \z -> + (+ x y) (g z) in
+        + x y in
+    g
+let nonrec f3 =
+  \x ->
+    let nonrec gg =
+      \y ->
+        let rec hh = \z -> + (+ x y) (hh z) in
+        + (hh x) y in
+    gg
+let nonrec f4 =
+  let nonrec ggg = \f -> + (f 10) (hhh 10) in
+  let nonrec hhh = \x -> - x in
+  ggg hhh

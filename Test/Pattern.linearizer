@@ -1,0 +1,143 @@
+let nonrec lambda#0 =
+  \arg#1 ->
+    cond
+      isChar# arg#1 ->
+        cond
+          eqChar# 'a' arg#1 -> true#
+          true# -> false#
+      true# -> false#
+let nonrec patChar = \arg#0 -> cond lambda#0 arg#0 -> 'a'
+let nonrec lambda#1 =
+  \arg#1 ->
+    cond
+      isInt# arg#1 ->
+        cond
+          eqInt# 0 arg#1 -> true#
+          true# -> false#
+      true# -> false#
+let nonrec patInt = \arg#0 -> cond lambda#1 arg#0 -> 0
+let nonrec lambda#2 =
+  \arg#1 ->
+    cond
+      isReal# arg#1 ->
+        cond
+          eqReal# 0.0 arg#1 -> true#
+          true# -> false#
+      true# -> false#
+let nonrec patReal = \arg#0 -> cond lambda#2 arg#0 -> 0.0
+let nonrec lambda#3 =
+  \arg#1 ->
+    cond
+      isString# arg#1 ->
+        cond
+          eqString# "hello" arg#1 -> true#
+          true# -> false#
+      true# -> false#
+let nonrec patString = \arg#0 -> cond lambda#3 arg#0 -> "hello"
+let nonrec patVariantTag =
+  \arg#0 ->
+    cond
+      isApple isInt arg#0 ->
+        let nonrec x = unApple arg#0 in
+        x
+let nonrec lambda#4 =
+  \arg#1 ->
+    cond
+      isInt# arg#1 ->
+        cond
+          eqInt# 0 arg#1 -> true#
+          true# -> false#
+      true# -> false#
+let nonrec lambda#5 =
+  \arg#2 ->
+    cond
+      isInt# arg#2 ->
+        cond
+          eqInt# 1 arg#2 -> true#
+          true# -> false#
+      true# -> false#
+let nonrec patBinOp =
+  \arg#0 ->
+    cond
+      isHeadTail# lambda#4 (isList# (cons lambda#5 null)) arg#0 ->
+        let nonrec x = head# arg#0 in
+        let nonrec y = tail# arg#0 in
+        cons 0 1
+let nonrec patAll = \_ -> 0
+let nonrec patBind = \x -> x
+let nonrec patGuard = \arg#0 -> cond isInt arg#0 -> 0
+let nonrec patBindGuard = \x -> cond isInt x -> x
+let nonrec patEmptyList1 =
+  \arg#0 -> cond isList# null arg#0 -> null
+let nonrec patEmptyList2 = \x -> cond isList# null x -> x
+let nonrec lambda#6 = \_ -> true#
+let nonrec lambda#7 =
+  \arg#1 ->
+    cond
+      isInt# arg#1 ->
+        cond
+          eqInt# 1 arg#1 -> true#
+          true# -> false#
+      true# -> false#
+let nonrec patList1 =
+  \arg#0 ->
+    cond
+      isList#
+        (cons lambda#6 (cons isInt (cons isInt (cons lambda#7 null))))
+        arg#0 ->
+        let nonrec x = head# arg#0 in
+        let nonrec y = head# (tail# (tail# arg#0)) in
+        cons 0 (cons 0 (cons 0 (cons 1 null)))
+let nonrec lambda#8 = \_ -> true#
+let nonrec lambda#9 =
+  \arg#1 ->
+    cond
+      isInt# arg#1 ->
+        cond
+          eqInt# 1 arg#1 -> true#
+          true# -> false#
+      true# -> false#
+let nonrec patList2 =
+  \arg#0 ->
+    cond
+      isList#
+        (cons lambda#8 (cons isInt (cons isInt (cons lambda#9 null))))
+        arg#0 ->
+        let nonrec x = head# arg#0 in
+        let nonrec y = head# (tail# (tail# arg#0)) in
+        cons 0 (cons 0 (cons 0 (cons 1 null)))
+let nonrec patEmptyTuple1 =
+  \arg#0 -> cond isTuple0 arg#0 -> mkTuple0
+let nonrec patEmptyTuple2 = \x -> cond isTuple0 x -> x
+let nonrec lambda#10 = \_ -> true#
+let nonrec lambda#11 =
+  \arg#1 ->
+    cond
+      isInt# arg#1 ->
+        cond
+          eqInt# 1 arg#1 -> true#
+          true# -> false#
+      true# -> false#
+let nonrec patTuple1 =
+  \arg#0 ->
+    cond
+      isTuple4 (mkTuple4 lambda#10 isInt isInt lambda#11) arg#0 ->
+        let nonrec x = tuple4Ref0# arg#0 in
+        let nonrec y = tuple4Ref2# arg#0 in
+        mkTuple4 0 0 0 1
+let nonrec lambda#12 = \_ -> true#
+let nonrec lambda#13 =
+  \arg#1 ->
+    cond
+      isInt# arg#1 ->
+        cond
+          eqInt# 1 arg#1 -> true#
+          true# -> false#
+      true# -> false#
+let nonrec patTuple2 =
+  \arg#0 ->
+    cond
+      isTuple4 (mkTuple4 lambda#12 isInt isInt lambda#13) arg#0 ->
+        let nonrec x = tuple4Ref0# arg#0 in
+        let nonrec y = tuple4Ref2# arg#0 in
+        mkTuple4 0 0 0 1

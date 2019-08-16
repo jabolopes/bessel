@@ -1,0 +1,12 @@
+let nonrec f2 = \y#0 -> \z -> + z y#0
+let nonrec f1 =
+  \x ->
+    \y ->
+      cond
+        cond
+          isInt x ->
+            cond
+              isInt y -> true#
+              true# -> false#
+          true# -> false# ->
+          f2 y x

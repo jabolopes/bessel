@@ -1,0 +1,78 @@
+let nonrec isFruit :: Fruit -> Bool = isType# "Fruit"
+let nonrec isApple =
+  \arg#0 -> cond isFruit arg#0 -> isVariant0# "Fruit" 0 arg#0
+let nonrec isBanana =
+  \fn#1 ->
+    \arg#2 -> cond isFruit arg#2 -> isVariant# "Fruit" 1 fn#1 arg#2
+let nonrec isFig =
+  \fn#3 ->
+    \arg#4 -> cond isFruit arg#4 -> isVariant# "Fruit" 2 fn#3 arg#4
+let nonrec isOrange =
+  \fn#5 ->
+    \arg#6 -> cond isFruit arg#6 -> isVariant# "Fruit" 3 fn#5 arg#6
+let nonrec isLemon =
+  \fn#7 ->
+    \arg#8 -> cond isFruit arg#8 -> isVariant# "Fruit" 4 fn#7 arg#8
+let nonrec isMelon =
+  \fn#9 ->
+    \arg#10 -> cond isFruit arg#10 -> isVariant# "Fruit" 5 fn#9 arg#10
+let nonrec lambda#0 = \r#11 -> cond isFruit r#11 -> r#11
+let nonrec mkApple = lambda#0 (mkVariant0# "Fruit" 0)
+let nonrec lambda#1 = \r#12 -> cond isFruit r#12 -> r#12
+let nonrec mkBanana =
+  \x -> cond isInt x -> lambda#1 (mkVariant# "Fruit" 1 x)
+let nonrec lambda#2 = \r#14 -> cond isFruit r#14 -> r#14
+let nonrec mkFig =
+  \arg#13 ->
+    cond
+      isTuple2 (mkTuple2 isInt isReal) arg#13 ->
+        lambda#2 (mkVariant# "Fruit" 2 arg#13)
+let nonrec lambda#3 = \r#16 -> cond isFruit r#16 -> r#16
+let nonrec mkOrange =
+  \arg#15 ->
+    cond isFruit arg#15 -> lambda#3 (mkVariant# "Fruit" 3 arg#15)
+let nonrec lambda#4 = \r#18 -> cond isFruit r#18 -> r#18
+let nonrec mkLemon =
+  \arg#17 ->
+    cond
+      isOrange isFruit arg#17 -> lambda#4 (mkVariant# "Fruit" 4 arg#17)
+let nonrec lambda#5 = \r#20 -> cond isFruit r#20 -> r#20
+let nonrec mkMelon =
+  \arg#19 ->
+    cond isFruit arg#19 -> lambda#5 (mkVariant# "Fruit" 5 arg#19)
+let nonrec lambda#6 = \x -> cond isInt x -> x
+let nonrec unBanana =
+  \arg#21 -> cond isFruit arg#21 -> lambda#6 (unVariant# arg#21)
+let nonrec lambda#7 =
+  \r#23 -> cond isTuple2 (mkTuple2 isInt isReal) r#23 -> r#23
+let nonrec unFig =
+  \arg#22 -> cond isFruit arg#22 -> lambda#7 (unVariant# arg#22)
+let nonrec lambda#8 = \r#25 -> cond isFruit r#25 -> r#25
+let nonrec unOrange =
+  \arg#24 -> cond isFruit arg#24 -> lambda#8 (unVariant# arg#24)
+let nonrec lambda#9 = \r#27 -> cond isOrange isFruit r#27 -> r#27
+let nonrec unLemon =
+  \arg#26 -> cond isFruit arg#26 -> lambda#9 (unVariant# arg#26)
+let nonrec lambda#10 = \r#29 -> cond isFruit r#29 -> r#29
+let nonrec unMelon =
+  \arg#28 -> cond isFruit arg#28 -> lambda#10 (unVariant# arg#28)
+let nonrec f1 =
+  \a ->
+    cond
+      isApple a -> 0
+      isBanana isInt a ->
+        let nonrec x = unBanana a in
+        1
+      isFig (isTuple2 (mkTuple2 isInt isReal)) a ->
+        let nonrec x = tuple2Ref0# (unFig a) in
+        let nonrec y = tuple2Ref1# (unFig a) in
+        2
+      isOrange isFruit a ->
+        let nonrec x = unOrange a in
+        3
+      isLemon (isOrange isFruit) a ->
+        let nonrec x = unOrange (unLemon a) in
+        4
+      isMelon isFruit a ->
+        let nonrec x = unMelon a in
+        5

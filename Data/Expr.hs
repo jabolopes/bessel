@@ -9,6 +9,7 @@ import Typechecker.Type (Type)
 
 data DefnKw
   = Def | NrDef
+  deriving (Eq)
 
 data Expr
   = AnnotationE Expr Type
@@ -53,6 +54,7 @@ data Expr
   -- "three"
   -- @
   | LiteralE Literal
+  deriving (Eq)
 
 isAppE :: Expr -> Bool
 isAppE AppE {} = True

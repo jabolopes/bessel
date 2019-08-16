@@ -1,0 +1,45 @@
+let nonrec lambda#0 = \_ -> true#
+let nonrec lambda#1 = \_ -> true#
+let nonrec lambda#2 = \_ -> true#
+let nonrec lambda#3 = \_ -> true#
+let rec eqSeq =
+  \arg#0 ->
+    \arg#1 ->
+      cond
+        cond
+          isList# null arg#0 ->
+            cond
+              isList# null arg#1 -> true#
+              true# -> false#
+          true# -> false# ->
+          true
+        cond
+          isHeadTail# lambda#0 lambda#1 arg#0 ->
+            cond
+              isHeadTail# lambda#2 lambda#3 arg#1 -> true#
+              true# -> false#
+          true# -> false# ->
+          let nonrec z = head# arg#0 in
+          let nonrec zs = tail# arg#0 in
+          let nonrec w = head# arg#1 in
+          let nonrec ws = tail# arg#1 in
+          cond
+            eq z w ->
+              cond
+                eqSeq zs ws -> true#
+                true# -> false#
+            true# -> false#
+        true# -> false
+let nonrec lambda#4 =
+  \x ->
+    \y ->
+      cond
+        cond
+          isInt x ->
+            cond
+              isInt y -> true#
+              true# -> false#
+          true# -> false# ->
+          eqInt x y
+        true# -> eqSeq x y
+let nonrec eq = lambda#4

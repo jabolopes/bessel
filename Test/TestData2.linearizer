@@ -1,0 +1,7 @@
+let nonrec f2 = \z -> + z 1
+let nonrec f1 =
+  \x ->
+    cond
+      isInt x ->
+        let nonrec y = 0 in
+        f2 y

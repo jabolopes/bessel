@@ -5,3 +5,4 @@ data Literal
   | IntL Int
   | RealL Double
   | StringL String
+  deriving (Eq)

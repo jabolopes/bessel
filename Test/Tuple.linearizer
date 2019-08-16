@@ -1,0 +1,7 @@
+let nonrec f1 =
+  \t ->
+    cond
+      isTuple2 (mkTuple2 isInt isReal) t ->
+        let nonrec x = tuple2Ref0# t in
+        let nonrec y = tuple2Ref1# t in
+        addIntReal x y

@@ -39,6 +39,7 @@ testExpander generateTestExpectations =
      expect "Test/TestData6.expander" "Test/TestData6.bsl"
      expect "Test/TestData7.expander" "Test/TestData7.bsl"
      expect "Test/TestData12.expander" "Test/TestData12.bsl"
+     expect "Test/Lambda.expander" "Test/Lambda.bsl"
      expect "Test/Pattern.expander" "Test/Pattern.bsl"
      expect "Test/ResultPattern.expander" "Test/ResultPattern.bsl"
      expect "Test/Tuple.expander" "Test/Tuple.bsl"
