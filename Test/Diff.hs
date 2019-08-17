@@ -13,16 +13,16 @@ diff expected actual =
 
 expectFiles :: String -> String -> Bool -> String -> Either PrettyString String -> IO ()
 expectFiles testName testCase _ _ (Left err) =
-  fail $ testName ++ " test\n" ++
-         "In: " ++ testCase ++ "\n" ++
-         "Error: " ++ "\n" ++ PrettyString.toString err
+  putStrLn $ testName ++ " test\n" ++
+             "In: " ++ testCase ++ "\n" ++
+             "Error: " ++ "\n" ++ PrettyString.toString err
 expectFiles testName testCase False expectedFilename (Right actual) =
   do expected <- readFile expectedFilename
      when (expected /= actual) $
-        fail $ testName ++ "\n" ++
-               "In: " ++ testCase ++ "\n" ++
-               "Expected: " ++ "\n" ++ expected ++ "\n" ++
-               "Actual: " ++ "\n" ++ actual ++ "\n" ++
-               "Diff: " ++ "\n" ++ diff expected actual
+        putStrLn $ testName ++ "\n" ++
+                  "In: " ++ testCase ++ "\n" ++
+                  "Expected: " ++ "\n" ++ expected ++ "\n" ++
+                  "Actual: " ++ "\n" ++ actual ++ "\n" ++
+                  "Diff: " ++ "\n" ++ diff expected actual
 expectFiles _ _ True expectedFilename (Right actual) =
   writeFile expectedFilename actual
