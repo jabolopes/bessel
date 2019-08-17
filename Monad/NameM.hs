@@ -1,4 +1,4 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE FlexibleInstances, GeneralizedNewtypeDeriving #-}
 module Monad.NameM where
 
 -- TODO: Renane NameM to NameT because this is a monad transformer.
@@ -23,6 +23,9 @@ genNameM name =
   do c <- nameCounter <$> get
      modify $ \s -> s { nameCounter = nameCounter s + 1 }
      lift $ Name.rename name (Name.nameStr name ++ "#" ++ show c)
+
+instance Monad m => MonadName (StateT NameState m) where
+  genName = genNameM
 
 runNameM :: NameM m a -> NameState -> m (a, NameState)
 runNameM m s = runStateT m s

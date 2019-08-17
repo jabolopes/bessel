@@ -40,7 +40,7 @@ import Data.Source (Source(..))
 import qualified Data.Source as Source
 import qualified Expander.Cast as Cast
 import Expander.Type
-import Monad.NameM (NameM)
+import Monad.NameM (MonadName)
 import qualified Monad.NameM as NameM
 
 -- Runtime.
@@ -72,7 +72,7 @@ genUnTagName :: Name -> Name
 genUnTagName = Name.untyped . ("un" ++) . Name.nameStr
 
 -- | Generates a predicate for a variant tag.
-genTagPredicate :: Monad m => Name -> Name -> Int -> Maybe Source -> NameM m Source
+genTagPredicate :: MonadName m => Name -> Name -> Int -> Maybe Source -> m Source
 genTagPredicate typeName tagName tagNum pat =
   do body <- genBody pat
      return $ FnDefS (PatS (genIsTagName tagName) Nothing) Nothing body []
@@ -81,13 +81,13 @@ genTagPredicate typeName tagName tagNum pat =
       Cast.castArgument (IdS $ genIsTypeName typeName) $ \argName ->
         return $ Source.listToApp [IdS isVariant0Name, Source.stringS (Name.nameStr typeName), Source.intS tagNum, IdS argName]
     genBody (Just _) =
-      do fnName <- NameM.genNameM $ Name.untyped "fn"
+      do fnName <- NameM.genName $ Name.untyped "fn"
          body <- Cast.castArgument (IdS $ genIsTypeName typeName) $ \argName ->
            return $ Source.listToApp [IdS isVariantName, Source.stringS (Name.nameStr typeName), Source.intS tagNum, IdS fnName, IdS argName]
          return $ CondS [([PatS fnName Nothing], body)]
 
 -- | Generates a constructor for a variant tag.
-genTagConstructor :: Monad m => Name -> Name -> Int -> Maybe Source -> NameM m Source
+genTagConstructor :: MonadName m => Name -> Name -> Int -> Maybe Source -> m Source
 genTagConstructor typeName tagName tagNum pat =
   do body <- genBody pat
      return $ FnDefS (PatS (genMkTagName tagName) Nothing) Nothing body []
@@ -101,7 +101,7 @@ genTagConstructor typeName tagName tagNum pat =
         return $ Source.listToApp [IdS mkVariantName, Source.stringS (Name.nameStr typeName), Source.intS tagNum, IdS argName]
 
 -- | Generates a deconstructor for a variant tag.
-genTagDeconstructor :: Monad m => Name -> Name -> Source -> NameM m Source
+genTagDeconstructor :: MonadName m => Name -> Name -> Source -> m Source
 genTagDeconstructor typeName tagName pat =
   do body <- genBody
      return $ FnDefS (PatS (genUnTagName tagName) Nothing) Nothing body []
