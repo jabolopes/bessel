@@ -1,3 +1,10 @@
+-x doesn't lex / parse.
+
+
+bessel is using both mtl and transformers. Figure out what the story
+is and perhaps choose one approach and stick to it.
+
+
 Typechecker should deal with the types in the Name. And then we can
 probably get rid of AnnotateE? Unless there are specific uses for it,
 namely, to typecheck expressions instead of identifiers.
