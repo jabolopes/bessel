@@ -1,4 +1,4 @@
-let nonrec lambda#0 =
+let nonrec lambda#27 =
   \arg#1 ->
     cond
       isChar# arg#1 ->
@@ -6,182 +6,182 @@ let nonrec lambda#0 =
           eqChar# 'a' arg#1 -> true#
           true# -> false#
       true# -> false#
-let nonrec res#0 = check# lambda#0 'a'
-let nonrec lambda#1 =
-  \arg#0 ->
-    cond
-      isChar# arg#0 ->
-        cond
-          eqChar# 'a' arg#0 -> true#
-          true# -> false#
-      true# -> false#
-let nonrec patChar = check# lambda#1 'a'
-let nonrec lambda#2 =
-  \arg#1 ->
-    cond
-      isInt# arg#1 ->
-        cond
-          eqInt# 0 arg#1 -> true#
-          true# -> false#
-      true# -> false#
-let nonrec res#0 = check# lambda#2 0
-let nonrec lambda#3 =
-  \arg#0 ->
-    cond
-      isInt# arg#0 ->
-        cond
-          eqInt# 0 arg#0 -> true#
-          true# -> false#
-      true# -> false#
-let nonrec patInt = check# lambda#3 0
-let nonrec lambda#4 =
-  \arg#1 ->
-    cond
-      isReal# arg#1 ->
-        cond
-          eqReal# 0.0 arg#1 -> true#
-          true# -> false#
-      true# -> false#
-let nonrec res#0 = check# lambda#4 0.0
-let nonrec lambda#5 =
-  \arg#0 ->
-    cond
-      isReal# arg#0 ->
-        cond
-          eqReal# 0.0 arg#0 -> true#
-          true# -> false#
-      true# -> false#
-let nonrec patReal = check# lambda#5 0.0
-let nonrec lambda#6 =
-  \arg#1 ->
-    cond
-      isString# arg#1 ->
-        cond
-          eqString# "hello" arg#1 -> true#
-          true# -> false#
-      true# -> false#
-let nonrec res#0 = check# lambda#6 "hello"
-let nonrec lambda#7 =
-  \arg#0 ->
-    cond
-      isString# arg#0 ->
-        cond
-          eqString# "hello" arg#0 -> true#
-          true# -> false#
-      true# -> false#
-let nonrec patString = check# lambda#7 "hello"
-let nonrec res#0 = check# (isApple isInt) mkApple0
-let nonrec x = unApple res#0
-let nonrec patVariantTag = check# (isApple isInt) (mkApple 0)
-let nonrec x = unApple patVariantTag
-let nonrec lambda#8 =
-  \arg#1 ->
-    cond
-      isInt# arg#1 ->
-        cond
-          eqInt# 0 arg#1 -> true#
-          true# -> false#
-      true# -> false#
-let nonrec lambda#9 =
+let nonrec res#0 = check# lambda#27 'a'
+let nonrec lambda#28 =
   \arg#2 ->
     cond
-      isInt# arg#2 ->
+      isChar# arg#2 ->
         cond
-          eqInt# 1 arg#2 -> true#
+          eqChar# 'a' arg#2 -> true#
           true# -> false#
       true# -> false#
-let nonrec res#0 =
-  check# (isHeadTail# lambda#8 (isList# (cons lambda#9 null)))
+let nonrec patChar = check# lambda#28 'a'
+let nonrec lambda#29 =
+  \arg#4 ->
+    cond
+      isInt# arg#4 ->
+        cond
+          eqInt# 0 arg#4 -> true#
+          true# -> false#
+      true# -> false#
+let nonrec res#3 = check# lambda#29 0
+let nonrec lambda#30 =
+  \arg#5 ->
+    cond
+      isInt# arg#5 ->
+        cond
+          eqInt# 0 arg#5 -> true#
+          true# -> false#
+      true# -> false#
+let nonrec patInt = check# lambda#30 0
+let nonrec lambda#31 =
+  \arg#7 ->
+    cond
+      isReal# arg#7 ->
+        cond
+          eqReal# 0.0 arg#7 -> true#
+          true# -> false#
+      true# -> false#
+let nonrec res#6 = check# lambda#31 0.0
+let nonrec lambda#32 =
+  \arg#8 ->
+    cond
+      isReal# arg#8 ->
+        cond
+          eqReal# 0.0 arg#8 -> true#
+          true# -> false#
+      true# -> false#
+let nonrec patReal = check# lambda#32 0.0
+let nonrec lambda#33 =
+  \arg#10 ->
+    cond
+      isString# arg#10 ->
+        cond
+          eqString# "hello" arg#10 -> true#
+          true# -> false#
+      true# -> false#
+let nonrec res#9 = check# lambda#33 "hello"
+let nonrec lambda#34 =
+  \arg#11 ->
+    cond
+      isString# arg#11 ->
+        cond
+          eqString# "hello" arg#11 -> true#
+          true# -> false#
+      true# -> false#
+let nonrec patString = check# lambda#34 "hello"
+let nonrec res#12 = check# (isApple isInt) mkApple0
+let nonrec x = unApple res#12
+let nonrec patVariantTag = check# (isApple isInt) (mkApple 0)
+let nonrec x = unApple patVariantTag
+let nonrec lambda#35 =
+  \arg#14 ->
+    cond
+      isInt# arg#14 ->
+        cond
+          eqInt# 0 arg#14 -> true#
+          true# -> false#
+      true# -> false#
+let nonrec lambda#36 =
+  \arg#15 ->
+    cond
+      isInt# arg#15 ->
+        cond
+          eqInt# 1 arg#15 -> true#
+          true# -> false#
+      true# -> false#
+let nonrec res#13 =
+  check# (isHeadTail# lambda#35 (isList# (cons lambda#36 null)))
     (cons x y)
-let nonrec x = head# res#0
-let nonrec y = tail# res#0
-let nonrec lambda#10 =
-  \arg#0 ->
+let nonrec x = head# res#13
+let nonrec y = tail# res#13
+let nonrec lambda#37 =
+  \arg#16 ->
     cond
-      isInt# arg#0 ->
+      isInt# arg#16 ->
         cond
-          eqInt# 0 arg#0 -> true#
+          eqInt# 0 arg#16 -> true#
           true# -> false#
       true# -> false#
-let nonrec lambda#11 =
-  \arg#1 ->
+let nonrec lambda#38 =
+  \arg#17 ->
     cond
-      isInt# arg#1 ->
+      isInt# arg#17 ->
         cond
-          eqInt# 1 arg#1 -> true#
+          eqInt# 1 arg#17 -> true#
           true# -> false#
       true# -> false#
 let nonrec patBinOp =
-  check# (isHeadTail# lambda#10 (isList# (cons lambda#11 null)))
+  check# (isHeadTail# lambda#37 (isList# (cons lambda#38 null)))
     (cons 0 1)
 let nonrec x = head# patBinOp
 let nonrec y = tail# patBinOp
 let nonrec _ = 0
 let nonrec patAll = 0
 let nonrec patBind = \x -> x
-let nonrec res#0 = check# isInt 0
+let nonrec res#18 = check# isInt 0
 let nonrec patBindGuard = check# isInt 0
-let nonrec res#0 = check# (isList# null) null
+let nonrec res#19 = check# (isList# null) null
 let nonrec patEmptyList = check# (isList# null) null
-let nonrec lambda#12 = \_ -> true#
-let nonrec lambda#13 =
-  \arg#1 ->
+let nonrec lambda#39 = \_ -> true#
+let nonrec lambda#40 =
+  \arg#21 ->
     cond
-      isInt# arg#1 ->
+      isInt# arg#21 ->
         cond
-          eqInt# 1 arg#1 -> true#
+          eqInt# 1 arg#21 -> true#
           true# -> false#
       true# -> false#
-let nonrec res#0 =
+let nonrec res#20 =
   check#
     (isList#
-       (cons lambda#12 (cons isInt (cons isInt (cons lambda#13 null)))))
+       (cons lambda#39 (cons isInt (cons isInt (cons lambda#40 null)))))
     (cons 0 (cons 0 (cons 0 (cons 1 null))))
-let nonrec x = head# res#0
-let nonrec y = head# (tail# (tail# res#0))
-let nonrec lambda#14 = \_ -> true#
-let nonrec lambda#15 =
-  \arg#0 ->
+let nonrec x = head# res#20
+let nonrec y = head# (tail# (tail# res#20))
+let nonrec lambda#41 = \_ -> true#
+let nonrec lambda#42 =
+  \arg#22 ->
     cond
-      isInt# arg#0 ->
+      isInt# arg#22 ->
         cond
-          eqInt# 1 arg#0 -> true#
+          eqInt# 1 arg#22 -> true#
           true# -> false#
       true# -> false#
 let nonrec patList =
   check#
     (isList#
-       (cons lambda#14 (cons isInt (cons isInt (cons lambda#15 null)))))
+       (cons lambda#41 (cons isInt (cons isInt (cons lambda#42 null)))))
     (cons 0 (cons 0 (cons 0 (cons 1 null))))
 let nonrec x = head# patList
 let nonrec y = head# (tail# (tail# patList))
-let nonrec res#0 = check# isTuple0 mkTuple0
+let nonrec res#23 = check# isTuple0 mkTuple0
 let nonrec patEmptyTuple = check# isTuple0 x
-let nonrec lambda#16 = \_ -> true#
-let nonrec lambda#17 =
-  \arg#1 ->
+let nonrec lambda#43 = \_ -> true#
+let nonrec lambda#44 =
+  \arg#25 ->
     cond
-      isInt# arg#1 ->
+      isInt# arg#25 ->
         cond
-          eqInt# 1 arg#1 -> true#
+          eqInt# 1 arg#25 -> true#
           true# -> false#
       true# -> false#
-let nonrec res#0 =
-  check# (isTuple4 (mkTuple4 lambda#16 isInt isInt lambda#17))
+let nonrec res#24 =
+  check# (isTuple4 (mkTuple4 lambda#43 isInt isInt lambda#44))
     (mkTuple4 0 0 0 1)
-let nonrec x = tuple4Ref0# res#0
-let nonrec y = tuple4Ref2# res#0
-let nonrec lambda#18 = \_ -> true#
-let nonrec lambda#19 =
-  \arg#0 ->
+let nonrec x = tuple4Ref0# res#24
+let nonrec y = tuple4Ref2# res#24
+let nonrec lambda#45 = \_ -> true#
+let nonrec lambda#46 =
+  \arg#26 ->
     cond
-      isInt# arg#0 ->
+      isInt# arg#26 ->
         cond
-          eqInt# 1 arg#0 -> true#
+          eqInt# 1 arg#26 -> true#
           true# -> false#
       true# -> false#
 let nonrec patTuple =
-  check# (isTuple4 (mkTuple4 lambda#18 isInt isInt lambda#19))
+  check# (isTuple4 (mkTuple4 lambda#45 isInt isInt lambda#46))
     (mkTuple4 0 0 0 1)
 let nonrec x = tuple4Ref0# patTuple
 let nonrec y = tuple4Ref2# patTuple

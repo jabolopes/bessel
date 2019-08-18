@@ -4,7 +4,6 @@ module Expander.Pattern where
 import Prelude hiding (pred, mod)
 
 import Control.Monad.Except (MonadError, throwError)
-
 import qualified Data.List as List
 
 import Data.Literal (Literal(..))
@@ -14,7 +13,7 @@ import Data.PrettyString (PrettyString)
 import Data.Source (Source(..))
 import qualified Data.Source as Source
 import qualified Expander.Variant as Variant
-import Monad.NameM (NameM)
+import Monad.NameM (MonadName)
 import qualified Monad.NameM as NameM
 import qualified Pretty.Data.Source as Pretty
 import qualified Pretty.Stage.Expander as Pretty
@@ -42,11 +41,11 @@ isTupleName len = Name.untyped $ "isTuple" ++ show len
 
 -- Pattern names.
 
-genPatternName :: Monad m => String -> Source -> NameM m Name
+genPatternName :: MonadName m => String -> Source -> m Name
 genPatternName _ (PatS binder Nothing)
   | Name.isEmptyName binder = return $ Name.untyped "_"
 genPatternName _ (PatS binder _) = return binder
-genPatternName hint _ = NameM.genNameM $ Name.untyped hint
+genPatternName hint _ = NameM.genName $ Name.untyped hint
 
 -- | Generates names for the given patterns.
 -- @
@@ -55,7 +54,7 @@ genPatternName hint _ = NameM.genNameM $ Name.untyped hint
 -- genPatNames  @      = "_"
 -- genPatNames  @isInt = "arg#0"
 -- @
-genPatternNames :: Monad m => [Source] -> NameM m [Name]
+genPatternNames :: MonadName m => [Source] -> m [Name]
 genPatternNames = mapM (genPatternName "arg")
 
 -- Pattern definitions.
@@ -183,7 +182,7 @@ genLiteralPredicate StringL {} = (Name.untyped "isString#", Name.untyped "eqStri
 -- isTuple0
 -- isTuple2 (isInt, isReal)
 -- @
-genPatternPredicate :: MonadError PrettyString m => Source -> NameM m Source
+genPatternPredicate :: (MonadError PrettyString m, MonadName m) => Source -> m Source
 genPatternPredicate = genPredicate
   where
     genTagPredicate (IdS typeName:srcs) =
@@ -202,7 +201,7 @@ genPatternPredicate = genPredicate
 
     genLiteral literal =
       do let (isFn, eqFn) = genLiteralPredicate literal
-         argName <- NameM.genNameM $ Name.untyped "arg"
+         argName <- NameM.genName $ Name.untyped "arg"
          return $ CondS [([PatS argName Nothing],
                           (IdS isFn `AppS` IdS argName) `AndS`
                            (Source.listToApp [IdS eqFn, LiteralS literal, IdS argName]))]

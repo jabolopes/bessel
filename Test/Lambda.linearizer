@@ -6,6 +6,6 @@ let nonrec f2 = \x -> g x
 let rec hh = \x#7 -> \y#6 -> \z -> + (+ x#7 y#6) (hh x#7 y#6 z)
 let nonrec gg = \x#5 -> \y -> + (hh x#5 y x#5) y
 let nonrec f3 = \x -> gg x
+let nonrec hhh = \x -> + x x
 let nonrec ggg = \f -> + (f 10) (hhh 10)
-let nonrec hhh = \x -> - x
 let nonrec f4 = ggg hhh

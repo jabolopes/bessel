@@ -14,6 +14,6 @@ let nonrec f3 =
         + (hh x) y in
     gg
 let nonrec f4 =
+  let nonrec hhh = \x -> + x x in
   let nonrec ggg = \f -> + (f 10) (hhh 10) in
-  let nonrec hhh = \x -> - x in
   ggg hhh

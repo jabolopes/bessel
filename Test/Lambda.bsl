@@ -1,4 +1,4 @@
-me Test.TestLambda
+me Test.Lambda
 
 let f1 y =
   (f x = f x y) (+) 1
@@ -17,5 +17,5 @@ where
 
 let f4 = ggg hhh
 where
+  let hhh x = x + x
   let ggg f = f 10 + hhh 10
-  let hhh x = (-) x

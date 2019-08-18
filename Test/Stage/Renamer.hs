@@ -1,6 +1,9 @@
+{-# LANGUAGE FlexibleContexts #-}
 module Test.Stage.Renamer where
 
 import Control.Applicative ((<$>))
+import Control.Monad.Except (MonadError, runExceptT, throwError)
+import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.State hiding (state)
 
 import Data.Expr (Expr)
@@ -8,6 +11,8 @@ import qualified Data.Name as Name
 import Data.PrettyString (PrettyString)
 import qualified Data.PrettyString as PrettyString
 import Data.Source (Source(..))
+import Monad.NameM (MonadName)
+import qualified Monad.NameM as NameM
 import qualified Parser
 import qualified Pretty.Data.Expr as Pretty
 import qualified Stage.Expander as Expander
@@ -35,31 +40,30 @@ initialRenamerState =
          Renamer.addFnSymbolM "tuple2Ref0#" "tuple2Ref0#"
          Renamer.addFnSymbolM "tuple2Ref1#" "tuple2Ref1#"
 
-renameTestFile :: String -> IO (Either PrettyString [Expr])
+renameTestFile :: (MonadError PrettyString m, MonadIO m, MonadName m) => String -> m [Expr]
 renameTestFile filename =
-  do input <- readFile filename
-     return $ renameFile input
+  do input <- liftIO $ readFile filename
+     renameFile input
   where
-    parseFile :: String -> Either PrettyString Source
+    parseFile :: (MonadError PrettyString m, MonadName m) => String -> m Source
     parseFile input =
       case Parser.parseFile (Name.untyped filename) input of
-        -- TODO: Remove PrettyString.text by converting Parser errors to PrettyString.
-        Left err -> Left $ PrettyString.text err
+        Left err -> throwError $ PrettyString.text err
         Right src -> return src
 
-    expandFile :: String -> Either PrettyString [Expr]
+    expandFile :: (MonadError PrettyString m, MonadName m) => String -> m [Expr]
     expandFile input =
       do ModuleS _ _ srcs <- parseFile input
          concat <$> mapM Expander.expand srcs
 
-    renameExprs :: RenamerState -> [Expr] -> Either PrettyString [Expr]
+    renameExprs :: MonadError PrettyString m => RenamerState -> [Expr] -> m [Expr]
     renameExprs _ [] = return []
     renameExprs state (expr:exprs) =
       case runStateT (Renamer.renameM expr) state of
-        Left err -> Left err
+        Left err -> throwError err
         Right (exprs', state') -> (exprs' ++) <$> renameExprs state' exprs
 
-    renameFile :: String -> Either PrettyString [Expr]
+    renameFile :: (MonadError PrettyString m, MonadName m) => String -> m [Expr]
     renameFile input =
       do exprs <- expandFile input
          state <- initialRenamerState
@@ -72,6 +76,6 @@ testRenamer generateTestExpectations =
      expect "Test/Tuple.renamer" "Test/Tuple.bsl"
   where
     expect expectedFilename filename =
-      do result <- renameTestFile filename
+      do result <- NameM.runName $ runExceptT $ renameTestFile filename
          let actual = PrettyString.toString . PrettyString.vcat . map Pretty.docExpr <$> result
          Diff.expectFiles "Renamer" filename generateTestExpectations expectedFilename actual

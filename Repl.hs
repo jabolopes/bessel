@@ -1,9 +1,10 @@
-{-# LANGUAGE LambdaCase, MultiWayIf #-}
+{-# LANGUAGE FlexibleContexts, LambdaCase, MultiWayIf #-}
 module Repl where
 
 import Prelude hiding (lex, mod)
 
 import Control.Monad.State hiding (state)
+import Control.Monad.Except (MonadError, runExceptT, throwError)
 import qualified Data.Char as Char (isSpace)
 import Data.Functor ((<$>))
 import Data.IORef
@@ -28,6 +29,8 @@ import Data.Result (Result(..))
 import Data.Source (Source(..))
 import qualified Data.Source as Source
 import Monad.InterpreterM (Val(..))
+import Monad.NameM as NameM (MonadName)
+import qualified Monad.NameM as NameM
 import qualified Parser (parseRepl)
 import qualified Pretty.Data.Definition as Pretty
 import qualified Pretty.Data.Module as Pretty
@@ -39,7 +42,7 @@ import qualified Stage.Renamer as Renamer
 import qualified Utils (split)
 
 data ReplState =
-    ReplState { initialFs :: FileSystem, fs :: FileSystem }
+    ReplState { initialFs :: FileSystem, loadedFs :: FileSystem }
 
 type ReplM a = StateT ReplState IO a
 
@@ -63,9 +66,10 @@ stageFiles mods =
         loop fs (mod:mods) (i:is) =
           do putHeader i
              putStrLn . show $ Module.modName mod
-             res <- Stage.stageModule fs mod
+             res <- NameM.runName $ runExceptT $ Stage.stageModule fs mod
              case res of
-               Right (fs', _) -> loop fs' mods is
+               Right (fs', _) ->
+                 loop fs' mods is
                Left err ->
                  do putStrLn (PrettyString.toString err)
                     loop fs mods is
@@ -79,7 +83,7 @@ importFile fs modName =
         do fs' <- stageFiles mods
            let interactive = Module.mkInteractiveModule mods []
                fs'' = FileSystem.add fs' interactive
-           return ReplState { initialFs = fs, fs = fs'' }
+           return ReplState { initialFs = fs, loadedFs = fs'' }
 
 mkSnippet :: FileSystem -> Source -> Definition
 mkSnippet fs source@FnDefS {} =
@@ -89,45 +93,46 @@ mkSnippet fs source@FnDefS {} =
 mkSnippet fs source =
   mkSnippet fs $ FnDefS (Source.bindPat (Name.untyped "val") Source.allPat) Nothing source []
 
-stageDefinition :: FileSystem -> String -> IO (Either PrettyString (FileSystem, [Definition]))
+stageDefinition :: (MonadError PrettyString m, MonadIO m, MonadName m) => FileSystem -> String -> m (FileSystem, [Definition])
 stageDefinition fs ln =
-  case stage of
-    Left err -> return $ Left err
-    Right (renDefs, interactive) -> do
-      evalDefs <- mapM (Interpreter.interpretDefinition fs) renDefs
-      let interactive' = Module.ensureDefinitions interactive evalDefs
-      return $ Right (FileSystem.add fs interactive', evalDefs)
+  do src <-
+       case Parser.parseRepl Module.interactiveName ln of
+         Left err -> throwError $ PrettyString.text err
+         Right x -> return x
+     interactive <-
+       case FileSystem.lookup fs Module.interactiveName of
+         Nothing -> throwError $ Pretty.moduleNotFound Module.interactiveName
+         Just mod -> return mod
+     let def = mkSnippet fs src
+     expDefs <- Stage.expandDefinition interactive def
+     renDefs <- mapM renameDefinition expDefs
+     evalDefs <- liftIO $ mapM (Interpreter.interpretDefinition fs) renDefs
+     let interactive' = Module.ensureDefinitions interactive evalDefs
+     return $ (FileSystem.add fs interactive', evalDefs)
   where
-    stage =
-      do macro <- case Parser.parseRepl Module.interactiveName ln of
-                    Left err -> Left (PrettyString.text err)
-                    Right x -> Right x
-         let interactive = case FileSystem.lookup fs Module.interactiveName of
-                             Nothing -> error $ "Stage.stageDefinition: module " ++ show Module.interactiveName ++ " not found"
-                             Just mod -> mod
-             def = mkSnippet fs macro
-         expDefs <- Stage.expandDefinition interactive def
-         renDefs <- mapM (Renamer.renameDefinition fs) expDefs
-         Right (renDefs, interactive)
+    renameDefinition def =
+      case Renamer.renameDefinition fs def of
+        Left err -> throwError err
+        Right def' -> return def'
 
 runSnippetM :: String -> ReplM ()
 runSnippetM ln =
-  do fs <- fs <$> get
-     res <- liftIO $ stageDefinition fs ln
+  do fs <- loadedFs <$> get
+     res <- liftIO $ NameM.runName $ runExceptT $ stageDefinition fs ln
      case res of
        Left err ->
          liftIO . putStrLn $ PrettyString.toString err
        Right (fs', defs) ->
-         do modify $ \s -> s { fs = fs' }
+         do modify $ \s -> s { loadedFs = fs' }
             liftIO $ putVal (Definition.defVal (last defs))
 
 showMeM :: Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> Bool -> String -> ReplM ()
 showMeM showAll showBrief showOrd showFree showSrc showExp showRen filename =
   let
     filesM
-      | showAll = FileSystem.toAscList . fs <$> get
+      | showAll = FileSystem.toAscList . loadedFs <$> get
       | otherwise =
-        do fs <- fs <$> get
+        do fs <- loadedFs <$> get
            case FileSystem.lookup fs $ Name.untyped filename of
              Nothing -> liftIO $ do
                           putStrLn $ "module " ++ show filename ++ " has not been staged"
@@ -167,7 +172,7 @@ runCommandM "def" opts nonOpts
   | isDefinitionName nonOpts =
       do let moduleName = last $ init nonOpts
              definitionName = last nonOpts
-         fs <- fs <$> get
+         fs <- loadedFs <$> get
          liftIO . putStrLn . PrettyString.toString $
            case FileSystem.lookupDefinition fs . Name.untyped $ moduleName ++ "." ++ definitionName of
              Bad err -> err
@@ -178,7 +183,7 @@ runCommandM "def" opts nonOpts
                | otherwise = last nonOpts
          showMeM showAll showBrief showOrd showFree showSrc showExp showRen moduleName
   | null nonOpts =
-      do fs <- fs <$> get
+      do fs <- loadedFs <$> get
          let moduleNames = map Module.modName . FileSystem.toAscList $ fs
          liftIO . putStrLn . PrettyString.toString . Pretty.docModuleNames $ moduleNames
   | otherwise = usageM

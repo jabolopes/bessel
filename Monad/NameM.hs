@@ -4,6 +4,7 @@ module Monad.NameM where
 -- TODO: Renane NameM to NameT because this is a monad transformer.
 
 import Control.Applicative ((<$>))
+import Control.Monad.Except
 import Control.Monad.State
 import Control.Monad.Writer
 import qualified Data.List as List
@@ -34,7 +35,10 @@ class Monad m => MonadName m where
   genName :: Name -> m Name
 
 newtype NameT m a = NameT { runNameT :: StateT NameState m a }
-  deriving (Applicative, Functor, Monad, MonadState NameState)
+  deriving (Applicative, Functor, Monad, MonadState NameState, MonadTrans)
+
+instance (MonadIO m) => MonadIO (NameT m) where
+  liftIO = lift . liftIO
 
 instance Monad m => MonadName (NameT m) where
   genName name =
@@ -42,6 +46,9 @@ instance Monad m => MonadName (NameT m) where
        modify $ \s -> s { nameCounter = nameCounter s + 1 }
        let prefix = List.takeWhile (/= '#') $ Name.nameStr name
        Name.rename name (prefix ++ "#" ++ show c)
+
+instance MonadName m => MonadName (ExceptT e m) where
+  genName = lift . genName
 
 instance (Monoid w, MonadName m) => MonadName (WriterT w m) where
   genName = lift . genName

@@ -1,6 +1,6 @@
-let nonrec lambda#0 = \_ -> true#
-let nonrec lambda#1 = \_ -> true#
-let nonrec lambda#2 =
+let nonrec lambda#2 = \_ -> true#
+let nonrec lambda#3 = \_ -> true#
+let nonrec lambda#4 =
   \arg#1 ->
     cond
       > 1 arg#1 -> x
@@ -8,8 +8,8 @@ let nonrec lambda#2 =
 let nonrec f =
   \n ->
     let nonrec res#0 =
-      check# (isList# (cons lambda#0 (cons lambda#1 null)))
+      check# (isList# (cons lambda#2 (cons lambda#3 null)))
         (cons 1 (cons 2 null)) in
     let nonrec x = head# res#0 in
     let nonrec y = head# (tail# res#0) in
-    case n lambda#2
+    case n lambda#4

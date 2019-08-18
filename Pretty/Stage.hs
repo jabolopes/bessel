@@ -12,6 +12,12 @@ definitionContainsNoSource err =
   $+$
   PrettyString.nest err
 
+definitionIsNotFunction :: PrettyString -> PrettyString
+definitionIsNotFunction expr =
+  PrettyString.text "Expanded expression must be a function definition"
+  $+$
+  PrettyString.nest expr
+
 duplicateDefinitions :: Name -> String -> PrettyString
 duplicateDefinitions mod name =
   PrettyString.text "Module" <+>

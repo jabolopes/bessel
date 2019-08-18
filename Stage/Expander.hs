@@ -1,11 +1,11 @@
-{-# LANGUAGE LambdaCase, ParallelListComp, TupleSections #-}
+{-# LANGUAGE FlexibleContexts, LambdaCase, ParallelListComp, TupleSections #-}
 module Stage.Expander where
 
 import Prelude hiding (mod, pred)
 
 import Control.Applicative ((<$>), (<*>))
 import Control.Arrow ((***))
-import Control.Monad.Error.Class (throwError)
+import Control.Monad.Except (MonadError, throwError)
 import qualified Data.Maybe as Maybe
 
 import Data.Literal (Literal(..))
@@ -20,7 +20,7 @@ import qualified Data.Source as Source
 import qualified Expander.Pattern as Pattern
 import qualified Expander.Variant as Variant
 import qualified Expander.Type as Type
-import Monad.NameM (NameM)
+import Monad.NameM (MonadName, NameM)
 import qualified Monad.NameM as NameM
 import qualified Monad.Utils as Utils (returnOne)
 import qualified Pretty.Data.Source as Pretty
@@ -52,7 +52,7 @@ type ExpanderM a = NameM (Either PrettyString) a
 -- isTuple ()
 -- isTuple (isInt, isReal)
 -- @
-patPred :: Source -> ExpanderM Expr
+patPred :: (MonadError PrettyString m, MonadName m) => Source -> m Expr
 patPred = sourcePred
   where
     genTagPredicate [IdS typeName] =
@@ -72,7 +72,7 @@ patPred = sourcePred
 
     genLiteralPredicate literal =
       do let (isFn, eqFn) = Pattern.genLiteralPredicate literal
-         arg <- NameM.genNameM $ Name.untyped "arg"
+         arg <- NameM.genName $ Name.untyped "arg"
          let argId = IdS arg
              pred = AndS (Source.appS isFn argId) ((Source.appS eqFn (LiteralS literal)) `AppS` argId)
          LambdaE arg <$> expandOne pred
@@ -89,7 +89,7 @@ patPred = sourcePred
     genTuplePredicate pats =
       Expr.appE (Pattern.isTupleName $ length pats) . Expr.tupleE <$> mapM sourcePred pats
 
-    sourcePred :: Source -> ExpanderM Expr
+    sourcePred :: (MonadError PrettyString m, MonadName m) => Source -> m Expr
     sourcePred src
       | Source.isTypePat src = genTagPredicate (Source.appToList src)
     sourcePred src@AppS {} =
@@ -135,7 +135,7 @@ data MatchPredicate
   -- The above code is a simplification because '&&' is encoded through 'CondE'.
   | NonTrivial Expr
 
-genMatchPredicate :: Source -> Name -> ExpanderM MatchPredicate
+genMatchPredicate :: (MonadError PrettyString m, MonadName m) => Source -> Name -> m MatchPredicate
 genMatchPredicate (PatS _ Nothing) _ =
   return Trivial
 genMatchPredicate pat arg =
@@ -144,7 +144,7 @@ genMatchPredicate pat arg =
 
 -- | Same as 'genMatchPredicate' but predicates for multiple arguments
 -- are folded by '&&'.
-genMatchPredicates :: [Source] -> [Name] -> ExpanderM MatchPredicate
+genMatchPredicates :: (MonadError PrettyString m, MonadName m) => [Source] -> [Name] -> m MatchPredicate
 genMatchPredicates pats args =
   catNonTrivials <$> sequence [ genMatchPredicate pat arg | pat <- pats | arg <- args ] >>= \case
     [] -> return Trivial
@@ -165,7 +165,7 @@ genMatchPredicates pats args =
 -- let y = ... in
 -- body
 -- @
-expandMatchBody :: [Name] -> [Source] -> Source -> ExpanderM Expr
+expandMatchBody :: (MonadError PrettyString m, MonadName m) => [Name] -> [Source] -> Source -> m Expr
 expandMatchBody args pats body =
   do defns <- concat <$> (mapM expandSource $ concat [ Pattern.genPatternGetters (IdS arg) pat | arg <- args | pat <- pats ])
      case defns of
@@ -192,13 +192,13 @@ expandMatchBody args pats body =
 -- @
 --
 -- The above code is a simplification because '&&' is encoded through 'CondE'.
-expandMatch :: [Name] -> ([Source], Source) -> ExpanderM (MatchPredicate, Expr)
+expandMatch :: (MonadError PrettyString m, MonadName m) => [Name] -> ([Source], Source) -> m (MatchPredicate, Expr)
 expandMatch args (pats, body) =
   do predicates <- genMatchPredicates pats args
      body' <- expandMatchBody args pats body
      return (predicates, body')
 
-expandMatches :: [Name] -> [([Source], Source)] -> ExpanderM Expr
+expandMatches :: (MonadError PrettyString m, MonadName m) => [Name] -> [([Source], Source)] -> m Expr
 expandMatches args [match] =
   expandMatch args match >>= \case
     (Trivial, body) -> return body
@@ -235,7 +235,7 @@ expandMatches args matches =
 -- @
 --
 -- The above code is a simplification because '&&' is encoded through 'CondE'.
-expandCond :: [([Source], Source)] -> ExpanderM Expr
+expandCond :: (MonadError PrettyString m, MonadName m) => [([Source], Source)] -> m Expr
 expandCond matches =
   do let args = head . fst . unzip $ matches
      () <- checkMatches (length args) matches
@@ -243,7 +243,7 @@ expandCond matches =
      matches' <- expandMatches argNames matches
      return $ lambdas argNames matches'
   where
-    checkMatches :: Int -> [([Source], Source)] -> ExpanderM ()
+    checkMatches :: (MonadError PrettyString m, MonadName m) => Int -> [([Source], Source)] -> m ()
     checkMatches _ [] = return ()
     checkMatches n ((args, _):matches')
       | length args == n = checkMatches n matches'
@@ -278,7 +278,7 @@ expandFnDecl name typ body =
 -- x = hd res#0
 -- y = hd (tl res#0)
 -- @
-expandResultPattern :: Source -> Maybe Type -> Source -> [Source] -> ExpanderM [Source]
+expandResultPattern :: (MonadError PrettyString m, MonadName m) => Source -> Maybe Type -> Source -> [Source] -> m [Source]
 expandResultPattern pat typ body whereClause =
   do resultName <- Pattern.genPatternName "res" pat
      predicate <- Pattern.genPatternPredicate pat
@@ -322,7 +322,7 @@ expandWhere src defns = LetS defns src
 
 -- | Expands 'FnDefS'. Expands function definitions together with
 -- 'CondS' to get the right blame for incomplete pattern matching.
-expandFunctionDefinition :: Source -> ExpanderM [Expr]
+expandFunctionDefinition :: (MonadError PrettyString m, MonadName m) => Source -> m [Expr]
 expandFunctionDefinition (FnDefS pat@(PatS _ Nothing) typ body whereClause) =
   do fnName <- Pattern.genPatternName "fn" pat
      let body' = expandWhere body whereClause
@@ -343,7 +343,7 @@ expandLiteral (StringL str) = Expr.stringE str
 
 -- Expand sequences.
 
-expandSeq :: [Source] -> ExpanderM Expr
+expandSeq :: (MonadError PrettyString m, MonadName m) => [Source] -> m Expr
 expandSeq ms = Expr.seqE <$> mapM expandOne ms
 
 -- Expand tuples.
@@ -365,7 +365,7 @@ expandSeq ms = Expr.seqE <$> mapM expandOne ms
 -- mkTuple3 1 2.0 "hello"
 -- ...
 -- @
-expandTuple :: [Source] -> ExpanderM Expr
+expandTuple :: (MonadError PrettyString m, MonadName m) => [Source] -> m Expr
 expandTuple [src] =
   expandOne src
 expandTuple srcs =
@@ -374,7 +374,7 @@ expandTuple srcs =
 
 -- Expand type definitions.
 
-expandTypeDecl :: Name -> [(Name, Maybe Source)] -> ExpanderM [Expr]
+expandTypeDecl :: (MonadError PrettyString m, MonadName m) => Name -> [(Name, Maybe Source)] -> m [Expr]
 expandTypeDecl typeName tags =
   do srcs <- sequence $ typePredicates ++ tagPredicates ++ tagConstructors ++ tagDeconstructors
      concat <$> mapM expandSource srcs
@@ -398,7 +398,7 @@ expandTypeDecl typeName tags =
 
 -- Expand source.
 
-expandOne :: Source -> ExpanderM Expr
+expandOne :: (MonadError PrettyString m, MonadName m) => Source -> m Expr
 expandOne src =
   do exprs <- expandSource src
      case exprs of
@@ -407,7 +407,7 @@ expandOne src =
        _ ->
          throwError $ PrettyString.text "Stage.Expander.expandOne: expected single expression"
 
-expandSource :: Source -> ExpanderM [Expr]
+expandSource :: (MonadError PrettyString m, MonadName m) => Source -> m [Expr]
 expandSource (AndS src1 src2) =
   Utils.returnOne $ Expr.andE <$> expandOne src1 <*> expandOne src2
 expandSource (AppS src1 src2) =
@@ -438,5 +438,5 @@ expandSource (TupleS srcs) =
 expandSource (TypeDeclS typeName tags) =
   expandTypeDecl typeName tags
 
-expand :: Source -> Either PrettyString [Expr]
-expand src = fst <$> NameM.runNameM (expandSource src) NameM.initialNameState
+expand :: (MonadError PrettyString m, MonadName m) => Source -> m [Expr]
+expand = expandSource

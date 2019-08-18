@@ -1,6 +1,8 @@
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE FlexibleContexts #-}
 module Test.Typechecker.Typechecker where
 
+import Control.Monad.Except (MonadError, runExceptT, throwError)
+import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.State hiding (state)
 import Data.Char (ord)
 
@@ -10,6 +12,8 @@ import qualified Data.Name as Name
 import Data.PrettyString (PrettyString)
 import qualified Data.PrettyString as PrettyString
 import Data.Source as Source (Source(..))
+import Monad.NameM (MonadName)
+import qualified Monad.NameM as NameM
 import qualified Parser
 import qualified Pretty.Data.Expr as Pretty
 import qualified Stage.Expander as Expander
@@ -88,30 +92,32 @@ initialRenamerState =
          Renamer.addFnSymbolM "mkVariant#" "mkVariant#"
          Renamer.addFnSymbolM "unVariant#" "unVariant#"
 
-typecheckTestFile :: Context -> String -> IO (Either PrettyString [Expr])
-typecheckTestFile initialContext filename = Right <$> typecheckFile
+typecheckTestFile :: (MonadError PrettyString m, MonadIO m, MonadName m) => Context -> String -> m [Expr]
+typecheckTestFile initialContext filename =
+  do input <- liftIO $ readFile filename
+     typecheckFile input
   where
-    parseFile =
-      do str <- readFile filename
-         case Parser.parseFile (Name.untyped filename) str of
-           Left err -> fail err
-           Right src -> return src
+    parseFile :: (MonadError PrettyString m, MonadName m) => String -> m Source
+    parseFile input =
+      case Parser.parseFile (Name.untyped filename) input of
+        Left err -> throwError $ PrettyString.text err
+        Right src -> return src
 
-    expandFile =
-      do ModuleS _ _ srcs <- parseFile
-         case concat `fmap` mapM Expander.expand srcs of
-           Left err -> fail $ show err
-           Right exprs -> return exprs
+    expandFile :: (MonadError PrettyString m, MonadName m) => String -> m [Expr]
+    expandFile input =
+      do ModuleS _ _ srcs <- parseFile input
+         concat <$> mapM Expander.expand srcs
 
-    renameExprs :: Monad m => RenamerState -> [Expr] -> m [Expr]
+    renameExprs :: MonadError PrettyString m => RenamerState -> [Expr] -> m [Expr]
     renameExprs _ [] = return []
     renameExprs state (expr:exprs) =
       case runStateT (Renamer.renameM expr) state of
-        Left err -> fail $ show err
+        Left err -> throwError err
         Right (exprs', state') -> (exprs' ++) <$> renameExprs state' exprs
 
-    renameFile =
-      do exprs <- expandFile
+    renameFile :: (MonadError PrettyString m, MonadName m) => String -> m [Expr]
+    renameFile input =
+      do exprs <- expandFile input
          state <- initialRenamerState
          renameExprs state exprs
 
@@ -119,12 +125,13 @@ typecheckTestFile initialContext filename = Right <$> typecheckFile
     typecheckExprs context (expr:exprs) =
       case Typechecker.typecheck context expr Nothing of
         Left err ->
-          fail $ show (err :: PrettyString)
+          throwError err
         Right (context', expr', _) ->
           (expr':) <$> typecheckExprs context' exprs
 
-    typecheckFile =
-      do exprs <- renameFile
+    typecheckFile :: (MonadError PrettyString m, MonadName m) => String -> m [Expr]
+    typecheckFile input =
+      do exprs <- renameFile input
          typecheckExprs initialContext exprs
 
 testTypechecker :: Bool -> IO ()
@@ -213,6 +220,6 @@ testTypechecker generateTestExpectations =
                       vars = [] }
 
     expect expectedFilename filename =
-      do result <- typecheckTestFile initialContext filename
+      do result <- NameM.runName . runExceptT $ typecheckTestFile initialContext filename
          let actual = PrettyString.toString . PrettyString.vcat . map Pretty.docExpr <$> result
          Diff.expectFiles "Typechecker" filename generateTestExpectations expectedFilename actual

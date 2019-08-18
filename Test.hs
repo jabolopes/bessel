@@ -1,10 +1,10 @@
 import System.Environment (getArgs)
 
 import Test.Parser
+import Test.Stage.Expander
+import Test.Stage.IndentLexer
 import Test.Stage.Lexer
 import Test.Stage.Linearizer
-import Test.Stage.IndentLexer
-import Test.Stage.Expander
 import Test.Stage.Renamer
 import Test.Typechecker.Typechecker
 

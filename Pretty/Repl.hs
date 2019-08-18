@@ -11,3 +11,7 @@ docModuleNames names =
   (PrettyString.nest $
     PrettyString.vcat $
       map (PrettyString.text . show) names)
+
+moduleNotFound :: Name -> PrettyString
+moduleNotFound name =
+  PrettyString.text $ "Module " ++ show name ++ " not found"
