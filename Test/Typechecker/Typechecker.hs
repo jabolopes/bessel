@@ -12,8 +12,8 @@ import qualified Data.Name as Name
 import Data.PrettyString (PrettyString)
 import qualified Data.PrettyString as PrettyString
 import Data.Source as Source (Source(..))
-import Monad.NameM (MonadName)
-import qualified Monad.NameM as NameM
+import Monad.NameT (MonadName)
+import qualified Monad.NameT as NameT
 import qualified Parser
 import qualified Pretty.Data.Expr as Pretty
 import qualified Stage.Expander as Expander
@@ -220,6 +220,6 @@ testTypechecker generateTestExpectations =
                       vars = [] }
 
     expect expectedFilename filename =
-      do result <- NameM.runNameT . runExceptT $ typecheckTestFile initialContext filename
+      do result <- NameT.runNameT . runExceptT $ typecheckTestFile initialContext filename
          let actual = PrettyString.toString . PrettyString.vcat . map Pretty.docExpr <$> result
          Diff.expectFiles "Typechecker" filename generateTestExpectations expectedFilename actual

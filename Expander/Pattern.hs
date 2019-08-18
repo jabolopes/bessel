@@ -13,8 +13,8 @@ import Data.PrettyString (PrettyString)
 import Data.Source (Source(..))
 import qualified Data.Source as Source
 import qualified Expander.Variant as Variant
-import Monad.NameM (MonadName)
-import qualified Monad.NameM as NameM
+import Monad.NameT (MonadName)
+import qualified Monad.NameT as NameT
 import qualified Pretty.Data.Source as Pretty
 import qualified Pretty.Stage.Expander as Pretty
 
@@ -45,7 +45,7 @@ genPatternName :: MonadName m => String -> Source -> m Name
 genPatternName _ (PatS binder Nothing)
   | Name.isEmptyName binder = return $ Name.untyped "_"
 genPatternName _ (PatS binder _) = return binder
-genPatternName hint _ = NameM.genName $ Name.untyped hint
+genPatternName hint _ = NameT.genName $ Name.untyped hint
 
 -- | Generates names for the given patterns.
 -- @
@@ -201,7 +201,7 @@ genPatternPredicate = genPredicate
 
     genLiteral literal =
       do let (isFn, eqFn) = genLiteralPredicate literal
-         argName <- NameM.genName $ Name.untyped "arg"
+         argName <- NameT.genName $ Name.untyped "arg"
          return $ CondS [([PatS argName Nothing],
                           (IdS isFn `AppS` IdS argName) `AndS`
                            (Source.listToApp [IdS eqFn, LiteralS literal, IdS argName]))]

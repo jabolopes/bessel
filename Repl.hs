@@ -29,8 +29,8 @@ import Data.Result (Result(..))
 import Data.Source (Source(..))
 import qualified Data.Source as Source
 import Monad.InterpreterM (Val(..))
-import Monad.NameM as NameM (MonadName)
-import qualified Monad.NameM as NameM
+import Monad.NameT as NameT (MonadName)
+import qualified Monad.NameT as NameT
 import qualified Parser (parseRepl)
 import qualified Pretty.Data.Definition as Pretty
 import qualified Pretty.Data.Module as Pretty
@@ -66,7 +66,7 @@ stageFiles mods =
         loop fs (mod:mods) (i:is) =
           do putHeader i
              putStrLn . show $ Module.modName mod
-             res <- NameM.runNameT $ runExceptT $ Stage.stageModule fs mod
+             res <- NameT.runNameT $ runExceptT $ Stage.stageModule fs mod
              case res of
                Right (fs', _) ->
                  loop fs' mods is
@@ -118,7 +118,7 @@ stageDefinition fs ln =
 runSnippetM :: String -> ReplM ()
 runSnippetM ln =
   do fs <- loadedFs <$> get
-     res <- liftIO $ NameM.runNameT $ runExceptT $ stageDefinition fs ln
+     res <- liftIO $ NameT.runNameT $ runExceptT $ stageDefinition fs ln
      case res of
        Left err ->
          liftIO . putStrLn $ PrettyString.toString err

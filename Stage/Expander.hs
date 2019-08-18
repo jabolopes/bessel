@@ -20,8 +20,8 @@ import qualified Data.Source as Source
 import qualified Expander.Pattern as Pattern
 import qualified Expander.Variant as Variant
 import qualified Expander.Type as Type
-import Monad.NameM (MonadName)
-import qualified Monad.NameM as NameM
+import Monad.NameT (MonadName)
+import qualified Monad.NameT as NameT
 import qualified Monad.Utils as Utils (returnOne)
 import qualified Pretty.Data.Source as Pretty
 import qualified Pretty.Stage.Expander as Pretty
@@ -70,7 +70,7 @@ patPred = sourcePred
 
     genLiteralPredicate literal =
       do let (isFn, eqFn) = Pattern.genLiteralPredicate literal
-         arg <- NameM.genName $ Name.untyped "arg"
+         arg <- NameT.genName $ Name.untyped "arg"
          let argId = IdS arg
              pred = AndS (Source.appS isFn argId) ((Source.appS eqFn (LiteralS literal)) `AppS` argId)
          LambdaE arg <$> expandOne pred

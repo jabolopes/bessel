@@ -40,8 +40,8 @@ import Data.Source (Source(..))
 import qualified Data.Source as Source
 import qualified Expander.Cast as Cast
 import Expander.Type
-import Monad.NameM (MonadName)
-import qualified Monad.NameM as NameM
+import Monad.NameT (MonadName)
+import qualified Monad.NameT as NameT
 
 -- Runtime.
 
@@ -81,7 +81,7 @@ genTagPredicate typeName tagName tagNum pat =
       Cast.castArgument (IdS $ genIsTypeName typeName) $ \argName ->
         return $ Source.listToApp [IdS isVariant0Name, Source.stringS (Name.nameStr typeName), Source.intS tagNum, IdS argName]
     genBody (Just _) =
-      do fnName <- NameM.genName $ Name.untyped "fn"
+      do fnName <- NameT.genName $ Name.untyped "fn"
          body <- Cast.castArgument (IdS $ genIsTypeName typeName) $ \argName ->
            return $ Source.listToApp [IdS isVariantName, Source.stringS (Name.nameStr typeName), Source.intS tagNum, IdS fnName, IdS argName]
          return $ CondS [([PatS fnName Nothing], body)]

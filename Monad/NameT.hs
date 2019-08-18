@@ -1,7 +1,5 @@
 {-# LANGUAGE FlexibleInstances, GeneralizedNewtypeDeriving #-}
-module Monad.NameM where
-
--- TODO: Renane NameM to NameT because this is a monad transformer.
+module Monad.NameT where
 
 import Control.Applicative ((<$>))
 import Control.Monad.Except (ExceptT)

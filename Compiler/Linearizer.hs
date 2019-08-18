@@ -10,7 +10,7 @@ import qualified Data.List as List
 import Data.Expr (DefnKw(..), Expr(..))
 import qualified Data.Expr as Expr
 import qualified Data.Name as Name
-import Monad.NameM (MonadName(..))
+import Monad.NameT (MonadName(..))
 
 data Position = Binding | NonBinding
 

@@ -4,15 +4,15 @@ import Data.Name (Name)
 import qualified Data.Name as Name
 import Data.Source (Source(..))
 import qualified Data.Source as Source
-import Monad.NameM (MonadName)
-import qualified Monad.NameM as NameM
+import Monad.NameT (MonadName)
+import qualified Monad.NameT as NameT
 
 castCond :: MonadName m => Name -> Source -> (Name -> m Source) -> m Source
 castCond _ src@(PatS binder _) genBody =
   do body <- genBody binder
      return $ CondS [([src], body)]
 castCond name src genBody =
-  do argName <- NameM.genName name
+  do argName <- NameT.genName name
      castCond name (Source.bindPat argName src) genBody
 
 castArgument :: MonadName m => Source -> (Name -> m Source) -> m Source

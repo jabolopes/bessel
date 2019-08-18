@@ -20,7 +20,7 @@ import Data.PrettyString (PrettyString)
 import qualified Data.PrettyString as PrettyString
 import Data.Source (Source(..))
 import qualified Expander.Pattern as Pattern
-import Monad.NameM (MonadName)
+import Monad.NameT (MonadName)
 import qualified Stage.Interpreter as Interpreter (interpret)
 import qualified Stage.Expander as Expander
 import qualified Stage.Renamer as Renamer (rename)
