@@ -76,6 +76,6 @@ testRenamer generateTestExpectations =
      expect "Test/Tuple.renamer" "Test/Tuple.bsl"
   where
     expect expectedFilename filename =
-      do result <- NameM.runName $ runExceptT $ renameTestFile filename
+      do result <- NameM.runNameT $ runExceptT $ renameTestFile filename
          let actual = PrettyString.toString . PrettyString.vcat . map Pretty.docExpr <$> result
          Diff.expectFiles "Renamer" filename generateTestExpectations expectedFilename actual

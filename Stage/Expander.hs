@@ -20,14 +20,12 @@ import qualified Data.Source as Source
 import qualified Expander.Pattern as Pattern
 import qualified Expander.Variant as Variant
 import qualified Expander.Type as Type
-import Monad.NameM (MonadName, NameM)
+import Monad.NameM (MonadName)
 import qualified Monad.NameM as NameM
 import qualified Monad.Utils as Utils (returnOne)
 import qualified Pretty.Data.Source as Pretty
 import qualified Pretty.Stage.Expander as Pretty
 import Typechecker.Type (Type)
-
-type ExpanderM a = NameM (Either PrettyString) a
 
 -- | Generates a predicate for a pattern, according the predicate guard.
 --

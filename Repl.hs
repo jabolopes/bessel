@@ -66,7 +66,7 @@ stageFiles mods =
         loop fs (mod:mods) (i:is) =
           do putHeader i
              putStrLn . show $ Module.modName mod
-             res <- NameM.runName $ runExceptT $ Stage.stageModule fs mod
+             res <- NameM.runNameT $ runExceptT $ Stage.stageModule fs mod
              case res of
                Right (fs', _) ->
                  loop fs' mods is
@@ -118,7 +118,7 @@ stageDefinition fs ln =
 runSnippetM :: String -> ReplM ()
 runSnippetM ln =
   do fs <- loadedFs <$> get
-     res <- liftIO $ NameM.runName $ runExceptT $ stageDefinition fs ln
+     res <- liftIO $ NameM.runNameT $ runExceptT $ stageDefinition fs ln
      case res of
        Left err ->
          liftIO . putStrLn $ PrettyString.toString err

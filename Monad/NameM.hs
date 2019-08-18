@@ -4,37 +4,24 @@ module Monad.NameM where
 -- TODO: Renane NameM to NameT because this is a monad transformer.
 
 import Control.Applicative ((<$>))
-import Control.Monad.Except
-import Control.Monad.State
-import Control.Monad.Writer
+import Control.Monad.Except (ExceptT)
+import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Monad.State (MonadState, StateT, get, modify, runStateT)
+import Control.Monad.Writer (WriterT)
+import Control.Monad.Trans (MonadTrans, lift)
 import qualified Data.List as List
 
 import Data.Name (Name)
 import qualified Data.Name as Name
 
-data NameState = NameState { nameCounter :: Int }
-
-initialNameState :: NameState
-initialNameState = NameState { nameCounter = 0 }
-
-type NameM m = StateT NameState m
-
-genNameM :: Monad m => Name -> NameM m Name
-genNameM name =
-  do c <- nameCounter <$> get
-     modify $ \s -> s { nameCounter = nameCounter s + 1 }
-     lift $ Name.rename name (Name.nameStr name ++ "#" ++ show c)
-
-instance Monad m => MonadName (StateT NameState m) where
-  genName = genNameM
-
-runNameM :: NameM m a -> NameState -> m (a, NameState)
-runNameM m s = runStateT m s
-
+-- | Monads that generate unique names.
 class Monad m => MonadName m where
   genName :: Name -> m Name
 
-newtype NameT m a = NameT { runNameT :: StateT NameState m a }
+data NameState = NameState { nameCounter :: Int }
+
+-- | Implementation of a Monad that generates unique names.
+newtype NameT m a = NameT { unNameT :: StateT NameState m a }
   deriving (Applicative, Functor, Monad, MonadState NameState, MonadTrans)
 
 instance (MonadIO m) => MonadIO (NameT m) where
@@ -53,5 +40,8 @@ instance MonadName m => MonadName (ExceptT e m) where
 instance (Monoid w, MonadName m) => MonadName (WriterT w m) where
   genName = lift . genName
 
-runName :: Functor m => NameT m a -> m a
-runName m = fst <$> runStateT (runNameT m) initialNameState
+runNameT :: Functor m => NameT m a -> m a
+runNameT m = fst <$> runStateT (unNameT m) initialNameState
+  where
+    initialNameState :: NameState
+    initialNameState = NameState { nameCounter = 0 }

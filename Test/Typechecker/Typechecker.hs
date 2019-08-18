@@ -220,6 +220,6 @@ testTypechecker generateTestExpectations =
                       vars = [] }
 
     expect expectedFilename filename =
-      do result <- NameM.runName . runExceptT $ typecheckTestFile initialContext filename
+      do result <- NameM.runNameT . runExceptT $ typecheckTestFile initialContext filename
          let actual = PrettyString.toString . PrettyString.vcat . map Pretty.docExpr <$> result
          Diff.expectFiles "Typechecker" filename generateTestExpectations expectedFilename actual

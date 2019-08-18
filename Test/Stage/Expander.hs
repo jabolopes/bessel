@@ -52,6 +52,6 @@ testExpander generateTestExpectations =
      expect "Test/Variant.expander" "Test/Variant.bsl"
   where
     expect expectedFilename filename =
-      do result <- NameM.runName . runExceptT $ expandTestFile filename
+      do result <- NameM.runNameT . runExceptT $ expandTestFile filename
          let actual = PrettyString.toString . PrettyString.vcat . map Pretty.docExpr <$> result
          Diff.expectFiles "Expander" filename generateTestExpectations expectedFilename actual

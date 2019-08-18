@@ -58,6 +58,6 @@ testLinearizer generateTestExpectations =
      expect "Test/Variant.linearizer" "Test/Variant.bsl"
   where
     expect expectedFilename filename =
-      do result <- NameM.runName . runExceptT $ linearizeTestFile filename
+      do result <- NameM.runNameT . runExceptT $ linearizeTestFile filename
          let actual = PrettyString.toString . PrettyString.vcat . map Pretty.docExpr <$> result
          Diff.expectFiles "Linearizer" filename generateTestExpectations expectedFilename actual
