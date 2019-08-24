@@ -1,11 +1,14 @@
-let nonrec lambda#0 = \y#1 -> \f -> \x -> f x y#1
-let nonrec f1 = \y -> lambda#0 y + 1
-let nonrec h = \x#4 -> \y#3 -> \z -> + (+ x#4 y#3) (g x#4 z)
-let nonrec g = \x#2 -> \y -> + x#2 y
-let nonrec f2 = \x -> g x
-let rec hh = \x#7 -> \y#6 -> \z -> + (+ x#7 y#6) (hh x#7 y#6 z)
-let nonrec gg = \x#5 -> \y -> + (hh x#5 y x#5) y
-let nonrec f3 = \x -> gg x
-let nonrec hhh = \x -> + x x
-let nonrec ggg = \f -> + (f 10) (hhh 10)
-let nonrec f4 = ggg hhh
+let nonrec lambda#0 = \y1#1 -> \f2 -> \x3 -> f2 x3 y1#1
+let nonrec f10 = \y1 -> lambda#0 y1 + 1
+let nonrec h8 =
+  \x5#4 -> \y7#3 -> \z9 -> + (+ x5#4 y7#3) (g6 x5#4 z9)
+let nonrec g6 = \x5#2 -> \y7 -> + x5#2 y7
+let nonrec f24 = \x5 -> g6 x5
+let rec hh14 =
+  \x11#7 ->
+    \y13#6 -> \z15 -> + (+ x11#7 y13#6) (hh14 x11#7 y13#6 z15)
+let nonrec gg12 = \x11#5 -> \y13 -> + (hh14 x11#5 y13 x11#5) y13
+let nonrec f310 = \x11 -> gg12 x11
+let nonrec hhh17 = \x18 -> + x18 x18
+let nonrec ggg19 = \f20 -> + (f20 10) (hhh17 10)
+let nonrec f416 = ggg19 hhh17

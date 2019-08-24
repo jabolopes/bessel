@@ -1,5 +1,5 @@
 me Test.TestData5
-let isString
+let isString2
   [] = true
-  (@isChar +> @isString) = true
+  (@isChar +> @isString2) = true
   @ = false

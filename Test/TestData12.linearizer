@@ -1,6 +1,6 @@
-let nonrec f =
-  \arg#0 ->
+let nonrec f0 =
+  \arg#01 ->
     cond
-      isList# (cons isInt null) arg#0 -> 0
-      isList# (cons isReal (cons isString null)) arg#0 -> 1
+      isList# (cons isInt# null#) arg#01 -> 0
+      isList# (cons isReal# (cons isString# null#)) arg#01 -> 1
       true# -> 2

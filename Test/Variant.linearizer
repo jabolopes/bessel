@@ -1,78 +1,90 @@
-let nonrec isFruit :: Fruit -> Bool = isType# "Fruit"
-let nonrec isApple =
-  \arg#0 -> cond isFruit arg#0 -> isVariant0# "Fruit" 0 arg#0
-let nonrec isBanana =
-  \fn#1 ->
-    \arg#2 -> cond isFruit arg#2 -> isVariant# "Fruit" 1 fn#1 arg#2
-let nonrec isFig =
-  \fn#3 ->
-    \arg#4 -> cond isFruit arg#4 -> isVariant# "Fruit" 2 fn#3 arg#4
-let nonrec isOrange =
-  \fn#5 ->
-    \arg#6 -> cond isFruit arg#6 -> isVariant# "Fruit" 3 fn#5 arg#6
-let nonrec isLemon =
-  \fn#7 ->
-    \arg#8 -> cond isFruit arg#8 -> isVariant# "Fruit" 4 fn#7 arg#8
-let nonrec isMelon =
-  \fn#9 ->
-    \arg#10 -> cond isFruit arg#10 -> isVariant# "Fruit" 5 fn#9 arg#10
-let nonrec lambda#30 = \r#11 -> cond isFruit r#11 -> r#11
-let nonrec mkApple = lambda#30 (mkVariant0# "Fruit" 0)
-let nonrec lambda#31 = \r#12 -> cond isFruit r#12 -> r#12
-let nonrec mkBanana =
-  \x -> cond isInt x -> lambda#31 (mkVariant# "Fruit" 1 x)
-let nonrec lambda#32 = \r#14 -> cond isFruit r#14 -> r#14
-let nonrec mkFig =
-  \arg#13 ->
+let nonrec isFruit0 :: Fruit -> Bool = isType# "Fruit"
+let nonrec isApple1 =
+  \arg#02 -> cond isFruit0 arg#02 -> isVariant0# "Fruit" 0 arg#02
+let nonrec isBanana3 =
+  \fn#14 ->
+    \arg#25 ->
+      cond isFruit0 arg#25 -> isVariant# "Fruit" 1 fn#14 arg#25
+let nonrec isFig6 =
+  \fn#37 ->
+    \arg#48 ->
+      cond isFruit0 arg#48 -> isVariant# "Fruit" 2 fn#37 arg#48
+let nonrec isOrange9 =
+  \fn#510 ->
+    \arg#611 ->
+      cond isFruit0 arg#611 -> isVariant# "Fruit" 3 fn#510 arg#611
+let nonrec isLemon12 =
+  \fn#713 ->
+    \arg#814 ->
+      cond isFruit0 arg#814 -> isVariant# "Fruit" 4 fn#713 arg#814
+let nonrec isMelon15 =
+  \fn#916 ->
+    \arg#1017 ->
+      cond isFruit0 arg#1017 -> isVariant# "Fruit" 5 fn#916 arg#1017
+let nonrec lambda#30 = \r#1119 -> cond isFruit0 r#1119 -> r#1119
+let nonrec mkApple18 = lambda#30 (mkVariant0# "Fruit" 0)
+let nonrec lambda#31 = \r#1222 -> cond isFruit0 r#1222 -> r#1222
+let nonrec mkBanana20 =
+  \x21 -> cond isInt# x21 -> lambda#31 (mkVariant# "Fruit" 1 x21)
+let nonrec lambda#32 = \r#1425 -> cond isFruit0 r#1425 -> r#1425
+let nonrec mkFig23 =
+  \arg#1324 ->
     cond
-      isTuple2 (mkTuple2 isInt isReal) arg#13 ->
-        lambda#32 (mkVariant# "Fruit" 2 arg#13)
-let nonrec lambda#33 = \r#16 -> cond isFruit r#16 -> r#16
-let nonrec mkOrange =
-  \arg#15 ->
-    cond isFruit arg#15 -> lambda#33 (mkVariant# "Fruit" 3 arg#15)
-let nonrec lambda#34 = \r#18 -> cond isFruit r#18 -> r#18
-let nonrec mkLemon =
-  \arg#17 ->
+      isTuple2 (mkTuple2 isInt# isReal#) arg#1324 ->
+        lambda#32 (mkVariant# "Fruit" 2 arg#1324)
+let nonrec lambda#33 = \r#1628 -> cond isFruit0 r#1628 -> r#1628
+let nonrec mkOrange26 =
+  \arg#1527 ->
+    cond isFruit0 arg#1527 -> lambda#33 (mkVariant# "Fruit" 3 arg#1527)
+let nonrec lambda#34 = \r#1831 -> cond isFruit0 r#1831 -> r#1831
+let nonrec mkLemon29 =
+  \arg#1730 ->
     cond
-      isOrange isFruit arg#17 -> lambda#34 (mkVariant# "Fruit" 4 arg#17)
-let nonrec lambda#35 = \r#20 -> cond isFruit r#20 -> r#20
-let nonrec mkMelon =
-  \arg#19 ->
-    cond isFruit arg#19 -> lambda#35 (mkVariant# "Fruit" 5 arg#19)
-let nonrec lambda#36 = \x -> cond isInt x -> x
-let nonrec unBanana =
-  \arg#21 -> cond isFruit arg#21 -> lambda#36 (unVariant# arg#21)
+      isOrange9 isFruit0 arg#1730 ->
+        lambda#34 (mkVariant# "Fruit" 4 arg#1730)
+let nonrec lambda#35 = \r#2034 -> cond isFruit0 r#2034 -> r#2034
+let nonrec mkMelon32 =
+  \arg#1933 ->
+    cond isFruit0 arg#1933 -> lambda#35 (mkVariant# "Fruit" 5 arg#1933)
+let nonrec lambda#36 = \x37 -> cond isInt# x37 -> x37
+let nonrec unBanana35 =
+  \arg#2136 ->
+    cond isFruit0 arg#2136 -> lambda#36 (unVariant# arg#2136)
 let nonrec lambda#37 =
-  \r#23 -> cond isTuple2 (mkTuple2 isInt isReal) r#23 -> r#23
-let nonrec unFig =
-  \arg#22 -> cond isFruit arg#22 -> lambda#37 (unVariant# arg#22)
-let nonrec lambda#38 = \r#25 -> cond isFruit r#25 -> r#25
-let nonrec unOrange =
-  \arg#24 -> cond isFruit arg#24 -> lambda#38 (unVariant# arg#24)
-let nonrec lambda#39 = \r#27 -> cond isOrange isFruit r#27 -> r#27
-let nonrec unLemon =
-  \arg#26 -> cond isFruit arg#26 -> lambda#39 (unVariant# arg#26)
-let nonrec lambda#40 = \r#29 -> cond isFruit r#29 -> r#29
-let nonrec unMelon =
-  \arg#28 -> cond isFruit arg#28 -> lambda#40 (unVariant# arg#28)
-let nonrec f1 =
-  \a ->
+  \r#2340 -> cond isTuple2 (mkTuple2 isInt# isReal#) r#2340 -> r#2340
+let nonrec unFig38 =
+  \arg#2239 ->
+    cond isFruit0 arg#2239 -> lambda#37 (unVariant# arg#2239)
+let nonrec lambda#38 = \r#2543 -> cond isFruit0 r#2543 -> r#2543
+let nonrec unOrange41 =
+  \arg#2442 ->
+    cond isFruit0 arg#2442 -> lambda#38 (unVariant# arg#2442)
+let nonrec lambda#39 =
+  \r#2746 -> cond isOrange9 isFruit0 r#2746 -> r#2746
+let nonrec unLemon44 =
+  \arg#2645 ->
+    cond isFruit0 arg#2645 -> lambda#39 (unVariant# arg#2645)
+let nonrec lambda#40 = \r#2949 -> cond isFruit0 r#2949 -> r#2949
+let nonrec unMelon47 =
+  \arg#2848 ->
+    cond isFruit0 arg#2848 -> lambda#40 (unVariant# arg#2848)
+let nonrec f150 =
+  \a51 ->
     cond
-      isApple a -> 0
-      isBanana isInt a ->
-        let nonrec x = unBanana a in
+      isApple1 a51 -> 0
+      isBanana3 isInt# a51 ->
+        let nonrec x52 = unBanana35 a51 in
         1
-      isFig (isTuple2 (mkTuple2 isInt isReal)) a ->
-        let nonrec x = tuple2Ref0# (unFig a) in
-        let nonrec y = tuple2Ref1# (unFig a) in
+      isFig6 (isTuple2 (mkTuple2 isInt# isReal#)) a51 ->
+        let nonrec x53 = tuple2Ref0# (unFig38 a51) in
+        let nonrec y54 = tuple2Ref1# (unFig38 a51) in
         2
-      isOrange isFruit a ->
-        let nonrec x = unOrange a in
+      isOrange9 isFruit0 a51 ->
+        let nonrec x55 = unOrange41 a51 in
         3
-      isLemon (isOrange isFruit) a ->
-        let nonrec x = unOrange (unLemon a) in
+      isLemon12 (isOrange9 isFruit0) a51 ->
+        let nonrec x56 = unOrange41 (unLemon44 a51) in
         4
-      isMelon isFruit a ->
-        let nonrec x = unMelon a in
+      isMelon15 isFruit0 a51 ->
+        let nonrec x57 = unMelon47 a51 in
         5

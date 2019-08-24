@@ -1,15 +1,15 @@
-let nonrec lambda#4 = \_#1 -> true#
-let nonrec lambda#5 = \_#2 -> true#
+let nonrec lambda#4 = \_#13 -> true#
+let nonrec lambda#5 = \_#24 -> true#
 let nonrec lambda#6 =
-  \arg#3 ->
+  \arg#37 ->
     cond
-      > 1 arg#3 -> x
-      true# -> y
-let nonrec f =
-  \n ->
-    let nonrec res#0 =
-      check# (isList# (cons lambda#4 (cons lambda#5 null)))
-        (cons 1 (cons 2 null)) in
-    let nonrec x = head# res#0 in
-    let nonrec y = head# (tail# res#0) in
-    case n lambda#6
+      > 1 arg#37 -> x5
+      true# -> y6
+let nonrec f0 =
+  \n1 ->
+    let nonrec res#02 =
+      check# (isList# (cons lambda#4 (cons lambda#5 null#)))
+        (cons 1 (cons 2 null#)) in
+    let nonrec x5 = head# res#02 in
+    let nonrec y6 = head# (tail# res#02) in
+    case n1 lambda#6

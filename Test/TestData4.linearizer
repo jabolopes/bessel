@@ -1,45 +1,45 @@
-let nonrec lambda#6 = \_#2 -> true#
-let nonrec lambda#7 = \_#3 -> true#
-let nonrec lambda#8 = \_#4 -> true#
-let nonrec lambda#9 = \_#5 -> true#
-let rec eqSeq =
-  \arg#0 ->
-    \arg#1 ->
+let nonrec lambda#6 = \_#24 -> true#
+let nonrec lambda#7 = \_#35 -> true#
+let nonrec lambda#8 = \_#46 -> true#
+let nonrec lambda#9 = \_#57 -> true#
+let rec eqSeq1 =
+  \arg#02 ->
+    \arg#13 ->
       cond
         cond
-          isList# null arg#0 ->
+          isList# null# arg#02 ->
             cond
-              isList# null arg#1 -> true#
+              isList# null# arg#13 -> true#
               true# -> false#
           true# -> false# ->
-          true
+          true#
         cond
-          isHeadTail# lambda#6 lambda#7 arg#0 ->
+          isHeadTail# lambda#6 lambda#7 arg#02 ->
             cond
-              isHeadTail# lambda#8 lambda#9 arg#1 -> true#
+              isHeadTail# lambda#8 lambda#9 arg#13 -> true#
               true# -> false#
           true# -> false# ->
-          let nonrec z = head# arg#0 in
-          let nonrec zs = tail# arg#0 in
-          let nonrec w = head# arg#1 in
-          let nonrec ws = tail# arg#1 in
+          let nonrec z8 = head# arg#02 in
+          let nonrec zs9 = tail# arg#02 in
+          let nonrec w10 = head# arg#13 in
+          let nonrec ws11 = tail# arg#13 in
           cond
-            eq z w ->
+            eq0 z8 w10 ->
               cond
-                eqSeq zs ws -> true#
+                eqSeq1 zs9 ws11 -> true#
                 true# -> false#
             true# -> false#
-        true# -> false
+        true# -> false#
 let nonrec lambda#10 =
-  \x ->
-    \y ->
+  \x12 ->
+    \y13 ->
       cond
         cond
-          isInt x ->
+          isInt# x12 ->
             cond
-              isInt y -> true#
+              isInt# y13 -> true#
               true# -> false#
           true# -> false# ->
-          eqInt x y
-        true# -> eqSeq x y
-let nonrec eq = lambda#10
+          eqInt# x12 y13
+        true# -> eqSeq1 x12 y13
+let nonrec eq0 = lambda#10

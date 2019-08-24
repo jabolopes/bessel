@@ -81,7 +81,7 @@ let nonrec patString =
 let nonrec res#12 = check# (isMyCons isInt) (mkMyCons 0)
 let nonrec x = unMyCons res#12
 let nonrec patVariantTag = check# (isMyCons isInt) (mkMyCons 0)
-let nonrec x = unMyCons patVariantTag
+let nonrec x1 = unMyCons patVariantTag
 let nonrec res#13 =
   check#
     (isHeadTail#
@@ -102,9 +102,9 @@ let nonrec res#13 =
                       true# -> false#
                   true# -> false#)
              null)))
-    (cons x y)
-let nonrec x = head# res#13
-let nonrec y = tail# res#13
+    (cons 0 (cons 1 null))
+let nonrec x2 = head# res#13
+let nonrec y2 = tail# res#13
 let nonrec patBinOp =
   check#
     (isHeadTail#
@@ -125,12 +125,12 @@ let nonrec patBinOp =
                       true# -> false#
                   true# -> false#)
              null)))
-    (cons 0 1)
-let nonrec x = head# patBinOp
-let nonrec y = tail# patBinOp
+    (cons 0 (cons 1 null))
+let nonrec x3 = head# patBinOp
+let nonrec y3 = tail# patBinOp
 let nonrec _#18 = 0
 let nonrec patAll = 0
-let nonrec patBind = \x -> x
+let nonrec patBind = \x4 -> x4
 let nonrec res#19 = check# isInt 0
 let nonrec patBindGuard = check# isInt 0
 let nonrec res#20 = check# (isList# null) null
@@ -151,8 +151,8 @@ let nonrec res#21 =
                         true# -> false#)
                    null)))))
     (cons 0 (cons 0 (cons 0 (cons 1 null))))
-let nonrec x = head# res#21
-let nonrec y = head# (tail# (tail# res#21))
+let nonrec x5 = head# res#21
+let nonrec y5 = head# (tail# (tail# res#21))
 let nonrec patList =
   check#
     (isList#
@@ -169,8 +169,8 @@ let nonrec patList =
                         true# -> false#)
                    null)))))
     (cons 0 (cons 0 (cons 0 (cons 1 null))))
-let nonrec x = head# patList
-let nonrec y = head# (tail# (tail# patList))
+let nonrec x6 = head# patList
+let nonrec y6 = head# (tail# (tail# patList))
 let nonrec res#26 = check# isTuple0 mkTuple0
 let nonrec patEmptyTuple = check# isTuple0 x
 let nonrec res#27 =
@@ -185,8 +185,8 @@ let nonrec res#27 =
                    true# -> false#
                true# -> false#)))
     (mkTuple4 0 0 0 1)
-let nonrec x = tuple4Ref0# res#27
-let nonrec y = tuple4Ref2# res#27
+let nonrec x7 = tuple4Ref0# res#27
+let nonrec y7 = tuple4Ref2# res#27
 let nonrec patTuple =
   check#
     (isTuple4
@@ -199,5 +199,5 @@ let nonrec patTuple =
                    true# -> false#
                true# -> false#)))
     (mkTuple4 0 0 0 1)
-let nonrec x = tuple4Ref0# patTuple
-let nonrec y = tuple4Ref2# patTuple
+let nonrec x8 = tuple4Ref0# patTuple
+let nonrec y8 = tuple4Ref2# patTuple

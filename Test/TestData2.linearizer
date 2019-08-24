@@ -1,7 +1,7 @@
-let nonrec f2 = \z -> + z 1
-let nonrec f1 =
-  \x ->
+let nonrec f22 = \z3 -> + z3 1
+let nonrec f10 =
+  \x1 ->
     cond
-      isInt x ->
-        let nonrec y = 0 in
-        f2 y
+      isInt# x1 ->
+        let nonrec y4 = 0 in
+        f22 y4

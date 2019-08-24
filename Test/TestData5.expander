@@ -1,6 +1,6 @@
-let rec isString =
+let rec isString2 =
   \arg#0 ->
     cond
       isList# null arg#0 -> true
-      isHeadTail# isChar isString arg#0 -> true
+      isHeadTail# isChar isString2 arg#0 -> true
       true# -> false

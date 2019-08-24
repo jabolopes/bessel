@@ -18,17 +18,17 @@ let patString@"hello" = "hello"
 
 let (MyCons x@isInt) = mkMyCons 0
 
-let patVariantTag@(MyCons x@isInt) = mkMyCons 0
+let patVariantTag@(MyCons x1@isInt) = mkMyCons 0
 
-let (x@0 +> y@[1]) = cons x y
+let (x2@0 +> y2@[1]) = cons 0 [1]
 
-let patBinOp@(x@0 +> y@[1]) = cons 0 1
+let patBinOp@(x3@0 +> y3@[1]) = cons 0 [1]
 
 let @ = 0
 
 let patAll = 0
 
-let patBind x = x
+let patBind x4 = x4
 
 let @isInt = 0
 
@@ -38,14 +38,14 @@ let [] = []
 
 let patEmptyList@[] = []
 
-let [x, @isInt, y@isInt, 1] = [0, 0, 0, 1]
+let [x5, @isInt, y5@isInt, 1] = [0, 0, 0, 1]
 
-let patList@[x, @isInt, y@isInt, 1] = [0, 0, 0, 1]
+let patList@[x6, @isInt, y6@isInt, 1] = [0, 0, 0, 1]
 
 let () = ()
 
 let patEmptyTuple@() = x
 
-let (x, @isInt, y@isInt, 1) = (0, 0, 0, 1)
+let (x7, @isInt, y7@isInt, 1) = (0, 0, 0, 1)
 
-let patTuple@(x, @isInt, y@isInt, 1) = (0, 0, 0, 1)
+let patTuple@(x8, @isInt, y8@isInt, 1) = (0, 0, 0, 1)

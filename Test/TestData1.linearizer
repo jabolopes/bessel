@@ -1,12 +1,12 @@
-let nonrec f2 = \y#0 -> \z -> + z y#0
-let nonrec f1 =
-  \x ->
-    \y ->
+let nonrec f23 = \y2#0 -> \z4 -> + z4 y2#0
+let nonrec f10 =
+  \x1 ->
+    \y2 ->
       cond
         cond
-          isInt x ->
+          isInt# x1 ->
             cond
-              isInt y -> true#
+              isInt# y2 -> true#
               true# -> false#
           true# -> false# ->
-          f2 y x
+          f23 y2 x1

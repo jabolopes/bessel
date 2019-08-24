@@ -54,9 +54,8 @@ typecheckFile filename initialState initialContext =
         Left err -> throwError err
         Right (context', expr', _) -> (expr':) <$> typecheckExprs context' exprs
 
--- TOOD: This should definitely go through the Renamer.
 -- TODO: It should probably go through the typechecker.
-linearizeFile :: (MonadError PrettyString m, MonadIO m, MonadName m) => String -> m [Expr]
-linearizeFile input =
-  do exprs <- expandFile input
+linearizeFile :: (MonadError PrettyString m, MonadIO m, MonadName m) => String -> RenamerState -> m [Expr]
+linearizeFile filename initialState =
+  do exprs <- renameFile filename initialState
      concat <$> mapM Linearizer.linearize exprs
