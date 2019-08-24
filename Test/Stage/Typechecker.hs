@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
-module Test.Typechecker.Typechecker where
+module Test.Stage.Typechecker where
 
 import Control.Monad.Except (MonadError, runExceptT, throwError)
 import Control.Monad.IO.Class (MonadIO)

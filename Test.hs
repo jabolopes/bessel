@@ -6,7 +6,7 @@ import Test.Stage.IndentLexer
 import Test.Stage.Lexer
 import Test.Stage.Linearizer
 import Test.Stage.Renamer
-import Test.Typechecker.Typechecker
+import Test.Stage.Typechecker
 
 main :: IO ()
 main =
