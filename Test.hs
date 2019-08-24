@@ -1,6 +1,6 @@
 import System.Environment (getArgs)
 
-import Test.Parser
+import Test.Stage.Parser
 import Test.Stage.Expander
 import Test.Stage.IndentLexer
 import Test.Stage.Lexer

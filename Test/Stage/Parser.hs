@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleContexts #-}
-module Test.Parser where
+module Test.Stage.Parser where
 
 import Control.Monad.Except (runExceptT)
 
