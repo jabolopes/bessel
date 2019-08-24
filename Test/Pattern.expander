@@ -49,8 +49,8 @@ let nonrec patString =
 let nonrec patVariantTag =
   \arg#8 ->
     cond
-      isApple isInt arg#8 ->
-        let nonrec x = unApple arg#8 in
+      isMyCons isInt arg#8 ->
+        let nonrec x = unMyCons arg#8 in
         x
 let nonrec patBinOp =
   \arg#9 ->

@@ -8,7 +8,7 @@ let patReal 0.0 = 0.0
 
 let patString "hello" = "hello"
 
-let patVariantTag (Apple x@isInt) = x
+let patVariantTag (MyCons x@isInt) = x
 
 let patBinOp (x@0 +> y@[1]) = cons 0 1
 

@@ -70,10 +70,10 @@ let nonrec lambda#39 =
           true# -> false#
       true# -> false#
 let nonrec patString = check# lambda#39 "hello"
-let nonrec res#12 = check# (isApple isInt) mkApple0
-let nonrec x = unApple res#12
-let nonrec patVariantTag = check# (isApple isInt) (mkApple 0)
-let nonrec x = unApple patVariantTag
+let nonrec res#12 = check# (isMyCons isInt) (mkMyCons 0)
+let nonrec x = unMyCons res#12
+let nonrec patVariantTag = check# (isMyCons isInt) (mkMyCons 0)
+let nonrec x = unMyCons patVariantTag
 let nonrec lambda#40 =
   \arg#14 ->
     cond

@@ -37,8 +37,8 @@ let nonrec patString = \arg#6 -> cond lambda#31 arg#6 -> "hello"
 let nonrec patVariantTag =
   \arg#8 ->
     cond
-      isApple isInt arg#8 ->
-        let nonrec x = unApple arg#8 in
+      isMyCons isInt arg#8 ->
+        let nonrec x = unMyCons arg#8 in
         x
 let nonrec lambda#32 =
   \arg#10 ->

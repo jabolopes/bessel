@@ -16,9 +16,9 @@ let "hello" = "hello"
 
 let patString@"hello" = "hello"
 
-let (Apple x@isInt) = mkApple0
+let (MyCons x@isInt) = mkMyCons 0
 
-let patVariantTag@(Apple x@isInt) = mkApple 0
+let patVariantTag@(MyCons x@isInt) = mkMyCons 0
 
 let (x@0 +> y@[1]) = cons x y
 
