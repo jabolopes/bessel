@@ -1,7 +1,8 @@
 let nonrec res#00 :: List Int =
   check#
     (isList#
-       (cons (\_1 :: Int -> true#) (cons (\_2 :: Int -> true#) null#)))
+       (cons (\_#11 :: Int -> true#)
+          (cons (\_#22 :: Int -> true#) null#)))
     (cons 1 (cons 2 null#))
 let nonrec x3 :: Int = head# res#00
 let nonrec y4 :: Int = head# (tail# res#00)

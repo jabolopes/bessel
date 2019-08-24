@@ -1,7 +1,7 @@
-let nonrec lambda#2 = \_ -> true#
-let nonrec lambda#3 = \_ -> true#
-let nonrec lambda#4 = \_ -> true#
-let nonrec lambda#5 = \_ -> true#
+let nonrec lambda#6 = \_#2 -> true#
+let nonrec lambda#7 = \_#3 -> true#
+let nonrec lambda#8 = \_#4 -> true#
+let nonrec lambda#9 = \_#5 -> true#
 let rec eqSeq =
   \arg#0 ->
     \arg#1 ->
@@ -14,9 +14,9 @@ let rec eqSeq =
           true# -> false# ->
           true
         cond
-          isHeadTail# lambda#2 lambda#3 arg#0 ->
+          isHeadTail# lambda#6 lambda#7 arg#0 ->
             cond
-              isHeadTail# lambda#4 lambda#5 arg#1 -> true#
+              isHeadTail# lambda#8 lambda#9 arg#1 -> true#
               true# -> false#
           true# -> false# ->
           let nonrec z = head# arg#0 in
@@ -30,7 +30,7 @@ let rec eqSeq =
                 true# -> false#
             true# -> false#
         true# -> false
-let nonrec lambda#6 =
+let nonrec lambda#10 =
   \x ->
     \y ->
       cond
@@ -42,4 +42,4 @@ let nonrec lambda#6 =
           true# -> false# ->
           eqInt x y
         true# -> eqSeq x y
-let nonrec eq = lambda#6
+let nonrec eq = lambda#10

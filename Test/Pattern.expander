@@ -77,85 +77,85 @@ let nonrec patBinOp =
         let nonrec x = head# arg#9 in
         let nonrec y = tail# arg#9 in
         cons 0 1
-let nonrec patAll = \_ -> 0
+let nonrec patAll = \_#12 -> 0
 let nonrec patBind = \x -> x
-let nonrec patGuard = \arg#12 -> cond isInt arg#12 -> 0
+let nonrec patGuard = \arg#13 -> cond isInt arg#13 -> 0
 let nonrec patBindGuard = \x -> cond isInt x -> x
 let nonrec patEmptyList1 =
-  \arg#13 -> cond isList# null arg#13 -> null
+  \arg#14 -> cond isList# null arg#14 -> null
 let nonrec patEmptyList2 = \x -> cond isList# null x -> x
 let nonrec patList1 =
-  \arg#14 ->
+  \arg#15 ->
     cond
       isList#
-        (cons (\_ -> true#)
+        (cons (\_#17 -> true#)
            (cons isInt
               (cons isInt
                  (cons
-                    (\arg#15 ->
+                    (\arg#16 ->
                        cond
-                         isInt# arg#15 ->
+                         isInt# arg#16 ->
                            cond
-                             eqInt# 1 arg#15 -> true#
+                             eqInt# 1 arg#16 -> true#
                              true# -> false#
                          true# -> false#)
                     null))))
-        arg#14 ->
-        let nonrec x = head# arg#14 in
-        let nonrec y = head# (tail# (tail# arg#14)) in
+        arg#15 ->
+        let nonrec x = head# arg#15 in
+        let nonrec y = head# (tail# (tail# arg#15)) in
         cons 0 (cons 0 (cons 0 (cons 1 null)))
 let nonrec patList2 =
-  \arg#16 ->
+  \arg#18 ->
     cond
       isList#
-        (cons (\_ -> true#)
+        (cons (\_#20 -> true#)
            (cons isInt
               (cons isInt
                  (cons
-                    (\arg#17 ->
+                    (\arg#19 ->
                        cond
-                         isInt# arg#17 ->
+                         isInt# arg#19 ->
                            cond
-                             eqInt# 1 arg#17 -> true#
+                             eqInt# 1 arg#19 -> true#
                              true# -> false#
                          true# -> false#)
                     null))))
-        arg#16 ->
-        let nonrec x = head# arg#16 in
-        let nonrec y = head# (tail# (tail# arg#16)) in
+        arg#18 ->
+        let nonrec x = head# arg#18 in
+        let nonrec y = head# (tail# (tail# arg#18)) in
         cons 0 (cons 0 (cons 0 (cons 1 null)))
 let nonrec patEmptyTuple1 =
-  \arg#18 -> cond isTuple0 arg#18 -> mkTuple0
+  \arg#21 -> cond isTuple0 arg#21 -> mkTuple0
 let nonrec patEmptyTuple2 = \x -> cond isTuple0 x -> x
 let nonrec patTuple1 =
-  \arg#19 ->
+  \arg#22 ->
     cond
       isTuple4
-        (mkTuple4 (\_ -> true#) isInt isInt
-           (\arg#20 ->
+        (mkTuple4 (\_#24 -> true#) isInt isInt
+           (\arg#23 ->
               cond
-                isInt# arg#20 ->
+                isInt# arg#23 ->
                   cond
-                    eqInt# 1 arg#20 -> true#
+                    eqInt# 1 arg#23 -> true#
                     true# -> false#
                 true# -> false#))
-        arg#19 ->
-        let nonrec x = tuple4Ref0# arg#19 in
-        let nonrec y = tuple4Ref2# arg#19 in
+        arg#22 ->
+        let nonrec x = tuple4Ref0# arg#22 in
+        let nonrec y = tuple4Ref2# arg#22 in
         mkTuple4 0 0 0 1
 let nonrec patTuple2 =
-  \arg#21 ->
+  \arg#25 ->
     cond
       isTuple4
-        (mkTuple4 (\_ -> true#) isInt isInt
-           (\arg#22 ->
+        (mkTuple4 (\_#27 -> true#) isInt isInt
+           (\arg#26 ->
               cond
-                isInt# arg#22 ->
+                isInt# arg#26 ->
                   cond
-                    eqInt# 1 arg#22 -> true#
+                    eqInt# 1 arg#26 -> true#
                     true# -> false#
                 true# -> false#))
-        arg#21 ->
-        let nonrec x = tuple4Ref0# arg#21 in
-        let nonrec y = tuple4Ref2# arg#21 in
+        arg#25 ->
+        let nonrec x = tuple4Ref0# arg#25 in
+        let nonrec y = tuple4Ref2# arg#25 in
         mkTuple4 0 0 0 1

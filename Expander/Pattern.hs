@@ -43,7 +43,7 @@ isTupleName len = Name.untyped $ "isTuple" ++ show len
 
 genPatternName :: MonadName m => String -> Source -> m Name
 genPatternName _ (PatS binder Nothing)
-  | Name.isEmptyName binder = return $ Name.untyped "_"
+  | Name.isEmptyName binder = NameT.genName $ Name.untyped "_"
 genPatternName _ (PatS binder _) = return binder
 genPatternName hint _ = NameT.genName $ Name.untyped hint
 

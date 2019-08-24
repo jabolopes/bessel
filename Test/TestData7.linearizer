@@ -1,7 +1,7 @@
-let nonrec lambda#1 = \_ -> true#
-let nonrec lambda#2 = \_ -> true#
+let nonrec lambda#3 = \_#1 -> true#
+let nonrec lambda#4 = \_#2 -> true#
 let nonrec res#0 =
-  check# (isList# (cons lambda#1 (cons lambda#2 null)))
+  check# (isList# (cons lambda#3 (cons lambda#4 null)))
     (cons 1 (cons 2 null))
 let nonrec x = head# res#0
 let nonrec y = head# (tail# res#0)
