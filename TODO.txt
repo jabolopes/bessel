@@ -1,3 +1,8 @@
+Result patterns are not mutually recursive, e.g.: x and y are not
+defined on the right side of the "=":
+    let (x@0 +> y@[1]) = cons x y
+
+
 Unary negation seems to be broken. -x doesn't even parse.
 
 
