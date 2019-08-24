@@ -1,36 +1,12 @@
-{-# LANGUAGE FlexibleContexts #-}
 module Test.Stage.Expander where
 
-import Control.Monad.Except (MonadError, runExceptT, throwError)
-import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Monad.Except (runExceptT)
 
-import Data.Expr (Expr(..))
-import qualified Data.Name as Name
-import Data.PrettyString (PrettyString)
 import qualified Data.PrettyString as PrettyString
-import Data.Source (Source(..))
-import Monad.NameT (MonadName)
 import qualified Monad.NameT as NameT
-import qualified Parser
 import qualified Pretty.Data.Expr as Pretty
-import qualified Stage.Expander as Expander
 import qualified Test.Diff as Diff
-
-expandTestFile :: (MonadError PrettyString m, MonadIO m, MonadName m) => String -> m [Expr]
-expandTestFile filename =
-  do input <- liftIO $ readFile filename
-     expandFile input
-  where
-    parseFile :: (MonadError PrettyString m, MonadName m) => String -> m Source
-    parseFile input =
-      case Parser.parseFile (Name.untyped filename) input of
-        Left err -> throwError $ PrettyString.text err
-        Right src -> return src
-
-    expandFile :: (MonadError PrettyString m, MonadName m) => String -> m [Expr]
-    expandFile input =
-      do ModuleS _ _ srcs <- parseFile input
-         concat <$> mapM Expander.expand srcs
+import qualified Test.Stage as Stage
 
 testExpander :: Bool -> IO ()
 testExpander generateTestExpectations =
@@ -52,6 +28,6 @@ testExpander generateTestExpectations =
      expect "Test/Variant.expander" "Test/Variant.bsl"
   where
     expect expectedFilename filename =
-      do result <- NameT.runNameT . runExceptT $ expandTestFile filename
+      do result <- NameT.runNameT . runExceptT $ Stage.expandFile filename
          let actual = PrettyString.toString . PrettyString.vcat . map Pretty.docExpr <$> result
          Diff.expectFiles "Expander" filename generateTestExpectations expectedFilename actual

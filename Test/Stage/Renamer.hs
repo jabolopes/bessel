@@ -3,27 +3,24 @@ module Test.Stage.Renamer where
 
 import Control.Applicative ((<$>))
 import Control.Monad.Except (MonadError, runExceptT, throwError)
-import Control.Monad.IO.Class (MonadIO, liftIO)
+import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.State hiding (state)
 
 import Data.Expr (Expr)
-import qualified Data.Name as Name
 import Data.PrettyString (PrettyString)
 import qualified Data.PrettyString as PrettyString
-import Data.Source (Source(..))
 import Monad.NameT (MonadName)
 import qualified Monad.NameT as NameT
-import qualified Parser
 import qualified Pretty.Data.Expr as Pretty
-import qualified Stage.Expander as Expander
 import Stage.Renamer (RenamerState)
 import qualified Stage.Renamer as Renamer
 import qualified Test.Diff as Diff
+import qualified Test.Stage as Stage
 
-initialRenamerState :: Monad m => m RenamerState
+initialRenamerState :: MonadError PrettyString m => m RenamerState
 initialRenamerState =
   case snd <$> runStateT getRenamerState Renamer.initialRenamerState of
-    Left err -> fail $ show err
+    Left err -> throwError err
     Right state -> return state
   where
     getRenamerState =
@@ -42,32 +39,8 @@ initialRenamerState =
 
 renameTestFile :: (MonadError PrettyString m, MonadIO m, MonadName m) => String -> m [Expr]
 renameTestFile filename =
-  do input <- liftIO $ readFile filename
-     renameFile input
-  where
-    parseFile :: (MonadError PrettyString m, MonadName m) => String -> m Source
-    parseFile input =
-      case Parser.parseFile (Name.untyped filename) input of
-        Left err -> throwError $ PrettyString.text err
-        Right src -> return src
-
-    expandFile :: (MonadError PrettyString m, MonadName m) => String -> m [Expr]
-    expandFile input =
-      do ModuleS _ _ srcs <- parseFile input
-         concat <$> mapM Expander.expand srcs
-
-    renameExprs :: MonadError PrettyString m => RenamerState -> [Expr] -> m [Expr]
-    renameExprs _ [] = return []
-    renameExprs state (expr:exprs) =
-      case runStateT (Renamer.renameM expr) state of
-        Left err -> throwError err
-        Right (exprs', state') -> (exprs' ++) <$> renameExprs state' exprs
-
-    renameFile :: (MonadError PrettyString m, MonadName m) => String -> m [Expr]
-    renameFile input =
-      do exprs <- expandFile input
-         state <- initialRenamerState
-         renameExprs state exprs
+  do initialState <- initialRenamerState
+     Stage.renameFile filename initialState
 
 testRenamer :: Bool -> IO ()
 testRenamer generateTestExpectations =
